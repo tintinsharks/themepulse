@@ -788,7 +788,30 @@ function ExtHoursMovers({ A, pipeline, stockMap, tickerLayer, onTicker, chartTic
   const pmRows = useMemo(() => extRows(pmSnap, stockMap, tickerLayer, uOnly), [pmSnap, stockMap, tickerLayer, uOnly]);
   const ahRows = useMemo(() => extRows(ahSnap, stockMap, tickerLayer, uOnly), [ahSnap, stockMap, tickerLayer, uOnly]);
   const fmtVol = (v) => (v == null ? "—" : v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `${Math.round(v / 1e3)}K` : String(v));
-  const section = (title, sub, rows) => (
+  // Click-to-sort, shared by both tables. Default: biggest move either way.
+  const [sort, setSort] = useState({ k: "absChg", d: -1 });
+  const TEXT = new Set(["t", "layer", "catalyst"]);
+  const sorted = (rows) => {
+    const { k, d } = sort;
+    const val = (r) => (k === "absChg" ? Math.abs(r.chg) : r[k]);
+    return [...rows].sort((a, b) => {
+      const x = val(a), y = val(b);
+      if (x == null && y == null) return 0;
+      if (x == null || x === "") return 1;      // blanks always last
+      if (y == null || y === "") return -1;
+      return (TEXT.has(k) ? String(x).localeCompare(String(y)) : x - y) * d;
+    });
+  };
+  const hdr = (k, label, align = "left", title) => {
+    const on = sort.k === k || (k === "chg" && sort.k === "absChg");
+    return (
+      <th title={title} style={{ ...th(A, align), cursor: "pointer", userSelect: "none", color: on ? A.text : A.textMuted }}
+        onClick={() => setSort((p) => (p.k === k ? { k, d: -p.d } : { k, d: TEXT.has(k) ? 1 : -1 }))}>
+        {label}{sort.k === k ? (sort.d < 0 ? " ▼" : " ▲") : ""}
+      </th>
+    );
+  };
+  const section = (title, sub, rows0) => { const rows = sorted(rows0); return (
     <div style={{ marginBottom: 12 }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 8, margin: "2px 0 6px" }}>
         <span style={{ fontSize: 12, fontWeight: 700, color: A.text }}>{title}</span>
@@ -799,8 +822,8 @@ function ExtHoursMovers({ A, pipeline, stockMap, tickerLayer, onTicker, chartTic
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead style={{ position: "sticky", top: 0, background: A.bg }}>
               <tr>
-                <th style={th(A)}>Ticker</th><th style={th(A, "right")}>Chg</th><th style={th(A, "right")}>Price</th>
-                <th style={th(A, "right")}>Vol</th><th style={th(A, "right")}>RS</th><th style={th(A)}>Layer</th><th style={th(A)}>Catalyst</th>
+                {hdr("t", "Ticker")}{hdr("chg", "Chg", "right", "Default order is biggest move either way; click to sort high → low")}{hdr("price", "Price", "right")}
+                {hdr("vol", "Vol", "right")}{hdr("rs", "RS", "right")}{hdr("layer", "Layer")}{hdr("catalyst", "Catalyst")}
               </tr>
             </thead>
             <tbody>
@@ -825,7 +848,7 @@ function ExtHoursMovers({ A, pipeline, stockMap, tickerLayer, onTicker, chartTic
         </div>
       )}
     </div>
-  );
+  ); };
   const pmSub = pmSnap?.session
     ? (pmSnap.session === today ? `today · scanned ${String(pmSnap.scanned || "").slice(11)} ET` : `no scan yet today — last: ${pmSnap.session}`)
     : "today";
