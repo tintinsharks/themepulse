@@ -384,8 +384,7 @@ function IndexSpark({ s, A, color, w = 120, h = 30 }) {
   );
 }
 
-function IndexPanel({ A, liveQuotes, onTicker, chartTicker }) {
-  const bars = useIndexBars(LEAD_INDEXES.map((x) => x.t));
+function IndexPanel({ A, liveQuotes, onTicker, chartTicker, bars }) {
   const rows = LEAD_INDEXES.map((x) => ({ ...x, s: indexStats(bars[x.t], liveQuotes?.get?.(x.t)) }));
   const ready = rows.filter((r) => r.s);
   const toneC = (t) => ({ green: A.green, yellow: A.yellow, orange: "#fb923c", red: A.red }[t] || A.textDim);
@@ -450,12 +449,76 @@ function IndexPanel({ A, liveQuotes, onTicker, chartTicker }) {
   );
 }
 
+// ── What changed today ────────────────────────────────────────────────────
+// Diff of today vs the prior session: layers crossing the leadership line,
+// layers breaking down, the biggest rank moves, theme moves, and index trend
+// changes (computed by re-running indexStats without today's bar).
+function ChangesPanel({ A, layers, themes, bars, liveQuotes, date, onTicker, onLayer, onTheme }) {
+  const idxEvents = [];
+  LEAD_INDEXES.forEach(({ t }) => {
+    const q = liveQuotes?.get?.(t);
+    const full = withLive(bars[t], q);
+    if (!full || full.length < 212) return;
+    const now = indexStats(bars[t], q), prev = indexStats(full.slice(0, -1), null);
+    if (!now || !prev) return;
+    if (now.trend !== prev.trend) idxEvents.push({ t, text: `${prev.trend} → ${now.trend}`, good: ["Uptrend", "Pullback", "Correction", "Downtrend"].indexOf(now.trend) < ["Uptrend", "Pullback", "Correction", "Downtrend"].indexOf(prev.trend) });
+    [["21e", "v21"], ["50d", "v50"], ["200d", "v200"]].forEach(([lbl, k]) => {
+      if (prev[k] != null && now[k] != null && Math.sign(prev[k]) !== Math.sign(now[k]))
+        idxEvents.push({ t, text: `${now[k] > 0 ? "reclaimed" : "lost"} ${lbl}`, good: now[k] > 0 });
+    });
+    if (now.dd > prev.dd) idxEvents.push({ t, text: `distribution day (${now.dd})`, good: false });
+  });
+
+  const gained = layers.filter((l) => l.now >= LEAD && (l.d1 ?? l.now) < LEAD).sort((a, b) => b.now - a.now);
+  const lost = layers.filter((l) => (l.d1 ?? 0) >= LEAD && l.now < LEAD).sort((a, b) => a.now - b.now);
+  const broke = layers.filter((l) => l.st === "brk" && (l.d1 ?? 0) >= 60 && l.now < 60);
+  const moves = layers.filter((l) => l.d1 != null).map((l) => ({ l, d: l.now - l.d1 }));
+  const up = moves.filter((m) => m.d >= 5).sort((a, b) => b.d - a.d).slice(0, 6);
+  const dn = moves.filter((m) => m.d <= -5).sort((a, b) => a.d - b.d).slice(0, 6);
+  const themeMoves = themes.map((t) => {
+    const d1 = t.layers.reduce((s, l) => s + (l.d1 ?? l.now), 0) / t.layers.length;
+    return { t, d: t.now - d1 };
+  }).filter((x) => Math.abs(x.d) >= 2).sort((a, b) => b.d - a.d);
+
+  const chip = (key, label, sub, color, onClick, title) => (
+    <button key={key} onClick={onClick} title={title}
+      style={{
+        background: "transparent", border: `1px solid ${A.border}`, borderRadius: 4, padding: "2px 7px",
+        fontSize: 11, color: A.text, cursor: "pointer", marginRight: 4, marginBottom: 4, whiteSpace: "nowrap",
+      }}>
+      {label} <span style={{ color, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{sub}</span>
+    </button>
+  );
+  const row = (label, color, items) => items.length ? (
+    <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 2 }}>
+      <div style={{ width: 118, flexShrink: 0, fontSize: 10, fontWeight: 700, color, letterSpacing: 0.3, paddingTop: 4 }}>{label}</div>
+      <div style={{ display: "flex", flexWrap: "wrap" }}>{items}</div>
+    </div>
+  ) : null;
+  const layerChip = (l, color, sub) => chip(l.key, l.name, sub ?? `${l.d1}→${l.now}`, color, () => onLayer(l), `${l.theme} · ${STATUS[l.st].label}`);
+  const empty = !idxEvents.length && !gained.length && !lost.length && !broke.length && !up.length && !dn.length && !themeMoves.length;
+
+  return (
+    <Card A={A} title="What changed today" sub={`vs the prior session${date ? ` · layers as of ${date}` : ""} · click a layer to jump to it`}>
+      {empty && <div style={{ fontSize: 11, color: A.textMuted }}>No notable changes.</div>}
+      {row("INDEXES", A.text, idxEvents.map((e, i) => chip(`${e.t}${i}`, e.t, e.text, e.good ? A.green : A.red, () => onTicker(e.t))))}
+      {row("NEW LEADERS", A.green, gained.map((l) => layerChip(l, A.green)))}
+      {row("LOST LEADERSHIP", A.yellow, lost.map((l) => layerChip(l, A.yellow)))}
+      {row("BROKE DOWN", A.red, broke.map((l) => layerChip(l, A.red)))}
+      {row("BIGGEST GAINS", A.green, up.map(({ l, d }) => layerChip(l, A.green, `+${d}`)))}
+      {row("BIGGEST DROPS", A.red, dn.map(({ l, d }) => layerChip(l, A.red, `${d}`)))}
+      {row("THEMES", A.textDim, themeMoves.map(({ t, d }) => chip(t.themeId, t.theme, `${d > 0 ? "+" : ""}${d.toFixed(0)}`, d > 0 ? A.green : A.red, () => onTheme(t.themeId))))}
+    </Card>
+  );
+}
+
 export default function LeadershipView({ ARIA: A, stockMap, onTickerClick, chartTicker, chartSlot, indexQuotes }) {
   const rot = useJson("/data/rs_rotation.json");
   const hist = useJson("/data/rank_history.json");
   const seats = useJson("/data/ticker_seats.json");
   const breadth = useJson("/data/breadth.json");
   const [theme, setTheme] = useState(null);
+  const idxBars = useIndexBars(LEAD_INDEXES.map((x) => x.t));
   const [layerTab, setLayerTab] = useState("lead");
   const [stockTab, setStockTab] = useState("lead");
 
@@ -590,7 +653,10 @@ export default function LeadershipView({ ARIA: A, stockMap, onTickerClick, chart
           <div style={{ color: A.textMuted, fontSize: 12, padding: 20 }}>Loading leadership data…</div>
         ) : (
           <>
-            <IndexPanel A={A} liveQuotes={indexQuotes} onTicker={onTickerClick} chartTicker={chartTicker} />
+            <ChangesPanel A={A} layers={layers} themes={themes} bars={idxBars} liveQuotes={indexQuotes} date={rot?.date}
+              onTicker={onTickerClick} onLayer={(l) => { setTheme(l.themeId); if (["lead", "weak", "brk", "emerg"].includes(l.st)) setLayerTab(l.st); }}
+              onTheme={(id) => setTheme(id)} />
+            <IndexPanel A={A} liveQuotes={indexQuotes} onTicker={onTickerClick} chartTicker={chartTicker} bars={idxBars} />
 
             <Card A={A} title="Themes" sub="Average layer RS rank · ▲ leading / weakening / ▼ breaking-down layers · click to filter">
               <ThemeBoard themes={themes} A={A} selected={theme} onSelect={setTheme} />
