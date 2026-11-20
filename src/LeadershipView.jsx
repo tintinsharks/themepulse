@@ -891,6 +891,23 @@ export default function LeadershipView({ ARIA: A, stockMap, onTickerClick, chart
                 </Card>
               );
             })()}
+            <Card A={A} title="Stocks"
+              sub={stockTab === "lead"
+                ? "RS ≥ 90, above the 50-day, within 25% of the high · ● = in a leading layer"
+                : stockTab === "intra"
+                ? "Price ≥ $7 · mcap > $300M · ADR > 2% · avg vol ≥ 500K · avg $vol ≥ $25M · vol > 50K · RVol > 0.1 · SMA50 > SMA200 · up on the day · within 30% of the 52w high · ≥ 30% above the 52w low · above SMA200 & EMA50 · revenue > 0"
+                : "Held the top RS decile ≥ 40% of the quarter, now RS < 70 or ≥ 8% below the 50-day"}
+              right={<Tabs A={A} value={stockTab} onChange={setStockTab} items={[
+                ["lead", "Leaders", stocks.lead.length, A.green],
+                ["brk", "Leaders breaking down", stocks.brk.length, A.red],
+                ["intra", "Intraday scan", "", A.cyan],
+              ]} />}>
+              {stockTab === "intra"
+                ? <IntradayScan A={A} stockMap={stockMap} onTicker={onTickerClick} chartTicker={chartTicker} tickerLayer={tickerLayer}
+                    allowed={theme ? new Set(visLayers.flatMap((l) => members[l.key] || (l.holds || []).map((h) => h.t))) : null} />
+                : <StockTable rows={stocks[stockTab]} A={A} onTicker={onTickerClick} chartTicker={chartTicker} mode={stockTab} />}
+            </Card>
+
             <ChangesPanel A={A} layers={layers} themes={themes} bars={idxBars} liveQuotes={indexQuotes} date={rot?.date}
               onTicker={onTickerClick} onLayer={(l) => { setTheme(l.themeId); setLayerTab(l.st); setExpanded(l.key); }}
               onTheme={(id) => setTheme(id)} />
@@ -913,22 +930,7 @@ export default function LeadershipView({ ARIA: A, stockMap, onTickerClick, chart
                 showPeak={layerTab === "weak" || layerTab === "brk"} members={members} expanded={expanded} onToggle={setExpanded} focus={lookupQ} />
             </Card>
 
-            <Card A={A} title="Stocks"
-              sub={stockTab === "lead"
-                ? "RS ≥ 90, above the 50-day, within 25% of the high · ● = in a leading layer"
-                : stockTab === "intra"
-                ? "Price ≥ $7 · mcap > $300M · ADR > 2% · avg vol ≥ 500K · avg $vol ≥ $25M · vol > 50K · RVol > 0.1 · SMA50 > SMA200 · up on the day · within 30% of the 52w high · ≥ 30% above the 52w low · above SMA200 & EMA50 · revenue > 0"
-                : "Held the top RS decile ≥ 40% of the quarter, now RS < 70 or ≥ 8% below the 50-day"}
-              right={<Tabs A={A} value={stockTab} onChange={setStockTab} items={[
-                ["lead", "Leaders", stocks.lead.length, A.green],
-                ["brk", "Leaders breaking down", stocks.brk.length, A.red],
-                ["intra", "Intraday scan", "", A.cyan],
-              ]} />}>
-              {stockTab === "intra"
-                ? <IntradayScan A={A} stockMap={stockMap} onTicker={onTickerClick} chartTicker={chartTicker} tickerLayer={tickerLayer}
-                    allowed={theme ? new Set(visLayers.flatMap((l) => members[l.key] || (l.holds || []).map((h) => h.t))) : null} />
-                : <StockTable rows={stocks[stockTab]} A={A} onTicker={onTickerClick} chartTicker={chartTicker} mode={stockTab} />}
-            </Card>
+
 
             {health?.checks && (() => {
               const warn = health.checks.filter((c) => c.status === "warn");
