@@ -626,21 +626,30 @@ function scanBase(s, session) {
   if (!s?.ticker) return null;
   const c = s.close || s.price;
   if (!c) return null;
+  // Levels come straight from the pipeline's daily bars (TradingView-
+  // equivalent: 20d ADR, SMA50/200, EMA50, 52w high/low). The older pct
+  // fields are only a fallback — they disagreed with TV (PANW ADR 1.4% vs 5.6%).
   const lvl = (pct) => (pct == null ? null : c / (1 + pct / 100));
-  const sma50 = lvl(s.sma50_pct), sma200 = lvl(s.sma200_pct), ema50 = lvl(s.ema50_pct);
-  const hi52 = lvl(s.off_52w_high), lo52 = lvl(s.above_52w_low);
+  const sma50 = s.sma50_lvl ?? lvl(s.sma50_pct);
+  const sma200 = s.sma200_lvl ?? lvl(s.sma200_pct);
+  const ema50 = s.ema50_lvl ?? lvl(s.ema50_pct);
+  const hi52 = s.hi52_lvl ?? lvl(s.off_52w_high);
+  const lo52 = s.lo52_lvl ?? lvl(s.above_52w_low);
+  const adr = s.adr20 ?? s.adr_pct;
   const rev = s.last_earnings_actual_revenue ?? (Array.isArray(s.quarters) ? s.quarters[0]?.revenue : null);
   if ((s.market_cap_raw ?? 0) <= 300e6) return null;
-  if ((s.adr_pct ?? 0) <= 2) return null;
+  if ((adr ?? 0) <= 2) return null;                            // ADR (20d) > 2%
   if ((s.avg_volume_raw ?? 0) < 500e3) return null;           // avg volume ≥ 500K shares
   const adv = s.avg_dollar_vol_raw ?? ((s.avg_volume_raw ?? 0) * c);
   if (adv < 25e6) return null;                                 // avg $ volume ≥ $25M
   if (!(sma50 && sma200 && sma50 > sma200)) return null;
   if (!(rev > 0)) return null;
-  return { t: s.ticker, sma200, ema50, hi52, lo52, avgVol: s.avg_volume_raw, // baseline = the 10 sessions BEFORE the one being measured: once the
-    // pipeline has the measured session as its last bar, use the prior-10 avg
-    avg10: (s.last_bar_date && s.last_bar_date === session && s.avg_vol_10d_prior) || s.avg_vol_10d || s.avg_volume_raw, adr: s.adr_pct, rs: s.rs_rank };
+  // ZVR baseline = the 10 sessions BEFORE the one being measured: once the
+  // pipeline has the measured session as its last bar, use the prior-10 avg
+  const avg10 = (s.last_bar_date && s.last_bar_date === session && s.avg_vol_10d_prior) || s.avg_vol_10d || s.avg_volume_raw;
+  return { t: s.ticker, sma200, ema50, hi52, lo52, avgVol: s.avg_volume_raw, avg10, adr, rs: s.rs_rank };
 }
+
 
 function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, allowed }) {
   const base = useMemo(() => Object.values(stockMap || {}).map((x) => scanBase(x, etClock().session)).filter(Boolean)
