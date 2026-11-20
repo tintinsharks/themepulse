@@ -591,6 +591,31 @@ function sessionElapsedFrac() {
   return 1;
 }
 
+// Session clock in ET. Outside regular hours the scan shows each name's LAST
+// ZVR from the session (saved to localStorage on every RTH refresh) instead of
+// recomputing from a quote whose volume may include extended-hours trading.
+function etClock() {
+  const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const mins = et.getHours() * 60 + et.getMinutes();
+  const wkday = et.getDay() >= 1 && et.getDay() <= 5;
+  const rth = wkday && mins >= 570 && mins < 960;
+  // the session the closing values belong to: today once it has opened,
+  // otherwise the previous weekday
+  const last = new Date(et);
+  if (!(wkday && mins >= 570)) {
+    do { last.setDate(last.getDate() - 1); } while (last.getDay() === 0 || last.getDay() === 6);
+  }
+  return { rth, today: ymd(et), session: ymd(last) };
+}
+const ZVR_SNAP_KEY = "tp-zvr-close";
+function readZvrSnap() {
+  try { return JSON.parse(localStorage.getItem(ZVR_SNAP_KEY) || "null"); } catch { return null; }
+}
+function writeZvrSnap(date, map) {
+  try { localStorage.setItem(ZVR_SNAP_KEY, JSON.stringify({ date, at: new Date().toISOString(), z: map })); } catch { /* storage off */ }
+}
+
 function scanBase(s) {
   if (!s?.ticker) return null;
   const c = s.close || s.price;
@@ -614,6 +639,9 @@ function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, allowed
     .filter((b) => !allowed || allowed.has(b.t)), [stockMap, allowed]);
   const { quotes, at } = useScanQuotes(base.map((b) => b.t), true);
   const [sort, setSort] = useState({ k: "fromOpen", d: -1 });
+  const clock = etClock();
+  const snap = useMemo(() => (clock.rth ? null : readZvrSnap()), [clock.rth, quotes]);
+  const snapOk = !clock.rth && snap?.date === clock.session && snap?.z;
   const rows = useMemo(() => {
     const frac = sessionElapsedFrac();
     const out = [];
@@ -628,7 +656,8 @@ function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, allowed
       const rvol = b.avgVol ? vol / b.avgVol : null;
       const chg = q.change ?? (q.previousClose ? (px / q.previousClose - 1) * 100 : null);
       const fromOpen = q.open ? (px / q.open - 1) * 100 : null;
-      const zvr = b.avgVol ? Math.round((vol / (b.avgVol * frac)) * 100) * (chg < 0 ? -1 : 1) : null;
+      const liveZvr = b.avgVol ? Math.round((vol / (b.avgVol * frac)) * 100) * (chg < 0 ? -1 : 1) : null;
+      const zvr = snapOk && snap.z[b.t] != null ? snap.z[b.t] : liveZvr;
       if (px < 7 || vol <= 50e3 || !(rvol > 0.1) || !(chg > 0)) return;
       if (offHi == null || offHi < -30) return;
       if (aboveLo == null || aboveLo < 30) return;
@@ -639,7 +668,21 @@ function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, allowed
     const k = sort.k, d = sort.d;
     out.sort((x, y) => ((x[k] ?? -1e9) - (y[k] ?? -1e9)) * d);
     return out;
-  }, [base, quotes, tickerLayer, sort]);
+  }, [base, quotes, tickerLayer, sort, snap, snapOk]);
+  // During RTH, persist every structural-pass name's ZVR (not just the rows
+  // that pass today's live filters) so the after-hours view has a value.
+  useEffect(() => {
+    if (!clock.rth || !quotes.size) return;
+    const frac = sessionElapsedFrac();
+    const z = {};
+    base.forEach((b) => {
+      const q = quotes.get(b.t);
+      if (!q?.price || !b.avgVol) return;
+      const chg = q.change ?? (q.previousClose ? (q.price / q.previousClose - 1) * 100 : 0);
+      z[b.t] = Math.round(((q.volume ?? 0) / (b.avgVol * frac)) * 100) * (chg < 0 ? -1 : 1);
+    });
+    writeZvrSnap(clock.today, z);
+  }, [quotes, base, clock.rth, clock.today]);
   const col = (k, label, align = "right", title) => (
     <th style={{ ...th(A, align), cursor: "pointer", color: sort.k === k ? A.text : A.textMuted }} title={title}
       onClick={() => setSort((p) => ({ k, d: p.k === k ? -p.d : -1 }))}>{label}{sort.k === k ? (sort.d < 0 ? " ▼" : " ▲") : ""}</th>
@@ -648,7 +691,10 @@ function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, allowed
   return (
     <div>
       <div style={{ fontSize: 10, color: A.textMuted, marginBottom: 6 }}>
-        {at ? `Live · ${at.toLocaleTimeString()} · refreshes every 60s` : "Loading live quotes…"} · {base.length} pass the structural filters · {rows.length} pass all
+        {at ? `Live · ${at.toLocaleTimeString()} · refreshes every 60s` : "Loading live quotes…"}
+        {!clock.rth && (snapOk
+          ? ` · ZVR at close (${snap.date}, last saved ${new Date(snap.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })})`
+          : " · ZVR = full-session volume ÷ average (no intraday snapshot saved for the last session)")} · {base.length} pass the structural filters · {rows.length} pass all
       </div>
       {!rows.length ? <div style={{ fontSize: 11, color: A.textMuted, padding: "6px 2px" }}>{at ? "Nothing passes right now." : ""}</div> : (
         <div style={{ overflowX: "auto", maxHeight: 520, overflowY: "auto" }}>
