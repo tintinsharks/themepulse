@@ -543,7 +543,7 @@ function ChangesPanel({ A, layers, themes, bars, liveQuotes, date, onTicker, onL
 // Nitin's intraday screen. Structural filters (stored, from the pipeline)
 // narrow the universe to a few hundred names; live filters run on fresh
 // /api/live quotes, polled every 60s while the tab is open.
-//   structural: mcap > $300M · ADR > 2% · avg vol > 500K · SMA50 > SMA200 ·
+//   structural: mcap > $300M · ADR > 2% · avg vol ≥ 500K · avg $vol ≥ $25M · SMA50 > SMA200 ·
 //               revenue (last FQ) > 0
 //   live:       price >= $7 · vol > 50K · rel vol > 0.1 · chg > 0% ·
 //               within 30% of the 52w high · >= 30% above the 52w low ·
@@ -586,7 +586,9 @@ function scanBase(s) {
   const rev = s.last_earnings_actual_revenue ?? (Array.isArray(s.quarters) ? s.quarters[0]?.revenue : null);
   if ((s.market_cap_raw ?? 0) <= 300e6) return null;
   if ((s.adr_pct ?? 0) <= 2) return null;
-  if ((s.avg_volume_raw ?? 0) <= 500e3) return null;
+  if ((s.avg_volume_raw ?? 0) < 500e3) return null;           // avg volume ≥ 500K shares
+  const adv = s.avg_dollar_vol_raw ?? ((s.avg_volume_raw ?? 0) * c);
+  if (adv < 25e6) return null;                                 // avg $ volume ≥ $25M
   if (!(sma50 && sma200 && sma50 > sma200)) return null;
   if (!(rev > 0)) return null;
   return { t: s.ticker, sma200, ema50, hi52, lo52, avgVol: s.avg_volume_raw, adr: s.adr_pct, rs: s.rs_rank };
@@ -915,7 +917,7 @@ export default function LeadershipView({ ARIA: A, stockMap, onTickerClick, chart
               sub={stockTab === "lead"
                 ? "RS ≥ 90, above the 50-day, within 25% of the high · ● = in a leading layer"
                 : stockTab === "intra"
-                ? "Price ≥ $7 · mcap > $300M · ADR > 2% · avg vol > 500K · vol > 50K · RVol > 0.1 · SMA50 > SMA200 · up on the day · within 30% of the 52w high · ≥ 30% above the 52w low · above SMA200 & EMA50 · revenue > 0"
+                ? "Price ≥ $7 · mcap > $300M · ADR > 2% · avg vol ≥ 500K · avg $vol ≥ $25M · vol > 50K · RVol > 0.1 · SMA50 > SMA200 · up on the day · within 30% of the 52w high · ≥ 30% above the 52w low · above SMA200 & EMA50 · revenue > 0"
                 : "Held the top RS decile ≥ 40% of the quarter, now RS < 70 or ≥ 8% below the 50-day"}
               right={<Tabs A={A} value={stockTab} onChange={setStockTab} items={[
                 ["lead", "Leaders", stocks.lead.length, A.green],
