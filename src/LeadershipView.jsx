@@ -569,9 +569,15 @@ function useScanQuotes(tickers, active) {
       }
       if (live && m.size) { setQuotes(m); setAt(new Date()); }
     };
+    // FMP budget: 60s polls only during regular hours. Outside them the scan
+    // shows the saved closing ZVR, so a slow 15-min refresh is plenty.
     pull();
-    const id = setInterval(pull, 60000);
-    return () => { live = false; clearInterval(id); };
+    let id;
+    const schedule = () => {
+      id = setTimeout(async () => { await pull(); if (live) schedule(); }, etClock().rth ? 60000 : 15 * 60000);
+    };
+    schedule();
+    return () => { live = false; clearTimeout(id); };
   }, [key, active]);
   return { quotes, at };
 }
@@ -691,7 +697,7 @@ function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, allowed
   return (
     <div>
       <div style={{ fontSize: 10, color: A.textMuted, marginBottom: 6 }}>
-        {at ? `Live · ${at.toLocaleTimeString()} · refreshes every 60s` : "Loading live quotes…"}
+        {at ? `Live · ${at.toLocaleTimeString()} · refreshes every ${clock.rth ? "60s" : "15 min (market closed)"}` : "Loading live quotes…"}
         {!clock.rth && (snapOk
           ? ` · ZVR at close (${snap.date}, last saved ${new Date(snap.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })})`
           : " · ZVR = full-session volume ÷ average (no intraday snapshot saved for the last session)")} · {base.length} pass the structural filters · {rows.length} pass all
