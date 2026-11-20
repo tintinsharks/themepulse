@@ -1,7 +1,7 @@
 {
- "generated": "2026-11-20T12:23",
- "universe": 3277,
- "in_layer": 2554,
+ "generated": "2026-11-20T14:29",
+ "universe": 3275,
+ "in_layer": 2551,
  "layers": 161,
  "checks": [
   {
@@ -48,11 +48,10 @@
   {
    "id": "untagged",
    "label": "Liquid (\u2265$25M/day) non-REITs with no theme tag",
-   "count": 15,
+   "count": 14,
    "items": [
     "SKHY",
     "CBRS",
-    "SATS",
     "HONA",
     "SUNB",
     "PSTG",
@@ -99,7 +98,7 @@
   {
    "id": "stale_prices",
    "label": "Liquid names whose price history is behind 2026-11-19",
-   "count": 118,
+   "count": 115,
    "items": [
     "ABR",
     "ACA",
@@ -115,7 +114,6 @@
     "ASGN",
     "ATAI",
     "ATKR",
-    "AVB",
     "AVNS",
     "AXIA",
     "BDXA",
@@ -134,13 +132,14 @@
     "CFLT",
     "CNTA",
     "CPRX",
-    "CRNX",
     "CSGS",
     "CTLP",
     "CTRA",
     "CUK",
     "CWAN",
-    "DAWN"
+    "DAWN",
+    "EA",
+    "EHAB"
    ],
    "status": "warn",
    "note": ""
