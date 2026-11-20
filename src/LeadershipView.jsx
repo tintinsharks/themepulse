@@ -538,6 +538,134 @@ function ChangesPanel({ A, layers, themes, bars, liveQuotes, date, onTicker, onL
   );
 }
 
+
+// ── Intraday scan ─────────────────────────────────────────────────────────
+// Nitin's intraday screen. Structural filters (stored, from the pipeline)
+// narrow the universe to a few hundred names; live filters run on fresh
+// /api/live quotes, polled every 60s while the tab is open.
+//   structural: mcap > $300M · ADR > 2% · avg vol > 500K · SMA50 > SMA200 ·
+//               revenue (last FQ) > 0
+//   live:       price >= $7 · vol > 50K · rel vol > 0.1 · chg > 0% ·
+//               within 30% of the 52w high · >= 30% above the 52w low ·
+//               price > SMA200 · price > EMA50
+//   column:     change from open % (default sort)
+function useScanQuotes(tickers, active) {
+  const [quotes, setQuotes] = useState(() => new Map());
+  const [at, setAt] = useState(null);
+  const key = tickers.join(",");
+  useEffect(() => {
+    if (!active || !key) return;
+    let live = true;
+    const pull = async () => {
+      if (document.hidden) return;
+      const list = key.split(",");
+      const m = new Map();
+      for (let i = 0; i < list.length; i += 500) {
+        try {
+          const r = await fetch(`/api/live?universe=${encodeURIComponent(list.slice(i, i + 500).join(","))}`);
+          const d = r.ok ? await r.json() : null;
+          (d?.theme_universe || d?.universe || []).forEach((q) => { if (q?.ticker) m.set(q.ticker, q); });
+        } catch { /* keep last */ }
+      }
+      if (live && m.size) { setQuotes(m); setAt(new Date()); }
+    };
+    pull();
+    const id = setInterval(pull, 60000);
+    return () => { live = false; clearInterval(id); };
+  }, [key, active]);
+  return { quotes, at };
+}
+
+function scanBase(s) {
+  if (!s?.ticker) return null;
+  const c = s.close || s.price;
+  if (!c) return null;
+  const lvl = (pct) => (pct == null ? null : c / (1 + pct / 100));
+  const sma50 = lvl(s.sma50_pct), sma200 = lvl(s.sma200_pct), ema50 = lvl(s.ema50_pct);
+  const hi52 = lvl(s.off_52w_high), lo52 = lvl(s.above_52w_low);
+  const rev = s.last_earnings_actual_revenue ?? (Array.isArray(s.quarters) ? s.quarters[0]?.revenue : null);
+  if ((s.market_cap_raw ?? 0) <= 300e6) return null;
+  if ((s.adr_pct ?? 0) <= 2) return null;
+  if ((s.avg_volume_raw ?? 0) <= 500e3) return null;
+  if (!(sma50 && sma200 && sma50 > sma200)) return null;
+  if (!(rev > 0)) return null;
+  return { t: s.ticker, sma200, ema50, hi52, lo52, avgVol: s.avg_volume_raw, adr: s.adr_pct, rs: s.rs_rank };
+}
+
+function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, allowed }) {
+  const base = useMemo(() => Object.values(stockMap || {}).map(scanBase).filter(Boolean)
+    .filter((b) => !allowed || allowed.has(b.t)), [stockMap, allowed]);
+  const { quotes, at } = useScanQuotes(base.map((b) => b.t), true);
+  const [sort, setSort] = useState({ k: "fromOpen", d: -1 });
+  const rows = useMemo(() => {
+    const out = [];
+    base.forEach((b) => {
+      const q = quotes.get(b.t);
+      if (!q?.price) return;
+      const px = q.price, vol = q.volume ?? 0;
+      const hi = Math.max(b.hi52 || 0, q.yearHigh || 0) || null;
+      const lo = Math.min(...[b.lo52, q.yearLow].filter((v) => v > 0)) || null;
+      const offHi = hi ? (px / hi - 1) * 100 : null;
+      const aboveLo = lo ? (px / lo - 1) * 100 : null;
+      const rvol = b.avgVol ? vol / b.avgVol : null;
+      const chg = q.change ?? (q.previousClose ? (px / q.previousClose - 1) * 100 : null);
+      const fromOpen = q.open ? (px / q.open - 1) * 100 : null;
+      if (px < 7 || vol <= 50e3 || !(rvol > 0.1) || !(chg > 0)) return;
+      if (offHi == null || offHi < -30) return;
+      if (aboveLo == null || aboveLo < 30) return;
+      if (!(px > b.sma200) || !(b.ema50 && px > b.ema50)) return;
+      const L = tickerLayer[b.t];
+      out.push({ t: b.t, px, chg, fromOpen, rvol, adr: b.adr, offHi, rs: b.rs, layer: L?.name, layerSt: L?.st });
+    });
+    const k = sort.k, d = sort.d;
+    out.sort((x, y) => ((x[k] ?? -1e9) - (y[k] ?? -1e9)) * d);
+    return out;
+  }, [base, quotes, tickerLayer, sort]);
+  const col = (k, label, align = "right", title) => (
+    <th style={{ ...th(A, align), cursor: "pointer", color: sort.k === k ? A.text : A.textMuted }} title={title}
+      onClick={() => setSort((p) => ({ k, d: p.k === k ? -p.d : -1 }))}>{label}{sort.k === k ? (sort.d < 0 ? " ▼" : " ▲") : ""}</th>
+  );
+  const pct = (v, dgt = 1) => (v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(dgt)}%`);
+  return (
+    <div>
+      <div style={{ fontSize: 10, color: A.textMuted, marginBottom: 6 }}>
+        {at ? `Live · ${at.toLocaleTimeString()} · refreshes every 60s` : "Loading live quotes…"} · {base.length} pass the structural filters · {rows.length} pass all
+      </div>
+      {!rows.length ? <div style={{ fontSize: 11, color: A.textMuted, padding: "6px 2px" }}>{at ? "Nothing passes right now." : ""}</div> : (
+        <div style={{ overflowX: "auto", maxHeight: 520, overflowY: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead style={{ position: "sticky", top: 0, background: A.bg }}>
+              <tr>
+                <th style={th(A)}>Ticker</th>
+                {col("px", "Price")}{col("chg", "Chg")}{col("fromOpen", "From open")}
+                {col("rvol", "RVol", "right", "Today's volume ÷ average daily volume")}{col("adr", "ADR")}{col("offHi", "Off high")}{col("rs", "RS")}
+                <th style={th(A)}>Layer</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.t} onClick={() => onTicker(r.t)} style={{ cursor: "pointer", background: chartTicker === r.t ? A.bgHover : "transparent" }}>
+                  <td style={td(A)}><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span></td>
+                  <td style={{ ...td(A, "right"), color: A.text }}>{r.px.toFixed(2)}</td>
+                  <td style={{ ...td(A, "right"), color: A.green }}>{pct(r.chg, 2)}</td>
+                  <td style={{ ...td(A, "right"), color: (r.fromOpen ?? 0) >= 0 ? A.green : A.red, fontWeight: 700 }}>{pct(r.fromOpen, 2)}</td>
+                  <td style={{ ...td(A, "right"), color: r.rvol >= 1.5 ? A.green : A.textDim }}>{r.rvol == null ? "—" : r.rvol.toFixed(2)}</td>
+                  <td style={td(A, "right")}>{r.adr == null ? "—" : `${r.adr.toFixed(1)}%`}</td>
+                  <td style={td(A, "right")}>{pct(r.offHi)}</td>
+                  <td style={{ ...td(A, "right"), color: r.rs >= 90 ? A.green : r.rs >= 70 ? A.yellow : A.red }}>{r.rs ?? "—"}</td>
+                  <td style={{ ...td(A), fontSize: 11, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {r.layer ? <span style={{ color: statusColor(r.layerSt, A) }}>{r.layer}</span> : <span style={{ color: A.textMuted }}>—</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function LeadershipView({ ARIA: A, stockMap, onTickerClick, chartTicker, chartSlot, indexQuotes }) {
   const rot = useJson("/data/rs_rotation.json");
   const hist = useJson("/data/rank_history.json");
@@ -786,12 +914,18 @@ export default function LeadershipView({ ARIA: A, stockMap, onTickerClick, chart
             <Card A={A} title="Stocks"
               sub={stockTab === "lead"
                 ? "RS ≥ 90, above the 50-day, within 25% of the high · ● = in a leading layer"
+                : stockTab === "intra"
+                ? "Price ≥ $7 · mcap > $300M · ADR > 2% · avg vol > 500K · vol > 50K · RVol > 0.1 · SMA50 > SMA200 · up on the day · within 30% of the 52w high · ≥ 30% above the 52w low · above SMA200 & EMA50 · revenue > 0"
                 : "Held the top RS decile ≥ 40% of the quarter, now RS < 70 or ≥ 8% below the 50-day"}
               right={<Tabs A={A} value={stockTab} onChange={setStockTab} items={[
                 ["lead", "Leaders", stocks.lead.length, A.green],
                 ["brk", "Leaders breaking down", stocks.brk.length, A.red],
+                ["intra", "Intraday scan", "", A.cyan],
               ]} />}>
-              <StockTable rows={stocks[stockTab]} A={A} onTicker={onTickerClick} chartTicker={chartTicker} mode={stockTab} />
+              {stockTab === "intra"
+                ? <IntradayScan A={A} stockMap={stockMap} onTicker={onTickerClick} chartTicker={chartTicker} tickerLayer={tickerLayer}
+                    allowed={theme ? new Set(visLayers.flatMap((l) => members[l.key] || (l.holds || []).map((h) => h.t))) : null} />
+                : <StockTable rows={stocks[stockTab]} A={A} onTicker={onTickerClick} chartTicker={chartTicker} mode={stockTab} />}
             </Card>
 
             {health?.checks && (() => {
