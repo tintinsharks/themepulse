@@ -676,7 +676,7 @@ export default function LeadershipView({ ARIA: A, stockMap, onTickerClick, chart
   const [theme, setTheme] = useState(null);
   const idxBars = useIndexBars(LEAD_INDEXES.map((x) => x.t));
   const [layerTab, setLayerTab] = useState("lead");
-  const [stockTab, setStockTab] = useState("lead");
+  const [stockTab, setStockTab] = useState("intra");
   const [expanded, setExpanded] = useState(null);
   const [lookup, setLookup] = useState("");
   const [lookupQ, setLookupQ] = useState("");
