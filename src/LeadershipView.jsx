@@ -608,7 +608,7 @@ function etClock() {
   }
   return { rth, today: ymd(et), session: ymd(last) };
 }
-const ZVR_SNAP_KEY = "tp-zvr-close";
+const ZVR_SNAP_KEY = "tp-zvr-close-v2"; // v2: ratio vs 10-session avg (v1 was % vs 50d)
 function readZvrSnap() {
   try { return JSON.parse(localStorage.getItem(ZVR_SNAP_KEY) || "null"); } catch { return null; }
 }
@@ -631,7 +631,7 @@ function scanBase(s) {
   if (adv < 25e6) return null;                                 // avg $ volume ≥ $25M
   if (!(sma50 && sma200 && sma50 > sma200)) return null;
   if (!(rev > 0)) return null;
-  return { t: s.ticker, sma200, ema50, hi52, lo52, avgVol: s.avg_volume_raw, adr: s.adr_pct, rs: s.rs_rank };
+  return { t: s.ticker, sma200, ema50, hi52, lo52, avgVol: s.avg_volume_raw, avg10: s.avg_vol_10d || s.avg_volume_raw, adr: s.adr_pct, rs: s.rs_rank };
 }
 
 function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, allowed }) {
@@ -653,17 +653,18 @@ function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, allowed
       const lo = Math.min(...[b.lo52, q.yearLow].filter((v) => v > 0)) || null;
       const offHi = hi ? (px / hi - 1) * 100 : null;
       const aboveLo = lo ? (px / lo - 1) * 100 : null;
-      const rvol = b.avgVol ? vol / b.avgVol : null;
       const chg = q.change ?? (q.previousClose ? (px / q.previousClose - 1) * 100 : null);
       const fromOpen = q.open ? (px / q.open - 1) * 100 : null;
-      const liveZvr = b.avgVol ? Math.round((vol / (b.avgVol * frac)) * 100) * (chg < 0 ? -1 : 1) : null;
+      // RVol at time (TradingView-style): today's volume ÷ (10-session avg ×
+      // share of a normal day's volume done by now). 1.00 = normal pace.
+      const liveZvr = b.avg10 ? +(vol / (b.avg10 * frac)).toFixed(2) : null;
       const zvr = snapOk && snap.z[b.t] != null ? snap.z[b.t] : liveZvr;
-      if (px < 7 || vol <= 50e3 || !(rvol > 0.1) || !(chg > 0)) return;
+      if (px < 7 || vol <= 50e3 || !(zvr > 0.1) || !(chg > 0)) return;
       if (offHi == null || offHi < -30) return;
       if (aboveLo == null || aboveLo < 30) return;
       if (!(px > b.sma200) || !(b.ema50 && px > b.ema50)) return;
       const L = tickerLayer[b.t];
-      out.push({ t: b.t, px, zvr, chg, fromOpen, rvol, adr: b.adr, offHi, rs: b.rs, layer: L?.name, layerSt: L?.st });
+      out.push({ t: b.t, px, zvr, chg, fromOpen, adr: b.adr, offHi, rs: b.rs, layer: L?.name, layerSt: L?.st });
     });
     const k = sort.k, d = sort.d;
     out.sort((x, y) => ((x[k] ?? -1e9) - (y[k] ?? -1e9)) * d);
@@ -677,9 +678,8 @@ function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, allowed
     const z = {};
     base.forEach((b) => {
       const q = quotes.get(b.t);
-      if (!q?.price || !b.avgVol) return;
-      const chg = q.change ?? (q.previousClose ? (q.price / q.previousClose - 1) * 100 : 0);
-      z[b.t] = Math.round(((q.volume ?? 0) / (b.avgVol * frac)) * 100) * (chg < 0 ? -1 : 1);
+      if (!q?.price || !b.avg10) return;
+      z[b.t] = +(((q.volume ?? 0) / (b.avg10 * frac))).toFixed(2);
     });
     writeZvrSnap(clock.today, z);
   }, [quotes, base, clock.rth, clock.today]);
@@ -702,8 +702,8 @@ function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, allowed
             <thead style={{ position: "sticky", top: 0, background: A.bg }}>
               <tr>
                 <th style={th(A)}>Ticker</th>
-                {col("zvr", "ZVR", "right", "Zanger Volume Ratio — today's volume vs the expected volume at this time of day (50d avg × session volume profile). 100% = average pace")}{col("chg", "Chg")}{col("fromOpen", "From open")}
-                {col("rvol", "RVol", "right", "Today's volume ÷ average daily volume")}{col("adr", "ADR")}{col("offHi", "Off high")}{col("rs", "RS")}
+                {col("zvr", "ZVR", "right", "Relative volume at time (TradingView-style): today's volume ÷ the 10-session average × the share of a normal day's volume done by now. 1.00 = normal pace. After hours: the last value from the session")}{col("chg", "Chg")}{col("fromOpen", "From open")}
+                {col("adr", "ADR")}{col("offHi", "Off high")}{col("rs", "RS")}
                 <th style={th(A)}>Layer</th>
               </tr>
             </thead>
@@ -711,10 +711,9 @@ function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, allowed
               {rows.map((r) => (
                 <tr key={r.t} onClick={() => onTicker(r.t)} style={{ cursor: "pointer", background: chartTicker === r.t ? A.bgHover : "transparent" }}>
                   <td style={td(A)}><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span></td>
-                  <td style={{ ...td(A, "right"), color: r.zvr >= 150 ? A.green : r.zvr >= 100 ? A.text : A.textMuted, fontWeight: r.zvr >= 150 ? 700 : 400 }}>{r.zvr == null ? "—" : `${r.zvr}%`}</td>
+                  <td style={{ ...td(A, "right"), color: r.zvr >= 1.5 ? A.green : r.zvr >= 1 ? A.text : A.textMuted, fontWeight: r.zvr >= 1.5 ? 700 : 400 }}>{r.zvr == null ? "—" : r.zvr.toFixed(2)}</td>
                   <td style={{ ...td(A, "right"), color: A.green }}>{pct(r.chg, 2)}</td>
                   <td style={{ ...td(A, "right"), color: (r.fromOpen ?? 0) >= 0 ? A.green : A.red, fontWeight: 700 }}>{pct(r.fromOpen, 2)}</td>
-                  <td style={{ ...td(A, "right"), color: r.rvol >= 1.5 ? A.green : A.textDim }}>{r.rvol == null ? "—" : r.rvol.toFixed(2)}</td>
                   <td style={td(A, "right")}>{r.adr == null ? "—" : `${r.adr.toFixed(1)}%`}</td>
                   <td style={td(A, "right")}>{pct(r.offHi)}</td>
                   <td style={{ ...td(A, "right"), color: r.rs >= 90 ? A.green : r.rs >= 70 ? A.yellow : A.red }}>{r.rs ?? "—"}</td>
@@ -958,7 +957,7 @@ export default function LeadershipView({ ARIA: A, stockMap, onTickerClick, chart
               sub={stockTab === "lead"
                 ? "RS ≥ 90, above the 50-day, within 25% of the high · ● = in a leading layer"
                 : stockTab === "intra"
-                ? "Price ≥ $7 · mcap > $300M · ADR > 2% · avg vol ≥ 500K · avg $vol ≥ $25M · vol > 50K · RVol > 0.1 · SMA50 > SMA200 · up on the day · within 30% of the 52w high · ≥ 30% above the 52w low · above SMA200 & EMA50 · revenue > 0"
+                ? "Price ≥ $7 · mcap > $300M · ADR > 2% · avg vol ≥ 500K · avg $vol ≥ $25M · vol > 50K · RVol at time (ZVR) > 0.1 · SMA50 > SMA200 · up on the day · within 30% of the 52w high · ≥ 30% above the 52w low · above SMA200 & EMA50 · revenue > 0"
                 : "Held the top RS decile ≥ 40% of the quarter, now RS < 70 or ≥ 8% below the 50-day"}
               right={<Tabs A={A} value={stockTab} onChange={setStockTab} items={[
                 ["lead", "Leaders", stocks.lead.length, A.green],
