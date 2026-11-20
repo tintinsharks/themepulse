@@ -8756,8 +8756,11 @@ function AppMain() {
       <NewsPopover ARIA={ARIA} />
       {/* Topbar */}
       <div
+        className="tp-topbar"
         style={{
           display: "flex",
+          flexWrap: "wrap",
+          rowGap: 6,
           alignItems: "center",
           padding: "10px 24px",
           background: ARIA.bgCard,

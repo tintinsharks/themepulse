@@ -153,8 +153,8 @@ function LayerTable({ rows, A, onTicker, chartTicker, stockMap, showPeak, member
             <th style={th(A, "right")}>1w</th>
             <th style={th(A, "right")}>1m</th>
             {showPeak && <th style={th(A, "right")}>Peak</th>}
-            <th style={th(A)}>{SPARK_N}d</th>
-            <th style={th(A, "right")} title="Share of the trailing quarter this layer ranked ≥ 88">Held</th>
+            <th className="tp-hide-sm" style={th(A)}>{SPARK_N}d</th>
+            <th className="tp-hide-sm" style={th(A, "right")} title="Share of the trailing quarter this layer ranked ≥ 88">Held</th>
             <th style={th(A)}>Strongest names <span style={{ fontWeight: 400 }}>· click a row for all</span></th>
           </tr>
         </thead>
@@ -178,8 +178,8 @@ function LayerTable({ rows, A, onTicker, chartTicker, stockMap, showPeak, member
                 <td style={td(A, "right")}><Delta v={l.now - l.w1} A={A} /></td>
                 <td style={td(A, "right")}><Delta v={l.now - l.m1} A={A} /></td>
                 {showPeak && <td style={td(A, "right")}>{l.peak}</td>}
-                <td style={td(A)}><Spark vals={l.hist} color={c} A={A} /></td>
-                <td style={td(A, "right")}>{l.persist != null ? `${l.persist}%` : "—"}</td>
+                <td className="tp-hide-sm" style={td(A)}><Spark vals={l.hist} color={c} A={A} /></td>
+                <td className="tp-hide-sm" style={td(A, "right")}>{l.persist != null ? `${l.persist}%` : "—"}</td>
                 <td style={{ ...td(A), whiteSpace: "normal", minWidth: 160 }}>
                   {names.map((h) => (
                     <TickerChip key={h.t} t={h.t} onClick={(t) => { onTicker(t); }} active={chartTicker === h.t || focus === h.t} A={A}
@@ -517,7 +517,7 @@ function ChangesPanel({ A, layers, themes, bars, liveQuotes, date, onTicker, onL
   );
   const row = (label, color, items) => items.length ? (
     <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 2 }}>
-      <div style={{ width: 118, flexShrink: 0, fontSize: 10, fontWeight: 700, color, letterSpacing: 0.3, paddingTop: 4 }}>{label}</div>
+      <div className="tp-lead-label" style={{ width: 118, flexShrink: 0, fontSize: 10, fontWeight: 700, color, letterSpacing: 0.3, paddingTop: 4 }}>{label}</div>
       <div style={{ display: "flex", flexWrap: "wrap" }}>{items}</div>
     </div>
   ) : null;
@@ -552,6 +552,8 @@ export default function LeadershipView({ ARIA: A, stockMap, onTickerClick, chart
   const [lookupQ, setLookupQ] = useState("");
   const layersRef = React.useRef(null);
   const chain = useJson("/data/chain_layers.json");
+  const health = useJson("/data/universe_health.json");
+  const [healthOpen, setHealthOpen] = useState(false);
   const members = useMemo(() => {
     const m = {};
     (Array.isArray(chain) ? chain : []).forEach((l) => { m[`${l.themeId}|${l.layer}`] = l.tickers || []; });
@@ -678,6 +680,18 @@ export default function LeadershipView({ ARIA: A, stockMap, onTickerClick, chart
 
   return (
     <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }} className="tp-lead-row">
+      {/* Phone/tablet: stack the chart under the boards instead of squeezing
+          it beside them (inline styles can't carry a media query). */}
+      <style>{`@media (max-width: 900px) {
+        .tp-lead-row { flex-direction: column; align-items: stretch !important; }
+        .tp-lead-row > div { flex: 1 1 auto !important; width: 100%; }
+        .tp-lead-chart { position: static !important; max-height: none !important; }
+        .tp-lead-label { width: 84px !important; }
+        .tp-topbar { padding: 8px 12px !important; }
+      }
+      @media (max-width: 520px) {
+        .tp-hide-sm { display: none; }
+      }`}</style>
       <div style={{ flex: "1 1 640px", minWidth: 0 }}>
         {/* Header strip: market backdrop + layer counts */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "center", background: A.bgCard, border: `1px solid ${A.border}`, borderRadius: 8, padding: "8px 12px", marginBottom: 10 }}>
@@ -779,6 +793,32 @@ export default function LeadershipView({ ARIA: A, stockMap, onTickerClick, chart
               ]} />}>
               <StockTable rows={stocks[stockTab]} A={A} onTicker={onTickerClick} chartTicker={chartTicker} mode={stockTab} />
             </Card>
+
+            {health?.checks && (() => {
+              const warn = health.checks.filter((c) => c.status === "warn");
+              return (
+                <Card A={A} title="Universe health"
+                  sub={`${health.in_layer} of ${health.universe} names in a layer · ${health.layers} layers · checked ${String(health.generated || "").replace("T", " ")}`}
+                  right={<button onClick={() => setHealthOpen((v) => !v)}
+                    style={{ background: "transparent", border: `1px solid ${warn.length ? A.yellow : A.green}`, borderRadius: 4, cursor: "pointer",
+                      color: warn.length ? A.yellow : A.green, fontSize: 11, padding: "2px 8px" }}>
+                    {warn.length ? `${warn.length} to review` : "all clear"} {healthOpen ? "▲" : "▼"}</button>}>
+                  {healthOpen && health.checks.map((c) => (
+                    <div key={c.id} style={{ display: "flex", gap: 8, padding: "4px 0", borderBottom: `1px solid ${A.border}`, fontSize: 11 }}>
+                      <span style={{ color: c.status === "warn" ? A.yellow : A.green, width: 14 }}>{c.status === "warn" ? "!" : "✓"}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ color: A.text }}>{c.label} <b>{c.count}</b></div>
+                        {c.count > 0 && (
+                          <div style={{ color: A.textMuted, fontFamily: "monospace", fontSize: 10, wordBreak: "break-word" }}>
+                            {c.items.join(", ")}{c.count > c.items.length ? " …" : ""}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </Card>
+              );
+            })()}
           </>
         )}
       </div>
