@@ -94,7 +94,7 @@ const td = (A, align = "left") => ({ textAlign: align, fontSize: 12, color: A.te
 
 function TickerChip({ t, onClick, active, A, dim }) {
   return (
-    <button onClick={() => onClick(t)}
+    <button onClick={(e) => { e.stopPropagation(); onClick(t); }}
       style={{
         background: active ? A.glowGreen : "transparent", border: `1px solid ${active ? A.green : A.border}`,
         color: dim ? A.textMuted : A.text, borderRadius: 4, padding: "1px 5px", fontSize: 11, cursor: "pointer",
@@ -141,7 +141,7 @@ function ThemeBoard({ themes, A, selected, onSelect }) {
 }
 
 // ── Layers ────────────────────────────────────────────────────────────────
-function LayerTable({ rows, A, onTicker, chartTicker, stockMap, showPeak }) {
+function LayerTable({ rows, A, onTicker, chartTicker, stockMap, showPeak, members, expanded, onToggle, focus }) {
   if (!rows.length) return <div style={{ fontSize: 11, color: A.textMuted, padding: "6px 2px" }}>None.</div>;
   return (
     <div style={{ overflowX: "auto" }}>
@@ -155,20 +155,23 @@ function LayerTable({ rows, A, onTicker, chartTicker, stockMap, showPeak }) {
             {showPeak && <th style={th(A, "right")}>Peak</th>}
             <th style={th(A)}>{SPARK_N}d</th>
             <th style={th(A, "right")} title="Share of the trailing quarter this layer ranked ≥ 88">Held</th>
-            <th style={th(A)}>Strongest names</th>
+            <th style={th(A)}>Strongest names <span style={{ fontWeight: 400 }}>· click a row for all</span></th>
           </tr>
         </thead>
         <tbody>
           {rows.map((l) => {
             const c = statusColor(l.st, A);
-            const names = (l.holds || [])
-              .filter((h) => stockMap[h.t])
-              .sort((a, b) => (stockMap[b.t]?.rs_rank ?? 0) - (stockMap[a.t]?.rs_rank ?? 0))
-              .slice(0, 5);
+            const all = (members?.[l.key] || (l.holds || []).map((h) => h.t))
+              .filter((t) => stockMap[t])
+              .sort((a, b) => (stockMap[b]?.rs_rank ?? 0) - (stockMap[a]?.rs_rank ?? 0));
+            const names = all.slice(0, 5).map((t) => ({ t }));
+            const open = expanded === l.key;
+            const cols = showPeak ? 8 : 7;
             return (
-              <tr key={l.key}>
+              <React.Fragment key={l.key}>
+              <tr onClick={() => onToggle?.(open ? null : l.key)} style={{ cursor: "pointer", background: open ? A.bgHover : "transparent" }}>
                 <td style={td(A)}>
-                  <div style={{ color: A.text, fontWeight: 600 }}>{l.name}</div>
+                  <div style={{ color: A.text, fontWeight: 600 }}><span style={{ color: A.textMuted, fontSize: 9, marginRight: 4 }}>{open ? "▼" : "▶"}</span>{l.name}</div>
                   <div style={{ fontSize: 10, color: A.textMuted }}>{l.theme}</div>
                 </td>
                 <td style={{ ...td(A, "right"), color: c, fontWeight: 700 }}>{l.now}</td>
@@ -179,11 +182,34 @@ function LayerTable({ rows, A, onTicker, chartTicker, stockMap, showPeak }) {
                 <td style={td(A, "right")}>{l.persist != null ? `${l.persist}%` : "—"}</td>
                 <td style={{ ...td(A), whiteSpace: "normal", minWidth: 160 }}>
                   {names.map((h) => (
-                    <TickerChip key={h.t} t={h.t} onClick={onTicker} active={chartTicker === h.t} A={A}
+                    <TickerChip key={h.t} t={h.t} onClick={(t) => { onTicker(t); }} active={chartTicker === h.t || focus === h.t} A={A}
                       dim={(stockMap[h.t]?.rs_rank ?? 0) < 80} />
                   ))}
+                  {all.length > 5 && <span style={{ fontSize: 10, color: A.textMuted }}>+{all.length - 5}</span>}
                 </td>
               </tr>
+              {open && (
+                <tr>
+                  <td colSpan={cols} style={{ ...td(A), whiteSpace: "normal", background: A.bgRow, padding: "8px 10px" }}>
+                    <div style={{ fontSize: 10, color: A.textMuted, marginBottom: 5 }}>All {all.length} members by RS rank · click to chart</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                      {all.map((t) => {
+                        const rs = stockMap[t]?.rs_rank;
+                        const rc = rs >= 90 ? A.green : rs >= 70 ? A.yellow : A.red;
+                        const hi = focus === t || chartTicker === t;
+                        return (
+                          <button key={t} onClick={(e) => { e.stopPropagation(); onTicker(t); }}
+                            style={{ background: hi ? A.glowGreen : "transparent", border: `1px solid ${hi ? A.green : A.border}`, borderRadius: 4,
+                              padding: "1px 6px", fontSize: 11, cursor: "pointer", color: A.text, fontFamily: "monospace" }}>
+                            {t} <span style={{ color: rc, fontWeight: 700 }}>{rs ?? "—"}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </td>
+                </tr>
+              )}
+              </React.Fragment>
             );
           })}
         </tbody>
@@ -521,6 +547,16 @@ export default function LeadershipView({ ARIA: A, stockMap, onTickerClick, chart
   const idxBars = useIndexBars(LEAD_INDEXES.map((x) => x.t));
   const [layerTab, setLayerTab] = useState("lead");
   const [stockTab, setStockTab] = useState("lead");
+  const [expanded, setExpanded] = useState(null);
+  const [lookup, setLookup] = useState("");
+  const [lookupQ, setLookupQ] = useState("");
+  const layersRef = React.useRef(null);
+  const chain = useJson("/data/chain_layers.json");
+  const members = useMemo(() => {
+    const m = {};
+    (Array.isArray(chain) ? chain : []).forEach((l) => { m[`${l.themeId}|${l.layer}`] = l.tickers || []; });
+    return m;
+  }, [chain]);
 
   const dates = useMemo(() => (hist ? Object.keys(hist).sort() : []), [hist]);
 
@@ -563,12 +599,13 @@ export default function LeadershipView({ ARIA: A, stockMap, onTickerClick, chart
 
   const visLayers = theme ? layers.filter((l) => l.themeId === theme) : layers;
   const layerBuckets = useMemo(() => {
-    const b = { lead: [], emerg: [], weak: [], brk: [] };
+    const b = { lead: [], emerg: [], weak: [], brk: [], lag: [] };
     visLayers.forEach((l) => { if (b[l.st]) b[l.st].push(l); });
     b.lead.sort((x, y) => y.now - x.now || (y.persist ?? 0) - (x.persist ?? 0));
     b.emerg.sort((x, y) => (y.now - y.m1) - (x.now - x.m1));
     b.weak.sort((x, y) => (x.now - x.peak) - (y.now - y.peak));
     b.brk.sort((x, y) => (x.now - x.peak) - (y.now - y.peak));
+    b.lag.sort((x, y) => y.now - x.now);
     return b;
   }, [visLayers]);
 
@@ -605,6 +642,26 @@ export default function LeadershipView({ ARIA: A, stockMap, onTickerClick, chart
     brk.sort((a, b) => b.persist - a.persist || (a.rs ?? 0) - (b.rs ?? 0));
     return { lead: lead.slice(0, 60), brk: brk.slice(0, 60) };
   }, [stockMap, seats, tickerLayer, theme, visLayers]);
+
+  const lookupHits = useMemo(() => {
+    const q = lookupQ;
+    if (!q) return null;
+    const hits = layers.filter((l) => (members[l.key] || (l.holds || []).map((h) => h.t)).includes(q)).map((l) => {
+      const mem = (members[l.key] || []).filter((t) => stockMap[t])
+        .sort((a, b) => (stockMap[b]?.rs_rank ?? 0) - (stockMap[a]?.rs_rank ?? 0));
+      return { l, pos: mem.indexOf(q) + 1, n: mem.length };
+    }).sort((a, b) => b.l.now - a.l.now);
+    return hits;
+  }, [lookupQ, layers, members, stockMap]);
+  const runLookup = (raw) => {
+    const t = String(raw || "").trim().toUpperCase();
+    setLookupQ(t);
+    if (t) onTickerClick(t);
+  };
+  const openLayer = (l) => {
+    setTheme(null); setLayerTab(l.st); setExpanded(l.key);
+    setTimeout(() => layersRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  };
 
   const loading = !rot || !hist;
   const regime = breadth?.regime?.primary;
@@ -643,6 +700,12 @@ export default function LeadershipView({ ARIA: A, stockMap, onTickerClick, chart
               </div>
             ))}
           </div>
+          <form onSubmit={(e) => { e.preventDefault(); runLookup(lookup); }} style={{ display: "flex", gap: 4 }}>
+            <input value={lookup} onChange={(e) => setLookup(e.target.value)} placeholder="Find ticker…" aria-label="Find a ticker's layers"
+              style={{ width: 110, background: A.bgRow, border: `1px solid ${A.border}`, borderRadius: 4, color: A.text, fontSize: 12, padding: "4px 7px", fontFamily: "monospace", textTransform: "uppercase" }} />
+            {lookupQ && <button type="button" onClick={() => { setLookup(""); setLookupQ(""); }}
+              style={{ background: "transparent", border: `1px solid ${A.border}`, borderRadius: 4, color: A.textDim, fontSize: 11, cursor: "pointer" }}>×</button>}
+          </form>
           <div style={{ fontSize: 10, color: A.textMuted, width: "100%" }}>
             Layers as of {rot?.date || "…"} · {layers.length} layers · leading = RS rank ≥ {LEAD}
             {selTheme ? <> · filtered to <b style={{ color: A.text }}>{selTheme.theme}</b> <button onClick={() => setTheme(null)} style={{ background: "none", border: "none", color: A.cyan, cursor: "pointer", fontSize: 10 }}>clear</button></> : null}
@@ -653,8 +716,39 @@ export default function LeadershipView({ ARIA: A, stockMap, onTickerClick, chart
           <div style={{ color: A.textMuted, fontSize: 12, padding: 20 }}>Loading leadership data…</div>
         ) : (
           <>
+            {lookupHits && (() => {
+              const s = stockMap[lookupQ];
+              const pct = (v) => (v == null ? "—" : `${v > 0 ? "+" : ""}${Number(v).toFixed(1)}%`);
+              return (
+                <Card A={A} title={`${lookupQ}${s?.company && s.company !== 0 ? ` · ${s.company}` : ""}`}
+                  sub={s ? `RS ${s.rs_rank ?? "—"} · vs 50d ${pct(s.sma50_pct)} · off high ${pct(s.off_52w_high)} · ${s.industry || ""}` : "Not in the ThemePulse universe"}
+                  right={<button onClick={() => { setLookup(""); setLookupQ(""); }} style={{ background: "transparent", border: "none", color: A.cyan, cursor: "pointer", fontSize: 11 }}>close</button>}>
+                  {!lookupHits.length ? (
+                    <div style={{ fontSize: 11, color: A.textMuted }}>{s ? "In the universe but not in any layer (trades under $10M/day, or no industry mapping)." : "No layers."}</div>
+                  ) : (
+                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                      <thead><tr>
+                        <th style={th(A)}>Layer</th><th style={th(A, "right")}>Rank</th><th style={th(A)}>Status</th>
+                        <th style={th(A, "right")}>1m</th><th style={th(A, "right")} title="Position by RS rank among the layer's members">{lookupQ} in layer</th>
+                      </tr></thead>
+                      <tbody>
+                        {lookupHits.map(({ l, pos, n }) => (
+                          <tr key={l.key} onClick={() => openLayer(l)} style={{ cursor: "pointer" }} title="Open this layer below">
+                            <td style={td(A)}><span style={{ color: A.text, fontWeight: 600 }}>{l.name}</span> <span style={{ fontSize: 10, color: A.textMuted }}>{l.theme}</span></td>
+                            <td style={{ ...td(A, "right"), color: statusColor(l.st, A), fontWeight: 700 }}>{l.now}</td>
+                            <td style={{ ...td(A), color: statusColor(l.st, A) }}>{STATUS[l.st].label}</td>
+                            <td style={td(A, "right")}><Delta v={l.now - l.m1} A={A} /></td>
+                            <td style={td(A, "right")}>{pos ? `${pos} of ${n}` : "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </Card>
+              );
+            })()}
             <ChangesPanel A={A} layers={layers} themes={themes} bars={idxBars} liveQuotes={indexQuotes} date={rot?.date}
-              onTicker={onTickerClick} onLayer={(l) => { setTheme(l.themeId); if (["lead", "weak", "brk", "emerg"].includes(l.st)) setLayerTab(l.st); }}
+              onTicker={onTickerClick} onLayer={(l) => { setTheme(l.themeId); setLayerTab(l.st); setExpanded(l.key); }}
               onTheme={(id) => setTheme(id)} />
             <IndexPanel A={A} liveQuotes={indexQuotes} onTicker={onTickerClick} chartTicker={chartTicker} bars={idxBars} />
 
@@ -668,9 +762,11 @@ export default function LeadershipView({ ARIA: A, stockMap, onTickerClick, chart
                 ["weak", "Weakening", layerBuckets.weak.length, A.yellow],
                 ["brk", "Breaking down", layerBuckets.brk.length, A.red],
                 ["emerg", "Emerging", layerBuckets.emerg.length, A.cyan],
+                ["lag", "Lagging", layerBuckets.lag.length, A.textDim],
               ]} />}>
+              <div ref={layersRef} />
               <LayerTable rows={layerBuckets[layerTab]} A={A} onTicker={onTickerClick} chartTicker={chartTicker} stockMap={stockMap}
-                showPeak={layerTab === "weak" || layerTab === "brk"} />
+                showPeak={layerTab === "weak" || layerTab === "brk"} members={members} expanded={expanded} onToggle={setExpanded} focus={lookupQ} />
             </Card>
 
             <Card A={A} title="Stocks"
