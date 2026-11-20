@@ -137,6 +137,44 @@ export default async function handler(req, res) {
   // POST (bearer RVOL_SCANNER_TOKEN, same token as the old agent-picks cron)
   // stores { date, generated_at, rows[], top_setups[] }. Piggybacked here
   // because the api/ dir is at Vercel's 12-function cap.
+  // ── Scope: flags — red/blue/gold ticker flags from the LEADERS tab.
+  // Stored as { TICKER: { c: "red"|"blue"|"gold"|null, at: ISO } }. POST sends
+  // only the changed tickers; each merges by timestamp (latest wins), and a
+  // null color is a tombstone so an unflag on one device beats an older flag
+  // on another. Tombstones older than 30 days are pruned.
+  if (req.query && req.query.scope === "flags") {
+    const kvKey = "themepulse:flags";
+    const COLORS = new Set(["red", "blue", "gold"]);
+    try {
+      const cur = await redisCmd("GET", kvKey);
+      let flags = {};
+      try { flags = cur.result ? JSON.parse(cur.result) : {}; } catch { flags = {}; }
+      if (req.method === "GET") {
+        res.setHeader("Cache-Control", "private, no-store");
+        return res.status(200).json({ ok: true, flags });
+      }
+      if (req.method === "POST") {
+        const body = (req.body && req.body.flags) || {};
+        let changed = 0;
+        for (const [rawT, v] of Object.entries(body)) {
+          const t = String(rawT).toUpperCase().slice(0, 12);
+          if (!/^[A-Z][A-Z.\-]{0,11}$/.test(t) || !v || typeof v !== "object") continue;
+          const c = COLORS.has(v.c) ? v.c : null;
+          const at = typeof v.at === "string" ? v.at : new Date().toISOString();
+          if (!flags[t] || String(flags[t].at || "") < at) { flags[t] = { c, at }; changed++; }
+        }
+        const cutoff = new Date(Date.now() - 30 * 86400000).toISOString();
+        for (const [t, v] of Object.entries(flags)) if (!v.c && String(v.at) < cutoff) delete flags[t];
+        if (Object.keys(flags).length > 2000) return res.status(400).json({ ok: false, error: "too many flags" });
+        if (changed) await redisCmd("SET", kvKey, JSON.stringify(flags));
+        return res.status(200).json({ ok: true, flags });
+      }
+      return res.status(405).json({ ok: false, error: "Method not allowed" });
+    } catch (e) {
+      return res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+
   if (req.query && (req.query.scope === "pm-movers" || req.query.scope === "ah-movers")) {
     const kvKey = `themepulse:${req.query.scope}`;
     try {

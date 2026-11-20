@@ -242,7 +242,7 @@ function StockTable({ rows, A, onTicker, chartTicker, mode }) {
             return (
               <tr key={r.ticker} onClick={() => onTicker(r.ticker)} style={{ cursor: "pointer", background: on ? A.bgHover : "transparent" }}>
                 <td style={td(A)}>
-                  <span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.ticker}</span>
+                  <FlagButton t={r.ticker} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.ticker}</span>
                   {r.inLead && mode === "lead" && <span title="In a leading layer" style={{ color: A.green, marginLeft: 4 }}>●</span>}
                 </td>
                 <td style={{ ...td(A, "right"), color: r.rs >= 90 ? A.green : r.rs < 70 ? A.red : A.yellow, fontWeight: 700 }}>{r.rs ?? "—"}</td>
@@ -752,7 +752,7 @@ function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, allowed
             <tbody>
               {rows.map((r) => (
                 <tr key={r.t} onClick={() => onTicker(r.t)} style={{ cursor: "pointer", background: chartTicker === r.t ? A.bgHover : "transparent" }}>
-                  <td style={td(A)}><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span></td>
+                  <td style={td(A)}><FlagButton t={r.t} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span></td>
                   <td style={{ ...td(A, "right"), color: r.zvr >= 1.5 ? A.green : r.zvr >= 1 ? A.text : A.textMuted, fontWeight: r.zvr >= 1.5 ? 700 : 400 }}>{r.zvr == null ? "—" : r.zvr.toFixed(2)}</td>
                   <td style={{ ...td(A, "right"), color: A.green }}>{pct(r.chg, 2)}</td>
                   <td style={{ ...td(A, "right"), color: (r.fromOpen ?? 0) >= 0 ? A.green : A.red, fontWeight: 700 }}>{pct(r.fromOpen, 2)}</td>
@@ -855,7 +855,7 @@ function ExtHoursMovers({ A, pipeline, stockMap, tickerLayer, onTicker, chartTic
               {rows.map((r) => (
                 <tr key={r.t} onClick={() => onTicker(r.t)} style={{ cursor: "pointer", background: chartTicker === r.t ? A.bgHover : "transparent" }}>
                   <td style={td(A)}>
-                    <span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span>
+                    <FlagButton t={r.t} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span>
                     {r.er && <span title={r.grade ? `Earnings · EP quality ${r.grade}` : "Earnings"} style={{ marginLeft: 5, fontSize: 9, fontWeight: 700, color: A.cyan, border: `1px solid ${A.cyan}`, borderRadius: 3, padding: "0 3px" }}>ER</span>}
                   </td>
                   <td style={{ ...td(A, "right"), color: r.chg >= 0 ? A.green : A.red, fontWeight: 700 }}>{r.chg > 0 ? "+" : ""}{r.chg.toFixed(2)}%</td>
@@ -887,6 +887,185 @@ function ExtHoursMovers({ A, pipeline, stockMap, tickerLayer, onTicker, chartTic
       </div>
       {section("Pre-market", pmSub, pmRows)}
       {section("After-hours", ahSub, ahRows)}
+    </div>
+  );
+}
+
+// ── Flags (red / blue / gold) ─────────────────────────────────────────────
+// Synced across devices via /api/userdata?scope=flags (per-ticker, latest
+// timestamp wins; clearing writes a null-color tombstone). A module-level
+// store keeps every table on the page in step; localStorage gives an
+// instant first paint before the server answers.
+const FLAG_ORDER = ["red", "blue", "gold"];
+const FLAG_LS = "tp-flags";
+const _flags = { map: {}, subs: new Set(), loading: null };
+try { _flags.map = JSON.parse(localStorage.getItem(FLAG_LS) || "{}") || {}; } catch { _flags.map = {}; }
+function _flagsNotify() {
+  try { localStorage.setItem(FLAG_LS, JSON.stringify(_flags.map)); } catch { /* storage off */ }
+  _flags.subs.forEach((fn) => fn({ ..._flags.map }));
+}
+function _flagsMerge(remote) {
+  let changed = false;
+  for (const [t, v] of Object.entries(remote || {})) {
+    const cur = _flags.map[t];
+    if (!cur || String(cur.at || "") < String(v.at || "")) { _flags.map[t] = v; changed = true; }
+  }
+  return changed;
+}
+function _flagsPost(entries) {
+  return fetch("/api/userdata?scope=flags", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ flags: entries }) }).catch(() => {});
+}
+function _flagsPull() {
+  if (_flags.loading) return _flags.loading;
+  _flags.loading = fetch("/api/userdata?scope=flags", { cache: "no-store" })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((d) => {
+      if (!d?.flags) return;
+      // push local entries the server hasn't seen (made offline / before it loaded)
+      const mine = {};
+      for (const [t, v] of Object.entries(_flags.map)) {
+        const sv = d.flags[t];
+        if (!sv || String(sv.at || "") < String(v.at || "")) mine[t] = v;
+      }
+      if (_flagsMerge(d.flags)) _flagsNotify();
+      if (Object.keys(mine).length) _flagsPost(mine);
+    })
+    .catch(() => {})
+    .finally(() => { _flags.loading = null; });
+  return _flags.loading;
+}
+function setFlag(ticker, color) {
+  const v = { c: color || null, at: new Date().toISOString() };
+  _flags.map[ticker] = v;
+  _flagsNotify();
+  _flagsPost({ [ticker]: v });
+}
+function useFlags() {
+  const [map, setMap] = useState(() => ({ ..._flags.map }));
+  useEffect(() => {
+    _flags.subs.add(setMap);
+    _flagsPull();
+    const onFocus = () => { if (!document.hidden) _flagsPull(); };
+    document.addEventListener("visibilitychange", onFocus);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      _flags.subs.delete(setMap);
+      document.removeEventListener("visibilitychange", onFocus);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, []);
+  return map;
+}
+const flagHex = (c, A) => ({ red: A.red, blue: A.blue, gold: A.gold || "#e3b341" }[c]);
+
+function FlagButton({ t, A }) {
+  const flags = useFlags();
+  const c = flags[t]?.c || null;
+  const [open, setOpen] = useState(false);
+  const ref = React.useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+  return (
+    <span ref={ref} style={{ position: "relative", display: "inline-block", marginRight: 5 }} onClick={(e) => e.stopPropagation()}>
+      <button aria-label={c ? `Flagged ${c}, change flag` : "Flag"} title={c ? `Flagged ${c}` : "Flag"} onClick={() => setOpen((o) => !o)}
+        style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 12, lineHeight: 1,
+          color: c ? flagHex(c, A) : A.textMuted, opacity: c ? 1 : 0.45 }}>
+        {c ? "⚑" : "⚐"}
+      </button>
+      {open && (
+        <span style={{ position: "absolute", top: 16, left: -4, zIndex: 30, display: "flex", gap: 6, alignItems: "center",
+          background: A.bgCard, border: `1px solid ${A.borderLight}`, borderRadius: 6, padding: "5px 7px", boxShadow: A.shadow, whiteSpace: "nowrap", backdropFilter: "blur(12px)" }}>
+          {FLAG_ORDER.map((k) => (
+            <button key={k} aria-label={`Flag ${k}`} title={k} onClick={() => { setFlag(t, k); setOpen(false); }}
+              style={{ width: 16, height: 16, borderRadius: "50%", cursor: "pointer", background: flagHex(k, A),
+                border: c === k ? `2px solid ${A.text}` : "2px solid transparent", padding: 0 }} />
+          ))}
+          {c && <button onClick={() => { setFlag(t, null); setOpen(false); }}
+            style={{ background: "none", border: "none", color: A.textDim, cursor: "pointer", fontSize: 10, padding: "0 2px" }}>clear</button>}
+        </span>
+      )}
+    </span>
+  );
+}
+
+function FlaggedTab({ A, stockMap, tickerLayer, onTicker, chartTicker }) {
+  const flags = useFlags();
+  const [only, setOnly] = useState(null);
+  const tickers = Object.entries(flags).filter(([, v]) => v?.c).map(([t]) => t).sort();
+  const { quotes, at } = useScanQuotes(tickers, true);
+  const [sort, setSort] = useState({ k: "flag", d: 1 });
+  const TEXT = new Set(["t", "layer"]);
+  const rows = tickers.filter((t) => !only || flags[t].c === only).map((t) => {
+    const q = quotes.get(t), s = stockMap?.[t], L = tickerLayer[t];
+    return {
+      t, c: flags[t].c, flag: FLAG_ORDER.indexOf(flags[t].c),
+      px: q?.price ?? s?.close ?? null,
+      chg: q?.change ?? s?.change_pct ?? null,
+      fromOpen: q?.open ? (q.price / q.open - 1) * 100 : null,
+      rs: s?.rs_rank ?? null, layer: L?.name, layerSt: L?.st,
+    };
+  });
+  rows.sort((a, b) => {
+    const { k, d } = sort;
+    const x = a[k], y = b[k];
+    if (x == null && y == null) return a.t.localeCompare(b.t);
+    if (x == null) return 1;
+    if (y == null) return -1;
+    return ((TEXT.has(k) ? String(x).localeCompare(String(y)) : x - y) * d) || a.t.localeCompare(b.t);
+  });
+  const hdr = (k, label, align = "left") => (
+    <th style={{ ...th(A, align), cursor: "pointer", userSelect: "none", color: sort.k === k ? A.text : A.textMuted }}
+      onClick={() => setSort((p) => (p.k === k ? { k, d: -p.d } : { k, d: TEXT.has(k) || k === "flag" ? 1 : -1 }))}>
+      {label}{sort.k === k ? (sort.d < 0 ? " ▼" : " ▲") : ""}
+    </th>
+  );
+  const pct = (v) => (v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(2)}%`);
+  const counts = Object.fromEntries(FLAG_ORDER.map((k) => [k, tickers.filter((t) => flags[t].c === k).length]));
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 6, flexWrap: "wrap" }}>
+        {[null, ...FLAG_ORDER].map((k) => (
+          <button key={k || "all"} onClick={() => setOnly(k)}
+            style={{ display: "flex", alignItems: "center", gap: 5, background: only === k ? A.bgHover : "transparent",
+              border: `1px solid ${only === k ? A.borderLight : A.border}`, borderRadius: 4, padding: "2px 8px", fontSize: 11, color: A.text, cursor: "pointer" }}>
+            {k ? <span style={{ width: 9, height: 9, borderRadius: "50%", background: flagHex(k, A) }} /> : null}
+            {k ? k[0].toUpperCase() + k.slice(1) : "All"} <span style={{ color: A.textMuted }}>{k ? counts[k] : tickers.length}</span>
+          </button>
+        ))}
+        <span style={{ marginLeft: "auto", fontSize: 10, color: A.textMuted }}>{at && tickers.length ? `Live · ${at.toLocaleTimeString()}` : ""}</span>
+      </div>
+      {!rows.length ? (
+        <div style={{ fontSize: 11, color: A.textMuted, padding: "6px 2px" }}>
+          {tickers.length ? "No flags of this color." : "Nothing flagged yet. Click the ⚐ next to any ticker in the other tabs."}
+        </div>
+      ) : (
+        <div style={{ overflowX: "auto", maxHeight: 520, overflowY: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead style={{ position: "sticky", top: 0, background: A.bg }}>
+              <tr>{hdr("flag", "Flag")}{hdr("t", "Ticker")}{hdr("px", "Price", "right")}{hdr("chg", "Chg", "right")}{hdr("fromOpen", "From open", "right")}{hdr("rs", "RS", "right")}{hdr("layer", "Layer")}</tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.t} onClick={() => onTicker(r.t)} style={{ cursor: "pointer", background: chartTicker === r.t ? A.bgHover : "transparent" }}>
+                  <td style={td(A)}><FlagButton t={r.t} A={A} /></td>
+                  <td style={td(A)}><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span></td>
+                  <td style={{ ...td(A, "right"), color: A.text }}>{r.px != null ? r.px.toFixed(2) : "—"}</td>
+                  <td style={{ ...td(A, "right"), color: (r.chg ?? 0) >= 0 ? A.green : A.red, fontWeight: 700 }}>{pct(r.chg)}</td>
+                  <td style={{ ...td(A, "right"), color: (r.fromOpen ?? 0) >= 0 ? A.green : A.red }}>{pct(r.fromOpen)}</td>
+                  <td style={{ ...td(A, "right"), color: r.rs >= 90 ? A.green : r.rs >= 70 ? A.yellow : r.rs != null ? A.red : A.textMuted }}>{r.rs ?? "—"}</td>
+                  <td style={{ ...td(A), fontSize: 11, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {r.layer ? <span style={{ color: statusColor(r.layerSt, A) }}>{r.layer}</span> : <span style={{ color: A.textMuted }}>—</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
@@ -1117,7 +1296,7 @@ export default function LeadershipView({ ARIA: A, stockMap, onTickerClick, chart
             <Card A={A} title="Stocks"
               sub={stockTab === "lead"
                 ? "RS ≥ 90, above the 50-day, within 25% of the high · ● = in a leading layer"
-                : stockTab === "intra" || stockTab === "ext"
+                : stockTab === "intra" || stockTab === "ext" || stockTab === "flag"
                 ? undefined
                 : "Held the top RS decile ≥ 40% of the quarter, now RS < 70 or ≥ 8% below the 50-day"}
               right={<Tabs A={A} value={stockTab} onChange={setStockTab} items={[
@@ -1125,8 +1304,11 @@ export default function LeadershipView({ ARIA: A, stockMap, onTickerClick, chart
                 ["brk", "Leaders breaking down", stocks.brk.length, A.red],
                 ["intra", "Intraday scan", "", A.cyan],
                 ["ext", "Pre/After-market", "", A.purple],
+                ["flag", "Flagged", "", A.gold],
               ]} />}>
-              {stockTab === "ext"
+              {stockTab === "flag"
+                ? <FlaggedTab A={A} stockMap={stockMap} tickerLayer={tickerLayer} onTicker={onTickerClick} chartTicker={chartTicker} />
+                : stockTab === "ext"
                 ? <ExtHoursMovers A={A} pipeline={pipeline} stockMap={stockMap} tickerLayer={tickerLayer} onTicker={onTickerClick} chartTicker={chartTicker} />
                 : stockTab === "intra"
                 ? <IntradayScan A={A} stockMap={stockMap} onTicker={onTickerClick} chartTicker={chartTicker} tickerLayer={tickerLayer}
