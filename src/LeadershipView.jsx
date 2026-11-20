@@ -622,7 +622,7 @@ function writeZvrSnap(date, map) {
   try { localStorage.setItem(ZVR_SNAP_KEY, JSON.stringify({ date, at: new Date().toISOString(), z: map })); } catch { /* storage off */ }
 }
 
-function scanBase(s) {
+function scanBase(s, session) {
   if (!s?.ticker) return null;
   const c = s.close || s.price;
   if (!c) return null;
@@ -637,11 +637,13 @@ function scanBase(s) {
   if (adv < 25e6) return null;                                 // avg $ volume ≥ $25M
   if (!(sma50 && sma200 && sma50 > sma200)) return null;
   if (!(rev > 0)) return null;
-  return { t: s.ticker, sma200, ema50, hi52, lo52, avgVol: s.avg_volume_raw, avg10: s.avg_vol_10d || s.avg_volume_raw, adr: s.adr_pct, rs: s.rs_rank };
+  return { t: s.ticker, sma200, ema50, hi52, lo52, avgVol: s.avg_volume_raw, // baseline = the 10 sessions BEFORE the one being measured: once the
+    // pipeline has the measured session as its last bar, use the prior-10 avg
+    avg10: (s.last_bar_date && s.last_bar_date === session && s.avg_vol_10d_prior) || s.avg_vol_10d || s.avg_volume_raw, adr: s.adr_pct, rs: s.rs_rank };
 }
 
 function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, allowed }) {
-  const base = useMemo(() => Object.values(stockMap || {}).map(scanBase).filter(Boolean)
+  const base = useMemo(() => Object.values(stockMap || {}).map((x) => scanBase(x, etClock().session)).filter(Boolean)
     .filter((b) => !allowed || allowed.has(b.t)), [stockMap, allowed]);
   const { quotes, at } = useScanQuotes(base.map((b) => b.t), true);
   const [sort, setSort] = useState({ k: "fromOpen", d: -1 });
