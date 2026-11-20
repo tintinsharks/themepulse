@@ -671,14 +671,12 @@
   "ondeck": false
  },
  "MANH": {
-  "entered": "2026-11-05",
-  "px": 255.78,
+  "entered": "2026-11-20",
+  "px": 244.95,
   "layer": "Vertical SaaS",
-  "peak": 258.86,
-  "last_seen": "2026-11-13",
-  "ondeck": true,
-  "exited": "2026-11-19",
-  "exit_px": 250.14
+  "peak": 244.95,
+  "last_seen": "2026-11-20",
+  "ondeck": true
  },
  "PCOR": {
   "entered": "2026-11-20",
