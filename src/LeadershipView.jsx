@@ -963,7 +963,7 @@ export default function LeadershipView({ ARIA: A, stockMap, onTickerClick, chart
               sub={stockTab === "lead"
                 ? "RS ≥ 90, above the 50-day, within 25% of the high · ● = in a leading layer"
                 : stockTab === "intra"
-                ? "Price ≥ $7 · mcap > $300M · ADR > 2% · avg vol ≥ 500K · avg $vol ≥ $25M · vol > 50K · RVol at time (ZVR) > 0.1 · SMA50 > SMA200 · up on the day · within 30% of the 52w high · ≥ 30% above the 52w low · above SMA200 & EMA50 · revenue > 0"
+                ? undefined
                 : "Held the top RS decile ≥ 40% of the quarter, now RS < 70 or ≥ 8% below the 50-day"}
               right={<Tabs A={A} value={stockTab} onChange={setStockTab} items={[
                 ["lead", "Leaders", stocks.lead.length, A.green],
