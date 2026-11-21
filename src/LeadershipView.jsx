@@ -102,20 +102,18 @@ function layerStats(tickers, stockMap) {
   };
 }
 
-// Tags that qualify a status without changing it: a leader whose breadth is
-// thin is held up by a few names; an emerging layer with broad breadth and
-// heavy up-volume is moving as a group.
 // Volume / participation confirmation for a layer, from layer_breadth.json
 // (pipeline 10f). Each check is one way a rising group shows institutions are
 // actually behind it:
 //   acc     accumulation days (member up >= 1% on >= 1.5x 50-day volume) over
 //           10 sessions >= 3 and at least twice the distribution days
 //   money   layer's share of universe dollar volume, 5d vs 20d, >= 1.15x
-//   rsline  >= 40% of members with their RS line (vs SPY) within 3% of a 52-week high
 //   leaders members at stock RS >= 90 up by 2+ vs 5 sessions ago
-//   thrust  % above the 20-day jumped from <= 30% to >= 60% within 10 sessions
+// Percent-of-members measures (% above MAs, RS-line highs, breadth thrust)
+// were dropped 2026-11-21: layers run 4-140 members, so a small layer moves
+// in 25-point jumps. Counts and ratios only.
 function layerConfirm(lbRow) {
-  if (!lbRow || !lbRow.a20) return null;
+  if (!lbRow || !lbRow.acc) return null;
   const lastOf = (arr, back = 0) => {
     if (!arr) return null;
     let i = arr.length - 1;
@@ -123,31 +121,23 @@ function layerConfirm(lbRow) {
     i -= back;
     return i >= 0 ? arr[i] : null;
   };
-  const acc = lastOf(lbRow.acc), dist = lastOf(lbRow.dist), dvs = lastOf(lbRow.dvs), rslh = lastOf(lbRow.rslh);
+  const acc = lastOf(lbRow.acc), dist = lastOf(lbRow.dist), dvs = lastOf(lbRow.dvs);
   const l90 = lastOf(lbRow.l90), l90p = lastOf(lbRow.l90, 5);
-  const a20 = lbRow.a20.filter((x) => x != null);
-  const a20now = a20[a20.length - 1];
-  const a20min = a20.length > 1 ? Math.min(...a20.slice(-11, -1)) : null;
   const checks = {
     acc: acc != null && acc >= 3 && acc >= 2 * (dist ?? 0),
     money: dvs != null && dvs >= 1.15,
-    rsline: rslh != null && rslh >= 40,
     leaders: l90 != null && l90p != null && l90 - l90p >= 2,
-    thrust: a20now != null && a20min != null && a20now >= 60 && a20min <= 30,
   };
   const passed = Object.keys(checks).filter((k) => checks[k]);
-  return { acc, dist, dvs, rslh, l90, l90d: l90 != null && l90p != null ? l90 - l90p : null, thrust: checks.thrust, passed,
+  return { acc, dist, dvs, l90, l90d: l90 != null && l90p != null ? l90 - l90p : null, passed,
     distHeavy: dist != null && dist >= 3 && dist >= 2 * (acc ?? 0) };
 }
-const CONF_LABEL = { acc: "accumulation days", money: "money flowing in", rsline: "RS lines at highs", leaders: "new RS 90+ leaders", thrust: "breadth thrust" };
+const CONF_LABEL = { acc: "accumulation days", money: "money flowing in", leaders: "new RS 90+ leaders" };
 
 function layerFlags(l) {
   const b = l.stats;
   if (!b || b.n < 3) return [];
   const f = [];
-  if (l.st === "lead" && (b.a50 < 50 || b.rs80 < 30)) f.push(["thin", "Rank held up by a few names: under half above the 50-day or under 30% at RS 80+"]);
-  if (l.st === "emerg" && b.a50 >= 65 && (b.udv ?? 0) >= 1.2) f.push(["broad", "Most members above the 50-day and up-day volume outweighs down-day"]);
-  if (l.st === "emerg" && b.a50 < 50) f.push(["narrow", "Rank rise driven by a minority of members"]);
   const cf = l.conf;
   if (cf) {
     if ((l.st === "lead" || l.st === "weak") && cf.distHeavy)
@@ -155,10 +145,9 @@ function layerFlags(l) {
     // "rising" = Emerging, or a non-leader whose rank is climbing (+10 in a month, still rising)
     const rising = l.st === "emerg" || (l.st !== "lead" && (l.now - (l.m1 ?? l.now)) >= 10 && (l.trend?.slope ?? 0) > 0);
     if (rising) {
-      if (cf.passed.length >= 2) f.push(["confirmed", `Rank rising with ${cf.passed.length} of 5 confirmations: ${cf.passed.map((k) => CONF_LABEL[k]).join(", ")}`]);
+      if (cf.passed.length >= 2) f.push(["confirmed", `Rank rising with ${cf.passed.length} of 3 confirmations: ${cf.passed.map((k) => CONF_LABEL[k]).join(", ")}`]);
       else f.push(["unconfirmed", `Rank rising without volume/participation confirmation${cf.passed.length ? ` (only ${CONF_LABEL[cf.passed[0]]})` : ""}`]);
     }
-    if (cf.thrust) f.push(["thrust", "Breadth thrust: % above the 20-day went from ≤ 30% to ≥ 60% within 10 sessions"]);
   } else if ((l.st === "lead" || l.st === "weak") && b.udv != null && b.udv < 0.8) {
     f.push(["distrib", "Down-day volume outweighs up-day volume over 20 sessions"]);
   }
@@ -448,11 +437,9 @@ function ThemeBoard({ themes, A, selected, onSelect }) {
               </div>
             </div>
             {t.stats && (
-              <div title="% of the theme's stocks above their 50-day · % at RS 80+ · rank trend (pts/session, last 5) and sessions rising of the last 10"
+              <div title="Rank trend: points per session over the last 5 · sessions rising of the last 10"
                 style={{ fontSize: 10, color: A.textMuted, marginTop: 3, fontVariantNumeric: "tabular-nums" }}>
-                <span style={{ color: t.stats.a50 >= 60 ? A.green : t.stats.a50 < 40 ? A.red : A.yellow }}>{t.stats.a50}%</span> &gt;50d ·{" "}
-                <span style={{ color: t.stats.rs80 >= 50 ? A.green : t.stats.rs80 < 25 ? A.red : A.yellow }}>{t.stats.rs80}%</span> RS80
-                {t.trend?.slope != null && <> · <span style={{ color: t.trend.slope > 0.5 ? A.green : t.trend.slope < -0.5 ? A.red : A.textMuted }}>{t.trend.slope > 0 ? "+" : ""}{t.trend.slope.toFixed(1)}</span> {t.trend.ups}/{t.trend.of}</>}
+                {t.trend?.slope != null && <>trend <span style={{ color: t.trend.slope > 0.5 ? A.green : t.trend.slope < -0.5 ? A.red : A.textMuted }}>{t.trend.slope > 0 ? "+" : ""}{t.trend.slope.toFixed(1)}</span> {t.trend.ups}/{t.trend.of}</>}
               </div>
             )}
           </button>
@@ -478,9 +465,8 @@ function LayerTable({ rows, A, onTicker, chartTicker, stockMap, showPeak, member
             {showPeak && <th style={th(A, "right")}>Peak</th>}
             <th className="tp-hide-sm" style={th(A)}>{SPARK_N}d</th>
             <th className="tp-hide-sm" style={th(A, "right")} title="Rank change per session, least-squares over the last 5 sessions · sessions out of the last 10 the rank rose">Trend</th>
-            <th className="tp-hide-sm" style={th(A, "right")} title="% of members above their 50-day · % with RS ≥ 80 · % closing at a 20-session high">Breadth</th>
             <th className="tp-hide-sm" style={th(A, "right")} title="Accumulation / distribution days across members over 10 sessions (up or down ≥ 1% on ≥ 1.5× 50-day volume) · layer's share of universe dollar volume, 5-day vs 20-day">Volume</th>
-            <th className="tp-hide-sm" style={th(A, "right")} title="% of members with their RS line (vs SPY) within 3% of a 52-week high · members at stock RS 90+ (change vs 5 sessions ago)">Leaders</th>
+            <th className="tp-hide-sm" style={th(A, "right")} title="Members at stock RS 90+ (change vs 5 sessions ago)">RS 90+</th>
             <th className="tp-hide-sm" style={th(A, "right")} title="Share of the trailing quarter this layer ranked ≥ 88">Held</th>
             <th style={th(A)}>Strongest names <span style={{ fontWeight: 400 }}>· click a row for every member</span></th>
           </tr>
@@ -504,8 +490,8 @@ function LayerTable({ rows, A, onTicker, chartTicker, stockMap, showPeak, member
                   <div style={{ fontSize: 10, color: A.textMuted }}>{l.theme}
                     {flags.map(([k, why]) => (
                       <span key={k} title={why} style={{ marginLeft: 5, padding: "0 4px", borderRadius: 3, fontSize: 9, fontWeight: 700,
-                        border: `1px solid ${k === "broad" || k === "confirmed" ? A.green : k === "thrust" ? A.cyan : k === "narrow" || k === "unconfirmed" ? A.textMuted : A.yellow}`,
-                        color: k === "broad" || k === "confirmed" ? A.green : k === "thrust" ? A.cyan : k === "narrow" || k === "unconfirmed" ? A.textMuted : A.yellow }}>{k}</span>
+                        border: `1px solid ${k === "confirmed" ? A.green : k === "unconfirmed" ? A.textMuted : A.yellow}`,
+                        color: k === "confirmed" ? A.green : k === "unconfirmed" ? A.textMuted : A.yellow }}>{k}</span>
                     ))}
                   </div>
                 </td>
@@ -520,24 +506,14 @@ function LayerTable({ rows, A, onTicker, chartTicker, stockMap, showPeak, member
                   <span style={{ color: A.textMuted, fontSize: 10 }}> {tr?.of ? `${tr.ups}/${tr.of}` : ""}</span>
                 </td>
                 <td className="tp-hide-sm" style={{ ...td(A, "right"), whiteSpace: "nowrap", fontSize: 11 }}>
-                  {b ? (<>
-                    <span style={{ color: b.a50 >= 60 ? A.green : b.a50 < 40 ? A.red : A.yellow }}>{b.a50}%</span>
-                    <span style={{ color: A.textMuted }}> · </span>
-                    <span style={{ color: b.rs80 >= 50 ? A.green : b.rs80 < 25 ? A.red : A.yellow }}>{b.rs80}%</span>
-                    <span style={{ color: A.textMuted }}> · {b.nh}%</span>
-                  </>) : "—"}
-                </td>
-                <td className="tp-hide-sm" style={{ ...td(A, "right"), whiteSpace: "nowrap", fontSize: 11 }}>
                   {l.conf?.acc != null ? (<>
                     <span style={{ color: l.conf.passed.includes("acc") ? A.green : l.conf.distHeavy ? A.red : A.textDim }}>{l.conf.acc}/{l.conf.dist}</span>
                     {l.conf.dvs != null && <span style={{ color: l.conf.dvs >= 1.15 ? A.green : l.conf.dvs < 0.87 ? A.red : A.textMuted }}> · {l.conf.dvs.toFixed(2)}×</span>}
                   </>) : b?.udv != null ? <span style={{ color: A.textMuted }}>{b.udv.toFixed(2)}</span> : "—"}
                 </td>
                 <td className="tp-hide-sm" style={{ ...td(A, "right"), whiteSpace: "nowrap", fontSize: 11 }}>
-                  {l.conf?.rslh != null || l.conf?.l90 != null ? (<>
-                    <span style={{ color: l.conf.rslh >= 40 ? A.green : A.textDim }}>{l.conf.rslh ?? "—"}%</span>
-                    <span style={{ color: A.textMuted }}> · </span>
-                    <span style={{ color: A.text }}>{l.conf.l90 ?? "—"}</span>
+                  {l.conf?.l90 != null ? (<>
+                    <span style={{ color: A.text }}>{l.conf.l90}</span>
                     {l.conf.l90d ? <span style={{ color: l.conf.l90d > 0 ? A.green : A.red, fontSize: 10 }}> {l.conf.l90d > 0 ? "+" : ""}{l.conf.l90d}</span> : null}
                   </>) : "—"}
                 </td>
@@ -1561,7 +1537,6 @@ function LayerMembers({ A, layer, tickers, stockMap, onTicker, chartTicker }) {
       <div style={{ fontSize: 10, color: A.textMuted, marginBottom: 6 }}>
         <span style={{ color: statusColor(layer.st, A), fontWeight: 700 }}>{STATUS[layer.st].label}</span> · rank {layer.now}{b?.rsMed != null && <> · typical member RS {b.rsMed}</>}
         {" "}(<Delta v={layer.now - layer.w1} A={A} /> 1w, <Delta v={layer.now - layer.m1} A={A} /> 1m) · {layer.theme}
-        {b && <> · {b.a50}% above 50d · {b.rs80}% RS 80+ · {b.nh}% at 20d highs</>}
         {at && <> · live {at.toLocaleTimeString()}</>}
         {" "}· ★ fastest EPS grower · ↑/↓ to step through
       </div>
