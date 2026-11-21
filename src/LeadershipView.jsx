@@ -98,6 +98,7 @@ function layerStats(tickers, stockMap) {
     nh: pct((s) => s.nh20 === 1),
     udv: med("udv20"),
     dv: med("dvol_ratio_5_20"),
+    rsMed: med("rs_rank"),
   };
 }
 
@@ -426,7 +427,8 @@ function LayerTable({ rows, A, onTicker, chartTicker, stockMap, showPeak, member
         <thead>
           <tr>
             <th style={th(A)}>Layer</th>
-            <th style={th(A, "right")}>Rank</th>
+            <th style={th(A, "right")} title="Layer RS rank among all layers (0–100)">Rank</th>
+            <th style={th(A, "right")} title="Typical (median) member's own stock RS — a top-ranked layer can still be made of middling stocks">Mbr RS</th>
             <th style={th(A, "right")}>1w</th>
             <th style={th(A, "right")}>1m</th>
             {showPeak && <th style={th(A, "right")}>Peak</th>}
@@ -463,6 +465,7 @@ function LayerTable({ rows, A, onTicker, chartTicker, stockMap, showPeak, member
                   </div>
                 </td>
                 <td style={{ ...td(A, "right"), color: c, fontWeight: 700 }}>{l.now}</td>
+                <td style={{ ...td(A, "right"), color: b?.rsMed == null ? A.textMuted : b.rsMed >= 80 ? A.green : b.rsMed >= 60 ? A.yellow : A.red }}>{b?.rsMed ?? "—"}</td>
                 <td style={td(A, "right")}><Delta v={l.now - l.w1} A={A} /></td>
                 <td style={td(A, "right")}><Delta v={l.now - l.m1} A={A} /></td>
                 {showPeak && <td style={td(A, "right")}>{l.peak}</td>}
@@ -1501,7 +1504,7 @@ function LayerMembers({ A, layer, tickers, stockMap, onTicker, chartTicker }) {
   return (
     <div>
       <div style={{ fontSize: 10, color: A.textMuted, marginBottom: 6 }}>
-        <span style={{ color: statusColor(layer.st, A), fontWeight: 700 }}>{STATUS[layer.st].label}</span> · rank {layer.now}
+        <span style={{ color: statusColor(layer.st, A), fontWeight: 700 }}>{STATUS[layer.st].label}</span> · rank {layer.now}{b?.rsMed != null && <> · typical member RS {b.rsMed}</>}
         {" "}(<Delta v={layer.now - layer.w1} A={A} /> 1w, <Delta v={layer.now - layer.m1} A={A} /> 1m) · {layer.theme}
         {b && <> · {b.a50}% above 50d · {b.rs80}% RS 80+ · {b.nh}% at 20d highs</>}
         {at && <> · live {at.toLocaleTimeString()}</>}
