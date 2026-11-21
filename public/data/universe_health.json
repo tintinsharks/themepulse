@@ -1,7 +1,7 @@
 {
- "generated": "2026-11-20T20:52",
- "universe": 3274,
- "in_layer": 2545,
+ "generated": "2026-11-21T03:44",
+ "universe": 3273,
+ "in_layer": 2534,
  "layers": 161,
  "checks": [
   {
@@ -15,10 +15,8 @@
   {
    "id": "orphans_strong",
    "label": "Liquid (\u2265$25M/day), RS \u2265 75, in no layer",
-   "count": 1,
-   "items": [
-    "VSCO"
-   ],
+   "count": 0,
+   "items": [],
    "status": "ok",
    "note": ""
   },
@@ -60,10 +58,10 @@
     "VSCO",
     "FDXF",
     "JCPB",
-    "MMED",
     "JMUB",
-    "BSP",
+    "MMED",
     "BKH",
+    "BSP",
     "MSGS"
    ],
    "status": "warn",
@@ -72,12 +70,16 @@
   {
    "id": "young_unranked",
    "label": "Listings 2\u201312 months old with no RS rank",
-   "count": 4,
+   "count": 8,
    "items": [
     "EMAT(2026-01-06)",
+    "CDNL(2025-12-10)",
+    "BBCQ(2026-01-28)",
     "CMCSV(2025-12-15)",
     "VSNTV(2025-12-15)",
-    "AACI(2026-03-27)"
+    "AACI(2026-03-27)",
+    "CCXI(2026-02-09)",
+    "CCXIU(2025-12-17)"
    ],
    "status": "warn",
    "note": ""
@@ -100,37 +102,26 @@
   {
    "id": "stale_prices",
    "label": "Liquid names whose price history is behind 2026-11-20",
-   "count": 121,
+   "count": 97,
    "items": [
     "ABR",
     "ACA",
     "ACLX",
-    "ACVA",
     "AHL",
     "AL",
     "AMWD",
-    "APGE",
     "APLS",
     "AREC",
     "ARMN",
     "ASGN",
-    "ATAI",
-    "ATKR",
     "AVNS",
-    "AXIA",
     "BDXA",
     "BITF",
     "BK",
     "BKH",
     "BLD",
-    "BLFS",
-    "BWMN",
     "BYND",
-    "BZH",
     "CABO",
-    "CBZ",
-    "CCO",
-    "CCXI",
     "CDNL",
     "CFLT",
     "CNTA",
@@ -141,7 +132,18 @@
     "CUK",
     "CWAN",
     "DAWN",
-    "EA"
+    "EHAB",
+    "ENVX",
+    "ESPR",
+    "EXAS",
+    "EYPT",
+    "FDP",
+    "FIHL",
+    "FOLD",
+    "GDEN",
+    "GLDD",
+    "GTLS",
+    "HOLX"
    ],
    "status": "warn",
    "note": ""
