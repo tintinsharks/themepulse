@@ -1276,13 +1276,104 @@ export function ScannerPanel({ A, stockMap, onTicker, chartTicker, tickerLayer }
   );
 }
 
-export default function LeadershipView({ ARIA: A, stockMap, onTickerClick, chartTicker, chartSlot, indexQuotes, pipeline, view = "lead" }) {
+// ── Live RS ───────────────────────────────────────────────────────────────
+// The pipeline ranks RS once a night (0.40·1M + 0.20·3M + 0.20·6M + 0.20·1Y,
+// percentile × 99 across the universe). During a session that rank is a day
+// old, so a leader gapping up or breaking down doesn't move until tomorrow.
+// This re-bases every return on the live price — (1 + r) × price / close − 1 —
+// and re-ranks the whole universe with the same weights. Only runs when the
+// current session is newer than the pipeline's close; stale-history tickers
+// (> 7 days behind) stay out of the pool, as in the pipeline.
+const RS_W = [["return_1m", 0.4], ["return_3m", 0.2], ["return_6m", 0.2], ["return_1y", 0.2]];
+function rsScore(s, f) {
+  let sum = 0, w = 0;
+  for (const [k, wt] of RS_W) {
+    const r = s[k];
+    if (r == null || !isFinite(r)) continue;
+    sum += ((1 + r / 100) * f - 1) * 100 * wt; w += wt;
+  }
+  return w ? sum / w : null;
+}
+function useLiveRS(stockMap) {
+  const [quotes, setQuotes] = useState(null);
+  const [at, setAt] = useState(null);
+  const meta = useMemo(() => {
+    const all = Object.values(stockMap || {}).filter((s) => s?.ticker && s.close > 0);
+    const newest = all.reduce((m, s) => (s.last_bar_date > m ? s.last_bar_date : m), "");
+    const cut = newest ? new Date(new Date(newest).getTime() - 7 * 864e5).toISOString().slice(0, 10) : "";
+    const pool = all.filter((s) => (s.last_bar_date || "") >= cut);
+    return { newest, tickers: pool.map((s) => s.ticker) };
+  }, [stockMap]);
+  const key = meta.tickers.join(",");
+  useEffect(() => {
+    if (!key) return;
+    let live = true, id;
+    const pull = async () => {
+      if (document.hidden) return;
+      if (!(etClock().session > meta.newest)) { setQuotes(null); return; }
+      const list = key.split(","), m = new Map();
+      const chunks = [];
+      for (let i = 0; i < list.length; i += 500) chunks.push(list.slice(i, i + 500));
+      await Promise.all(chunks.map(async (c) => {
+        try {
+          const r = await fetch(`/api/live?universe=${encodeURIComponent(c.join(","))}`);
+          const d = r.ok ? await r.json() : null;
+          (d?.theme_universe || d?.universe || []).forEach((q) => { if (q?.ticker && q.price > 0) m.set(q.ticker, q.price); });
+        } catch { /* keep last */ }
+      }));
+      if (live && m.size > list.length * 0.5) { setQuotes(m); setAt(new Date()); }
+    };
+    // FMP budget: one universe pull every 3 min in regular hours, 15 min otherwise
+    const schedule = () => { id = setTimeout(async () => { await pull(); if (live) schedule(); }, etClock().rth ? 180000 : 15 * 60000); };
+    pull(); schedule();
+    const onVis = () => { if (!document.hidden) pull(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { live = false; clearTimeout(id); document.removeEventListener("visibilitychange", onVis); };
+  }, [key, meta.newest]);
+  return useMemo(() => {
+    if (!quotes) return { map: stockMap, at: null };
+    const pool = new Set(meta.tickers);
+    const sc = [];
+    for (const t of meta.tickers) {
+      const s = stockMap[t], p = quotes.get(t);
+      const v0 = rsScore(s, 1), v = rsScore(s, p ? p / s.close : 1);
+      if (v != null) sc.push([t, v0, v]);
+    }
+    // pandas rank(pct=True) uses average ranks for ties: (lo + hi + 1) / 2 / n
+    const ranker = (vals) => {
+      const sorted = [...vals].sort((a, b) => a - b), n = sorted.length;
+      return (v) => {
+        let lo = 0, hi = n;
+        while (lo < hi) { const m = (lo + hi) >> 1; sorted[m] < v ? (lo = m + 1) : (hi = m); }
+        let up = lo; while (up < n && sorted[up] === v) up++;
+        return ((lo + up + 1) / 2) / n;
+      };
+    };
+    const p0 = ranker(sc.map((x) => x[1])), p1 = ranker(sc.map((x) => x[2]));
+    const out = { ...stockMap };
+    // Applied as a change on top of the pipeline's rank: the pipeline ranks a
+    // slightly larger pool, so re-ranking from scratch would shift names ±1-10
+    // points at the open before any price had moved.
+    for (const [t, v0, v] of sc) {
+      const base = stockMap[t].rs_rank ?? Math.round(p0(v0) * 99);
+      const rs = Math.max(0, Math.min(99, Math.round(base + (p1(v) - p0(v0)) * 99)));
+      out[t] = { ...stockMap[t], rs_rank_close: stockMap[t].rs_rank, rs_rank: rs, rs_live: true };
+    }
+    // out-of-pool (stale history) names rank 0, matching the pipeline
+    for (const t of Object.keys(stockMap)) if (!pool.has(t) && stockMap[t]?.ticker) out[t] = { ...stockMap[t], rs_rank_close: stockMap[t].rs_rank, rs_rank: 0 };
+    return { map: out, at };
+  }, [quotes, at, stockMap, meta]);
+}
+
+export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTickerClick, chartTicker, chartSlot, indexQuotes, pipeline, view = "lead" }) {
   const rot = useJson("/data/rs_rotation.json");
   const hist = useJson("/data/rank_history.json");
   const seats = useJson("/data/ticker_seats.json");
   const breadth = useJson("/data/breadth.json");
   const [theme, setTheme] = useState(null);
   const idxBars = useIndexBars(LEAD_INDEXES.map((x) => x.t));
+  const liveRs = useLiveRS(stockMapIn);
+  const stockMap = liveRs.map;
   // ↑/↓ steps through the rows of the Stocks box (whatever tab/sort is showing)
   // and loads each one in the chart. Ignored while typing in a field.
   const stocksRef = useRef(null);
@@ -1505,7 +1596,7 @@ export default function LeadershipView({ ARIA: A, stockMap, onTickerClick, chart
               const pct = (v) => (v == null ? "—" : `${v > 0 ? "+" : ""}${Number(v).toFixed(1)}%`);
               return (
                 <Card A={A} title={`${lookupQ}${s?.company && s.company !== 0 ? ` · ${s.company}` : ""}`}
-                  sub={s ? `RS ${s.rs_rank ?? "—"} · vs 50d ${pct(s.sma50_pct)} · off high ${pct(s.off_52w_high)} · ${s.industry || ""}` : "Not in the ThemePulse universe"}
+                  sub={s ? `RS ${s.rs_rank ?? "—"}${s.rs_live ? ` live (close ${s.rs_rank_close ?? "—"})` : ""} · vs 50d ${pct(s.sma50_pct)} · off high ${pct(s.off_52w_high)} · ${s.industry || ""}` : "Not in the ThemePulse universe"}
                   right={<button onClick={() => { setLookup(""); setLookupQ(""); }} style={{ background: "transparent", border: "none", color: A.cyan, cursor: "pointer", fontSize: 11 }}>close</button>}>
                   {!lookupHits.length ? (
                     <div style={{ fontSize: 11, color: A.textMuted }}>{s ? "In the universe but not in any layer (trades under $10M/day, or no industry mapping)." : "No layers."}</div>
