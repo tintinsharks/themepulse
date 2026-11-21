@@ -1,7 +1,7 @@
 {
- "generated": "2026-11-21T03:44",
+ "generated": "2026-11-21T06:04",
  "universe": 3273,
- "in_layer": 2534,
+ "in_layer": 2530,
  "layers": 161,
  "checks": [
   {
@@ -15,8 +15,10 @@
   {
    "id": "orphans_strong",
    "label": "Liquid (\u2265$25M/day), RS \u2265 75, in no layer",
-   "count": 0,
-   "items": [],
+   "count": 1,
+   "items": [
+    "BKH"
+   ],
    "status": "ok",
    "note": ""
   },
@@ -70,9 +72,8 @@
   {
    "id": "young_unranked",
    "label": "Listings 2\u201312 months old with no RS rank",
-   "count": 8,
+   "count": 7,
    "items": [
-    "EMAT(2026-01-06)",
     "CDNL(2025-12-10)",
     "BBCQ(2026-01-28)",
     "CMCSV(2025-12-15)",
@@ -102,7 +103,7 @@
   {
    "id": "stale_prices",
    "label": "Liquid names whose price history is behind 2026-11-20",
-   "count": 97,
+   "count": 87,
    "items": [
     "ABR",
     "ACA",
@@ -138,12 +139,12 @@
     "EXAS",
     "EYPT",
     "FDP",
-    "FIHL",
     "FOLD",
     "GDEN",
     "GLDD",
     "GTLS",
-    "HOLX"
+    "HOLX",
+    "IAC"
    ],
    "status": "warn",
    "note": ""
