@@ -1280,7 +1280,7 @@ export function ScannerPanel({ A, stockMap, onTicker, chartTicker, tickerLayer }
 // The pipeline ranks RS once a night (0.40·1M + 0.20·3M + 0.20·6M + 0.20·1Y,
 // percentile × 99 across the universe). During a session that rank is a day
 // old, so a leader gapping up or breaking down doesn't move until tomorrow.
-// This re-bases every return on the live price — (1 + r) × price / close − 1 —
+// This re-bases every return on the live price (refreshed hourly) — (1 + r) × price / close − 1 —
 // and re-ranks the whole universe with the same weights. Only runs when the
 // current session is newer than the pipeline's close; stale-history tickers
 // (> 7 days behind) stay out of the pool, as in the pipeline.
@@ -1308,9 +1308,14 @@ function useLiveRS(stockMap) {
   useEffect(() => {
     if (!key) return;
     let live = true, id;
+    let last = 0;
     const pull = async () => {
       if (document.hidden) return;
       if (!(etClock().session > meta.newest)) { setQuotes(null); return; }
+      // RS refreshes at most once an hour — tab refocus or a re-render
+      // doesn't pull early
+      if (Date.now() - last < 3600000) return;
+      last = Date.now();
       const list = key.split(","), m = new Map();
       const chunks = [];
       for (let i = 0; i < list.length; i += 500) chunks.push(list.slice(i, i + 500));
@@ -1323,8 +1328,9 @@ function useLiveRS(stockMap) {
       }));
       if (live && m.size > list.length * 0.5) { setQuotes(m); setAt(new Date()); }
     };
-    // FMP budget: one universe pull every 3 min in regular hours, 15 min otherwise
-    const schedule = () => { id = setTimeout(async () => { await pull(); if (live) schedule(); }, etClock().rth ? 180000 : 15 * 60000); };
+    // Hourly during the session (Nitin's call: intraday RS should move on
+    // the hour, not tick); 15-min checks otherwise just notice a new session.
+    const schedule = () => { id = setTimeout(async () => { await pull(); if (live) schedule(); }, etClock().rth ? 3600000 : 15 * 60000); };
     pull(); schedule();
     const onVis = () => { if (!document.hidden) pull(); };
     document.addEventListener("visibilitychange", onVis);
