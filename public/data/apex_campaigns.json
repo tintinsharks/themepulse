@@ -739,5 +739,13 @@
   "peak": 36.48,
   "last_seen": "2026-11-21",
   "ondeck": false
+ },
+ "AMRX": {
+  "entered": "2026-11-21",
+  "px": 21.12,
+  "layer": "Specialty Pharma",
+  "peak": 21.12,
+  "last_seen": "2026-11-21",
+  "ondeck": true
  }
 }
