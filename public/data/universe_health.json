@@ -1,5 +1,5 @@
 {
- "generated": "2026-11-21T09:54",
+ "generated": "2026-11-21T15:22",
  "universe": 2993,
  "in_layer": 2426,
  "layers": 161,
@@ -50,10 +50,8 @@
   {
    "id": "orphans_strong",
    "label": "Liquid (\u2265$25M/day), RS \u2265 75, in no layer",
-   "count": 1,
-   "items": [
-    "BKH"
-   ],
+   "count": 0,
+   "items": [],
    "status": "ok",
    "note": ""
   },
@@ -100,8 +98,9 @@
   {
    "id": "young_unranked",
    "label": "Listings 2\u201312 months old with no RS rank",
-   "count": 3,
+   "count": 4,
    "items": [
+    "EMAT(2026-01-06)",
     "CMCSV(2025-12-15)",
     "VSNTV(2025-12-15)",
     "AACI(2026-03-27)"
