@@ -21,7 +21,7 @@ const SPARK_N = 60;       // sessions in each sparkline
 
 const STATUS = {
   lead:  { label: "Leading",        hint: `Rank ≥ ${LEAD} and held ≥ 80 a week ago` },
-  emerg: { label: "Emerging",       hint: "Rank ≥ 70 and up 20+ pts in a month — unproven: early rotation backtested negative" },
+  emerg: { label: "Emerging",       hint: "Rank ≥ 70, up 20+ pts in a month, rising in 6+ of the last 10 sessions — unproven: early rotation backtested negative" },
   weak:  { label: "Weakening",      hint: `Led (≥ ${LEAD}) within ${PEAK_LOOKBACK} sessions, now 60–87 and falling` },
   brk:   { label: "Breaking down",  hint: `Led (≥ ${LEAD}) within ${PEAK_LOOKBACK} sessions, now below 60` },
   lag:   { label: "Lagging",        hint: "Not leading and no recent leadership" },
@@ -44,15 +44,75 @@ function statusColor(st, A) {
   return { lead: A.green, emerg: A.cyan, weak: A.yellow, brk: A.red, lag: A.textMuted }[st];
 }
 
+// Rank trend from the daily history, so one noisy session can't make or
+// break a status: slope = least-squares points/session over the last 5
+// sessions; ups = sessions out of the last 10 the rank rose.
+function rankTrend(hist) {
+  const v = hist.filter((x) => x != null);
+  const t5 = v.slice(-5);
+  let slope = null;
+  if (t5.length >= 3) {
+    const n = t5.length, mx = (n - 1) / 2, my = t5.reduce((a, b) => a + b, 0) / n;
+    let num = 0, den = 0;
+    t5.forEach((y, i) => { num += (i - mx) * (y - my); den += (i - mx) ** 2; });
+    slope = num / den;
+  }
+  const t10 = v.slice(-11);
+  let ups = 0;
+  for (let i = 1; i < t10.length; i++) if (t10[i] > t10[i - 1]) ups++;
+  return { slope, ups, of: Math.max(0, t10.length - 1) };
+}
+
 function classify({ now, w1, m1 }, hist) {
   const recent = hist.slice(-PEAK_LOOKBACK).filter((x) => x != null);
   const peak = recent.length ? Math.max(...recent) : now;
+  const tr = rankTrend(hist);
   if (now >= LEAD && (w1 ?? now) >= 80) return { st: "lead", peak };
   if (peak >= LEAD && now < 60) return { st: "brk", peak };
   if (peak >= LEAD && now < LEAD && now <= peak - 10) return { st: "weak", peak };
-  if (now >= 70 && now - (m1 ?? now) >= 20) return { st: "emerg", peak };
+  // Emerging also needs a steady climb — rising in 6+ of the last 10 sessions
+  // and still rising over the last 5 — not one jump off a single day.
+  if (now >= 70 && now - (m1 ?? now) >= 20 && (tr.of < 6 || (tr.ups >= 6 && (tr.slope ?? 0) > 0))) return { st: "emerg", peak };
   if (now >= LEAD) return { st: "lead", peak };
   return { st: "lag", peak };
+}
+
+// Breadth + volume inside a layer, from its members' per-stock fields:
+//   a50 — % above their 50-day · rs80 — % with RS ≥ 80 · nh — % closing at a
+//   20-session high · udv — median up-day ÷ down-day volume (20 sessions) ·
+//   dv — median 5-day ÷ 20-day dollar volume.
+// The median rank alone can be held up by 2-3 names; these show whether the
+// whole layer is moving. Context only — none of it is backtested yet.
+function layerStats(tickers, stockMap) {
+  const S = tickers.map((t) => stockMap[t]).filter(Boolean);
+  if (!S.length) return null;
+  const pct = (f) => Math.round((S.filter(f).length / S.length) * 100);
+  const med = (k) => {
+    const v = S.map((s) => s[k]).filter((x) => x != null && isFinite(x)).sort((a, b) => a - b);
+    return v.length ? v[Math.floor(v.length / 2)] : null;
+  };
+  return {
+    n: S.length,
+    a50: pct((s) => (s.sma50_pct ?? -1) > 0),
+    rs80: pct((s) => (s.rs_rank ?? 0) >= 80),
+    nh: pct((s) => s.nh20 === 1),
+    udv: med("udv20"),
+    dv: med("dvol_ratio_5_20"),
+  };
+}
+
+// Tags that qualify a status without changing it: a leader whose breadth is
+// thin is held up by a few names; an emerging layer with broad breadth and
+// heavy up-volume is moving as a group.
+function layerFlags(l) {
+  const b = l.stats;
+  if (!b || b.n < 3) return [];
+  const f = [];
+  if (l.st === "lead" && (b.a50 < 50 || b.rs80 < 30)) f.push(["thin", "Rank held up by a few names: under half above the 50-day or under 30% at RS 80+"]);
+  if (l.st === "emerg" && b.a50 >= 65 && (b.udv ?? 0) >= 1.2) f.push(["broad", "Most members above the 50-day and up-day volume outweighs down-day"]);
+  if (l.st === "emerg" && b.a50 < 50) f.push(["narrow", "Rank rise driven by a minority of members"]);
+  if ((l.st === "lead" || l.st === "weak") && b.udv != null && b.udv < 0.8) f.push(["distrib", "Down-day volume outweighs up-day volume over 20 sessions"]);
+  return f;
 }
 
 function Spark({ vals, color, A, w = 90, h = 22 }) {
@@ -133,6 +193,14 @@ function ThemeBoard({ themes, A, selected, onSelect }) {
                 </div>
               </div>
             </div>
+            {t.stats && (
+              <div title="% of the theme's stocks above their 50-day · % at RS 80+ · rank trend (pts/session, last 5) and sessions rising of the last 10"
+                style={{ fontSize: 10, color: A.textMuted, marginTop: 3, fontVariantNumeric: "tabular-nums" }}>
+                <span style={{ color: t.stats.a50 >= 60 ? A.green : t.stats.a50 < 40 ? A.red : A.yellow }}>{t.stats.a50}%</span> &gt;50d ·{" "}
+                <span style={{ color: t.stats.rs80 >= 50 ? A.green : t.stats.rs80 < 25 ? A.red : A.yellow }}>{t.stats.rs80}%</span> RS80
+                {t.trend?.slope != null && <> · <span style={{ color: t.trend.slope > 0.5 ? A.green : t.trend.slope < -0.5 ? A.red : A.textMuted }}>{t.trend.slope > 0 ? "+" : ""}{t.trend.slope.toFixed(1)}</span> {t.trend.ups}/{t.trend.of}</>}
+              </div>
+            )}
           </button>
         );
       })}
@@ -154,6 +222,9 @@ function LayerTable({ rows, A, onTicker, chartTicker, stockMap, showPeak, member
             <th style={th(A, "right")}>1m</th>
             {showPeak && <th style={th(A, "right")}>Peak</th>}
             <th className="tp-hide-sm" style={th(A)}>{SPARK_N}d</th>
+            <th className="tp-hide-sm" style={th(A, "right")} title="Rank change per session, least-squares over the last 5 sessions · sessions out of the last 10 the rank rose">Trend</th>
+            <th className="tp-hide-sm" style={th(A, "right")} title="% of members above their 50-day · % with RS ≥ 80 · % closing at a 20-session high">Breadth</th>
+            <th className="tp-hide-sm" style={th(A, "right")} title="Median up-day ÷ down-day volume over 20 sessions · median 5-day ÷ 20-day dollar volume">Vol</th>
             <th className="tp-hide-sm" style={th(A, "right")} title="Share of the trailing quarter this layer ranked ≥ 88">Held</th>
             <th style={th(A)}>Strongest names <span style={{ fontWeight: 400 }}>· click a row for all</span></th>
           </tr>
@@ -166,19 +237,43 @@ function LayerTable({ rows, A, onTicker, chartTicker, stockMap, showPeak, member
               .sort((a, b) => (stockMap[b]?.rs_rank ?? 0) - (stockMap[a]?.rs_rank ?? 0));
             const names = all.slice(0, 5).map((t) => ({ t }));
             const open = expanded === l.key;
-            const cols = showPeak ? 8 : 7;
+            const cols = showPeak ? 11 : 10;
+            const b = l.stats, tr = l.trend;
+            const flags = layerFlags(l);
             return (
               <React.Fragment key={l.key}>
               <tr onClick={() => onToggle?.(open ? null : l.key)} style={{ cursor: "pointer", background: open ? A.bgHover : "transparent" }}>
                 <td style={td(A)}>
                   <div style={{ color: A.text, fontWeight: 600 }}><span style={{ color: A.textMuted, fontSize: 9, marginRight: 4 }}>{open ? "▼" : "▶"}</span>{l.name}</div>
-                  <div style={{ fontSize: 10, color: A.textMuted }}>{l.theme}</div>
+                  <div style={{ fontSize: 10, color: A.textMuted }}>{l.theme}
+                    {flags.map(([k, why]) => (
+                      <span key={k} title={why} style={{ marginLeft: 5, padding: "0 4px", borderRadius: 3, fontSize: 9, fontWeight: 700,
+                        border: `1px solid ${k === "broad" ? A.green : k === "narrow" ? A.textMuted : A.yellow}`,
+                        color: k === "broad" ? A.green : k === "narrow" ? A.textMuted : A.yellow }}>{k}</span>
+                    ))}
+                  </div>
                 </td>
                 <td style={{ ...td(A, "right"), color: c, fontWeight: 700 }}>{l.now}</td>
                 <td style={td(A, "right")}><Delta v={l.now - l.w1} A={A} /></td>
                 <td style={td(A, "right")}><Delta v={l.now - l.m1} A={A} /></td>
                 {showPeak && <td style={td(A, "right")}>{l.peak}</td>}
                 <td className="tp-hide-sm" style={td(A)}><Spark vals={l.hist} color={c} A={A} /></td>
+                <td className="tp-hide-sm" style={{ ...td(A, "right"), whiteSpace: "nowrap" }}>
+                  {tr?.slope != null ? <span style={{ color: tr.slope > 0.5 ? A.green : tr.slope < -0.5 ? A.red : A.textMuted }}>{tr.slope > 0 ? "+" : ""}{tr.slope.toFixed(1)}</span> : "—"}
+                  <span style={{ color: A.textMuted, fontSize: 10 }}> {tr?.of ? `${tr.ups}/${tr.of}` : ""}</span>
+                </td>
+                <td className="tp-hide-sm" style={{ ...td(A, "right"), whiteSpace: "nowrap", fontSize: 11 }}>
+                  {b ? (<>
+                    <span style={{ color: b.a50 >= 60 ? A.green : b.a50 < 40 ? A.red : A.yellow }}>{b.a50}%</span>
+                    <span style={{ color: A.textMuted }}> · </span>
+                    <span style={{ color: b.rs80 >= 50 ? A.green : b.rs80 < 25 ? A.red : A.yellow }}>{b.rs80}%</span>
+                    <span style={{ color: A.textMuted }}> · {b.nh}%</span>
+                  </>) : "—"}
+                </td>
+                <td className="tp-hide-sm" style={{ ...td(A, "right"), whiteSpace: "nowrap", fontSize: 11 }}>
+                  {b?.udv != null ? <span style={{ color: b.udv >= 1.2 ? A.green : b.udv < 0.8 ? A.red : A.textMuted }}>{b.udv.toFixed(2)}</span> : "—"}
+                  {b?.dv != null && <span style={{ color: b.dv >= 1.2 ? A.green : A.textMuted }}> · {b.dv.toFixed(2)}×</span>}
+                </td>
                 <td className="tp-hide-sm" style={td(A, "right")}>{l.persist != null ? `${l.persist}%` : "—"}</td>
                 <td style={{ ...td(A), whiteSpace: "normal", minWidth: 160 }}>
                   {names.map((h) => (
@@ -1433,9 +1528,10 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
       const h = sparkDates.map((d) => hist?.[d]?.layers?.[key] ?? null);
       const ph = peakDates.map((d) => hist?.[d]?.layers?.[key] ?? null);
       const { st, peak } = classify(l, ph.length ? ph : [l.now, l.w1, l.m1]);
-      return { ...l, key, hist: h, st, peak };
+      const stats = layerStats(members[key] || (l.holds || []).map((x) => x.t), stockMap || {});
+      return { ...l, key, hist: h, st, peak, trend: rankTrend(h), stats };
     });
-  }, [rot, hist, dates]);
+  }, [rot, hist, dates, members, stockMap]);
 
   const themes = useMemo(() => {
     const by = {};
@@ -1457,9 +1553,10 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
       else if (share(counts.brk + counts.weak) >= 0.4 && m1 - now >= 10) st = "brk";
       else if (counts.weak + counts.brk >= 1 && now < m1) st = "weak";
       else if (now - m1 >= 15 && now >= 55) st = "emerg";
-      return { ...t, counts, now, w1, m1, hist: h, st };
+      const tks = [...new Set(L.flatMap((l) => members[l.key] || (l.holds || []).map((x) => x.t)))];
+      return { ...t, counts, now, w1, m1, hist: h, st, trend: rankTrend(h), stats: layerStats(tks, stockMap || {}) };
     }).sort((a, b) => b.now - a.now);
-  }, [layers]);
+  }, [layers, members, stockMap]);
 
   const visLayers = theme ? layers.filter((l) => l.themeId === theme) : layers;
   const layerBuckets = useMemo(() => {
