@@ -293,7 +293,20 @@ function LayerTable({ rows, A, onTicker, chartTicker, stockMap, showPeak, member
 }
 
 // ── Stocks ────────────────────────────────────────────────────────────────
-function StockTable({ rows, A, onTicker, chartTicker, mode }) {
+// Layer name in a stock row — click opens that layer's members in the Stocks
+// box (and charts this stock) instead of selecting the row.
+function LayerLink({ r, A, onLayer }) {
+  if (!r.layer) return <span style={{ color: A.textMuted }}>—</span>;
+  return (
+    <span onClick={onLayer ? (e) => { e.stopPropagation(); onLayer(r.t ?? r.ticker); } : undefined}
+      title={onLayer ? "Show every stock in this layer" : undefined}
+      style={{ color: statusColor(r.layerSt, A), cursor: onLayer ? "pointer" : "inherit", textDecoration: onLayer ? "underline dotted" : "none", textUnderlineOffset: 2 }}>
+      {r.layer}
+    </span>
+  );
+}
+
+function StockTable({ rows, A, onTicker, chartTicker, mode, onLayer }) {
   if (!rows.length) return <div style={{ fontSize: 11, color: A.textMuted, padding: "6px 2px" }}>None.</div>;
   return (
     <div style={{ overflowX: "auto", maxHeight: 520, overflowY: "auto" }}>
@@ -327,7 +340,7 @@ function StockTable({ rows, A, onTicker, chartTicker, mode }) {
                 <td style={td(A, "right")}>{pct(r.off)}</td>
                 <td style={{ ...td(A, "right"), color: (r.r1m ?? 0) >= 0 ? A.green : A.red }}>{pct(r.r1m)}</td>
                 <td style={{ ...td(A), fontSize: 11, color: A.textMuted, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {r.layer ? <span style={{ color: statusColor(r.layerSt, A) }}>{r.layer}</span> : "—"}
+                  <LayerLink r={r} A={A} onLayer={onLayer} />
                 </td>
               </tr>
             );
@@ -747,7 +760,7 @@ function expectedVolAt(p, m) {
   return v > 0 ? v : null;
 }
 
-function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, allowed }) {
+function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, allowed, onLayer }) {
   const profiles = useJson("/data/rvol_profiles.json");
   const base = useMemo(() => Object.values(stockMap || {}).map((x) => scanBase(x, etClock().session)).filter(Boolean)
     .filter((b) => !allowed || allowed.has(b.t)), [stockMap, allowed]);
@@ -841,7 +854,7 @@ function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, allowed
                   <td style={{ ...td(A, "right"), color: r.rs >= 90 ? A.green : r.rs >= 70 ? A.yellow : A.red }}>{r.rs ?? "—"}</td>
                   <td title={r.epsTip || ""} style={{ ...td(A, "right"), color: r.eps >= 80 ? A.green : r.eps >= 50 ? A.yellow : r.eps != null ? A.red : A.textMuted }}>{r.eps ?? "—"}{r.epsAcc ? <span style={{ color: A.green, fontSize: 9 }}>▲</span> : null}</td>
                   <td style={{ ...td(A), fontSize: 11, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {r.layer ? <span style={{ color: statusColor(r.layerSt, A) }}>{r.layer}</span> : <span style={{ color: A.textMuted }}>—</span>}
+                    <LayerLink r={r} A={A} onLayer={onLayer} />
                   </td>
                 </tr>
               ))}
@@ -884,7 +897,7 @@ function extRows(snap, stockMap, tickerLayer, universeOnly) {
     .sort((a, b) => Math.abs(b.chg) - Math.abs(a.chg));
 }
 
-function ExtHoursMovers({ A, pipeline, stockMap, tickerLayer, onTicker, chartTicker }) {
+function ExtHoursMovers({ A, pipeline, stockMap, tickerLayer, onTicker, chartTicker, onLayer }) {
   const [uOnly, setUOnly] = useState(true);
   const today = etClock().today;
   const pmSnap = pipeline?.last_pm || (pipeline?.pm_sip_movers?.length || pipeline?.pm_earnings_movers?.length
@@ -945,7 +958,7 @@ function ExtHoursMovers({ A, pipeline, stockMap, tickerLayer, onTicker, chartTic
                   <td style={{ ...td(A, "right"), color: r.rs >= 90 ? A.green : r.rs >= 70 ? A.yellow : r.rs != null ? A.red : A.textMuted }}>{r.rs ?? "—"}</td>
                   <td title={r.epsTip || ""} style={{ ...td(A, "right"), color: r.eps >= 80 ? A.green : r.eps >= 50 ? A.yellow : r.eps != null ? A.red : A.textMuted }}>{r.eps ?? "—"}{r.epsAcc ? <span style={{ color: A.green, fontSize: 9 }}>▲</span> : null}</td>
                   <td style={{ ...td(A), fontSize: 11, maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {r.layer ? <span style={{ color: statusColor(r.layerSt, A) }}>{r.layer}</span> : <span style={{ color: A.textMuted }}>—</span>}
+                    <LayerLink r={r} A={A} onLayer={onLayer} />
                   </td>
                   <td title={r.catalyst} style={{ ...td(A), fontSize: 11, color: A.textDim, maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis" }}>{r.catalyst || "—"}</td>
                 </tr>
@@ -1074,7 +1087,7 @@ function FlagButton({ t, A }) {
   );
 }
 
-function FlaggedTab({ A, stockMap, tickerLayer, onTicker, chartTicker }) {
+function FlaggedTab({ A, stockMap, tickerLayer, onTicker, chartTicker, onLayer }) {
   const flags = useFlags();
   const profiles = useJson("/data/rvol_profiles.json");
   const [only, setOnly] = useState(null);
@@ -1165,7 +1178,7 @@ function FlaggedTab({ A, stockMap, tickerLayer, onTicker, chartTicker }) {
                   <td style={{ ...td(A, "right"), color: r.rs >= 90 ? A.green : r.rs >= 70 ? A.yellow : r.rs != null ? A.red : A.textMuted }}>{r.rs ?? "—"}</td>
                   <td title={r.epsTip || ""} style={{ ...td(A, "right"), color: r.eps >= 80 ? A.green : r.eps >= 50 ? A.yellow : r.eps != null ? A.red : A.textMuted }}>{r.eps ?? "—"}{r.epsAcc ? <span style={{ color: A.green, fontSize: 9 }}>▲</span> : null}</td>
                   <td style={{ ...td(A), fontSize: 11, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {r.layer ? <span style={{ color: statusColor(r.layerSt, A) }}>{r.layer}</span> : <span style={{ color: A.textMuted }}>—</span>}
+                    <LayerLink r={r} A={A} onLayer={onLayer} />
                   </td>
                 </tr>
               ))}
@@ -1320,7 +1333,7 @@ function LayerMembers({ A, layer, tickers, stockMap, onTicker, chartTicker }) {
   );
 }
 
-export function ScannerPanel({ A, stockMap, onTicker, chartTicker, tickerLayer }) {
+export function ScannerPanel({ A, stockMap, onTicker, chartTicker, tickerLayer, onLayer }) {
   const [scan, setScan] = useState(() => { try { return localStorage.getItem("tp-scan-tab") || "m1w"; } catch { return "m1w"; } });
   const [sort, setSort] = useState({ k: SCAN_SORT[scan] || "rs", d: -1 });
   const pick = (k) => { setScan(k); setSort({ k: SCAN_SORT[k] || "rs", d: k === "s20" ? 1 : -1 }); try { localStorage.setItem("tp-scan-tab", k); } catch { /* */ } };
@@ -1424,7 +1437,7 @@ export function ScannerPanel({ A, stockMap, onTicker, chartTicker, tickerLayer }
                   <td style={{ ...td(A, "right"), color: r.rs >= 90 ? A.green : r.rs >= 70 ? A.yellow : r.rs != null ? A.red : A.textMuted }}>{r.rs ?? "—"}</td>
                   <td title={r.epsTip || ""} style={{ ...td(A, "right"), color: r.eps >= 80 ? A.green : r.eps >= 50 ? A.yellow : r.eps != null ? A.red : A.textMuted }}>{r.eps ?? "—"}{r.epsAcc ? <span style={{ color: A.green, fontSize: 9 }}>▲</span> : null}</td>
                   <td style={{ ...td(A), fontSize: 11, maxWidth: 170, overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {r.layer ? <span style={{ color: statusColor(r.layerSt, A) }}>{r.layer}</span> : <span style={{ color: A.textMuted }}>—</span>}
+                    <LayerLink r={r} A={A} onLayer={onLayer} />
                   </td>
                 </tr>
               ))}
@@ -1778,10 +1791,22 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
     setTimeout(() => stocksRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 50);
   };
   const closeLayer = () => { setExpanded(null); setStockTab(prevTab.current || "intra"); };
+  // a layer opened in one view (LEADERS / SCANNER) doesn't follow you to the other
+  const viewRef = useRef(view);
+  useEffect(() => {
+    if (viewRef.current !== view) { viewRef.current = view; if (stockTab === "layer") closeLayer(); }
+  }, [view]); // eslint-disable-line react-hooks/exhaustive-deps
   const openLayer = (l) => {
     setTheme(null); setLayerTab(l.st); showLayer(l, false);
   };
   const shownLayer = expanded ? layers.find((l) => l.key === expanded) : null;
+  // Layer cell in any stock table: open that layer, keep this stock on the chart
+  const layerOfTicker = (t) => {
+    const l = tickerLayer[t];
+    if (!l) return;
+    showLayer(l, false);
+    onTickerClick(t);
+  };
 
   const loading = !rot || !hist;
   const regime = breadth?.regime?.primary;
@@ -1812,7 +1837,14 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
       }`}</style>
       {view === "scanner" ? (
         <div style={{ flex: "1 1 640px", minWidth: 0 }} ref={stocksRef}>
-          <ScannerPanel A={A} stockMap={stockMapX} onTicker={onTickerClick} chartTicker={chartTicker} tickerLayer={tickerLayer} />
+          {view === "scanner" && stockTab === "layer" && shownLayer && (
+            <Card A={A} title={`Layer: ${shownLayer.name}`} right={<button onClick={closeLayer} title="Close this layer"
+              style={{ background: "transparent", border: `1px solid ${A.border}`, color: A.textMuted, borderRadius: 4, padding: "2px 8px", fontSize: 11, cursor: "pointer" }}>✕ Close</button>}>
+              <LayerMembers A={A} layer={shownLayer} tickers={members[shownLayer.key] || (shownLayer.holds || []).map((h) => h.t)}
+                stockMap={stockMapX} onTicker={onTickerClick} chartTicker={chartTicker} />
+            </Card>
+          )}
+          <ScannerPanel A={A} stockMap={stockMapX} onTicker={onTickerClick} chartTicker={chartTicker} tickerLayer={tickerLayer} onLayer={layerOfTicker} />
         </div>
       ) : (
       <div style={{ flex: "1 1 640px", minWidth: 0 }}>
@@ -1915,13 +1947,13 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
                 ? <LayerMembers A={A} layer={shownLayer} tickers={members[shownLayer.key] || (shownLayer.holds || []).map((h) => h.t)}
                     stockMap={stockMapX} onTicker={onTickerClick} chartTicker={chartTicker} />
                 : stockTab === "flag"
-                ? <FlaggedTab A={A} stockMap={stockMapX} tickerLayer={tickerLayer} onTicker={onTickerClick} chartTicker={chartTicker} />
+                ? <FlaggedTab A={A} stockMap={stockMapX} tickerLayer={tickerLayer} onTicker={onTickerClick} chartTicker={chartTicker} onLayer={layerOfTicker} />
                 : stockTab === "ext"
-                ? <ExtHoursMovers A={A} pipeline={pipeline} stockMap={stockMapX} tickerLayer={tickerLayer} onTicker={onTickerClick} chartTicker={chartTicker} />
+                ? <ExtHoursMovers A={A} pipeline={pipeline} stockMap={stockMapX} tickerLayer={tickerLayer} onTicker={onTickerClick} chartTicker={chartTicker} onLayer={layerOfTicker} />
                 : stockTab === "intra"
-                ? <IntradayScan A={A} stockMap={stockMapX} onTicker={onTickerClick} chartTicker={chartTicker} tickerLayer={tickerLayer}
+                ? <IntradayScan A={A} stockMap={stockMapX} onTicker={onTickerClick} chartTicker={chartTicker} tickerLayer={tickerLayer} onLayer={layerOfTicker}
                     allowed={theme ? new Set(visLayers.flatMap((l) => members[l.key] || (l.holds || []).map((h) => h.t))) : null} />
-                : <StockTable rows={stocks[stockTab]} A={A} onTicker={onTickerClick} chartTicker={chartTicker} mode={stockTab} />}
+                : <StockTable rows={stocks[stockTab]} A={A} onTicker={onTickerClick} chartTicker={chartTicker} mode={stockTab} onLayer={layerOfTicker} />}
             </Card>
             </div>
 
