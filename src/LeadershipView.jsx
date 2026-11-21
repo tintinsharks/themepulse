@@ -228,6 +228,7 @@ function RotationView({ A, layers, themes, dates, theme, onLayer, onTheme, lb })
   const autoPick = useMemo(() => [...items.slice(0, 3), ...items.slice(-3).reverse()].filter((x) => x.d !== 0).map((x) => x.key), [items]);
   const lineKeys = (picked ?? autoPick).filter((k) => items.some((x) => x.key === k)).slice(0, 6);
   const lineItems = lineKeys.map((k) => items.find((x) => x.key === k));
+  const open = (x) => (group === "themes" ? onTheme(x.ref.themeId, true) : onLayer(x.ref));
   const toggle = (k) => {
     const cur = picked ?? autoPick;
     setPicked(cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k].slice(-6));
@@ -246,7 +247,7 @@ function RotationView({ A, layers, themes, dates, theme, onLayer, onTheme, lb })
     return (
       <div key={x.key} title={`${x.name} · ${x.sub} — ${what} ${Math.round(x.base)}${unit} → ${Math.round(x.now)}${unit} (${up ? "+" : ""}${Math.round(x.d)}) over ${periodLabel} · ${STATUS[x.st]?.label || ""}\nClick: add to / remove from the line chart · double-click: open`}
         onClick={() => toggle(x.key)}
-        onDoubleClick={() => (group === "themes" ? onTheme(x.ref.themeId) : onLayer(x.ref))}
+        onDoubleClick={() => open(x)}
         style={{ display: "grid", gridTemplateColumns: "minmax(110px, 30%) 1fr 64px", alignItems: "center", gap: 8, padding: "2px 0", cursor: "pointer",
           background: onLine ? A.bgHover : "transparent", borderRadius: 3 }}>
         <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 11, color: A.text }}>
@@ -305,7 +306,7 @@ function RotationView({ A, layers, themes, dates, theme, onLayer, onTheme, lb })
       </div>
       <div style={{ fontSize: 10, color: A.textMuted, margin: "6px 0 10px" }}>
         {measure !== "rs" && !lb?.layers && <span style={{ color: A.yellow }}>Breadth history not published yet — showing RS rank · </span>}
-        Bar = change in {what} {breadthOn ? "(percentage points)" : "(0–100)"} · number = change → now · click a bar to add it to the lines below, double-click to open {group === "themes" ? "the theme" : "the layer's stocks"}
+        Bar = change in {what} {breadthOn ? "(percentage points)" : "(0–100)"} · number = change → now · click a bar to add it to the lines below · double-click a bar or click a line's name to show its stocks
       </div>
 
       {lineItems.length > 0 && (
@@ -313,8 +314,10 @@ function RotationView({ A, layers, themes, dates, theme, onLayer, onTheme, lb })
           <div style={{ fontSize: 11, fontWeight: 700, color: A.text, marginBottom: 4 }}>{breadthOn ? `${what} · ` : "Rank history · "}last {n} sessions</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 4 }}>
             {lineItems.map((x, i) => (
-              <span key={x.key} style={{ fontSize: 10, color: A.textDim, cursor: "pointer" }} onClick={() => toggle(x.key)} title="Remove from the chart">
-                <span style={{ display: "inline-block", width: 10, height: 2, verticalAlign: "middle", marginRight: 4, background: hues[i] }} />{x.name} ✕
+              <span key={x.key} style={{ fontSize: 10, color: A.textDim }}>
+                <span style={{ display: "inline-block", width: 10, height: 2, verticalAlign: "middle", marginRight: 4, background: hues[i] }} />
+                <span onClick={() => open(x)} title={`Show the stocks in ${x.name}`} style={{ cursor: "pointer", textDecoration: "underline dotted", textUnderlineOffset: 2 }}>{x.name}</span>
+                <span onClick={() => toggle(x.key)} title="Remove from the chart" style={{ cursor: "pointer", marginLeft: 3, color: A.textMuted }}>✕</span>
               </span>
             ))}
           </div>
@@ -339,7 +342,8 @@ function RotationView({ A, layers, themes, dates, theme, onLayer, onTheme, lb })
             {lineItems.map((x, i) => (
               <g key={x.key}>
                 <path d={path(x.hist)} fill="none" stroke={hues[i]} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-                <text x={W - padR + 6} y={endY[i] + 3} fontSize="10" fill={A.textDim}>
+                <text x={W - padR + 6} y={endY[i] + 3} fontSize="10" fill={A.textDim} onClick={() => open(x)}
+                  style={{ cursor: "pointer", textDecoration: "underline dotted" }}><title>{`Show the stocks in ${x.name}`}</title>
                   <tspan fill={hues[i]}>●</tspan> {x.name.length > 16 ? x.name.slice(0, 15) + "…" : x.name} {Math.round(x.now)}{unit}
                 </text>
               </g>
@@ -2007,7 +2011,17 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
   const openLayer = (l) => {
     setTheme(null); setLayerTab(l.st); showLayer(l, false);
   };
-  const shownLayer = expanded ? layers.find((l) => l.key === expanded) : null;
+  const [themeLayer, setThemeLayer] = useState(null);   // a whole theme shown like a layer
+  const shownLayer = expanded ? (layers.find((l) => l.key === expanded) || (themeLayer?.key === expanded ? themeLayer : null)) : null;
+  const showTheme = (themeId) => {
+    const t = themes.find((x) => x.themeId === themeId);
+    if (!t) return;
+    const tks = [...new Set(t.layers.flatMap((l) => members[l.key] || (l.holds || []).map((h) => h.t)))];
+    const pseudo = { key: `t:${themeId}`, name: t.theme, theme: `${t.layers.length} layers`, themeId, st: t.st,
+      now: Math.round(t.now), w1: t.w1, m1: t.m1, stats: t.stats, holds: tks.map((x) => ({ t: x })) };
+    setThemeLayer(pseudo);
+    showLayer(pseudo);
+  };
   // Layer cell in any stock table: open that layer, keep this stock on the chart
   const layerOfTicker = (t) => {
     const l = tickerLayer[t];
@@ -2046,7 +2060,7 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
       {view === "scanner" ? (
         <div style={{ flex: "1 1 640px", minWidth: 0 }} ref={stocksRef}>
           {view === "scanner" && stockTab === "layer" && shownLayer && (
-            <Card A={A} title={`Layer: ${shownLayer.name}`} right={<button onClick={closeLayer} title="Close this layer"
+            <Card A={A} title={`${shownLayer.key.startsWith("t:") ? "Theme" : "Layer"}: ${shownLayer.name}`} right={<button onClick={closeLayer} title="Close this layer"
               style={{ background: "transparent", border: `1px solid ${A.border}`, color: A.textMuted, borderRadius: 4, padding: "2px 8px", fontSize: 11, cursor: "pointer" }}>✕ Close</button>}>
               <LayerMembers A={A} layer={shownLayer} tickers={members[shownLayer.key] || (shownLayer.holds || []).map((h) => h.t)}
                 stockMap={stockMapX} onTicker={onTickerClick} chartTicker={chartTicker} />
@@ -2138,7 +2152,7 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
                     <button onClick={() => setStockTab("layer")}
                       style={{ background: "transparent", border: "none", color: stockTab === "layer" ? statusColor(shownLayer.st, A) : A.textDim,
                         padding: "3px 4px 3px 9px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-                      Layer: {shownLayer.name} <span style={{ opacity: 0.7 }}>{(members[shownLayer.key] || shownLayer.holds || []).length}</span>
+                      {shownLayer.key.startsWith("t:") ? "Theme" : "Layer"}: {shownLayer.name} <span style={{ opacity: 0.7 }}>{(members[shownLayer.key] || shownLayer.holds || []).length}</span>
                     </button>
                     <button onClick={closeLayer} title="Close this layer"
                       style={{ background: "transparent", border: "none", color: A.textMuted, padding: "3px 7px 3px 3px", fontSize: 11, cursor: "pointer" }}>✕</button>
@@ -2175,7 +2189,7 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
               right={<Tabs A={A} value={themeView} onChange={pickThemeView} items={[["board", "Board", "", A.green], ["rot", "Rotation", "", A.cyan]]} />}>
               {themeView === "rot"
                 ? <RotationView A={A} layers={layers} themes={themes} dates={dates} theme={theme} lb={layerBreadth}
-                    onLayer={(l) => showLayer(l)} onTheme={(id) => { setTheme(id); }} />
+                    onLayer={(l) => showLayer(l)} onTheme={(id, stocks) => (stocks ? showTheme(id) : setTheme(id))} />
                 : <ThemeBoard themes={themes} A={A} selected={theme} onSelect={setTheme} />}
             </Card>
 
