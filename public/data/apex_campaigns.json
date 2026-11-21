@@ -723,5 +723,21 @@
   "peak": 923.34,
   "last_seen": "2026-11-20",
   "ondeck": true
+ },
+ "BHC": {
+  "entered": "2026-11-21",
+  "px": 8.22,
+  "layer": "Specialty Pharma",
+  "peak": 8.22,
+  "last_seen": "2026-11-21",
+  "ondeck": true
+ },
+ "PCRX": {
+  "entered": "2026-11-21",
+  "px": 36.48,
+  "layer": "Specialty Pharma",
+  "peak": 36.48,
+  "last_seen": "2026-11-21",
+  "ondeck": false
  }
 }

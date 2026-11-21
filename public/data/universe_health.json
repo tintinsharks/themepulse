@@ -1,15 +1,50 @@
 {
- "generated": "2026-11-21T06:04",
- "universe": 3273,
- "in_layer": 2530,
+ "generated": "2026-11-21T09:54",
+ "universe": 2993,
+ "in_layer": 2426,
  "layers": 161,
  "checks": [
   {
    "id": "dead_curated",
    "label": "Curated layer tickers missing from the universe",
-   "count": 0,
-   "items": [],
-   "status": "ok",
+   "count": 34,
+   "items": [
+    "Airlines:SNCY",
+    "Airlines:UP",
+    "Batteries + Cells:ABAT",
+    "Batteries + Cells:MVST",
+    "Battery Materials:NMG",
+    "Biotech:EYPT",
+    "Biotech:LENZ",
+    "Biotech:ZURA",
+    "Carriers:CABO",
+    "Credit + Lending:LC",
+    "Crypto Miners:BITF",
+    "Data Platforms:CFLT",
+    "Diagnostics:EXAS",
+    "Drones + EVTOL:EH",
+    "Drones + EVTOL:EVTL",
+    "E&C / Heavy Civil:ACA",
+    "E&C / Heavy Civil:GLDD",
+    "Electrical + Fire/Safety:ATKR",
+    "Food + Beverages:BYND",
+    "GLP-1 / Metabolic:TERN",
+    "Gaming:EA",
+    "Industrial Automation:NNDM",
+    "Machine Vision + LiDAR:MVIS",
+    "Machinery:THR",
+    "Neobanks + Digital:LC",
+    "Platform + Endpoint:LAES",
+    "Pure-Play Hardware:LAES",
+    "Rare Earths:AREC",
+    "Rare Earths:IDR",
+    "Service + Delivery:RR",
+    "Service + Delivery:SERV",
+    "Streaming / Media:ROKU",
+    "Streaming / Media:WBD",
+    "Warehouse + Logistics:SERV"
+   ],
+   "status": "warn",
    "note": "acquired / renamed / delisted, or a new listing not yet ingested"
   },
   {
@@ -33,15 +68,11 @@
   {
    "id": "unplaced_liquid",
    "label": "Liquid (\u2265$10M/day) names in no layer",
-   "count": 7,
+   "count": 3,
    "items": [
-    "PSTG",
-    "PSKY",
-    "VSCO",
     "JMUB",
     "BKH",
-    "MSGS",
-    "JKS"
+    "MSGS"
    ],
    "status": "warn",
    "note": ""
@@ -49,15 +80,12 @@
   {
    "id": "untagged",
    "label": "Liquid (\u2265$25M/day) non-REITs with no theme tag",
-   "count": 14,
+   "count": 11,
    "items": [
     "SKHY",
     "CBRS",
     "HONA",
     "SUNB",
-    "PSTG",
-    "PSKY",
-    "VSCO",
     "FDXF",
     "JCPB",
     "JMUB",
@@ -72,15 +100,11 @@
   {
    "id": "young_unranked",
    "label": "Listings 2\u201312 months old with no RS rank",
-   "count": 7,
+   "count": 3,
    "items": [
-    "CDNL(2025-12-10)",
-    "BBCQ(2026-01-28)",
     "CMCSV(2025-12-15)",
     "VSNTV(2025-12-15)",
-    "AACI(2026-03-27)",
-    "CCXI(2026-02-09)",
-    "CCXIU(2025-12-17)"
+    "AACI(2026-03-27)"
    ],
    "status": "warn",
    "note": ""
@@ -88,14 +112,10 @@
   {
    "id": "blank_industry",
    "label": "Liquid names FMP gives no industry (need a curated pin)",
-   "count": 6,
+   "count": 2,
    "items": [
     "BKH",
-    "JKS",
-    "MSGS",
-    "PSKY",
-    "PSTG",
-    "VSCO"
+    "MSGS"
    ],
    "status": "warn",
    "note": ""
@@ -103,50 +123,19 @@
   {
    "id": "stale_prices",
    "label": "Liquid names whose price history is behind 2026-11-20",
-   "count": 87,
+   "count": 9,
    "items": [
-    "ABR",
-    "ACA",
-    "ACLX",
-    "AHL",
-    "AL",
-    "AMWD",
-    "APLS",
-    "AREC",
-    "ARMN",
-    "ASGN",
-    "AVNS",
-    "BDXA",
-    "BITF",
-    "BK",
     "BKH",
-    "BLD",
-    "BYND",
-    "CABO",
-    "CDNL",
-    "CFLT",
-    "CNTA",
-    "CPRX",
-    "CSGS",
-    "CTLP",
-    "CTRA",
-    "CUK",
-    "CWAN",
-    "DAWN",
-    "EHAB",
     "ENVX",
-    "ESPR",
-    "EXAS",
-    "EYPT",
-    "FDP",
-    "FOLD",
-    "GDEN",
-    "GLDD",
-    "GTLS",
-    "HOLX",
-    "IAC"
+    "ITGR",
+    "LAC",
+    "MSGS",
+    "PCRX",
+    "PEPG",
+    "RCAT",
+    "UTZ"
    ],
-   "status": "warn",
+   "status": "ok",
    "note": ""
   }
  ]
