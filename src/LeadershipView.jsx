@@ -231,9 +231,11 @@ const isLightBg = (hex) => {
 
 function RotationView({ A, layers, themes, dates, theme, onLayer, onTheme, lb }) {
   // measure: "rs" = RS rank (rank_history) · 20 / 50 / 200 = % of members above that MA (layer_breadth.json)
-  const [measure, setMeasure] = useState(() => { try { return localStorage.getItem("tp-rot-measure") || "rs"; } catch { return "rs"; } });
-  const setM = (m) => { setMeasure(m); try { localStorage.setItem("tp-rot-measure", m); } catch { /* */ } };
-  const breadthOn = measure !== "rs" && !!lb?.layers;
+  // RS rank only: the "% of members above the 20/50/200-day" measure was
+  // removed (2026-11-21) — layers range from 4 to 140 members, so a 4-name
+  // layer moves in 25-point jumps and swamps the rotation bars.
+  const measure = "rs";
+  const breadthOn = false;
   const [period, setPeriod] = useState(() => { try { return localStorage.getItem("tp-rot-period") || "w1"; } catch { return "w1"; } });
   const [group, setGroup] = useState("layers");
   const [showAll, setShowAll] = useState(false);
@@ -332,12 +334,6 @@ function RotationView({ A, layers, themes, dates, theme, onLayer, onTheme, lb })
   return (
     <div>
       <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: 8 }}>
-        <span style={{ fontSize: 10, color: A.textMuted }}>Measure</span>
-        {[["rs", "RS rank"], ["20", "% > 20d"], ["50", "% > 50d"], ["200", "% > 200d"]].map(([k, l]) => (
-          <Pill key={k} on={measure === k} onClick={() => { setM(k); setPicked(null); }}
-            title={k === "rs" ? "Layer RS rank, 0–100" : lb?.layers ? `Share of the layer's stocks closing above their ${k}-day moving average` : "Breadth history appears after the next full pipeline run"}>{l}</Pill>
-        ))}
-        <span style={{ width: 8 }} />
         <span style={{ fontSize: 10, color: A.textMuted }}>Change over</span>
         {[["d1", "1D"], ["w1", "1W"], ["m1", "1M"]].map(([k, l]) => <Pill key={k} on={period === k} onClick={() => setP(k)}>{l}</Pill>)}
         <span style={{ width: 8 }} />
@@ -355,7 +351,6 @@ function RotationView({ A, layers, themes, dates, theme, onLayer, onTheme, lb })
         {outs.length ? outs.map(Bar) : <div style={{ fontSize: 11, color: A.textMuted }}>None.</div>}
       </div>
       <div style={{ fontSize: 10, color: A.textMuted, margin: "6px 0 10px" }}>
-        {measure !== "rs" && !lb?.layers && <span style={{ color: A.yellow }}>Breadth history not published yet — showing RS rank · </span>}
         Bar = change in {what} {breadthOn ? "(percentage points)" : "(0–100)"} · number = change → now · click a bar to add it to the lines below · double-click a bar or click a line's name to show its stocks
       </div>
 
