@@ -226,7 +226,7 @@ function LayerTable({ rows, A, onTicker, chartTicker, stockMap, showPeak, member
             <th className="tp-hide-sm" style={th(A, "right")} title="% of members above their 50-day · % with RS ≥ 80 · % closing at a 20-session high">Breadth</th>
             <th className="tp-hide-sm" style={th(A, "right")} title="Median up-day ÷ down-day volume over 20 sessions · median 5-day ÷ 20-day dollar volume">Vol</th>
             <th className="tp-hide-sm" style={th(A, "right")} title="Share of the trailing quarter this layer ranked ≥ 88">Held</th>
-            <th style={th(A)}>Strongest names <span style={{ fontWeight: 400 }}>· click a row for all</span></th>
+            <th style={th(A)}>Strongest names <span style={{ fontWeight: 400 }}>· click a row for every member</span></th>
           </tr>
         </thead>
         <tbody>
@@ -237,14 +237,14 @@ function LayerTable({ rows, A, onTicker, chartTicker, stockMap, showPeak, member
               .sort((a, b) => (stockMap[b]?.rs_rank ?? 0) - (stockMap[a]?.rs_rank ?? 0));
             const names = all.slice(0, 5).map((t) => ({ t }));
             const open = expanded === l.key;
-            const cols = showPeak ? 11 : 10;
             const b = l.stats, tr = l.trend;
             const flags = layerFlags(l);
             return (
               <React.Fragment key={l.key}>
-              <tr onClick={() => onToggle?.(open ? null : l.key)} style={{ cursor: "pointer", background: open ? A.bgHover : "transparent" }}>
+              <tr onClick={() => onToggle?.(l)} title="Show every member in the Stocks box"
+                style={{ cursor: "pointer", background: open ? A.bgHover : "transparent", boxShadow: open ? `inset 3px 0 0 ${c}` : "none" }}>
                 <td style={td(A)}>
-                  <div style={{ color: A.text, fontWeight: 600 }}><span style={{ color: A.textMuted, fontSize: 9, marginRight: 4 }}>{open ? "▼" : "▶"}</span>{l.name}</div>
+                  <div style={{ color: A.text, fontWeight: 600 }}>{l.name}</div>
                   <div style={{ fontSize: 10, color: A.textMuted }}>{l.theme}
                     {flags.map(([k, why]) => (
                       <span key={k} title={why} style={{ marginLeft: 5, padding: "0 4px", borderRadius: 3, fontSize: 9, fontWeight: 700,
@@ -283,31 +283,6 @@ function LayerTable({ rows, A, onTicker, chartTicker, stockMap, showPeak, member
                   {all.length > 5 && <span style={{ fontSize: 10, color: A.textMuted }}>+{all.length - 5}</span>}
                 </td>
               </tr>
-              {open && (
-                <tr>
-                  <td colSpan={cols} style={{ ...td(A), whiteSpace: "normal", background: A.bgRow, padding: "8px 10px" }}>
-                    <div style={{ fontSize: 10, color: A.textMuted, marginBottom: 5 }}>All {all.length} members by RS rank · E = EPS Rating · ★ = fastest EPS grower in the layer · click to chart</div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                      {all.map((t) => {
-                        const rs = stockMap[t]?.rs_rank;
-                        const ep = stockMap[t]?.eps_rating;
-                        const topEps = ep != null && ep === Math.max(...all.map((x) => stockMap[x]?.eps_rating ?? -1));
-                        const rc = rs >= 90 ? A.green : rs >= 70 ? A.yellow : A.red;
-                        const hi = focus === t || chartTicker === t;
-                        return (
-                          <button key={t} onClick={(e) => { e.stopPropagation(); onTicker(t); }}
-                            style={{ background: hi ? A.glowGreen : "transparent", border: `1px solid ${hi ? A.green : A.border}`, borderRadius: 4,
-                              padding: "1px 6px", fontSize: 11, cursor: "pointer", color: A.text, fontFamily: "monospace" }}>
-                            {t} <span style={{ color: rc, fontWeight: 700 }}>{rs ?? "—"}</span>
-                            {ep != null && <span style={{ color: ep >= 80 ? A.green : ep >= 50 ? A.yellow : A.red, fontSize: 10 }}> E{ep}</span>}
-                            {topEps && <span title="Fastest EPS grower in this layer" style={{ color: A.green }}> ★</span>}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </td>
-                </tr>
-              )}
               </React.Fragment>
             );
           })}
@@ -1265,6 +1240,86 @@ function scanHits(s, q) {
 
 const SCAN_SORT = { m1w: "r1w", m1m: "r1m", m3m: "r3m", m6m: "r6m", strong: "rs", s20: "ago", antic: "ti65", hot: "r1m", liquid: "rs" };
 
+// ── Layer members ─────────────────────────────────────────────────────────
+// Every stock in one layer, shown in the Stocks box when a layer row is
+// clicked. Same columns as the Scanner plus vs-50d; ★ = fastest EPS grower.
+function LayerMembers({ A, layer, tickers, stockMap, onTicker, chartTicker }) {
+  const [sort, setSort] = useState({ k: "rs", d: -1 });
+  const list = useMemo(() => tickers.filter((t) => stockMap[t]), [tickers, stockMap]);
+  const { quotes, at } = useScanQuotes(list, true);
+  const rows = useMemo(() => {
+    const topEps = Math.max(-1, ...list.map((t) => stockMap[t]?.eps_rating ?? -1));
+    const out = list.map((t) => {
+      const s = stockMap[t], q = quotes.get(t);
+      return {
+        t, px: q?.price ?? s.close, chg: q?.change ?? s.change_pct ?? null,
+        r1w: s.return_1w, r1m: s.return_1m, r3m: s.return_3m,
+        adr: s.adr20 ?? s.adr_pct, s50: s.sma50_pct, off: s.off_52w_high ?? s.pct_from_high,
+        rs: s.rs_rank, eps: s.eps_rating ?? null, epsTip: s.eps_tip, epsAcc: s.eps_accel,
+        top: s.eps_rating != null && s.eps_rating === topEps, nh: s.nh20 === 1,
+      };
+    });
+    const { k, d } = sort;
+    out.sort((x, y) => {
+      const a = x[k], b = y[k];
+      if (a == null && b == null) return x.t.localeCompare(y.t);
+      if (a == null) return 1;
+      if (b == null) return -1;
+      return (a - b) * d || x.t.localeCompare(y.t);
+    });
+    return out;
+  }, [list, quotes, sort, stockMap]);
+  const col = (k, label, title) => (
+    <th key={k} style={{ ...th(A, "right"), cursor: "pointer", userSelect: "none", color: sort.k === k ? A.text : A.textMuted }} title={title}
+      onClick={() => setSort((p) => ({ k, d: p.k === k ? -p.d : -1 }))}>{label}{sort.k === k ? (sort.d < 0 ? " ▼" : " ▲") : ""}</th>
+  );
+  const pct = (v, dg = 1) => (v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(dg)}%`);
+  const pc = (v) => (v == null ? A.textMuted : v >= 0 ? A.green : A.red);
+  const b = layer.stats;
+  return (
+    <div>
+      <div style={{ fontSize: 10, color: A.textMuted, marginBottom: 6 }}>
+        <span style={{ color: statusColor(layer.st, A), fontWeight: 700 }}>{STATUS[layer.st].label}</span> · rank {layer.now}
+        {" "}(<Delta v={layer.now - layer.w1} A={A} /> 1w, <Delta v={layer.now - layer.m1} A={A} /> 1m) · {layer.theme}
+        {b && <> · {b.a50}% above 50d · {b.rs80}% RS 80+ · {b.nh}% at 20d highs</>}
+        {at && <> · live {at.toLocaleTimeString()}</>}
+        {" "}· ★ fastest EPS grower · ↑/↓ to step through
+      </div>
+      <div style={{ overflowX: "auto", maxHeight: 560, overflowY: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead style={{ position: "sticky", top: 0, background: A.bg }}>
+            <tr>
+              <th style={th(A)}>Ticker</th>
+              {col("px", "Price")}{col("chg", "Chg")}
+              {col("r1w", "1W")}{col("r1m", "1M")}{col("r3m", "3M")}
+              {col("adr", "ADR")}{col("s50", "vs 50d")}{col("off", "Off high")}{col("rs", "RS")}{col("eps", "EPS", EPS_TIP)}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.t} data-nav={r.t} onClick={() => onTicker(r.t)} style={{ cursor: "pointer", background: chartTicker === r.t ? A.bgHover : "transparent" }}>
+                <td style={td(A)}><FlagButton t={r.t} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span>
+                  {r.top && <span title="Fastest EPS grower in this layer" style={{ color: A.green, marginLeft: 4 }}>★</span>}
+                  {r.nh && <span title="Closed at a 20-session high" style={{ color: A.cyan, marginLeft: 4, fontSize: 9 }}>NH</span>}</td>
+                <td style={{ ...td(A, "right"), color: A.text }}>{r.px != null ? r.px.toFixed(2) : "—"}</td>
+                <td style={{ ...td(A, "right"), color: pc(r.chg), fontWeight: 700 }}>{pct(r.chg, 2)}</td>
+                <td style={{ ...td(A, "right"), color: pc(r.r1w) }}>{pct(r.r1w)}</td>
+                <td style={{ ...td(A, "right"), color: pc(r.r1m) }}>{pct(r.r1m)}</td>
+                <td style={{ ...td(A, "right"), color: pc(r.r3m) }}>{pct(r.r3m)}</td>
+                <td style={td(A, "right")}>{r.adr == null ? "—" : `${r.adr.toFixed(1)}%`}</td>
+                <td style={{ ...td(A, "right"), color: pc(r.s50) }}>{pct(r.s50)}</td>
+                <td style={td(A, "right")}>{pct(r.off)}</td>
+                <td style={{ ...td(A, "right"), color: r.rs >= 90 ? A.green : r.rs >= 70 ? A.yellow : r.rs != null ? A.red : A.textMuted, fontWeight: 700 }}>{r.rs ?? "—"}</td>
+                <td title={r.epsTip || ""} style={{ ...td(A, "right"), color: r.eps >= 80 ? A.green : r.eps >= 50 ? A.yellow : r.eps != null ? A.red : A.textMuted }}>{r.eps ?? "—"}{r.epsAcc ? <span style={{ color: A.green, fontSize: 9 }}>▲</span> : null}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export function ScannerPanel({ A, stockMap, onTicker, chartTicker, tickerLayer }) {
   const [scan, setScan] = useState(() => { try { return localStorage.getItem("tp-scan-tab") || "m1w"; } catch { return "m1w"; } });
   const [sort, setSort] = useState({ k: SCAN_SORT[scan] || "rs", d: -1 });
@@ -1577,7 +1632,8 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
   }, []);
   const [layerTab, setLayerTab] = useState("lead");
   const [stockTab, setStockTab] = useState("intra");
-  const [expanded, setExpanded] = useState(null);
+  const [expanded, setExpanded] = useState(null);   // layer shown in the Stocks box
+  const prevTab = useRef("intra");
   const [lookup, setLookup] = useState("");
   const [lookupQ, setLookupQ] = useState("");
   const layersRef = React.useRef(null);
@@ -1710,10 +1766,22 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
     setLookupQ(t);
     if (t) onTickerClick(t);
   };
-  const openLayer = (l) => {
-    setTheme(null); setLayerTab(l.st); setExpanded(l.key);
-    setTimeout(() => layersRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  // Show a layer's members in the Stocks box. chart: load its top-RS member.
+  const showLayer = (l, chart = true) => {
+    if (stockTab !== "layer") prevTab.current = stockTab;
+    setExpanded(l.key); setStockTab("layer");
+    if (chart) {
+      const top = (members[l.key] || (l.holds || []).map((h) => h.t)).filter((t) => stockMap[t])
+        .sort((a, b) => (stockMap[b]?.rs_rank ?? 0) - (stockMap[a]?.rs_rank ?? 0))[0];
+      if (top) onTickerClick(top);
+    }
+    setTimeout(() => stocksRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 50);
   };
+  const closeLayer = () => { setExpanded(null); setStockTab(prevTab.current || "intra"); };
+  const openLayer = (l) => {
+    setTheme(null); setLayerTab(l.st); showLayer(l, false);
+  };
+  const shownLayer = expanded ? layers.find((l) => l.key === expanded) : null;
 
   const loading = !rot || !hist;
   const regime = breadth?.regime?.primary;
@@ -1818,19 +1886,35 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
             })()}
             <div ref={stocksRef}>
             <Card A={A} title="Stocks"
-              sub={stockTab === "lead"
+              sub={stockTab === "layer" ? undefined : stockTab === "lead"
                 ? "RS ≥ 90, above the 50-day, within 25% of the high · ● = in a leading layer"
                 : stockTab === "intra" || stockTab === "ext" || stockTab === "flag"
                 ? undefined
                 : "Held the top RS decile ≥ 40% of the quarter, now RS < 70 or ≥ 8% below the 50-day"}
-              right={<Tabs A={A} value={stockTab} onChange={setStockTab} items={[
+              right={<div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
+                {shownLayer && (
+                  <span style={{ display: "inline-flex", alignItems: "center", border: `1px solid ${stockTab === "layer" ? statusColor(shownLayer.st, A) : A.border}`,
+                    borderRadius: 4, background: stockTab === "layer" ? A.bgHover : "transparent" }}>
+                    <button onClick={() => setStockTab("layer")}
+                      style={{ background: "transparent", border: "none", color: stockTab === "layer" ? statusColor(shownLayer.st, A) : A.textDim,
+                        padding: "3px 4px 3px 9px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                      Layer: {shownLayer.name} <span style={{ opacity: 0.7 }}>{(members[shownLayer.key] || shownLayer.holds || []).length}</span>
+                    </button>
+                    <button onClick={closeLayer} title="Close this layer"
+                      style={{ background: "transparent", border: "none", color: A.textMuted, padding: "3px 7px 3px 3px", fontSize: 11, cursor: "pointer" }}>✕</button>
+                  </span>
+                )}
+                <Tabs A={A} value={stockTab} onChange={setStockTab} items={[
                 ["lead", "Leaders", stocks.lead.length, A.green],
                 ["brk", "Leaders breaking down", stocks.brk.length, A.red],
                 ["intra", "Intraday scan", "", A.cyan],
                 ["ext", "Pre/After-market", "", A.purple],
                 ["flag", "Flagged", "", A.gold],
-              ]} />}>
-              {stockTab === "flag"
+              ]} /></div>}>
+              {stockTab === "layer" && shownLayer
+                ? <LayerMembers A={A} layer={shownLayer} tickers={members[shownLayer.key] || (shownLayer.holds || []).map((h) => h.t)}
+                    stockMap={stockMapX} onTicker={onTickerClick} chartTicker={chartTicker} />
+                : stockTab === "flag"
                 ? <FlaggedTab A={A} stockMap={stockMapX} tickerLayer={tickerLayer} onTicker={onTickerClick} chartTicker={chartTicker} />
                 : stockTab === "ext"
                 ? <ExtHoursMovers A={A} pipeline={pipeline} stockMap={stockMapX} tickerLayer={tickerLayer} onTicker={onTickerClick} chartTicker={chartTicker} />
@@ -1842,7 +1926,7 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
             </div>
 
             <ChangesPanel A={A} layers={layers} themes={themes} bars={idxBars} liveQuotes={indexQuotes} date={rot?.date}
-              onTicker={onTickerClick} onLayer={(l) => { setTheme(l.themeId); setLayerTab(l.st); setExpanded(l.key); }}
+              onTicker={onTickerClick} onLayer={(l) => { setTheme(l.themeId); setLayerTab(l.st); showLayer(l); }}
               onTheme={(id) => setTheme(id)} />
             <IndexPanel A={A} liveQuotes={indexQuotes} onTicker={onTickerClick} chartTicker={chartTicker} bars={idxBars} />
 
@@ -1860,7 +1944,7 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
               ]} />}>
               <div ref={layersRef} />
               <LayerTable rows={layerBuckets[layerTab]} A={A} onTicker={onTickerClick} chartTicker={chartTicker} stockMap={stockMapX}
-                showPeak={layerTab === "weak" || layerTab === "brk"} members={members} expanded={expanded} onToggle={setExpanded} focus={lookupQ} />
+                showPeak={layerTab === "weak" || layerTab === "brk"} members={members} expanded={expanded} onToggle={(l) => showLayer(l)} focus={lookupQ} />
             </Card>
 
 
