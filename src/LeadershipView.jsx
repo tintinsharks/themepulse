@@ -323,6 +323,7 @@ function StockTable({ rows, A, onTicker, chartTicker, mode }) {
           <tr>
             <th style={th(A)}>Ticker</th>
             <th style={th(A, "right")}>RS</th>
+            <th style={th(A, "right")} title={EPS_TIP}>EPS</th>
             {mode === "brk" && <th style={th(A, "right")} title="Share of the quarter in the top decile of RS">Held</th>}
             <th style={th(A, "right")}>vs 50d</th>
             <th style={th(A, "right")}>Off high</th>
@@ -341,6 +342,7 @@ function StockTable({ rows, A, onTicker, chartTicker, mode }) {
                   {r.inLead && mode === "lead" && <span title="In a leading layer" style={{ color: A.green, marginLeft: 4 }}>●</span>}
                 </td>
                 <td style={{ ...td(A, "right"), color: r.rs >= 90 ? A.green : r.rs < 70 ? A.red : A.yellow, fontWeight: 700 }}>{r.rs ?? "—"}</td>
+                <td title={r.epsTip || ""} style={{ ...td(A, "right"), color: r.eps >= 80 ? A.green : r.eps >= 50 ? A.yellow : r.eps != null ? A.red : A.textMuted }}>{r.eps ?? "—"}{r.epsAcc ? <span style={{ color: A.green, fontSize: 9 }}>▲</span> : null}</td>
                 {mode === "brk" && <td style={td(A, "right")}>{r.persist}%</td>}
                 <td style={{ ...td(A, "right"), color: (r.sma50 ?? 0) >= 0 ? A.green : A.red }}>{pct(r.sma50)}</td>
                 <td style={td(A, "right")}>{pct(r.off)}</td>
@@ -746,7 +748,7 @@ function scanBase(s, session) {
   // ZVR baseline = the 10 sessions BEFORE the one being measured: once the
   // pipeline has the measured session as its last bar, use the prior-10 avg
   const avg10 = (s.last_bar_date && s.last_bar_date === session && s.avg_vol_10d_prior) || s.avg_vol_10d || s.avg_volume_raw;
-  return { t: s.ticker, sma200, ema50, hi52, lo52, avgVol: s.avg_volume_raw, avg10, adr, rs: s.rs_rank };
+  return { t: s.ticker, sma200, ema50, hi52, lo52, avgVol: s.avg_volume_raw, avg10, adr, rs: s.rs_rank, eps: s.eps_rating ?? null, epsTip: s.eps_tip, epsAcc: s.eps_accel };
 }
 
 
@@ -803,7 +805,7 @@ function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, allowed
       if (aboveLo == null || aboveLo < 30) return;
       if (!(px > b.sma200) || !(b.ema50 && px > b.ema50)) return;
       const L = tickerLayer[b.t];
-      out.push({ t: b.t, px, zvr, chg, fromOpen, adr: b.adr, offHi, rs: b.rs, layer: L?.name, layerSt: L?.st });
+      out.push({ t: b.t, px, zvr, chg, fromOpen, adr: b.adr, offHi, rs: b.rs, eps: b.eps, epsTip: b.epsTip, epsAcc: b.epsAcc, layer: L?.name, layerSt: L?.st });
     });
     const k = sort.k, d = sort.d;
     out.sort((x, y) => ((x[k] ?? -1e9) - (y[k] ?? -1e9)) * d);
@@ -844,7 +846,7 @@ function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, allowed
               <tr>
                 <th style={th(A)}>Ticker</th>
                 {col("zvr", "ZVR", "right", "Relative volume at time (TradingView-style): today's volume ÷ the 10-session average × the share of a normal day's volume done by now. 1.00 = normal pace. After hours: the last value from the session")}{col("chg", "Chg")}{col("fromOpen", "From open")}
-                {col("adr", "ADR")}{col("offHi", "Off high")}{col("rs", "RS")}
+                {col("adr", "ADR")}{col("offHi", "Off high")}{col("rs", "RS")}{col("eps", "EPS", "right", EPS_TIP)}
                 <th style={th(A)}>Layer</th>
               </tr>
             </thead>
@@ -858,6 +860,7 @@ function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, allowed
                   <td style={td(A, "right")}>{r.adr == null ? "—" : `${r.adr.toFixed(1)}%`}</td>
                   <td style={td(A, "right")}>{pct(r.offHi)}</td>
                   <td style={{ ...td(A, "right"), color: r.rs >= 90 ? A.green : r.rs >= 70 ? A.yellow : A.red }}>{r.rs ?? "—"}</td>
+                  <td title={r.epsTip || ""} style={{ ...td(A, "right"), color: r.eps >= 80 ? A.green : r.eps >= 50 ? A.yellow : r.eps != null ? A.red : A.textMuted }}>{r.eps ?? "—"}{r.epsAcc ? <span style={{ color: A.green, fontSize: 9 }}>▲</span> : null}</td>
                   <td style={{ ...td(A), fontSize: 11, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis" }}>
                     {r.layer ? <span style={{ color: statusColor(r.layerSt, A) }}>{r.layer}</span> : <span style={{ color: A.textMuted }}>—</span>}
                   </td>
@@ -889,7 +892,7 @@ function extRows(snap, stockMap, tickerLayer, universeOnly) {
       t, chg, price: m.price, vol: m.volume, er,
       grade: m.ep_quality_label || null,
       catalyst: head.replace(/\s*\[[^\]]*\]\s*$/, ""),
-      rs: s?.rs_rank ?? m.rs_rank ?? null,
+      rs: s?.rs_rank ?? m.rs_rank ?? null, eps: s?.eps_rating ?? null, epsTip: s?.eps_tip, epsAcc: s?.eps_accel,
       inU: !!s, layer: L?.name, layerSt: L?.st,
     });
   });
@@ -947,7 +950,7 @@ function ExtHoursMovers({ A, pipeline, stockMap, tickerLayer, onTicker, chartTic
             <thead style={{ position: "sticky", top: 0, background: A.bg }}>
               <tr>
                 {hdr("t", "Ticker")}{hdr("chg", "Chg", "right", "Default order is biggest move either way; click to sort high → low")}{hdr("price", "Price", "right")}
-                {hdr("vol", "Vol", "right")}{hdr("rs", "RS", "right")}{hdr("layer", "Layer")}{hdr("catalyst", "Catalyst")}
+                {hdr("vol", "Vol", "right")}{hdr("rs", "RS", "right")}{hdr("eps", "EPS", "right", EPS_TIP)}{hdr("layer", "Layer")}{hdr("catalyst", "Catalyst")}
               </tr>
             </thead>
             <tbody>
@@ -961,6 +964,7 @@ function ExtHoursMovers({ A, pipeline, stockMap, tickerLayer, onTicker, chartTic
                   <td style={td(A, "right")}>{r.price ? r.price.toFixed(2) : "—"}</td>
                   <td style={td(A, "right")}>{fmtVol(r.vol)}</td>
                   <td style={{ ...td(A, "right"), color: r.rs >= 90 ? A.green : r.rs >= 70 ? A.yellow : r.rs != null ? A.red : A.textMuted }}>{r.rs ?? "—"}</td>
+                  <td title={r.epsTip || ""} style={{ ...td(A, "right"), color: r.eps >= 80 ? A.green : r.eps >= 50 ? A.yellow : r.eps != null ? A.red : A.textMuted }}>{r.eps ?? "—"}{r.epsAcc ? <span style={{ color: A.green, fontSize: 9 }}>▲</span> : null}</td>
                   <td style={{ ...td(A), fontSize: 11, maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis" }}>
                     {r.layer ? <span style={{ color: statusColor(r.layerSt, A) }}>{r.layer}</span> : <span style={{ color: A.textMuted }}>—</span>}
                   </td>
@@ -1125,7 +1129,7 @@ function FlaggedTab({ A, stockMap, tickerLayer, onTicker, chartTicker }) {
       fromOpen: q?.open ? (q.price / q.open - 1) * 100 : null,
       adr: s.adr20 ?? s.adr_pct ?? null,
       offHi: hi && px ? (px / hi - 1) * 100 : null,
-      rs: s.rs_rank ?? null, layer: L?.name, layerSt: L?.st,
+      rs: s.rs_rank ?? null, eps: s.eps_rating ?? null, epsTip: s.eps_tip, epsAcc: s.eps_accel, layer: L?.name, layerSt: L?.st,
     };
   });
   rows.sort((a, b) => {
@@ -1166,7 +1170,7 @@ function FlaggedTab({ A, stockMap, tickerLayer, onTicker, chartTicker }) {
               <tr>
                 {col("flag", "Ticker", "left", "Click to group by flag colour")}
                 {col("zvr", "ZVR", "right", "Relative volume at time: today's volume ÷ the stock's average volume by this time of day. 1.00 = normal pace. After hours: the last value from the session")}{col("chg", "Chg")}{col("fromOpen", "From open")}
-                {col("adr", "ADR")}{col("offHi", "Off high")}{col("rs", "RS")}
+                {col("adr", "ADR")}{col("offHi", "Off high")}{col("rs", "RS")}{col("eps", "EPS", "right", EPS_TIP)}
                 <th style={th(A)}>Layer</th>
               </tr>
             </thead>
@@ -1180,6 +1184,7 @@ function FlaggedTab({ A, stockMap, tickerLayer, onTicker, chartTicker }) {
                   <td style={td(A, "right")}>{r.adr == null ? "—" : `${r.adr.toFixed(1)}%`}</td>
                   <td style={td(A, "right")}>{pct(r.offHi)}</td>
                   <td style={{ ...td(A, "right"), color: r.rs >= 90 ? A.green : r.rs >= 70 ? A.yellow : r.rs != null ? A.red : A.textMuted }}>{r.rs ?? "—"}</td>
+                  <td title={r.epsTip || ""} style={{ ...td(A, "right"), color: r.eps >= 80 ? A.green : r.eps >= 50 ? A.yellow : r.eps != null ? A.red : A.textMuted }}>{r.eps ?? "—"}{r.epsAcc ? <span style={{ color: A.green, fontSize: 9 }}>▲</span> : null}</td>
                   <td style={{ ...td(A), fontSize: 11, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis" }}>
                     {r.layer ? <span style={{ color: statusColor(r.layerSt, A) }}>{r.layer}</span> : <span style={{ color: A.textMuted }}>—</span>}
                   </td>
@@ -1293,7 +1298,7 @@ export function ScannerPanel({ A, stockMap, onTicker, chartTicker, tickerLayer }
         t: s.ticker, tag: typeof h[scan] === "string" ? h[scan] : null, px,
         chg: q?.change ?? s.change_pct ?? null,
         r1w: s.return_1w, r1m: s.return_1m, r3m: s.return_3m, r6m: s.return_6m,
-        adr: s.adr20 ?? s.adr_pct, adr5: s.adr5, off: s.off_52w_high ?? s.pct_from_high, rs: s.rs_rank,
+        adr: s.adr20 ?? s.adr_pct, adr5: s.adr5, off: s.off_52w_high ?? s.pct_from_high, rs: s.rs_rank, eps: s.eps_rating ?? null, epsTip: s.eps_tip, epsAcc: s.eps_accel,
         burst: s.burst20_pct, ago: s.burst20_ago, pb: s.burst20_pullback, ti65: s.ti65,
         layer: L?.name, layerSt: L?.st,
       });
@@ -1339,7 +1344,7 @@ export function ScannerPanel({ A, stockMap, onTicker, chartTicker, tickerLayer }
                 {col("px", "Price")}{col("chg", "Chg")}
                 {extra.map(([k, l]) => col(k, l))}
                 {col("r1w", "1W")}{col("r1m", "1M")}{col("r3m", "3M")}{col("r6m", "6M")}
-                {col("adr", "ADR")}{col("off", "Off high")}{col("rs", "RS")}
+                {col("adr", "ADR")}{col("off", "Off high")}{col("rs", "RS")}{col("eps", "EPS", EPS_TIP)}
                 <th style={th(A)}>Layer</th>
               </tr>
             </thead>
@@ -1358,6 +1363,7 @@ export function ScannerPanel({ A, stockMap, onTicker, chartTicker, tickerLayer }
                   <td style={td(A, "right")}>{r.adr == null ? "—" : `${r.adr.toFixed(1)}%`}</td>
                   <td style={td(A, "right")}>{pct(r.off)}</td>
                   <td style={{ ...td(A, "right"), color: r.rs >= 90 ? A.green : r.rs >= 70 ? A.yellow : r.rs != null ? A.red : A.textMuted }}>{r.rs ?? "—"}</td>
+                  <td title={r.epsTip || ""} style={{ ...td(A, "right"), color: r.eps >= 80 ? A.green : r.eps >= 50 ? A.yellow : r.eps != null ? A.red : A.textMuted }}>{r.eps ?? "—"}{r.epsAcc ? <span style={{ color: A.green, fontSize: 9 }}>▲</span> : null}</td>
                   <td style={{ ...td(A), fontSize: 11, maxWidth: 170, overflow: "hidden", textOverflow: "ellipsis" }}>
                     {r.layer ? <span style={{ color: statusColor(r.layerSt, A) }}>{r.layer}</span> : <span style={{ color: A.textMuted }}>—</span>}
                   </td>
@@ -1369,6 +1375,68 @@ export function ScannerPanel({ A, stockMap, onTicker, chartTicker, tickerLayer }
       )}
     </Card>
   );
+}
+
+// ── EPS Rating (O'Neil / IBD-style) ───────────────────────────────────────
+// IBD's EPS Rating blends the two most recent quarters' year-over-year EPS
+// growth with the multi-year annual growth rate, then ranks 1-99 against the
+// universe. Built from each stock's own quarters[] / annual[] (GAAP EPS from
+// FMP, so names with non-GAAP-only profits — stock-comp-heavy software — score
+// lower than on IBD):
+//   raw = 0.35·Q1 + 0.25·Q2 + 0.40·A3
+//   Q1/Q2  latest / prior quarter EPS growth vs the year-ago quarter
+//   A3     median of the last 3 annual EPS growth rates, −10 pts per down
+//          year among them (O'Neil wants steady annual growth)
+// Each growth term is capped to −100…+200 so one tiny base can't dominate.
+// A current loss scores −100 (no credit for a shrinking loss); a swing from a
+// loss to a profit scores +100.
+const EPS_TIP = "O'Neil-style EPS Rating 1-99: last two quarters' year-over-year EPS growth + 3-year annual growth, ranked vs the universe. ▲ = growth accelerating 3 quarters running";
+const capG = (x) => Math.max(-100, Math.min(200, x));
+function epsGrowth(cur, prev, pct) {
+  if (cur == null) return null;
+  if (cur <= 0) return -100;
+  if (prev != null) return prev <= 0 ? 100 : capG((cur / prev - 1) * 100);
+  return pct == null ? null : capG(pct);
+}
+function epsRaw(s) {
+  const Q = (s.quarters || []).filter((q) => q.eps != null)
+    .sort((a, b) => String(b.report_date || "").localeCompare(String(a.report_date || "")));
+  const Y = (s.annual || []).filter((a) => a.eps != null).sort((a, b) => b.year - a.year);
+  if (Q.length < 2 || Y.length < 2) return null;
+  let q1 = epsGrowth(Q[0].eps, null, Q[0].eps_yoy), q2 = epsGrowth(Q[1].eps, null, Q[1].eps_yoy);
+  if (q1 == null && q2 == null) return null;
+  q1 = q1 ?? q2; q2 = q2 ?? q1;   // one quarter without a year-ago figure: lean on the other
+  // median of the last three annual growth rates, not a CAGR off one endpoint:
+  // a single depressed base year (GPN 2022 EPS $0.41) made the CAGR +132%/yr
+  const yg = Y.slice(0, 3).map((a, i) => (Y[i + 1] ? epsGrowth(a.eps, Y[i + 1].eps) : null)).filter((x) => x != null).sort((a, b) => a - b);
+  let a3;
+  if (Y[0].eps <= 0) a3 = -100;
+  else a3 = yg.length ? yg[Math.floor(yg.length / 2)] : -100;
+  const down = Y.slice(0, 3).filter((a, i) => Y[i + 1] && a.eps < Y[i + 1].eps).length;
+  a3 -= 10 * down;
+  // acceleration: growth rising quarter over quarter for the last three
+  const q3 = Q[2] ? epsGrowth(Q[2].eps, null, Q[2].eps_yoy) : null;
+  const accel = q3 != null && q1 >= 25 && q1 > q2 && q2 > q3;
+  return { raw: 0.35 * q1 + 0.25 * q2 + 0.4 * a3, q1, q2, a3, down, accel };
+}
+function withEpsRating(stockMap) {
+  const rows = [];
+  for (const [t, s] of Object.entries(stockMap || {})) {
+    const r = s?.ticker ? epsRaw(s) : null;
+    if (r) rows.push([t, r]);
+  }
+  const sorted = rows.map(([, r]) => r.raw).sort((a, b) => a - b), n = sorted.length;
+  const out = { ...stockMap };
+  const fmt = (v) => `${v > 0 ? "+" : ""}${Math.round(v)}%`;
+  for (const [t, r] of rows) {
+    let lo = 0, hi = n;
+    while (lo < hi) { const m = (lo + hi) >> 1; sorted[m] < r.raw ? (lo = m + 1) : (hi = m); }
+    let up = lo; while (up < n && sorted[up] === r.raw) up++;
+    const rating = Math.max(1, Math.min(99, Math.round(((lo + up + 1) / 2) / n * 98 + 1)));
+    out[t] = { ...stockMap[t], eps_rating: rating, eps_accel: r.accel,
+      eps_tip: `EPS Rating ${rating} — last qtr ${fmt(r.q1)} · prior qtr ${fmt(r.q2)} · 3-yr median ${fmt(r.a3)}/yr${r.down ? ` (incl. −${10 * r.down} for ${r.down} down yr)` : ""}${r.accel ? " · accelerating" : ""}` };
+  }
+  return out;
 }
 
 // ── Live RS ───────────────────────────────────────────────────────────────
@@ -1473,7 +1541,8 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
   const breadth = useJson("/data/breadth.json");
   const [theme, setTheme] = useState(null);
   const idxBars = useIndexBars(LEAD_INDEXES.map((x) => x.t));
-  const liveRs = useLiveRS(stockMapIn);
+  const epsMap = useMemo(() => withEpsRating(stockMapIn), [stockMapIn]);
+  const liveRs = useLiveRS(epsMap);
   const stockMap = liveRs.map;
   // ↑/↓ steps through the rows of the Stocks box (whatever tab/sort is showing)
   // and loads each one in the chart. Ignored while typing in a field.
@@ -1591,7 +1660,7 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
       if ((s.avg_dollar_vol_raw ?? 0) < 20e6) return;
       const L = tickerLayer[s.ticker];
       const row = {
-        ticker: s.ticker, rs: s.rs_rank, sma50: s.sma50_pct, off: s.off_52w_high, r1m: s.return_1m,
+        ticker: s.ticker, rs: s.rs_rank, eps: s.eps_rating ?? null, epsTip: s.eps_tip, epsAcc: s.eps_accel, sma50: s.sma50_pct, off: s.off_52w_high, r1m: s.return_1m,
         layer: L?.name, layerSt: L?.st, inLead: L?.st === "lead", persist: pm[s.ticker]?.[0] ?? 0,
       };
       if ((s.rs_rank ?? 0) >= 90 && s.above_50ma && (s.off_52w_high ?? -100) >= -25) lead.push(row);
