@@ -47,6 +47,13 @@ function statusColor(st, A) {
 // Rank trend from the daily history, so one noisy session can't make or
 // break a status: slope = least-squares points/session over the last 5
 // sessions; ups = sessions out of the last 10 the rank rose.
+// Rank stability: sessions of the last 20 the rank held >= 80. Separates a
+// layer that has sat in the top tier for a month from one that spiked there.
+function rankHeld(hist, n = 20, lvl = 80) {
+  const v = hist.filter((x) => x != null).slice(-n);
+  return { held: v.filter((x) => x >= lvl).length, of: v.length };
+}
+
 function rankTrend(hist) {
   const v = hist.filter((x) => x != null);
   const t5 = v.slice(-5);
@@ -123,13 +130,14 @@ function layerConfirm(lbRow) {
   };
   const acc = lastOf(lbRow.acc), dist = lastOf(lbRow.dist), dvs = lastOf(lbRow.dvs);
   const l90 = lastOf(lbRow.l90), l90p = lastOf(lbRow.l90, 5);
+  const lx = lastOf(lbRow.lx), lxT = lbRow.lx_t || [];
   const checks = {
     acc: acc != null && acc >= 3 && acc >= 2 * (dist ?? 0),
     money: dvs != null && dvs >= 1.15,
     leaders: l90 != null && l90p != null && l90 - l90p >= 2,
   };
   const passed = Object.keys(checks).filter((k) => checks[k]);
-  return { acc, dist, dvs, l90, l90d: l90 != null && l90p != null ? l90 - l90p : null, passed,
+  return { acc, dist, dvs, lx, lxT, l90, l90d: l90 != null && l90p != null ? l90 - l90p : null, passed,
     distHeavy: dist != null && dist >= 3 && dist >= 2 * (acc ?? 0) };
 }
 const CONF_LABEL = { acc: "accumulation days", money: "money flowing in", leaders: "new RS 90+ leaders" };
@@ -138,7 +146,12 @@ function layerFlags(l) {
   const b = l.stats;
   if (!b || b.n < 3) return [];
   const f = [];
+  const hd = l.held;
+  if (hd?.of >= 15) {
+    if (l.now >= 80 && hd.held <= 5) f.push(["spiky", `Only ${hd.held} of the last ${hd.of} sessions at 80+ — a fresh spike, not established`]);
+  }
   const cf = l.conf;
+  if (cf && cf.lx >= 2) f.push(["exiting", `${cf.lx} leaders cracked this week (were RS 90+, now below the 50-day or under RS 80): ${cf.lxT.join(", ")}`]);
   if (cf) {
     if ((l.st === "lead" || l.st === "weak") && cf.distHeavy)
       f.push(["distrib", `Distribution: ${cf.dist} heavy-volume down days vs ${cf.acc} accumulation days across members over 10 sessions`]);
@@ -466,7 +479,8 @@ function LayerTable({ rows, A, onTicker, chartTicker, stockMap, showPeak, member
             <th className="tp-hide-sm" style={th(A)}>{SPARK_N}d</th>
             <th className="tp-hide-sm" style={th(A, "right")} title="Rank change per session, least-squares over the last 5 sessions · sessions out of the last 10 the rank rose">Trend</th>
             <th className="tp-hide-sm" style={th(A, "right")} title="Accumulation / distribution days across members over 10 sessions (up or down ≥ 1% on ≥ 1.5× 50-day volume) · layer's share of universe dollar volume, 5-day vs 20-day">Volume</th>
-            <th className="tp-hide-sm" style={th(A, "right")} title="Members at stock RS 90+ (change vs 5 sessions ago)">RS 90+</th>
+            <th className="tp-hide-sm" style={th(A, "right")} title="Members at stock RS 90+ (change vs 5 sessions ago) · leaders that cracked this week (were RS 90+, now below the 50-day or under RS 80)">RS 90+</th>
+            <th className="tp-hide-sm" style={th(A, "right")} title="Rank stability: sessions of the last 20 the layer ranked 80 or higher">80+ of 20</th>
             <th className="tp-hide-sm" style={th(A, "right")} title="Share of the trailing quarter this layer ranked ≥ 88">Held</th>
             <th style={th(A)}>Strongest names <span style={{ fontWeight: 400 }}>· click a row for every member</span></th>
           </tr>
@@ -490,8 +504,8 @@ function LayerTable({ rows, A, onTicker, chartTicker, stockMap, showPeak, member
                   <div style={{ fontSize: 10, color: A.textMuted }}>{l.theme}
                     {flags.map(([k, why]) => (
                       <span key={k} title={why} style={{ marginLeft: 5, padding: "0 4px", borderRadius: 3, fontSize: 9, fontWeight: 700,
-                        border: `1px solid ${k === "confirmed" ? A.green : k === "unconfirmed" ? A.textMuted : A.yellow}`,
-                        color: k === "confirmed" ? A.green : k === "unconfirmed" ? A.textMuted : A.yellow }}>{k}</span>
+                        border: `1px solid ${k === "confirmed" || k === "steady" ? A.green : k === "unconfirmed" || k === "spiky" ? A.textMuted : k === "exiting" ? A.red : A.yellow}`,
+                        color: k === "confirmed" || k === "steady" ? A.green : k === "unconfirmed" || k === "spiky" ? A.textMuted : k === "exiting" ? A.red : A.yellow }}>{k}</span>
                     ))}
                   </div>
                 </td>
@@ -515,7 +529,11 @@ function LayerTable({ rows, A, onTicker, chartTicker, stockMap, showPeak, member
                   {l.conf?.l90 != null ? (<>
                     <span style={{ color: A.text }}>{l.conf.l90}</span>
                     {l.conf.l90d ? <span style={{ color: l.conf.l90d > 0 ? A.green : A.red, fontSize: 10 }}> {l.conf.l90d > 0 ? "+" : ""}{l.conf.l90d}</span> : null}
+                    {l.conf.lx > 0 && <span title={`Cracked this week: ${l.conf.lxT.join(", ")}`} style={{ color: A.red, fontSize: 10 }}> · {l.conf.lx} out</span>}
                   </>) : "—"}
+                </td>
+                <td className="tp-hide-sm" style={{ ...td(A, "right"), fontSize: 11 }}>
+                  {l.held?.of ? <span style={{ color: l.held.held >= 15 ? A.green : l.held.held >= 8 ? A.yellow : A.textMuted }}>{l.held.held}</span> : "—"}
                 </td>
                 <td className="tp-hide-sm" style={td(A, "right")}>{l.persist != null ? `${l.persist}%` : "—"}</td>
                 <td style={{ ...td(A), whiteSpace: "normal", minWidth: 160 }}>
@@ -1916,7 +1934,7 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
       const ph = peakDates.map((d) => hist?.[d]?.layers?.[key] ?? null);
       const { st, peak } = classify(l, ph.length ? ph : [l.now, l.w1, l.m1]);
       const stats = layerStats(members[key] || (l.holds || []).map((x) => x.t), stockMap || {});
-      return { ...l, key, hist: h, st, peak, trend: rankTrend(h), stats, conf: layerConfirm(layerBreadth?.layers?.[key]) };
+      return { ...l, key, hist: h, st, peak, trend: rankTrend(h), held: rankHeld(h), stats, conf: layerConfirm(layerBreadth?.layers?.[key]) };
     });
   }, [rot, hist, dates, members, stockMap, layerBreadth]);
 
