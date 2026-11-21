@@ -6115,7 +6115,7 @@ function calcRiskSize(stopPrice, entryPrice, accountSize, riskPct, maxAllocPct) 
 // ──────────────────────────────────────────────────────────────────────────
 function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = false, rsRating = null, rsRatingColor = null }) {
   const MAX_BARS = 375;
-  const DEFAULT_BARS = 113;
+  const DEFAULT_BARS = 168;   // ~8 months of sessions (was 113 ≈ 5.5 months)
   const MIN_VISIBLE = 30;
 
   // Visible window: endIdx is always the right edge (exclusive), visibleCount is how many bars to show
