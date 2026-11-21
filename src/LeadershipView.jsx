@@ -286,10 +286,12 @@ function LayerTable({ rows, A, onTicker, chartTicker, stockMap, showPeak, member
               {open && (
                 <tr>
                   <td colSpan={cols} style={{ ...td(A), whiteSpace: "normal", background: A.bgRow, padding: "8px 10px" }}>
-                    <div style={{ fontSize: 10, color: A.textMuted, marginBottom: 5 }}>All {all.length} members by RS rank · click to chart</div>
+                    <div style={{ fontSize: 10, color: A.textMuted, marginBottom: 5 }}>All {all.length} members by RS rank · E = EPS Rating · ★ = fastest EPS grower in the layer · click to chart</div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                       {all.map((t) => {
                         const rs = stockMap[t]?.rs_rank;
+                        const ep = stockMap[t]?.eps_rating;
+                        const topEps = ep != null && ep === Math.max(...all.map((x) => stockMap[x]?.eps_rating ?? -1));
                         const rc = rs >= 90 ? A.green : rs >= 70 ? A.yellow : A.red;
                         const hi = focus === t || chartTicker === t;
                         return (
@@ -297,6 +299,8 @@ function LayerTable({ rows, A, onTicker, chartTicker, stockMap, showPeak, member
                             style={{ background: hi ? A.glowGreen : "transparent", border: `1px solid ${hi ? A.green : A.border}`, borderRadius: 4,
                               padding: "1px 6px", fontSize: 11, cursor: "pointer", color: A.text, fontFamily: "monospace" }}>
                             {t} <span style={{ color: rc, fontWeight: 700 }}>{rs ?? "—"}</span>
+                            {ep != null && <span style={{ color: ep >= 80 ? A.green : ep >= 50 ? A.yellow : A.red, fontSize: 10 }}> E{ep}</span>}
+                            {topEps && <span title="Fastest EPS grower in this layer" style={{ color: A.green }}> ★</span>}
                           </button>
                         );
                       })}
@@ -1650,11 +1654,29 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
     return m;
   }, [layers]);
 
+  // EPS position inside the stock's own layer (the one shown in its Layer
+  // column): the rating stays universe-wide; this is the tiebreaker for
+  // picking the fastest grower inside a leading layer.
+  const stockMapX = useMemo(() => {
+    const out = { ...stockMap };
+    for (const [t, l] of Object.entries(tickerLayer)) {
+      const s = stockMap[t];
+      if (!s || s.eps_rating == null) continue;
+      const mem = (members[l.key] || (l.holds || []).map((h) => h.t))
+        .filter((x) => stockMap[x]?.eps_rating != null)
+        .sort((a, b) => stockMap[b].eps_rating - stockMap[a].eps_rating);
+      const pos = mem.indexOf(t) + 1;
+      if (pos > 0) out[t] = { ...s, eps_layer_pos: pos, eps_layer_n: mem.length,
+        eps_tip: `${s.eps_tip} · #${pos} of ${mem.length} in ${l.name}` };
+    }
+    return out;
+  }, [stockMap, tickerLayer, members]);
+
   const stocks = useMemo(() => {
     const pm = seats?.persistMap || {};
     const allowed = theme ? new Set(visLayers.flatMap((l) => (l.holds || []).map((h) => h.t))) : null;
     const lead = [], brk = [];
-    Object.values(stockMap || {}).forEach((s) => {
+    Object.values(stockMapX || {}).forEach((s) => {
       if (!s?.ticker) return;
       if (allowed && !allowed.has(s.ticker)) return;
       if ((s.avg_dollar_vol_raw ?? 0) < 20e6) return;
@@ -1671,7 +1693,7 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
     lead.sort((a, b) => (b.inLead - a.inLead) || (b.rs - a.rs) || (b.off - a.off));
     brk.sort((a, b) => b.persist - a.persist || (a.rs ?? 0) - (b.rs ?? 0));
     return { lead: lead.slice(0, 60), brk: brk.slice(0, 60) };
-  }, [stockMap, seats, tickerLayer, theme, visLayers]);
+  }, [stockMapX, seats, tickerLayer, theme, visLayers]);
 
   const lookupHits = useMemo(() => {
     const q = lookupQ;
@@ -1722,7 +1744,7 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
       }`}</style>
       {view === "scanner" ? (
         <div style={{ flex: "1 1 640px", minWidth: 0 }} ref={stocksRef}>
-          <ScannerPanel A={A} stockMap={stockMap} onTicker={onTickerClick} chartTicker={chartTicker} tickerLayer={tickerLayer} />
+          <ScannerPanel A={A} stockMap={stockMapX} onTicker={onTickerClick} chartTicker={chartTicker} tickerLayer={tickerLayer} />
         </div>
       ) : (
       <div style={{ flex: "1 1 640px", minWidth: 0 }}>
@@ -1809,11 +1831,11 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
                 ["flag", "Flagged", "", A.gold],
               ]} />}>
               {stockTab === "flag"
-                ? <FlaggedTab A={A} stockMap={stockMap} tickerLayer={tickerLayer} onTicker={onTickerClick} chartTicker={chartTicker} />
+                ? <FlaggedTab A={A} stockMap={stockMapX} tickerLayer={tickerLayer} onTicker={onTickerClick} chartTicker={chartTicker} />
                 : stockTab === "ext"
-                ? <ExtHoursMovers A={A} pipeline={pipeline} stockMap={stockMap} tickerLayer={tickerLayer} onTicker={onTickerClick} chartTicker={chartTicker} />
+                ? <ExtHoursMovers A={A} pipeline={pipeline} stockMap={stockMapX} tickerLayer={tickerLayer} onTicker={onTickerClick} chartTicker={chartTicker} />
                 : stockTab === "intra"
-                ? <IntradayScan A={A} stockMap={stockMap} onTicker={onTickerClick} chartTicker={chartTicker} tickerLayer={tickerLayer}
+                ? <IntradayScan A={A} stockMap={stockMapX} onTicker={onTickerClick} chartTicker={chartTicker} tickerLayer={tickerLayer}
                     allowed={theme ? new Set(visLayers.flatMap((l) => members[l.key] || (l.holds || []).map((h) => h.t))) : null} />
                 : <StockTable rows={stocks[stockTab]} A={A} onTicker={onTickerClick} chartTicker={chartTicker} mode={stockTab} />}
             </Card>
@@ -1837,7 +1859,7 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
                 ["lag", "Lagging", layerBuckets.lag.length, A.textDim],
               ]} />}>
               <div ref={layersRef} />
-              <LayerTable rows={layerBuckets[layerTab]} A={A} onTicker={onTickerClick} chartTicker={chartTicker} stockMap={stockMap}
+              <LayerTable rows={layerBuckets[layerTab]} A={A} onTicker={onTickerClick} chartTicker={chartTicker} stockMap={stockMapX}
                 showPeak={layerTab === "weak" || layerTab === "brk"} members={members} expanded={expanded} onToggle={setExpanded} focus={lookupQ} />
             </Card>
 
