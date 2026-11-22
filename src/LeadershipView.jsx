@@ -593,6 +593,7 @@ function StockTable({ rows, A, onTicker, chartTicker, mode, onLayer }) {
                 <td style={td(A)}>
                   <FlagButton t={r.ticker} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.ticker}</span>
                   {r.inLead && mode === "lead" && <span title="In a leading layer" style={{ color: A.green, marginLeft: 4 }}>●</span>}
+                  {r.pin && <span title={r.pin} style={{ color: A.yellow, marginLeft: 4, fontSize: 9, fontWeight: 700, border: `1px solid ${A.yellow}`, borderRadius: 3, padding: "0 3px" }}>PIN</span>}
                 </td>
                 <td style={{ ...td(A, "right"), color: r.rs >= 90 ? A.green : r.rs < 70 ? A.red : A.yellow, fontWeight: 700 }}>{r.rs ?? "—"}</td>
                 <td title={r.epsTip || ""} style={{ ...td(A, "right"), color: r.eps >= 80 ? A.green : r.eps >= 50 ? A.yellow : r.eps != null ? A.red : A.textMuted }}>{r.eps ?? "—"}{r.epsAcc ? <span style={{ color: A.green, fontSize: 9 }}>▲</span> : null}</td>
@@ -1512,6 +1513,23 @@ function scanHits(s, q) {
   return out;
 }
 
+// Buyout-pinned / no-range names: a stock trading in a fixed deal band keeps
+// RS 96–99 and sits ~0% off its high, so it floats to the top of Leaders
+// without being a live breakout. Pinned = 20-day OR 5-day ADR under 0.8%, or
+// the 5-day ADR has collapsed below half its long-run ADR (< 1.5%) while
+// sitting within 2% of the high — the 20-day window still holds the
+// announcement-day jump for a week or two, so it misses fresh deals (SGRY).
+const PIN_ADR = 0.8;
+function pinReason(s) {
+  if (!s) return null;
+  const a20 = s.adr20 ?? s.adr_pct, a5 = s.adr5, lt = s.adr_pct, off = s.off_52w_high;
+  const lo = Math.min(a20 ?? Infinity, a5 ?? Infinity);
+  if (lo < PIN_ADR) return `ADR ${lo.toFixed(2)}% — pinned / no range`;
+  if (a5 != null && lt && off != null && a5 < 1.5 && off >= -2 && a5 < 0.5 * lt)
+    return `5-day ADR ${a5.toFixed(2)}% vs ${lt.toFixed(1)}% normal at the high — likely deal-pinned`;
+  return null;
+}
+
 const SCAN_SORT = { m1w: "r1w", m1m: "r1m", m3m: "r3m", m6m: "r6m", strong: "rs", s20: "ago", antic: "ti65", hot: "r1m", liquid: "rs" };
 
 // ── Written briefs (BRIEF → Written) ─────────────────────────────────────
@@ -2272,6 +2290,8 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
     return () => window.removeEventListener("keydown", onKey);
   }, []);
   const [layerTab, setLayerTab] = useState("lead");
+  const [hidePinned, setHidePinned] = useState(() => { try { return localStorage.getItem("tp_hide_pinned") !== "0"; } catch { return true; } });
+  const togglePinned = () => setHidePinned((v) => { try { localStorage.setItem("tp_hide_pinned", v ? "0" : "1"); } catch { /* ignore */ } return !v; });
   const [stockTab, setStockTab] = useState("intra");
   const [expanded, setExpanded] = useState(null);   // layer shown in the Stocks box
   const [themeView, setThemeView] = useState(() => { try { return localStorage.getItem("tp-theme-view") || "board"; } catch { return "board"; } });
@@ -2375,25 +2395,28 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
   const stocks = useMemo(() => {
     const pm = seats?.persistMap || {};
     const allowed = theme ? new Set(visLayers.flatMap((l) => (l.holds || []).map((h) => h.t))) : null;
-    const lead = [], brk = [];
+    const lead = [], brk = [], pinned = [];
     Object.values(stockMapX || {}).forEach((s) => {
       if (!s?.ticker) return;
       if (allowed && !allowed.has(s.ticker)) return;
       if ((s.avg_dollar_vol_raw ?? 0) < 20e6) return;
+      const pin = pinReason(s);
       const L = tickerLayer[s.ticker];
       const row = {
         ticker: s.ticker, rs: s.rs_rank, eps: s.eps_rating ?? null, epsTip: s.eps_tip, epsAcc: s.eps_accel, sma50: s.sma50_pct, off: s.off_52w_high, r1m: s.return_1m,
-        layer: L?.name, layerSt: L?.st, inLead: L?.st === "lead", persist: pm[s.ticker]?.[0] ?? 0,
+        layer: L?.name, layerSt: L?.st, inLead: L?.st === "lead", persist: pm[s.ticker]?.[0] ?? 0, pin,
       };
-      if ((s.rs_rank ?? 0) >= 90 && s.above_50ma && (s.off_52w_high ?? -100) >= -25) lead.push(row);
+      if ((s.rs_rank ?? 0) >= 90 && s.above_50ma && (s.off_52w_high ?? -100) >= -25) {
+        if (pin && hidePinned) pinned.push(s.ticker); else lead.push(row);
+      }
       // A leader 1-2% under its 50d is a dip (backtest: leaders' red days are
       // dip-buys), not a breakdown — require real damage.
       else if (row.persist >= 40 && ((s.rs_rank ?? 0) < 70 || (s.sma50_pct ?? 0) <= -8)) brk.push(row);
     });
     lead.sort((a, b) => (b.inLead - a.inLead) || (b.rs - a.rs) || (b.off - a.off));
     brk.sort((a, b) => b.persist - a.persist || (a.rs ?? 0) - (b.rs ?? 0));
-    return { lead: lead.slice(0, 60), brk: brk.slice(0, 60) };
-  }, [stockMapX, seats, tickerLayer, theme, visLayers]);
+    return { lead: lead.slice(0, 60), brk: brk.slice(0, 60), pinned: pinned.sort() };
+  }, [stockMapX, seats, tickerLayer, theme, visLayers, hidePinned]);
 
   const lookupHits = useMemo(() => {
     const q = lookupQ;
@@ -2564,7 +2587,13 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
             <div ref={stocksRef}>
             <Card A={A} title="Stocks"
               sub={stockTab === "layer" ? undefined : stockTab === "lead"
-                ? "RS ≥ 90, above the 50-day, within 25% of the high · ● = in a leading layer"
+                ? <span>RS ≥ 90, above the 50-day, within 25% of the high · ● = in a leading layer ·{" "}
+                    <button onClick={togglePinned}
+                      title={`Buyout-pinned / no-range names: 20-day or 5-day ADR under ${PIN_ADR}%, or a 5-day ADR collapsed to under half its normal while sitting at the high.${stocks.pinned.length ? `\nHidden: ${stocks.pinned.join(", ")}` : ""}`}
+                      style={{ background: hidePinned ? A.bgHover : "transparent", border: `1px solid ${hidePinned ? A.yellow : A.border}`, color: hidePinned ? A.yellow : A.textMuted,
+                        borderRadius: 4, padding: "1px 7px", fontSize: 10, cursor: "pointer" }}>
+                      {hidePinned ? `Hiding ${stocks.pinned.length} pinned (ADR < ${PIN_ADR}% / M&A)` : `Show pinned names · click to hide`}
+                    </button></span>
                 : stockTab === "intra" || stockTab === "ext" || stockTab === "flag"
                 ? undefined
                 : "Held the top RS decile ≥ 40% of the quarter, now RS < 70 or ≥ 8% below the 50-day"}
