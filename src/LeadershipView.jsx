@@ -2668,6 +2668,9 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
           </div>
         </div>
 
+        {/* Major indexes sit right under the header strip / market gate */}
+        <IndexPanel A={A} liveQuotes={indexQuotes} onTicker={onTickerClick} chartTicker={chartTicker} bars={idxBars} />
+
         {loading ? (
           <div style={{ color: A.textMuted, fontSize: 12, padding: 20 }}>Loading leadership data…</div>
         ) : (
@@ -2753,7 +2756,6 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
             <ChangesPanel A={A} layers={layers} themes={themes} bars={idxBars} liveQuotes={indexQuotes} date={rot?.date}
               onTicker={onTickerClick} onLayer={(l) => { setTheme(l.themeId); setLayerTab(l.st); showLayer(l); }}
               onTheme={(id) => setTheme(id)} />
-            <IndexPanel A={A} liveQuotes={indexQuotes} onTicker={onTickerClick} chartTicker={chartTicker} bars={idxBars} />
 
             <Card A={A} title="Themes"
               sub={themeView === "rot" ? "Who is rotating in and out — RS rank change by layer or theme" : "Average layer RS rank · ▲ leading / weakening / ▼ breaking-down layers · click to filter"}
