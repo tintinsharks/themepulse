@@ -827,6 +827,63 @@ function IndexPanel({ A, liveQuotes, onTicker, chartTicker, bars }) {
   );
 }
 
+// ── Market gate (O'Neil direction + exposure) ───────────────────────────────
+// From breadth.json → conditions.market_gate (stock-pipeline market_gate.py):
+// correction → rally attempt (day count) → follow-through day → uptrend, per
+// SPY and QQQ, with distribution days and a suggested exposure range. During
+// the session a live quote previews whether today could be the follow-through
+// (or an undercut that resets the count) — confirmed only at the close.
+const GATE_COLOR = (st, A) => (st === "uptrend" ? A.green : st === "ftd" ? A.cyan : st === "rally" ? A.yellow : A.red);
+const GATE_NAME = { correction: "Correction", rally: "Rally attempt", ftd: "Follow-through", uptrend: "Uptrend" };
+function MarketGate({ A, gate, liveQuotes }) {
+  if (!gate?.overall) return null;
+  const o = gate.overall;
+  const live = Object.entries(gate.indices || {}).map(([t, g]) => {
+    const q = liveQuotes?.get?.(t);
+    if (!g || !q?.price || !q.previousClose || Math.abs(q.previousClose - g.close) / g.close > 0.0005) return null;
+    const chg = (q.price / q.previousClose - 1) * 100;
+    const volUp = g.volume && q.volume ? q.volume > g.volume : null;
+    if ((g.state === "rally" || g.state === "correction") && g.low != null && (q.dayLow ?? q.price) < g.low)
+      return { t, tone: A.red, text: `${t} undercutting the low (${g.low}) — the rally count resets` };
+    if (g.state === "correction" && chg > 0) return { t, tone: A.yellow, text: `${t} up ${chg.toFixed(2)}% — rally day 1 if it closes up` };
+    if (g.state === "rally" && g.rally_day + 1 >= 4 && chg >= 1.2)
+      return { t, tone: A.cyan, text: `${t} +${chg.toFixed(2)}% on rally day ${g.rally_day + 1} — possible follow-through if it holds into the close${volUp == null ? "" : volUp ? " (volume already above yesterday)" : " (needs volume above yesterday's)"}` };
+    if (g.state === "ftd" && g.low != null && q.price < g.low) return { t, tone: A.red, text: `${t} below the rally low ${g.low} — follow-through failing` };
+    return null;
+  }).filter(Boolean);
+  const idx = (t) => {
+    const g = gate.indices?.[t];
+    if (!g) return null;
+    const ev = (g.events || []).slice().reverse().map((e) => `${e.date}  ${e.event.replace("_", " ")}`).join("\n");
+    const detail = g.state === "rally" ? `day ${g.rally_day} · low ${g.low}` : g.state === "ftd" ? `FTD ${g.ftd_date} +${g.ftd_chg}%` : g.state === "correction" ? `low ${g.low}` : g.ftd_date ? `since FTD ${g.ftd_date}` : "";
+    return (
+      <span key={t} title={`Recent events (as of ${g.asof}):\n${ev}\n\nDistribution days (25 sessions): ${(g.dist_dates || []).join(", ") || "none"}`}
+        style={{ fontSize: 11, color: A.textDim, whiteSpace: "nowrap" }}>
+        <b style={{ color: A.text }}>{t}</b> <span style={{ color: GATE_COLOR(g.state, A) }}>{GATE_NAME[g.state]}</span>
+        {detail ? ` · ${detail}` : ""} · {g.dist_days} dist · {g.off_high}% off high
+      </span>
+    );
+  };
+  return (
+    <div style={{ width: "100%", display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center", borderTop: `1px solid ${A.border}`, paddingTop: 8 }}>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 10, color: A.textMuted, letterSpacing: 0.4 }}>MARKET GATE</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: GATE_COLOR(o.state, A) }}>{o.label}</div>
+      </div>
+      <div title="Suggested total exposure for the market state — a guide, not a rule"
+        style={{ border: `1px solid ${GATE_COLOR(o.state, A)}`, borderRadius: 6, padding: "3px 10px", textAlign: "center" }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: GATE_COLOR(o.state, A), lineHeight: 1.1 }}>{o.exposure}</div>
+        <div style={{ fontSize: 9, color: A.textMuted }}>exposure</div>
+      </div>
+      <div style={{ flex: "1 1 260px", minWidth: 0, fontSize: 11, color: A.textDim, lineHeight: 1.45 }}>{o.note}</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>{idx("SPY")}{idx("QQQ")}</div>
+      {live.map((l) => (
+        <div key={l.t} style={{ width: "100%", fontSize: 11, color: l.tone, fontWeight: 600 }}>● Live: {l.text}</div>
+      ))}
+    </div>
+  );
+}
+
 // ── What changed today ────────────────────────────────────────────────────
 // Diff of today vs the prior session: layers crossing the leadership line,
 // layers breaking down, the biggest rank moves, theme moves, and index trend
@@ -2562,6 +2619,7 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
             {lookupQ && <button type="button" onClick={() => { setLookup(""); setLookupQ(""); }}
               style={{ background: "transparent", border: `1px solid ${A.border}`, borderRadius: 4, color: A.textDim, fontSize: 11, cursor: "pointer" }}>×</button>}
           </form>
+          <MarketGate A={A} gate={breadth?.conditions?.market_gate} liveQuotes={indexQuotes} />
           <div style={{ fontSize: 10, color: A.textMuted, width: "100%" }}>
             Layers as of {rot?.date || "…"} · {layers.length} layers · leading = RS rank ≥ {LEAD}
             {selTheme ? <> · filtered to <b style={{ color: A.text }}>{selTheme.theme}</b> <button onClick={() => setTheme(null)} style={{ background: "none", border: "none", color: A.cyan, cursor: "pointer", fontSize: 10 }}>clear</button></> : null}
