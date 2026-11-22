@@ -1,0 +1,383 @@
+{
+  "id": "brief-2026-11-22-pm",
+  "date": "2026-11-22",
+  "session": "pm",
+  "dataAsOf": "2026-11-20 / 2026-11-21",
+  "headline": "Defensive Posture Required as VIX Spikes to 35.9 and QQQ Hits -20% Off Highs",
+  "regime": {
+    "posture": "Market in Correction \u2014 Defensive",
+    "note": "S&P 500 fell 8.6% on the week (7th straight loss); wait for a Follow-Through Day before sizing up.",
+    "indexes": [
+      {
+        "symbol": "SPY",
+        "price": 689.81,
+        "chgPct": -3.64,
+        "offHighPct": -11.7,
+        "closingRangePct": 9.7,
+        "afterHours": 697.49
+      },
+      {
+        "symbol": "QQQ",
+        "price": 608.45,
+        "chgPct": -5.67,
+        "offHighPct": -20.2,
+        "closingRangePct": 6.0,
+        "afterHours": 617.72
+      },
+      {
+        "symbol": "IWM",
+        "price": 256.61,
+        "chgPct": -2.88,
+        "offHighPct": -15.9,
+        "closingRangePct": 3.0,
+        "afterHours": 258.73
+      }
+    ],
+    "breadth": {
+      "leadingLayers": 20,
+      "weakeningLayers": 13,
+      "breakingDownLayers": 19,
+      "emergingLayers": 5,
+      "laggingLayers": 104
+    }
+  },
+  "macroTape": [
+    {
+      "name": "VIX",
+      "value": "35.89",
+      "change": "+26.2%",
+      "impact": "Stress volatility (40.03 intraday); favors low-ADR Healthcare/Utilities over AI/Semis."
+    },
+    {
+      "name": "10Y Yield",
+      "value": "4.92%",
+      "change": "-12 bps Fri / -24.4 bps Wk",
+      "impact": "Bond bid relieves Gas Utilities & REITs; near-5% rates still cap high-multiple tech."
+    },
+    {
+      "name": "WTI Crude",
+      "value": "$83.41",
+      "change": "+1.18%",
+      "impact": "Supports Tanker/Shipping cash flows even as Refining crack spreads wobble."
+    },
+    {
+      "name": "DXY",
+      "value": "103.81",
+      "change": "-0.08%",
+      "impact": "Near 19-month high (103.97); pressures multinational Semis/Materials, favors domestic Healthcare/QSR."
+    }
+  ],
+  "focusSetups": [
+    {
+      "ticker": "AMRX",
+      "company": "Amneal Pharmaceuticals",
+      "theme": "Healthcare",
+      "layer": "Specialty Pharma (98)",
+      "rs": 96,
+      "eps": 86,
+      "price": 21.12,
+      "adrPct": 3.9,
+      "baseStage": "Early Stage 2",
+      "continuity": "W+D Aligned",
+      "rsLine": "RS Line Near High",
+      "pivot": 21.89,
+      "buyZoneMax": 22.98,
+      "support50d": 20.13,
+      "stop": 19.64,
+      "sizing": "Normal",
+      "catalyst": "Beat Q3 revenue ($863M) & EPS with $207M adj. EBITDA.",
+      "sourceUrl": "https://investors.amneal.com/news/press-releases/press-release-details/2026/Amneal-Reports-Third-Quarter-2026-Financial-Results/default.aspx"
+    },
+    {
+      "ticker": "TGTX",
+      "company": "TG Therapeutics",
+      "theme": "Healthcare",
+      "layer": "Oncology (99)",
+      "rs": 97,
+      "eps": 86,
+      "price": 63.34,
+      "adrPct": 5.5,
+      "baseStage": "Early Stage 2",
+      "continuity": "W+D Aligned",
+      "rsLine": "RS Line New High",
+      "pivot": 66.12,
+      "buyZoneMax": 69.43,
+      "support50d": 57.58,
+      "stop": 58.91,
+      "sizing": "0.75x",
+      "catalyst": "Q3 revenue +61% YoY ($259.9M) on BRIUMVI + ~$100M buybacks; FY26 target ~$1B.",
+      "sourceUrl": "https://mlq.ai/news/tg-therapeutics-raises-2026-revenue-outlook-to-about-1-billion-on-briumvi-growth/"
+    },
+    {
+      "ticker": "CDNA",
+      "company": "CareDx",
+      "theme": "Healthcare",
+      "layer": "Diagnostics (99)",
+      "rs": 99,
+      "eps": 82,
+      "price": 70.0,
+      "adrPct": 6.3,
+      "baseStage": "Stage 2 Pullback",
+      "continuity": "50d Test",
+      "rsLine": "RS Line Holding",
+      "pivot": 70.0,
+      "buyZoneMax": 73.5,
+      "support50d": 68.63,
+      "stop": 65.1,
+      "sizing": "0.5x",
+      "catalyst": "Q3 sales +39% ($139M), adj. EBITDA doubled to $30M, FY26 guide +$30M.",
+      "sourceUrl": "https://investors.caredx.com/news/news-details/2026/CareDx-Announces-Third-Quarter-2026-Financial-Results/default.aspx"
+    },
+    {
+      "ticker": "ETON",
+      "company": "Eton Pharmaceuticals",
+      "theme": "Healthcare",
+      "layer": "Biotech (Strongest 5)",
+      "rs": 99,
+      "eps": 88,
+      "price": 60.85,
+      "adrPct": null,
+      "baseStage": "Mid Stage 2",
+      "continuity": "W+D Aligned",
+      "rsLine": "RS Line New High",
+      "pivot": 68.37,
+      "buyZoneMax": 71.79,
+      "support50d": null,
+      "stop": 56.59,
+      "sizing": "Pilot",
+      "catalyst": "Q3 sales +158% YoY ($57.9M); hit $200M run-rate 5 quarters early (49% EBITDA margin).",
+      "sourceUrl": "https://www.stocktitan.net/sec-filings/ETON/8-k-eton-pharmaceuticals-inc-reports-material-event-429e3f265d0f.html"
+    },
+    {
+      "ticker": "GEN",
+      "company": "Gen Digital",
+      "theme": "Cyber",
+      "layer": "Platform + Endpoint (98)",
+      "rs": 85,
+      "eps": 89,
+      "price": 29.19,
+      "adrPct": 3.4,
+      "baseStage": "Early Stage 2",
+      "continuity": "W+D Aligned",
+      "rsLine": "Low-ADR Base",
+      "pivot": 31.42,
+      "buyZoneMax": 32.99,
+      "support50d": 26.46,
+      "stop": 27.15,
+      "sizing": "Normal",
+      "catalyst": "Cleanest dual RS/EPS Cyber name without Dec 1 earnings/deal overhang.",
+      "sourceUrl": "https://themepulse.vercel.app/"
+    },
+    {
+      "ticker": "OKTA",
+      "company": "Okta",
+      "theme": "Cyber",
+      "layer": "Platform + Endpoint (98)",
+      "rs": 98,
+      "eps": 88,
+      "price": 191.46,
+      "adrPct": 7.4,
+      "baseStage": "Stage 2 Base Repair",
+      "continuity": "Needs 50d Reclaim",
+      "rsLine": "Event Gate Dec 1",
+      "pivot": 200.06,
+      "buyZoneMax": 210.06,
+      "support50d": 200.06,
+      "stop": 178.06,
+      "sizing": "0.5x",
+      "catalyst": "Sympathy bid on CRWD-ZS talks; reports Q3 FY27 Dec 1.",
+      "sourceUrl": "https://investor.okta.com/news-and-events/news-releases/news-details/2026/Okta-to-Announce-Third-Quarter-Fiscal-Year-2027-Financial-Results-on-December-1-2026/default.aspx"
+    },
+    {
+      "ticker": "ECO",
+      "company": "Okeanis Eco Tankers",
+      "theme": "Shipping",
+      "layer": "Containers + Mixed (Strongest 5)",
+      "rs": 98,
+      "eps": 97,
+      "price": 84.83,
+      "adrPct": null,
+      "baseStage": "Late Stage 2",
+      "continuity": "Group Weakening",
+      "rsLine": "RS Line High",
+      "pivot": 93.02,
+      "buyZoneMax": 97.67,
+      "support50d": null,
+      "stop": 78.89,
+      "sizing": "Watch Group",
+      "catalyst": "Record $501.5M Q3 revenue, $7.00 dividend, 71% Q4 fixed at ~$420K/day.",
+      "sourceUrl": "https://www.marketbeat.com/earnings/reports/2026-11-11-okeanis-eco-tankers-corp-stock/"
+    },
+    {
+      "ticker": "CBRL",
+      "company": "Cracker Barrel",
+      "theme": "Consumer",
+      "layer": "Restaurants + QSR (Emg 93)",
+      "rs": 98,
+      "eps": 84,
+      "price": 70.75,
+      "adrPct": 4.5,
+      "baseStage": "Early Stage 2",
+      "continuity": "Extended (+16% 50d)",
+      "rsLine": "RS Line New High",
+      "pivot": 74.32,
+      "buyZoneMax": 78.04,
+      "support50d": 60.94,
+      "stop": 65.8,
+      "sizing": "0.5x",
+      "catalyst": "FY27 rebound guide + debt cut to $337.2M.",
+      "sourceUrl": "https://investor.crackerbarrel.com/news-releases/news-release-details/cracker-barrel-reports-fourth-quarter-and-full-year-fiscal-2026"
+    }
+  ],
+  "extendedMovers": [
+    {
+      "ticker": "ZS",
+      "session": "AH",
+      "chgPct": 16.39,
+      "price": 226.75,
+      "vol": "1.5M",
+      "rs": 33,
+      "catalyst": "Bloomberg/Reuters report CrowdStrike in talks to acquire Zscaler.",
+      "protocol": "Event arb; watch sympathy volume in OKTA/OSPN/TENB.",
+      "sourceUrl": "https://finance.biggo.com/news/e4562667-f0e8-4c3b-b506-fdd7354bb74f"
+    },
+    {
+      "ticker": "CRWD",
+      "session": "AH",
+      "chgPct": -5.03,
+      "price": 217.3,
+      "vol": "2.3M",
+      "rs": 94,
+      "catalyst": "Zscaler deal dilution fears + Nasdaq selloff.",
+      "protocol": "Already -7.1% below 50d; bottom-half close confirms Stage 4.",
+      "sourceUrl": "https://www.tipranks.com/news/crowdstrike-crwd-in-talks-to-buy-zscaler-zs-sending-shares-in-opposite-directions"
+    },
+    {
+      "ticker": "CAPR",
+      "session": "Pre",
+      "chgPct": 8.65,
+      "price": 8.18,
+      "vol": "1.3M",
+      "rs": 71,
+      "catalyst": "Nov 22 FDA PDUFA date for Deramiocel.",
+      "protocol": "Binary FDA event; fails EPS/RS quality screen.",
+      "sourceUrl": "https://www.capricor.com/investors/news-events/press-releases/detail/359/capricor-therapeutics-reports-third-quarter-2026-financial"
+    },
+    {
+      "ticker": "GAP",
+      "session": "Pre",
+      "chgPct": 7.93,
+      "price": 20.28,
+      "vol": "154K",
+      "rs": 43,
+      "catalyst": "Q3 EPS beat (+30%+) offset by FY26 EPS guide cut to $2.29-$2.34.",
+      "protocol": "Low RS (43); Stage 1 repair only if opening-range low holds on RVol >=1.5x.",
+      "sourceUrl": "https://investors.gapinc.com/press-releases/news-details/2026/Gap-Inc--Reports-Third-Quarter-Fiscal-2026-Results/default.aspx"
+    },
+    {
+      "ticker": "INTU",
+      "session": "Pre",
+      "chgPct": -8.35,
+      "price": 284.14,
+      "vol": "126K",
+      "rs": 10,
+      "catalyst": "Q1 FY27 results + Mailchimp sale to Bending Spoons.",
+      "protocol": "Heavy-volume gap-down in RS 10 stock; strict avoid.",
+      "sourceUrl": "https://investors.intuit.com/news-events/press-releases/detail/1331/intuit-reports-first-quarter-results-and-enters-agreement-to-sell-mailchimp-to-bending-spoons"
+    }
+  ],
+  "breakdowns": [
+    {
+      "ticker": "SNDK",
+      "layer": "Memory + Storage",
+      "vs50dPct": -50.8,
+      "chg1mPct": -47.5,
+      "catalyst": "Kioxia flash warning + ~20% NAND spot drop; -14.3% post-split.",
+      "sourceUrl": "https://kalkine.com.au/news/technology/why-is-sandisk-nasdaqsndk-stock-down-14-in-us-trading-on-its-first-day-after-an-8-for-1-split"
+    },
+    {
+      "ticker": "AXTI",
+      "layer": "Photonics",
+      "vs50dPct": -48.6,
+      "chg1mPct": -40.7,
+      "catalyst": "U.S.-China optical hardware restriction fears & indium phosphide export risk.",
+      "sourceUrl": "https://tickeron.com/blogs/why-is-axt-inc-axti-stock-down-8-15-today-41905/"
+    },
+    {
+      "ticker": "MXL",
+      "layer": "AI Connectivity",
+      "vs50dPct": -43.9,
+      "chg1mPct": -36.5,
+      "catalyst": "Negative Q3 OCF (-$13.6M), doubled wafer prepayments, target cuts.",
+      "sourceUrl": "https://koalagains.com/daily-top-movers/top-losers/details/136ca886-396a-4c6a-adcf-b87a1102acec"
+    },
+    {
+      "ticker": "MU",
+      "layer": "Memory + Storage",
+      "vs50dPct": -34.8,
+      "chg1mPct": -30.6,
+      "catalyst": "Early-2027 NAND price warnings + broad AI chip unwind.",
+      "sourceUrl": "https://kalkine.com.au/news/technology/why-is-micron-nasdaqmu-stock-plunging-12-in-us-trading-as-the-ai-chip-trade-unravels"
+    },
+    {
+      "ticker": "TWST",
+      "layer": "Diagnostics",
+      "vs50dPct": -30.4,
+      "chg1mPct": -23.7,
+      "catalyst": "FY27 guide signaled AI drug discovery slowing to 69% from 175%.",
+      "sourceUrl": "https://www.tradingview.com/news/benzinga:7086b25b4094b:0-twist-bioscience-2027-outlook-signals-sharp-slowdown-in-ai-drug-discovery-growth/"
+    },
+    {
+      "ticker": "TXG",
+      "layer": "Health IT",
+      "vs50dPct": -28.9,
+      "chg1mPct": -25.7,
+      "catalyst": "Instrument revenue -43% + ARK Invest sold 107.7K shares.",
+      "sourceUrl": "https://www.gurufocus.com/news/9181661/10x-genomics-inc-txg-q3-2026-earnings-call-highlights-atera-launch-takes-flight-as-revenue-outlook-climbs"
+    }
+  ],
+  "radar": [
+    {
+      "date": "2026-11-22",
+      "event": "CAPR FDA PDUFA target action date (Deramiocel)"
+    },
+    {
+      "date": "2026-11-25",
+      "event": "5:30 AM PT Oct PCE/Core PCE, Q3 GDP (2nd est.), Durable Goods; 11:00 AM PT Fed Beige Book"
+    },
+    {
+      "date": "2026-11-26",
+      "event": "U.S. markets CLOSED (Thanksgiving)"
+    },
+    {
+      "date": "2026-11-27",
+      "event": "U.S. markets early close at 10:00 AM PT (1:00 PM ET)"
+    },
+    {
+      "date": "2026-12-01",
+      "event": "OKTA & CRWD Q3 FY27 earnings after close"
+    }
+  ],
+  "skipTraps": {
+    "buyoutCapped": [
+      "SGRY ($25/sh HealthSpan)",
+      "ADT ($10/sh Thrive)",
+      "PCRX (0.1% ADR pinned)"
+    ],
+    "extended": [
+      "PLBL (+64.6% 50d)",
+      "AXGN (+25.7%)",
+      "GKOS (+24.3%)",
+      "WEN (+21.8%)",
+      "SG (+20.6%)"
+    ],
+    "stage4": [
+      "SNDK",
+      "AXTI",
+      "MXL",
+      "MU",
+      "INTU",
+      "AAOI"
+    ]
+  }
+}
