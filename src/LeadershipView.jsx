@@ -1531,16 +1531,20 @@ function pinReason(s) {
   return null;
 }
 
-// RS line leads price: the stock's RS line (close ÷ SPY) set a 52-week high in
-// the last 3 sessions while price is still 3–15% under its own high — still
-// basing, but already outperforming. Shown as a blue dot (IBD's convention).
-const RSL_DAYS = 3;
+// RS line leads price: the stock's RS line (close ÷ SPY) set a 52-week high
+// on the latest session, price is still 5–15% under its own high (basing, not
+// extended), and the stock closed UP that day — the RS line rose because the
+// stock rallied, not just because it fell less than the market. In a broad
+// correction almost every defensive name's RS line is at a high; the green
+// close is what separates accumulation from "falling slower".
+// Uses the pipeline's close-of-day change, the same bar rsl_hi_ago is measured on.
+const RSL_OFF = [-15, -5];
 function rsLeads(s) {
-  if (!s || s.rsl_hi_ago == null || s.rsl_hi_ago > RSL_DAYS) return null;
+  if (!s || s.rsl_hi_ago !== 0) return null;
   const off = s.off_52w_high ?? s.pct_from_high;
-  if (off == null || off > -3 || off < -15) return null;
-  const when = s.rsl_hi_ago === 0 ? "today" : `${s.rsl_hi_ago} session${s.rsl_hi_ago > 1 ? "s" : ""} ago`;
-  return `RS line new 52-week high (${when}) while price is ${off.toFixed(1)}% off its high — RS leading price`;
+  if (off == null || off > RSL_OFF[1] || off < RSL_OFF[0]) return null;
+  if (s.change_pct == null || s.change_pct < 0) return null;
+  return `RS line at a new 52-week high on a +${s.change_pct.toFixed(1)}% close while price is ${off.toFixed(1)}% off its high — RS leading price`;
 }
 const RslDot = ({ tip, A }) => (tip ? <span title={tip} style={{ color: A.blue || "#3b82f6", marginLeft: 4 }}>●</span> : null);
 
@@ -2067,7 +2071,7 @@ export function ScannerPanel({ A, stockMap, onTicker, chartTicker, tickerLayer, 
         ))}
       </div>
       <div style={{ fontSize: 10, color: A.textMuted, marginBottom: 6 }}>{SCAN_NOTES[scan]}
-        {" "}· <span style={{ color: A.blue || "#3b82f6" }}>●</span> RS line at a new 52-week high (last {RSL_DAYS} sessions) while price is 3–15% off its high</div>
+        {" "}· <span style={{ color: A.blue || "#3b82f6" }}>●</span> RS line at a new 52-week high on an up close while price is 5–15% off its high</div>
       {!rows.length ? <div style={{ fontSize: 11, color: A.textMuted, padding: "6px 2px" }}>No names pass right now.</div> : (
         <div style={{ overflowX: "auto", maxHeight: "calc(100vh - 230px)", overflowY: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -2602,7 +2606,7 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
             <div ref={stocksRef}>
             <Card A={A} title="Stocks"
               sub={stockTab === "layer" ? undefined : stockTab === "lead"
-                ? <span>RS ≥ 90, above the 50-day, within 25% of the high · <span style={{ color: A.green }}>●</span> in a leading layer · <span style={{ color: A.blue || "#3b82f6" }}>●</span> RS line at a new high, price 3–15% off ·{" "}
+                ? <span>RS ≥ 90, above the 50-day, within 25% of the high · <span style={{ color: A.green }}>●</span> in a leading layer · <span style={{ color: A.blue || "#3b82f6" }}>●</span> RS line new high on an up close, price 5–15% off ·{" "}
                     <button onClick={togglePinned}
                       title={`Buyout-pinned / no-range names: 20-day or 5-day ADR under ${PIN_ADR}%, or a 5-day ADR collapsed to under half its normal while sitting at the high.${stocks.pinned.length ? `\nHidden: ${stocks.pinned.join(", ")}` : ""}`}
                       style={{ background: hidePinned ? A.bgHover : "transparent", border: `1px solid ${hidePinned ? A.yellow : A.border}`, color: hidePinned ? A.yellow : A.textMuted,
