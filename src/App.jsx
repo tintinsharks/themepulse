@@ -8495,7 +8495,7 @@ function AppMain() {
     return localStorage.getItem("themepulse-chart-ticker") || "QQQ";
   });
   // Top-level view: dashboard or setup journal
-  const [mainView, setMainView] = useState(() => { const v = localStorage.getItem("themepulse-view"); return v === "dash" || v === "scanner" ? v : "lead"; });
+  const [mainView, setMainView] = useState(() => { const v = localStorage.getItem("themepulse-view"); return v === "dash" || v === "scanner" || v === "brief" ? v : "lead"; });
   const switchView = useCallback((v) => {
     setMainView(v);
     try { localStorage.setItem("themepulse-view", v); } catch {}
@@ -8716,7 +8716,7 @@ function AppMain() {
         </div>
         {/* View switcher */}
         <div style={{ display: "flex", gap: 2, marginLeft: 18 }}>
-          {[["lead", "LEADERS"], ["scanner", "SCANNER"], ["dash", "DASH"]].map(([v, label]) => (
+          {[["lead", "LEADERS"], ["scanner", "SCANNER"], ["brief", "BRIEF"], ["dash", "DASH"]].map(([v, label]) => (
             <button key={v} onClick={() => switchView(v)}
               style={{
                 background: mainView === v ? "rgba(13,145,99,0.14)" : "transparent",
@@ -8828,7 +8828,7 @@ function AppMain() {
             stockMap={stockMap}
             onTickerClick={(t) => { handleTickerClick(t); switchView("dash"); }}
           />
-        ) : mainView === "lead" || mainView === "scanner" ? (
+        ) : mainView === "lead" || mainView === "scanner" || mainView === "brief" ? (
           <ErrorBoundary>
             <LeadershipView
               view={mainView}
