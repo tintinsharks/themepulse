@@ -931,6 +931,9 @@ function MarketGate({ A, gate, liveQuotes }) {
 // layers breaking down, the biggest rank moves, theme moves, and index trend
 // changes (computed by re-running indexStats without today's bar).
 function ChangesPanel({ A, layers, themes, bars, liveQuotes, date, onTicker, onLayer, onTheme }) {
+  // Collapsed by default; the choice is remembered.
+  const [open, setOpen] = useState(() => { try { return localStorage.getItem("tp_changes_open") === "1"; } catch { return false; } });
+  const toggle = () => setOpen((v) => { try { localStorage.setItem("tp_changes_open", v ? "0" : "1"); } catch { /* ignore */ } return !v; });
   const idxEvents = [];
   LEAD_INDEXES.forEach(({ t }) => {
     const q = liveQuotes?.get?.(t);
@@ -976,7 +979,12 @@ function ChangesPanel({ A, layers, themes, bars, liveQuotes, date, onTicker, onL
   const empty = !idxEvents.length && !gained.length && !lost.length && !broke.length && !up.length && !dn.length && !themeMoves.length;
 
   return (
-    <Card A={A} title="What changed today" sub={`vs the prior session${date ? ` · layers as of ${date}` : ""} · click a layer to jump to it`}>
+    <Card A={A} title={<span onClick={toggle} style={{ cursor: "pointer" }}>{open ? "▾" : "▸"} What changed today</span>}
+      sub={open ? `vs the prior session${date ? ` · layers as of ${date}` : ""} · click a layer to jump to it`
+        : empty ? "No notable changes" : [idxEvents.length && `${idxEvents.length} index event${idxEvents.length > 1 ? "s" : ""}`, gained.length && `${gained.length} new leaders`,
+            lost.length && `${lost.length} lost leadership`, broke.length && `${broke.length} broke down`].filter(Boolean).join(" · ") || "Rank moves only"}
+      right={<button onClick={toggle} style={{ background: "transparent", border: `1px solid ${A.border}`, color: A.textMuted, borderRadius: 4, padding: "2px 8px", fontSize: 11, cursor: "pointer" }}>{open ? "Hide" : "Show"}</button>}>
+      {open && <>
       {empty && <div style={{ fontSize: 11, color: A.textMuted }}>No notable changes.</div>}
       {row("INDEXES", A.text, idxEvents.map((e, i) => chip(`${e.t}${i}`, e.t, e.text, e.good ? A.green : A.red, () => onTicker(e.t))))}
       {row("NEW LEADERS", A.green, gained.map((l) => layerChip(l, A.green)))}
@@ -985,6 +993,7 @@ function ChangesPanel({ A, layers, themes, bars, liveQuotes, date, onTicker, onL
       {row("BIGGEST GAINS", A.green, up.map(({ l, d }) => layerChip(l, A.green, `+${d}`)))}
       {row("BIGGEST DROPS", A.red, dn.map(({ l, d }) => layerChip(l, A.red, `${d}`)))}
       {row("THEMES", A.textDim, themeMoves.map(({ t, d }) => chip(t.themeId, t.theme, `${d > 0 ? "+" : ""}${d.toFixed(0)}`, d > 0 ? A.green : A.red, () => onTheme(t.themeId))))}
+      </>}
     </Card>
   );
 }
