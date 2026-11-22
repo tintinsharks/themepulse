@@ -463,25 +463,67 @@ function ThemeBoard({ themes, A, selected, onSelect }) {
 }
 
 // ── Layers ────────────────────────────────────────────────────────────────
-function LayerTable({ rows, A, onTicker, chartTicker, stockMap, showPeak, members, expanded, onToggle, focus }) {
+// Sort keys for the Layers table. Click a header to sort (high → low first,
+// A → Z for names); click again to flip; a third click restores the default
+// order. The choice is remembered across tabs and reloads.
+const LAYER_SORT = {
+  name: (l) => l.name?.toLowerCase(),
+  rank: (l) => l.now,
+  mbr: (l) => l.stats?.rsMed,
+  w1: (l) => (l.w1 == null ? null : l.now - l.w1),
+  m1: (l) => (l.m1 == null ? null : l.now - l.m1),
+  peak: (l) => l.peak,
+  spark: (l) => (l.hist?.length ? l.hist[l.hist.length - 1] - l.hist[0] : null),
+  trend: (l) => l.trend?.slope,
+  vol: (l) => (l.conf?.acc != null ? l.conf.acc - l.conf.dist : null),
+  rs90: (l) => l.conf?.l90,
+  held20: (l) => l.held?.held,
+  held: (l) => l.persist,
+};
+
+function LayerTable({ rows: rowsIn, A, onTicker, chartTicker, stockMap, showPeak, members, expanded, onToggle, focus }) {
+  const [sort, setSort] = useState(() => { try { return JSON.parse(localStorage.getItem("tp_layer_sort")) || null; } catch { return null; } });
+  const rows = useMemo(() => {
+    if (!sort || !LAYER_SORT[sort.k]) return rowsIn;
+    const f = LAYER_SORT[sort.k], dir = sort.d === "asc" ? 1 : -1;
+    return [...rowsIn].sort((a, b) => {
+      const x = f(a), y = f(b);
+      if (x == null && y == null) return 0;
+      if (x == null) return 1;            // blanks last either way
+      if (y == null) return -1;
+      return (x < y ? -1 : x > y ? 1 : 0) * dir;
+    });
+  }, [rowsIn, sort]);
+  const clickSort = (k) => setSort((cur) => {
+    const first = k === "name" ? "asc" : "desc";
+    const next = !cur || cur.k !== k ? { k, d: first } : cur.d === first ? { k, d: first === "asc" ? "desc" : "asc" } : null;
+    try { localStorage.setItem("tp_layer_sort", JSON.stringify(next)); } catch { /* ignore */ }
+    return next;
+  });
+  const sh = (k, label, align, title, cls) => (
+    <th className={cls} title={title} onClick={() => clickSort(k)}
+      style={{ ...th(A, align), cursor: "pointer", userSelect: "none", color: sort?.k === k ? A.text : th(A).color }}>
+      {label}{sort?.k === k ? (sort.d === "asc" ? " ▲" : " ▼") : ""}
+    </th>
+  );
   if (!rows.length) return <div style={{ fontSize: 11, color: A.textMuted, padding: "6px 2px" }}>None.</div>;
   return (
     <div style={{ overflowX: "auto" }}>
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
           <tr>
-            <th style={th(A)}>Layer</th>
-            <th style={th(A, "right")} title="Layer RS rank among all layers (0–100)">Rank</th>
-            <th style={th(A, "right")} title="Typical (median) member's own stock RS — a top-ranked layer can still be made of middling stocks">Mbr RS</th>
-            <th style={th(A, "right")}>1w</th>
-            <th style={th(A, "right")}>1m</th>
-            {showPeak && <th style={th(A, "right")}>Peak</th>}
-            <th className="tp-hide-sm" style={th(A)}>{SPARK_N}d</th>
-            <th className="tp-hide-sm" style={th(A, "right")} title="Rank change per session, least-squares over the last 5 sessions · sessions out of the last 10 the rank rose">Trend</th>
-            <th className="tp-hide-sm" style={th(A, "right")} title="Accumulation / distribution days across members over 10 sessions (up or down ≥ 1% on ≥ 1.5× 50-day volume) · layer's share of universe dollar volume, 5-day vs 20-day">Volume</th>
-            <th className="tp-hide-sm" style={th(A, "right")} title="Members at stock RS 90+ (change vs 5 sessions ago) · leaders that cracked this week (were RS 90+, now below the 50-day or under RS 80)">RS 90+</th>
-            <th className="tp-hide-sm" style={th(A, "right")} title="Rank stability: sessions of the last 20 the layer ranked 80 or higher">80+ of 20</th>
-            <th className="tp-hide-sm" style={th(A, "right")} title="Share of the trailing quarter this layer ranked ≥ 88">Held</th>
+            {sh("name", "Layer", "left")}
+            {sh("rank", "Rank", "right", "Layer RS rank among all layers (0–100)")}
+            {sh("mbr", "Mbr RS", "right", "Typical (median) member's own stock RS — a top-ranked layer can still be made of middling stocks")}
+            {sh("w1", "1w", "right", "Rank change over a week")}
+            {sh("m1", "1m", "right", "Rank change over a month")}
+            {showPeak && sh("peak", "Peak", "right")}
+            {sh("spark", `${SPARK_N}d`, "left", `Rank change over ${SPARK_N} sessions`, "tp-hide-sm")}
+            {sh("trend", "Trend", "right", "Rank change per session, least-squares over the last 5 sessions · sessions out of the last 10 the rank rose", "tp-hide-sm")}
+            {sh("vol", "Volume", "right", "Accumulation / distribution days across members over 10 sessions (up or down ≥ 1% on ≥ 1.5× 50-day volume) · layer's share of universe dollar volume, 5-day vs 20-day · sorts by accumulation minus distribution", "tp-hide-sm")}
+            {sh("rs90", "RS 90+", "right", "Members at stock RS 90+ (change vs 5 sessions ago) · leaders that cracked this week (were RS 90+, now below the 50-day or under RS 80)", "tp-hide-sm")}
+            {sh("held20", "80+ of 20", "right", "Rank stability: sessions of the last 20 the layer ranked 80 or higher", "tp-hide-sm")}
+            {sh("held", "Held", "right", "Share of the trailing quarter this layer ranked ≥ 88", "tp-hide-sm")}
             <th style={th(A)}>Strongest names <span style={{ fontWeight: 400 }}>· click a row for every member</span></th>
           </tr>
         </thead>
