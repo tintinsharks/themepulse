@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ThemePulse Market Brief — November 22, 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Utilitarian / Deep Research · answer-first compact hero · strongest-in-strongest -> pre/after-market -> rotation & scatter band -> emergence -> declines -> notebook playbook -> sources · Space Grotesk + IBM Plex Sans + IBM Plex Mono · Gallery White #FFFFFF with Emerald/Cobalt/Crimson accents · 0px radius · 3-metric open strip · diverging bar + scatter inline SVG */
+:root {
+  --paper: #FFFFFF;
+  --ink: #111827;
+  --ink2: #374151;
+  --mute: #4B5563;
+  --hair: #D1D5DB;
+  --accent: #059669;
+  --accent-text: #065F46;
+  --accent-2: #DC2626;
+  --accent-2-text: #991B1B;
+  --accent-3: #2563EB;
+  --accent-3-text: #1E40AF;
+  --band: #F3F4F6;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html { font-size: 16px; -webkit-font-smoothing: antialiased; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  line-height: 1.6;
+  padding: 68px clamp(24px, 8vw, 112px) 92px;
+}
+main {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: 24px;
+}
+header, section {
+  grid-column: 1 / -1;
+}
+section {
+  margin-top: 66px;
+}
+h1, h2, h3 {
+  font-family: 'Space Grotesk', sans-serif;
+  color: var(--ink);
+  margin: 0;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+h1 {
+  font-size: clamp(2.25rem, 4.1vw, 3.25rem);
+  line-height: 1.08;
+  font-weight: 700;
+  max-width: 26ch;
+}
+h2 {
+  font-size: clamp(1.5rem, 2.3vw, 1.95rem);
+  line-height: 1.18;
+  font-weight: 600;
+  padding-top: 20px;
+  border-top: 2px solid var(--ink);
+  margin-bottom: 18px;
+}
+h3 {
+  font-size: 1.1rem;
+  line-height: 1.3;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+p {
+  margin: 0 0 16px;
+  color: var(--ink2);
+  font-size: 1rem;
+}
+.measure {
+  max-width: 68ch;
+}
+.deck {
+  font-size: 1.14rem;
+  line-height: 1.5;
+  color: var(--ink2);
+  max-width: 68ch;
+  margin-top: 16px;
+  margin-bottom: 28px;
+}
+a {
+  color: var(--accent-3-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+}
+a:hover {
+  color: var(--ink);
+}
+
+/* Open 3-column summary strip (0 cards) */
+.metrics-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  border-top: 1px solid var(--hair);
+  border-bottom: 1px solid var(--hair);
+  padding: 22px 0;
+}
+.metric-item .num {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: clamp(1.75rem, 3vw, 2.45rem);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  display: block;
+}
+.metric-item .num.pos { color: var(--accent-text); }
+.metric-item .num.emg { color: var(--accent-3-text); }
+.metric-item .num.neg { color: var(--accent-2-text); }
+.metric-item .label {
+  display: block;
+  font-weight: 600;
+  color: var(--ink);
+  margin-top: 6px;
+  font-size: 0.96rem;
+}
+.metric-item .sub {
+  display: block;
+  color: var(--mute);
+  font-size: 0.88rem;
+  margin-top: 4px;
+  line-height: 1.45;
+}
+
+/* Asymmetric split layout */
+.split {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: 24px;
+  row-gap: 20px;
+  align-items: start;
+}
+.split-left { grid-column: 1 / span 4; }
+.split-right { grid-column: 5 / span 8; }
+
+/* Open 2-column strip */
+.two-col {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px 36px;
+  border-top: 1px solid var(--hair);
+  padding-top: 22px;
+  margin-top: 20px;
+}
+.col-block {
+  border-top: 1px solid var(--hair);
+  padding-top: 16px;
+}
+.two-col .col-block:nth-child(-n+2) {
+  border-top: none;
+  padding-top: 0;
+}
+ul.clean-list {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+ul.clean-list li {
+  position: relative;
+  padding-left: 16px;
+  margin-bottom: 10px;
+  font-size: 0.94rem;
+  color: var(--ink2);
+  line-height: 1.5;
+}
+ul.clean-list li::before {
+  content: "–";
+  position: absolute;
+  left: 0;
+  color: var(--mute);
+}
+
+/* Full-bleed band (max 1) */
+.full-band {
+  background: var(--band);
+  margin-left: calc(-1 * clamp(24px, 8vw, 112px));
+  margin-right: calc(-1 * clamp(24px, 8vw, 112px));
+  padding: 48px clamp(24px, 8vw, 112px);
+}
+
+/* Pull quote */
+blockquote.pull {
+  margin: 26px 0 28px;
+  padding: 4px 0 4px 24px;
+  border-left: 3px solid var(--accent-2);
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: clamp(1.3rem, 2.1vw, 1.65rem);
+  line-height: 1.32;
+  color: var(--ink);
+  max-width: 46ch;
+  font-weight: 500;
+}
+
+/* Figures and inline SVG charts */
+figure {
+  margin: 28px 0 16px;
+  padding: 0;
+  width: 100%;
+}
+.fig-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.18rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0 0 12px;
+  line-height: 1.3;
+}
+figcaption {
+  font-size: 0.85rem;
+  color: var(--mute);
+  margin-top: 10px;
+  line-height: 1.45;
+}
+svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+/* Open tables (max 3, no zebra stripes, nowrap numbers) */
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  margin-top: 18px;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.93rem;
+}
+thead th {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--mute);
+  text-align: left;
+  padding: 10px 12px 10px 0;
+  border-bottom: 2px solid var(--ink);
+  white-space: nowrap;
+}
+tbody td {
+  padding: 12px 12px 12px 0;
+  border-bottom: 1px solid var(--hair);
+  vertical-align: top;
+  color: var(--ink2);
+  line-height: 1.48;
+}
+td.ticker-cell {
+  white-space: nowrap;
+  width: 15%;
+}
+.tkr {
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 500;
+  font-size: 0.94rem;
+  color: var(--ink);
+  display: block;
+}
+.co {
+  font-size: 0.84rem;
+  color: var(--mute);
+  display: block;
+  white-space: normal;
+  margin-top: 2px;
+}
+td.layer-cell {
+  white-space: nowrap;
+  font-size: 0.87rem;
+  color: var(--mute);
+  width: 15%;
+}
+td.num-cell {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.84rem;
+  white-space: nowrap;
+  color: var(--ink);
+  width: 14%;
+}
+.pos-val { color: var(--accent-text); font-weight: 500; }
+.neg-val { color: var(--accent-2-text); font-weight: 500; }
+.emg-val { color: var(--accent-3-text); font-weight: 500; }
+tr.group-row td {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600;
+  font-size: 0.94rem;
+  color: var(--ink);
+  padding: 18px 0 8px;
+  border-bottom: 1.5px solid var(--ink);
+}
+.mono-inline {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.88em;
+}
+
+/* Sources list */
+ol.sources {
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+  columns: 2;
+  column-gap: 36px;
+}
+ol.sources li {
+  position: relative;
+  padding-left: 30px;
+  margin-bottom: 10px;
+  font-size: 0.87rem;
+  color: var(--ink2);
+  break-inside: avoid;
+}
+ol.sources li::before {
+  content: counter(list-item) ".";
+  position: absolute;
+  left: 0;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.81rem;
+  color: var(--mute);
+}
+
+@media (max-width: 860px) {
+  .metrics-strip, .two-col { grid-template-columns: 1fr; }
+  .split-left, .split-right { grid-column: 1 / -1; }
+  ol.sources { columns: 1; }
+}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Healthcare and Cyber Lead as CrowdStrike–Zscaler Deal Talks Shake Up After-Hours Trading</h1>
+    <p class="deck">Up-to-date <a href="https://themepulse.vercel.app/" target="_blank" rel="noopener noreferrer">ThemePulse</a> market brief (data as of November 20–21, 2026), centered on <strong>strongest stocks in strongest themes</strong>, pre/after-market movers, early emerging rotations, and breakdowns—evaluated against your <a href="https://gemini.google.com/notebook/3d6da47f-01c9-4f61-8e89-22243de615e4" target="_blank" rel="noopener noreferrer">Strong Stocks</a> and <a href="https://gemini.google.com/notebook/665980b2-d2ba-4f60-8c2d-e4152abafa39" target="_blank" rel="noopener noreferrer">Chart Patterns and Trading Strategies</a> notebooks.</p>
+
+    <div class="metrics-strip">
+      <div class="metric-item">
+        <span class="num pos">RS 84</span>
+        <span class="label">Top two themes: Healthcare &amp; Cyber</span>
+        <span class="sub">Healthcare holds 8 Leading layers (Diagnostics 99, Oncology 99, Specialty Pharma 98); Cyber leads Threat Ops (100) and Platform + Endpoint (98).</span>
+      </div>
+      <div class="metric-item">
+        <span class="num emg">+16.4% AH</span>
+        <span class="label">Zscaler surges on CrowdStrike talks</span>
+        <span class="sub">Reports of a potential ~$265B CRWD–ZS deal drove ZS +16.39% (1.5M vol) and CRWD -5.03% (2.3M vol) after Friday’s close.</span>
+      </div>
+      <div class="metric-item">
+        <span class="num neg">-35% to -51%</span>
+        <span class="label">AI memory &amp; optics below 50-day SMA</span>
+        <span class="sub">SNDK, AXTI, MXL, and MU triggered textbook Stage 4 / 50-day breakdowns on NAND spot-price drops and China optical export fears.</span>
+      </div>
+    </div>
+  </header>
+
+  <section>
+    <h2>Strongest Stocks in Strongest Themes: Where Group Strength Meets RS &amp; EPS ≥ 80</h2>
+    <div class="split">
+      <div class="split-left">
+        <h3>Notebook filter applied</h3>
+        <p>Your <a href="https://gemini.google.com/notebook/3d6da47f-01c9-4f61-8e89-22243de615e4" target="_blank" rel="noopener noreferrer">Strong Stocks</a> playbook emphasizes that 60% of major winners come from top-ranked industry groups confirmed by multiple peers with <strong>RS ≥ 80, EPS ≥ 80</strong>, and ≥25% quarterly sales or earnings growth.</p>
+      </div>
+      <div class="split-right">
+        <p>Filtering ThemePulse’s top five themes—<strong>Healthcare (RS 84)</strong>, <strong>Cyber (RS 84)</strong>, <strong>Shipping (RS 82, weakening)</strong>, <strong>Consumer (RS 77)</strong>, and <strong>Industrials (RS 76)</strong>—surfaces a tight list of institutional leaders near highs. Specialty Pharma, Oncology, and Diagnostics offer the cleanest dual RS/EPS alignment right now, while Cyber’s top names face immediate M&amp;A event volatility entering Monday’s open and Tankers show elite EPS (95–97) but deteriorating 50-day technicals.</p>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Ticker &amp; Company</th>
+            <th>Theme / Layer</th>
+            <th>RS · EPS · Trend</th>
+            <th>Latest Catalyst &amp; Playbook Read</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="group-row"><td colspan="4">Healthcare (Theme RS 84 · 8 of 14 layers Leading · Broadest group confirmation)</td></tr>
+          <tr>
+            <td class="ticker-cell"><span class="tkr">ETON</span><span class="co">Eton Pharmaceuticals</span></td>
+            <td class="layer-cell">Biotech<br>(Strongest 5)</td>
+            <td class="num-cell"><span class="pos-val">RS 99 · EPS 88</span><br>+21.6% 1M<br>-11.0% high</td>
+            <td><strong>Dual qualifier.</strong> Record Q3 sales ($57.9M, +158% YoY) lifted FY26 outlook above $175M; hit $200M run-rate five quarters early with 49% EBITDA margin (<a href="https://www.stocktitan.net/sec-filings/ETON/8-k-eton-pharmaceuticals-inc-reports-material-event-429e3f265d0f.html" target="_blank" rel="noopener noreferrer">8-K</a>, <a href="https://www.investing.com/news/transcripts/eton-pharmaceuticals-at-jefferies-global-healthcare-conference-growth-quickens-93CH-5030437" target="_blank" rel="noopener noreferrer">Investing.com</a>).</td>
+          </tr>
+          <tr>
+            <td class="ticker-cell"><span class="tkr">CDNA</span><span class="co">CareDx, Inc.</span></td>
+            <td class="layer-cell">Diagnostics<br>(Rank 99)</td>
+            <td class="num-cell"><span class="pos-val">RS 99 · EPS 82▲</span><br>+2.0% 50d<br>-20.9% high</td>
+            <td><strong>Dual qualifier near 50d support.</strong> Q3 revenue rose 39% YoY to $139M (Testing +65% post-Naveris deal), doubling adj. EBITDA to $30M and raising FY26 guidance $30M (<a href="https://investors.caredx.com/news/news-details/2026/CareDx-Announces-Third-Quarter-2026-Financial-Results/default.aspx" target="_blank" rel="noopener noreferrer">CareDx IR</a>).</td>
+          </tr>
+          <tr>
+            <td class="ticker-cell"><span class="tkr">TGTX</span><span class="co">TG Therapeutics</span></td>
+            <td class="layer-cell">Oncology<br>(Rank 99)</td>
+            <td class="num-cell"><span class="pos-val">RS 97 · EPS 86</span><br>+10.0% 50d<br>-4.2% high</td>
+            <td><strong>Dual qualifier near highs.</strong> Q3 revenue jumped 61% YoY to $259.9M on BRIUMVI U.S. sales (+52% to $232.6M) plus ~$100M buybacks; FY26 target lifted to ~$1B (<a href="https://mlq.ai/news/tg-therapeutics-raises-2026-revenue-outlook-to-about-1-billion-on-briumvi-growth/" target="_blank" rel="noopener noreferrer">MLQ.ai</a>).</td>
+          </tr>
+          <tr>
+            <td class="ticker-cell"><span class="tkr">AMRX</span><span class="co">Amneal Pharma</span></td>
+            <td class="layer-cell">Specialty Pharma<br>(Rank 98)</td>
+            <td class="num-cell"><span class="pos-val">RS 96 · EPS 86</span><br>+4.9% 50d<br>-3.5% high</td>
+            <td><strong>Dual qualifier, tight action.</strong> Topped Q3 revenue ($863M) and EPS estimates on Nov 3 with $207M adjusted EBITDA; sitting 3.5% off highs with manageable 3.9% ADR (<a href="https://investors.amneal.com/news/press-releases/press-release-details/2026/Amneal-Reports-Third-Quarter-2026-Financial-Results/default.aspx" target="_blank" rel="noopener noreferrer">Amneal IR</a>, <a href="https://www.zacks.com/stock/news/3021406/amneal-pharmaceuticals-amrx-q3-earnings-and-revenues-top-estimates" target="_blank" rel="noopener noreferrer">Zacks</a>).</td>
+          </tr>
+          <tr>
+            <td class="ticker-cell"><span class="tkr">PCRX / IRWD</span><span class="co">Pacira / Ironwood</span></td>
+            <td class="layer-cell">Specialty Pharma<br>(Rank 98)</td>
+            <td class="num-cell"><span class="pos-val">RS 96 · EPS 94▲</span><br><span class="pos-val">RS 95 · EPS 97</span></td>
+            <td><strong>Top EPS pair in Specialty Pharma.</strong> PCRX sits at 0.0% off highs (+49.8% 3M) while IRWD (+31.6% 1M) leads the layer’s EPS growth—confirming broad group accumulation alongside <strong>BHC</strong> (RS 96, raised FY26 outlook on Salix growth; <a href="https://m1.com/invest/stocks/BHC" target="_blank" rel="noopener noreferrer">M1</a>).</td>
+          </tr>
+          <tr>
+            <td class="ticker-cell"><span class="tkr">GKOS / AXGN</span><span class="co">Glaukos / Axogen</span></td>
+            <td class="layer-cell">Devices<br>(Rank 89)</td>
+            <td class="num-cell"><span class="pos-val">RS 98</span> both<br>+24% / +26% 50d<br>-4.0% / -4.9% high</td>
+            <td><strong>8-week hold candidates (extended).</strong> GKOS (+58% Q3 sales, $1B 2027 outlook; <a href="https://www.tradingkey.com/news/transcripts/262251147-tradingkey" target="_blank" rel="noopener noreferrer">TradingKey</a>) and AXGN (+26% Q3 sales, BioCircuit deal; <a href="https://ir.axogeninc.com/news-events/press-releases/detail/1030/axogen-inc-reports-third-quarter-2026-financial-results" target="_blank" rel="noopener noreferrer">Axogen IR</a>) are strong but ~25% above 50d—wait for light-volume pullbacks rather than chasing.</td>
+          </tr>
+
+          <tr class="group-row"><td colspan="4">Cyber (Theme RS 84 · 1W +5 · 3 of 4 layers Leading · Active M&amp;A catalyst)</td></tr>
+          <tr>
+            <td class="ticker-cell"><span class="tkr">OKTA</span><span class="co">Okta, Inc.</span></td>
+            <td class="layer-cell">Platform + Endpt<br>(Rank 98)</td>
+            <td class="num-cell"><span class="pos-val">RS 98 · EPS 88</span><br>-4.3% 50d<br>+46.2% 3M</td>
+            <td><strong>Dual qualifier with event risk.</strong> Gained on Friday’s CRWD–ZS consolidation news (<a href="https://finance.biggo.com/news/e4562667-f0e8-4c3b-b506-fdd7354bb74f" target="_blank" rel="noopener noreferrer">BigGo</a>); reports Q3 FY27 earnings on Dec 1 (<a href="https://investor.okta.com/news-and-events/news-releases/news-details/2026/Okta-to-Announce-Third-Quarter-Fiscal-Year-2027-Financial-Results-on-December-1-2026/default.aspx" target="_blank" rel="noopener noreferrer">Okta IR</a>)—watch for a reclaim of the 50d on volume.</td>
+          </tr>
+          <tr>
+            <td class="ticker-cell"><span class="tkr">OSPN</span><span class="co">OneSpan Inc.</span></td>
+            <td class="layer-cell">Threat Ops<br>(Rank 100)</td>
+            <td class="num-cell"><span class="pos-val">RS 97</span> · EPS 42<br>+11.0% 50d<br>+40.5% 3M</td>
+            <td><strong>#1 layer leader.</strong> Beat Q3 EPS ($0.35 vs. $0.24 est.) on Oct 29 (+16% subscription revenue) and raised 2026 revenue outlook to $254M–$258M (<a href="https://www.stocktitan.net/sec-filings/OSPN/8-k-one-span-inc-reports-material-event-baad50a1e347.html" target="_blank" rel="noopener noreferrer">8-K</a>, <a href="https://www.marketbeat.com/stocks/NASDAQ/OSPN/earnings/" target="_blank" rel="noopener noreferrer">MarketBeat</a>).</td>
+          </tr>
+          <tr>
+            <td class="ticker-cell"><span class="tkr">GEN / TENB</span><span class="co">Gen Digital / Tenable</span></td>
+            <td class="layer-cell">Platform / Threat<br>(Rank 98 / 100)</td>
+            <td class="num-cell"><span class="pos-val">RS 85 · EPS 89</span><br><span class="pos-val">RS 95 · EPS 73▲</span></td>
+            <td><strong>Cyber EPS leaders.</strong> GEN (+17.3% 1M, +10.3% vs 50d) meets dual RS/EPS ≥80 criteria; TENB (+23.7% 3M, +3.2% vs 50d) leads Threat Ops EPS acceleration while <strong>CRWD</strong> (RS 94) faces deal-dilution pressure.</td>
+          </tr>
+
+          <tr class="group-row"><td colspan="4">Shipping (RS 82, Weakening) · Consumer (RS 77, 1M +20) · Industrials (RS 76, 1M +25)</td></tr>
+          <tr>
+            <td class="ticker-cell"><span class="tkr">ECO / DHT</span><span class="co">Okeanis / DHT</span></td>
+            <td class="layer-cell">Containers / Tankers<br>(Weakening)</td>
+            <td class="num-cell"><span class="pos-val">RS 98 · EPS 97</span><br><span class="pos-val">RS 88 · EPS 97</span></td>
+            <td><strong>Divergence inside Shipping.</strong> ECO posted record $501.5M Q3 revenue ($7.00 dividend, Q4 71% fixed at ~$420K/day; <a href="https://www.marketbeat.com/earnings/reports/2026-11-11-okeanis-eco-tankers-corp-stock/" target="_blank" rel="noopener noreferrer">MarketBeat</a>), but peers DHT (-6.1% vs 50d), FRO (-10.3%), and INSW (-10.4%) are pulling back—watch for group support before adding.</td>
+          </tr>
+          <tr>
+            <td class="ticker-cell"><span class="tkr">TBBB / ASO</span><span class="co">BBB Foods / Academy</span></td>
+            <td class="layer-cell">Retail<br>(Rank 89)</td>
+            <td class="num-cell"><span class="pos-val">RS 97</span> · +11.8% 50d<br><span class="pos-val">RS 96</span> · +20.1% 50d</td>
+            <td><strong>Retail momentum leaders.</strong> TBBB grew Q3 revenue 40.3% and comps 20.5% (<a href="https://investorstiendas3b.com/news/news-details/2026/Tiendas-3B-3Q26-Earnings-Release/default.aspx" target="_blank" rel="noopener noreferrer">Tiendas 3B IR</a>); ASO (+51.1% 3M) beat Q2 EPS ($2.31 vs. $2.07 est.) with 12.8% eCommerce growth (<a href="https://www.marketbeat.com/instant-alerts/price-academy-sports-and-outdoors-nasdaq-aso-stock-jumps-47-heres-what-happened-2026-11-16/" target="_blank" rel="noopener noreferrer">MarketBeat</a>). <strong>PLBL</strong> (RS 98, +82% 1M) is heavily extended (+64.6% vs 50d).</td>
+          </tr>
+          <tr>
+            <td class="ticker-cell"><span class="tkr">KFRC / ADP</span><span class="co">Kforce / ADP</span></td>
+            <td class="layer-cell">Staffing + HR<br>(Rank 92)</td>
+            <td class="num-cell"><span class="pos-val">RS 93</span> · +1.6% 50d<br><span class="pos-val">RS 84</span> · +5.8% 50d</td>
+            <td><strong>Defensive Industrials anchors.</strong> Staffing + HR ranks #1 in Industrials (typical member RS 84); KFRC sits just above its 50-day SMA and ADP sits 3.7% off highs with low 2.1% ADR, though neither hits EPS ≥80.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Pre-Market &amp; After-Hours Movers: M&amp;A Shockwaves, PDUFA Bets, and Earnings Gaps</h2>
+    <p class="measure">ThemePulse’s <span class="mono-inline">Pre/After-market</span> scan (November 20–21) highlights sharp dispersion heading into Monday’s session. Under your <a href="https://gemini.google.com/notebook/665980b2-d2ba-4f60-8c2d-e4152abafa39" target="_blank" rel="noopener noreferrer">Chart Patterns and Trading Strategies</a> rules, large gap-ups on heavy volume out of sound bases can signal continuation, whereas heavy-volume gap-downs (like INTU and ANT) or low-RS bounces (GAP, CAPR) require strict trend and Stage 2 confirmation before entry.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Ticker &amp; Session</th>
+            <th>Move · Price · Vol</th>
+            <th>RS · EPS · Layer</th>
+            <th>Catalyst &amp; Notebook Read</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="ticker-cell"><span class="tkr">ZS</span><span class="co">Zscaler (After-Hours)</span></td>
+            <td class="num-cell"><span class="pos-val">+16.39%</span><br>$226.75 · 1.5M</td>
+            <td class="layer-cell">RS 33 · EPS 12<br>Platform + Endpt</td>
+            <td>Soared on Nov 20 Bloomberg/Reuters reports that CrowdStrike is in talks to acquire Zscaler in a deal that would create a ~$265B cybersecurity giant (<a href="https://finance.biggo.com/news/e4562667-f0e8-4c3b-b506-fdd7354bb74f" target="_blank" rel="noopener noreferrer">BigGo</a>, <a href="https://www.tipranks.com/news/crowdstrike-crwd-in-talks-to-buy-zscaler-zs-sending-shares-in-opposite-directions" target="_blank" rel="noopener noreferrer">TipRanks</a>). Event-driven arb—not a CAN SLIM base breakout.</td>
+          </tr>
+          <tr>
+            <td class="ticker-cell"><span class="tkr">CRWD</span><span class="co">CrowdStrike (After-Hours)</span></td>
+            <td class="num-cell"><span class="neg-val">-5.03%</span><br>$217.30 · 2.3M</td>
+            <td class="layer-cell">RS 94 · EPS 67<br>Platform + Endpt</td>
+            <td>Dropped on heavy volume on potential Zscaler acquisition dilution alongside Friday’s broader Nasdaq slide (<a href="https://finance.biggo.com/news/e4562667-f0e8-4c3b-b506-fdd7354bb74f" target="_blank" rel="noopener noreferrer">BigGo</a>). Already -7.1% below its 50-day SMA before the AH drop—watch for heavy-volume breakdown confirmation.</td>
+          </tr>
+          <tr>
+            <td class="ticker-cell"><span class="tkr">CAPR</span><span class="co">Capricor (Pre-Market)</span></td>
+            <td class="num-cell"><span class="pos-val">+8.65%</span><br>$8.18 · 1.3M</td>
+            <td class="layer-cell">RS 71 · EPS 6<br>Biotech</td>
+            <td>Rallied on 1.3M premarket volume heading into its <strong>November 22, 2026 PDUFA target action date</strong> for Deramiocel in Duchenne muscular dystrophy (<a href="https://www.capricor.com/investors/news-events/press-releases/detail/359/capricor-therapeutics-reports-third-quarter-2026-financial" target="_blank" rel="noopener noreferrer">Capricor IR</a>). Binary FDA event; fails EPS/RS quality rules.</td>
+          </tr>
+          <tr>
+            <td class="ticker-cell"><span class="tkr">GAP</span><span class="co">Gap Inc. (Pre-Market)</span></td>
+            <td class="num-cell"><span class="pos-val">+7.93%</span><br>$20.28 · 154K</td>
+            <td class="layer-cell">RS 43 · EPS 93▲<br>Luxury + Apparel</td>
+            <td>Beat Q3 EPS ($0.82 adj., up 30%+ YoY) on Nov 19 cost discipline, even while trimming FY26 EPS guidance to $2.29–$2.34 on slower Oct/Nov apparel demand (<a href="https://investors.gapinc.com/press-releases/news-details/2026/Gap-Inc--Reports-Third-Quarter-Fiscal-2026-Results/default.aspx" target="_blank" rel="noopener noreferrer">Gap IR</a>, <a href="https://www.zacks.com/stock/news/3033249/gap-q3-earnings-beat-estimates-on-cost-discipline-sales-rise-yy" target="_blank" rel="noopener noreferrer">Zacks</a>). Low RS (43) flags Stage 1/base repair.</td>
+          </tr>
+          <tr>
+            <td class="ticker-cell"><span class="tkr">INTU</span><span class="co">Intuit (Pre-Market)</span></td>
+            <td class="num-cell"><span class="neg-val">-8.35%</span><br>$284.14 · 126K</td>
+            <td class="layer-cell">RS 10 · EPS 58<br>Enterprise SaaS</td>
+            <td>Gapped down after Nov 19 Q1 FY27 earnings and an agreement to sell Mailchimp to Bending Spoons (<a href="https://investors.intuit.com/news-events/press-releases/detail/1331/intuit-reports-first-quarter-results-and-enters-agreement-to-sell-mailchimp-to-bending-spoons" target="_blank" rel="noopener noreferrer">Intuit IR</a>). RS 10 in lagging Enterprise SaaS—textbook Stage 4 avoid.</td>
+          </tr>
+          <tr>
+            <td class="ticker-cell"><span class="tkr">ANT / AAOI</span><span class="co">Anthropic / Applied Opto.</span></td>
+            <td class="num-cell"><span class="neg-val">-8.61%</span> (46.7M)<br><span class="neg-val">-5.37%</span> (1.0M)</td>
+            <td class="layer-cell">AI Agents /<br>AI Connectivity</td>
+            <td>Heavy premarket distribution in AI-linked names: ANT slid on 46.7M volume around gross-proceeds headlines while AAOI (RS 5) fell on a $550M financing overhang (<a href="https://themepulse.vercel.app/" target="_blank" rel="noopener noreferrer">ThemePulse</a>).</td>
+          </tr>
+          <tr>
+            <td class="ticker-cell"><span class="tkr">ERAS</span><span class="co">Erasca (Pre-Market)</span></td>
+            <td class="num-cell"><span class="neg-val">-7.88%</span><br>$13.10 · 575K</td>
+            <td class="layer-cell">RS 99 · EPS 16<br>Biotech</td>
+            <td>High-RS biotech leader (RS 99) pulled back sharply on 575K premarket volume following Bristol Myers combination-study headlines (<a href="https://themepulse.vercel.app/" target="_blank" rel="noopener noreferrer">ThemePulse</a>)—monitor 10d/21d support for institutional defense vs. climax top.</td>
+          </tr>
+          <tr>
+            <td class="ticker-cell"><span class="tkr">HUM / UNH</span><span class="co">Humana / UnitedHealth</span></td>
+            <td class="num-cell"><span class="pos-val">+3.16%</span> (19K)<br><span class="pos-val">+2.51%</span> (249K)</td>
+            <td class="layer-cell">RS 89 / RS 31<br>Managed Care</td>
+            <td>Premarket bid after TD Cowen backed both managed-care names (<a href="https://themepulse.vercel.app/" target="_blank" rel="noopener noreferrer">ThemePulse</a>); HUM holds strong RS (89) while UNH (RS 31) remains well below leadership thresholds.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="full-band">
+    <h2>Theme Rotation &amp; Momentum Map: Cyclicals Rise as High-Beta Tech Breaks Support</h2>
+    <p class="measure">ThemePulse’s 1-month RS deltas confirm a structural shift: capital is rotating into Transport (+26), Industrials (+25), Consumer (+20), Real Estate (+18), and Utilities (+13), while Software (-31), Energy (-21), Quantum (-14), Semis (-13), and AI Infra (-13) lose leadership. Plotting individual tickers by 1-month return vs. distance from the 50-day SMA makes the Stage 2 vs. Stage 4 divide unmistakable.</p>
+
+    <figure>
+      <div class="fig-title">Transport, Industrials, and Consumer posted the largest 1-month RS gains while Software and Energy led the retreat</div>
+      <svg viewBox="0 0 700 450" role="img" aria-label="Diverging bar chart of 1-month Relative Strength changes across ThemePulse themes">
+        <line x1="375" y1="26" x2="375" y2="412" stroke="#111827" stroke-width="1.5"/>
+        <g stroke="#D1D5DB" stroke-width="1" stroke-dasharray="3,3">
+          <line x1="159" y1="26" x2="159" y2="412"/>
+          <line x1="231" y1="26" x2="231" y2="412"/>
+          <line x1="303" y1="26" x2="303" y2="412"/>
+          <line x1="447" y1="26" x2="447" y2="412"/>
+          <line x1="519" y1="26" x2="519" y2="412"/>
+          <line x1="591" y1="26" x2="591" y2="412"/>
+        </g>
+        <g font-family="IBM Plex Mono, monospace" font-size="13" fill="#4B5563" text-anchor="middle">
+          <text x="159" y="434">-30</text>
+          <text x="231" y="434">-20</text>
+          <text x="303" y="434">-10</text>
+          <text x="375" y="434">0</text>
+          <text x="447" y="434">+10</text>
+          <text x="519" y="434">+20</text>
+          <text x="591" y="434">+30</text>
+        </g>
+        <text x="375" y="16" font-family="IBM Plex Sans, sans-serif" font-size="13" fill="#4B5563" text-anchor="middle">1-month RS rank change (points)</text>
+        <g font-family="IBM Plex Sans, sans-serif" font-size="14" fill="#111827">
+          <text x="138" y="48" text-anchor="end">Transport (75)</text>
+          <rect x="375" y="34" width="187.2" height="17" fill="#059669"/>
+          <text x="570" y="48" font-family="IBM Plex Mono, monospace" font-size="13" fill="#065F46">+26</text>
+
+          <text x="138" y="77" text-anchor="end">Industrials (76)</text>
+          <rect x="375" y="63" width="180" height="17" fill="#059669"/>
+          <text x="563" y="77" font-family="IBM Plex Mono, monospace" font-size="13" fill="#065F46">+25</text>
+
+          <text x="138" y="106" text-anchor="end">Consumer (77)</text>
+          <rect x="375" y="92" width="144" height="17" fill="#059669"/>
+          <text x="527" y="106" font-family="IBM Plex Mono, monospace" font-size="13" fill="#065F46">+20</text>
+
+          <text x="138" y="135" text-anchor="end">Real Estate (52)</text>
+          <rect x="375" y="121" width="129.6" height="17" fill="#059669"/>
+          <text x="513" y="135" font-family="IBM Plex Mono, monospace" font-size="13" fill="#065F46">+18</text>
+
+          <text x="138" y="164" text-anchor="end">Infra Build (48)</text>
+          <rect x="375" y="150" width="122.4" height="17" fill="#059669"/>
+          <text x="506" y="164" font-family="IBM Plex Mono, monospace" font-size="13" fill="#065F46">+17</text>
+
+          <text x="138" y="193" text-anchor="end">Utilities (64)</text>
+          <rect x="375" y="179" width="93.6" height="17" fill="#059669"/>
+          <text x="477" y="193" font-family="IBM Plex Mono, monospace" font-size="13" fill="#065F46">+13</text>
+
+          <text x="138" y="222" text-anchor="end">Healthcare (84)</text>
+          <rect x="375" y="208" width="36" height="17" fill="#059669"/>
+          <text x="419" y="222" font-family="IBM Plex Mono, monospace" font-size="13" fill="#065F46">+5</text>
+
+          <text x="138" y="261" text-anchor="end">Shipping (82)</text>
+          <rect x="295.8" y="247" width="79.2" height="17" fill="#DC2626"/>
+          <text x="287" y="261" font-family="IBM Plex Mono, monospace" font-size="13" fill="#991B1B" text-anchor="end">-11</text>
+
+          <text x="138" y="290" text-anchor="end">Semis (24)</text>
+          <rect x="281.4" y="276" width="93.6" height="17" fill="#DC2626"/>
+          <text x="273" y="290" font-family="IBM Plex Mono, monospace" font-size="13" fill="#991B1B" text-anchor="end">-13</text>
+
+          <text x="138" y="319" text-anchor="end">AI Infra (22)</text>
+          <rect x="281.4" y="305" width="93.6" height="17" fill="#DC2626"/>
+          <text x="273" y="319" font-family="IBM Plex Mono, monospace" font-size="13" fill="#991B1B" text-anchor="end">-13</text>
+
+          <text x="138" y="348" text-anchor="end">Quantum (22)</text>
+          <rect x="274.2" y="334" width="100.8" height="17" fill="#DC2626"/>
+          <text x="266" y="348" font-family="IBM Plex Mono, monospace" font-size="13" fill="#991B1B" text-anchor="end">-14</text>
+
+          <text x="138" y="377" text-anchor="end">Energy (43)</text>
+          <rect x="223.8" y="363" width="151.2" height="17" fill="#DC2626"/>
+          <text x="215" y="377" font-family="IBM Plex Mono, monospace" font-size="13" fill="#991B1B" text-anchor="end">-21</text>
+
+          <text x="138" y="406" text-anchor="end">Software (56)</text>
+          <rect x="151.8" y="392" width="223.2" height="17" fill="#DC2626"/>
+          <text x="385" y="406" font-family="IBM Plex Mono, monospace" font-size="13" fill="#991B1B">-31</text>
+        </g>
+      </svg>
+      <figcaption>Current theme average RS shown in parentheses. Source: <a href="https://themepulse.vercel.app/" target="_blank" rel="noopener noreferrer">ThemePulse</a> (November 20, 2026).</figcaption>
+    </figure>
+
+    <figure>
+      <div class="fig-title">Stage 2 leaders and buyouts hold well above 50-day support while memory and optics suffer deep Stage 4 breaks</div>
+      <svg viewBox="0 0 700 430" role="img" aria-label="Scatter plot comparing 1-month return and percentage distance from 50-day moving average across Strength, Emergence, and Decline tickers">
+        <g stroke="#D1D5DB" stroke-width="1">
+          <line x1="70" y1="36" x2="660" y2="36"/>
+          <line x1="70" y1="114" x2="660" y2="114"/>
+          <line x1="70" y1="270" x2="660" y2="270"/>
+          <line x1="70" y1="348" x2="660" y2="348"/>
+          <line x1="154.3" y1="36" x2="154.3" y2="380"/>
+          <line x1="238.6" y1="36" x2="238.6" y2="380"/>
+          <line x1="407.1" y1="36" x2="407.1" y2="380"/>
+          <line x1="491.4" y1="36" x2="491.4" y2="380"/>
+          <line x1="575.7" y1="36" x2="575.7" y2="380"/>
+        </g>
+        <line x1="322.8" y1="36" x2="322.8" y2="380" stroke="#111827" stroke-width="1.4"/>
+        <line x1="70" y1="192" x2="660" y2="192" stroke="#111827" stroke-width="1.4"/>
+        <g font-family="IBM Plex Sans, sans-serif" font-size="13" fill="#111827">
+          <circle cx="86" cy="18" r="5.5" fill="#059669"/>
+          <text x="98" y="22">Strength</text>
+          <circle cx="176" cy="18" r="5.5" fill="#2563EB"/>
+          <text x="188" y="22">Emergence</text>
+          <circle cx="282" cy="18" r="5.5" fill="#DC2626"/>
+          <text x="294" y="22">Decline</text>
+        </g>
+        <g font-family="IBM Plex Mono, monospace" font-size="13" fill="#4B5563">
+          <text x="60" y="40" text-anchor="end">+50%</text>
+          <text x="60" y="118" text-anchor="end">+25%</text>
+          <text x="60" y="196" text-anchor="end">0%</text>
+          <text x="60" y="274" text-anchor="end">-25%</text>
+          <text x="60" y="352" text-anchor="end">-50%</text>
+          <text x="154" y="400" text-anchor="middle">-40%</text>
+          <text x="239" y="400" text-anchor="middle">-20%</text>
+          <text x="323" y="400" text-anchor="middle">0%</text>
+          <text x="407" y="400" text-anchor="middle">+20%</text>
+          <text x="491" y="400" text-anchor="middle">+40%</text>
+          <text x="576" y="400" text-anchor="middle">+60%</text>
+        </g>
+        <text x="365" y="423" font-family="IBM Plex Sans, sans-serif" font-size="13" fill="#4B5563" text-anchor="middle">1-month return (%)</text>
+        <text x="18" y="208" font-family="IBM Plex Sans, sans-serif" font-size="13" fill="#4B5563" text-anchor="middle" transform="rotate(-90 18 208)">Distance from 50-day SMA (%)</text>
+
+        <g fill="#059669">
+          <circle cx="611.1" cy="53.8" r="6"/>
+          <circle cx="542.0" cy="111.8" r="6"/>
+          <circle cx="467.4" cy="116.2" r="6"/>
+          <circle cx="425.7" cy="137.4" r="6"/>
+          <circle cx="403.3" cy="160.8" r="6"/>
+          <circle cx="382.3" cy="157.7" r="6"/>
+          <circle cx="335.9" cy="176.7" r="6"/>
+        </g>
+        <g font-family="IBM Plex Mono, monospace" font-size="13" font-weight="500" fill="#065F46">
+          <text x="621" y="58">SGRY</text>
+          <text x="552" y="116">AXGN</text>
+          <text x="467" y="104" text-anchor="middle">GKOS</text>
+          <text x="436" y="141">AZTA</text>
+          <text x="413" y="164">TGTX</text>
+          <text x="373" y="152" text-anchor="end">OSPN</text>
+          <text x="346" y="182">AMRX</text>
+        </g>
+
+        <g fill="#2563EB">
+          <circle cx="496.5" cy="105.9" r="6"/>
+          <circle cx="470.3" cy="129.3" r="6"/>
+          <circle cx="453.1" cy="124.0" r="6"/>
+          <circle cx="433.7" cy="162.7" r="6"/>
+          <circle cx="402.9" cy="127.7" r="6"/>
+        </g>
+        <g font-family="IBM Plex Mono, monospace" font-size="13" font-weight="500" fill="#1E40AF">
+          <text x="506" y="101">ADT</text>
+          <text x="480" y="137">PTLO</text>
+          <text x="444" y="121" text-anchor="end">WEN</text>
+          <text x="444" y="176">CMG</text>
+          <text x="394" y="124" text-anchor="end">SG</text>
+        </g>
+
+        <g fill="#DC2626">
+          <circle cx="122.7" cy="350.5" r="6"/>
+          <circle cx="151.3" cy="343.6" r="6"/>
+          <circle cx="169.0" cy="329.0" r="6"/>
+          <circle cx="193.9" cy="300.6" r="6"/>
+          <circle cx="214.5" cy="282.2" r="6"/>
+          <circle cx="223.0" cy="286.8" r="6"/>
+          <circle cx="235.6" cy="280.0" r="6"/>
+          <circle cx="238.1" cy="232.9" r="6"/>
+          <circle cx="272.3" cy="219.5" r="6"/>
+        </g>
+        <g font-family="IBM Plex Mono, monospace" font-size="13" font-weight="500" fill="#991B1B">
+          <text x="113" y="355" text-anchor="end">SNDK</text>
+          <text x="161" y="357">AXTI</text>
+          <text x="179" y="333">MXL</text>
+          <text x="184" y="297" text-anchor="end">MU</text>
+          <text x="206" y="275" text-anchor="end">TXG</text>
+          <text x="223" y="306" text-anchor="middle">TWST</text>
+          <text x="246" y="284">BFLY</text>
+          <text x="228" y="234" text-anchor="end">MPC</text>
+          <text x="282" y="223">ZETA</text>
+        </g>
+      </svg>
+      <figcaption>Representative tickers across Strength, Emergence, and Decline. Source: <a href="https://themepulse.vercel.app/" target="_blank" rel="noopener noreferrer">ThemePulse</a> (November 20–21, 2026).</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>Emergence Watchlist: Five Early Rotations Requiring Stage 2 Confirmation</h2>
+    <p class="measure">ThemePulse’s <span class="mono-inline">Emerging 5</span> screen (Rank ≥70, +20+ 1M RS, rising 6+ of 10 sessions) carries a clear warning: <em>early rotation backtested negative</em>. That aligns directly with your <a href="https://gemini.google.com/notebook/3d6da47f-01c9-4f61-8e89-22243de615e4" target="_blank" rel="noopener noreferrer">Strong Stocks</a> rule against buying erratic cyclical rebounds before earnings acceleration and institutional volume confirm a true Stage 2 uptrend.</p>
+
+    <div class="two-col">
+      <div class="col-block">
+        <h3>Restaurants + QSR (Rank 93 · +36 1M)</h3>
+        <ul class="clean-list">
+          <li><strong>CBRL</strong> (RS 98, EPS 84, +16.1% 50d): Dual qualifier; FY27 rebound outlook (3%–5% comps, ≥$180M adj. EBITDA) and debt cut to $337.2M via $150M repayment and sale-leaseback (<a href="https://investor.crackerbarrel.com/news-releases/news-release-details/cracker-barrel-reports-fourth-quarter-and-full-year-fiscal-2026" target="_blank" rel="noopener noreferrer">Cracker Barrel IR</a>).</li>
+          <li><strong>PTLO</strong> (RS 92, +35.0% 1M) &amp; <strong>SG</strong> (RS 97, +19.0% 1M): PTLO inflected to +1.4% comps and raised FY26 EBITDA guidance (<a href="https://investors.portillos.com/news-releases/news-release-details/portillos-inc-announces-third-quarter-2026-financial-results" target="_blank" rel="noopener noreferrer">Portillo’s IR</a>); SG beat Q3 revenue with an October sales rebound (<a href="https://www.fool.com/earnings/call-transcripts/2026/11/06/sweetgreen-sg-q3-2026-earnings-call-transcript/" target="_blank" rel="noopener noreferrer">Motley Fool</a>).</li>
+          <li><strong>WEN</strong> (RS 88, +30.9% 1M) &amp; <strong>CMG</strong> (RS 86, +26.3% 1M): WEN beat Q3 EPS on its “Dave’s Way” turnaround (<a href="https://www.irwendys.com/news/news-details/2026/THE-WENDYS-COMPANY-REPORTS-THIRD-QUARTER-2026-RESULTS/default.aspx" target="_blank" rel="noopener noreferrer">Wendy’s IR</a>); CMG posted +2.1% comps and positive traffic (<a href="https://ir.chipotle.com/2026-10-28-CHIPOTLE-ANNOUNCES-THIRD-QUARTER-2026-RESULTS" target="_blank" rel="noopener noreferrer">Chipotle IR</a>).</li>
+        </ul>
+      </div>
+
+      <div class="col-block">
+        <h3>Autos + Dealers (Rank 81 · +53 1M · Spiky)</h3>
+        <ul class="clean-list">
+          <li><strong>HOG</strong> (RS 93, +11.7% 1M): Raised HDMC and HDFS guidance on Oct 29 as global retail inflected +5.4% and dealer inventory fell ~26% (<a href="https://investor.harley-davidson.com/news/news-details/2026/Harley-Davidson-Reports-Third-Quarter-Financial-Results-And-Raises-HDMC-and-HDFS-Guidance/default.aspx" target="_blank" rel="noopener noreferrer">Harley IR</a>).</li>
+          <li><strong>CARS</strong> (RS 86, EPS 87, +12.8% 1M): Dual qualifier; Q3 net income rose 113% with 30.7% adj. EBITDA margin and record ARPD (<a href="https://www.marketbeat.com/earnings/reports/2026-11-5-carscom-inc-stock/" target="_blank" rel="noopener noreferrer">MarketBeat</a>).</li>
+          <li><strong>PII</strong> (RS 73, +12.4% 1M) &amp; <strong>ABG</strong> (RS 72, +14.7% 1M): PII crushed EPS ($1.08 vs. $0.60 est.) and raised guidance (<a href="https://s21.q4cdn.com/608247098/files/doc_earnings/2026/q3/earnings-result/Q3-2026-Press-Release.pdf" target="_blank" rel="noopener noreferrer">Polaris</a>); ABG completed its Tekion DMS rollout with $278M YTD buybacks (<a href="https://tickeron.com/blogs/asbury-automotive-group-abg-posts-q3-2026-results-revenue-8-as-tekion-rollout-completes-22558/" target="_blank" rel="noopener noreferrer">Tickeron</a>).</li>
+        </ul>
+      </div>
+
+      <div class="col-block">
+        <h3>Gas Utilities (Rank 80 · +28 1M · 1.26× Vol)</h3>
+        <ul class="clean-list">
+          <li><strong>BIPC</strong> (RS 80, +13.8% 1M, NH): 10% FFO/unit growth, 200+ MW NAVER AI infrastructure deal, and Nov 19 corporate simplification into BIP Inc. (<a href="https://bip.brookfield.com/press-releases/bipc/brookfield-infrastructure-announces-completion-corporate-simplification" target="_blank" rel="noopener noreferrer">Brookfield IR</a>).</li>
+          <li><strong>NJR</strong> (RS 75, EPS 84▲) &amp; <strong>NWN</strong> (RS 72, EPS 77): NJR beat Q4 revenue with a $5.3B–$5.7B 5-year capex plan (<a href="https://investor.njresources.com/news/news-details/2026/New-Jersey-Resources-Reports-Fiscal-2026-Fourth-Quarter-and-Year-End-Results/default.aspx" target="_blank" rel="noopener noreferrer">NJR IR</a>); NWN raised FY26 EPS guidance on Oregon/Texas rate wins and its largest dividend hike since 2012 (<a href="https://ir.nwnaturalholdings.com/news/news-details/2026/NW-Natural-Holdings-Reports-Third-Quarter-2026-Results-and-Raises-2026-EPS-Guidance/default.aspx" target="_blank" rel="noopener noreferrer">NW Natural IR</a>).</li>
+        </ul>
+      </div>
+
+      <div class="col-block">
+        <h3>Freight + Logistics (Rank 79) &amp; Security + Services (Rank 71)</h3>
+        <ul class="clean-list">
+          <li><strong>CYRX</strong> (RS 96), <strong>RLGT</strong> (RS 89, EPS 79), <strong>EXPD</strong> (RS 84), &amp; <strong>UPS</strong> (RS 77): CYRX turned EBITDA positive on cell/gene therapy growth (<a href="https://www.prnewswire.com/news-releases/cryoport-reports-third-quarter-2026-financial-results-302931284.html" target="_blank" rel="noopener noreferrer">PR Newswire</a>); EXPD surged +42% Q3 revenue on AI airfreight (<a href="https://investor.expeditors.com/press-releases/2026/11-03-2026-133039793" target="_blank" rel="noopener noreferrer">Expeditors IR</a>); UPS raised FY26 guidance (<a href="https://investors.ups.com/news-events/press-releases/detail/2172/ups-releases-3q-2026-earnings" target="_blank" rel="noopener noreferrer">UPS IR</a>).</li>
+          <li><strong>ADT</strong> (RS 96, +41.2% 1M), <strong>GEO</strong> (RS 94), &amp; <strong>ALLE</strong> (RS 88): ADT accepted a $10.00/share ($15.3B EV) Thrive Holdings buyout (<a href="https://investor.adt.com/News--Events/news/news-details/2026/ADT-to-be-Acquired-by-Thrive-Holdings-in-15-3-Billion-Transaction/default.aspx" target="_blank" rel="noopener noreferrer">ADT IR</a>); GEO sold its Adelanto complex for $950M and signed a 10-year ICE deal (<a href="https://investors.geogroup.com/news-releases/news-release-details/geo-group-reports-third-quarter-2026-results-and-updates-full" target="_blank" rel="noopener noreferrer">GEO IR</a>); ALLE raised FY26 EPS guidance (<a href="https://www.allegion.com/corp/en/news/year/2026/q3-results.html" target="_blank" rel="noopener noreferrer">Allegion</a>).</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Declines &amp; Breakdowns: Textbook Stage 4 Sell Signals After Q3 Beats</h2>
+    <p class="measure">ThemePulse’s <span class="mono-inline">Leaders breaking down 60</span> list demonstrates your <a href="https://gemini.google.com/notebook/665980b2-d2ba-4f60-8c2d-e4152abafa39" target="_blank" rel="noopener noreferrer">Chart Patterns and Trading Strategies</a> selling rules in real time: once a former leader breaks sharply below its 50-day / 10-week moving average on heavy volume or posts its largest single-day drop, institutional support has left—even if trailing Q3 earnings beat estimates.</p>
+
+    <blockquote class="pull">Seven of the twelve steepest breakdowns beat Q3 estimates—confirming the November selloff is a forward-multiple and 2027-deceleration reset where 50-day sell discipline matters most.</blockquote>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Ticker &amp; Company</th>
+            <th>Layer</th>
+            <th>RS · vs 50d · 1M</th>
+            <th>October–November 2026 Decline Catalyst &amp; Technical Signal</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="group-row"><td colspan="4">AI Infra, Memory &amp; Photonics (Deepest Stage 4 breakdowns)</td></tr>
+          <tr>
+            <td class="ticker-cell"><span class="tkr">SNDK</span><span class="co">Sandisk Corp.</span></td>
+            <td class="layer-cell">Memory + Storage</td>
+            <td class="num-cell">RS 41<br><span class="neg-val">-50.8%</span> 50d<br>-47.5% 1M</td>
+            <td>Slid 13.5% on Oct 30 on Kioxia’s weak flash outlook and dropped 14.3% on Nov 20 (first day post-8-for-1 split) as NAND spot prices fell ~20% (<a href="https://www.heygotrade.com/en/news/sandisk-sndk-stock-news-november-2-2026/" target="_blank" rel="noopener noreferrer">Gotrade</a>, <a href="https://kalkine.com.au/news/technology/why-is-sandisk-nasdaqsndk-stock-down-14-in-us-trading-on-its-first-day-after-an-8-for-1-split" target="_blank" rel="noopener noreferrer">Kalkine</a>).</td>
+          </tr>
+          <tr>
+            <td class="ticker-cell"><span class="tkr">AXTI</span><span class="co">AXT, Inc.</span></td>
+            <td class="layer-cell">Photonics</td>
+            <td class="num-cell">RS 54<br><span class="neg-val">-48.6%</span> 50d<br>-40.7% 1M</td>
+            <td>Reversal after record Q3 revenue ($73.4M) deepened with a 12% drop on Nov 16 and 8.2% slide on Nov 20 on U.S.–China optical hardware restrictions and indium phosphide export-permit risk (<a href="https://tickeron.com/blogs/why-is-axt-inc-axti-stock-down-8-15-today-41905/" target="_blank" rel="noopener noreferrer">Tickeron</a>).</td>
+          </tr>
+          <tr>
+            <td class="ticker-cell"><span class="tkr">MXL</span><span class="co">MaxLinear, Inc.</span></td>
+            <td class="layer-cell">AI Connectivity</td>
+            <td class="num-cell">RS 80<br><span class="neg-val">-43.9%</span> 50d<br>-36.5% 1M</td>
+            <td>Target cuts from Susquehanna and Wells Fargo followed a Q3 beat, then shares plunged 22.1% on Nov 5 on negative Q3 operating cash flow (-$13.6M) and doubled wafer prepayments (<a href="https://koalagains.com/daily-top-movers/top-losers/details/136ca886-396a-4c6a-adcf-b87a1102acec" target="_blank" rel="noopener noreferrer">KoalaGains</a>).</td>
+          </tr>
+          <tr>
+            <td class="ticker-cell"><span class="tkr">MU</span><span class="co">Micron Technology</span></td>
+            <td class="layer-cell">Memory + Storage</td>
+            <td class="num-cell">RS 81<br><span class="neg-val">-34.8%</span> 50d<br>-30.6% 1M</td>
+            <td>Plunged 12% on Nov 20 alongside a ~7% SOX selloff as research warned of early-2027 NAND price declines after Kioxia’s earlier warning (<a href="https://kalkine.com.au/news/technology/why-is-micron-nasdaqmu-stock-plunging-12-in-us-trading-as-the-ai-chip-trade-unravels" target="_blank" rel="noopener noreferrer">Kalkine</a>).</td>
+          </tr>
+
+          <tr class="group-row"><td colspan="4">Healthcare, Software &amp; Energy Breakdowns</td></tr>
+          <tr>
+            <td class="ticker-cell"><span class="tkr">TWST / TXG</span><span class="co">Twist / 10x Genomics</span></td>
+            <td class="layer-cell">Diagnostics /<br>Health IT</td>
+            <td class="num-cell">RS 98 both<br><span class="neg-val">-30.4% / -28.9%</span> 50d</td>
+            <td>TWST’s FY27 outlook signaled AI drug discovery growth slowing to 69% from 175% (<a href="https://www.tradingview.com/news/benzinga:7086b25b4094b:0-twist-bioscience-2027-outlook-signals-sharp-slowdown-in-ai-drug-discovery-growth/" target="_blank" rel="noopener noreferrer">TradingView</a>); TXG saw instrument revenue plunge 43% and ARK Invest sell 107.7K shares on Nov 17 (<a href="https://www.gurufocus.com/news/9181661/10x-genomics-inc-txg-q3-2026-earnings-call-highlights-atera-launch-takes-flight-as-revenue-outlook-climbs" target="_blank" rel="noopener noreferrer">GuruFocus</a>).</td>
+          </tr>
+          <tr>
+            <td class="ticker-cell"><span class="tkr">BFLY / GRAL</span><span class="co">Butterfly / GRAIL</span></td>
+            <td class="layer-cell">Devices /<br>Diagnostics</td>
+            <td class="num-cell">RS 85 / 81<br><span class="neg-val">-28.2% / -19.9%</span> 50d</td>
+            <td>BFLY disclosed an up-to-$150M ATM offering plus 359K insider shares sold (<a href="https://koalagains.com/daily-top-movers/top-losers/details/64a5083c-96d2-44a1-88e2-8b46ca814d01" target="_blank" rel="noopener noreferrer">KoalaGains</a>); GRAL missed Q3 sales ($37.5M vs. ~$45M est.) and cut guidance on 9% lower Galleri ASP (<a href="https://finviz.com/news/416335/grail-beats-on-eps-but-guidance-cut-price-concessions-and-margin-compression-undercut-a-de-risked-fda-story" target="_blank" rel="noopener noreferrer">Finviz</a>).</td>
+          </tr>
+          <tr>
+            <td class="ticker-cell"><span class="tkr">DFTX</span><span class="co">Definium Therap.</span></td>
+            <td class="layer-cell">Pharma Majors</td>
+            <td class="num-cell">RS 92<br><span class="neg-val">-19.4%</span> 50d<br>-21.3% 1M</td>
+            <td>No clinical setback (1H 2027 DT120 NDA reaffirmed), but wider $72.3M operating loss and high-beta pre-revenue biotech de-risking triggered heavy-volume profit-taking (<a href="https://kalkine.ca/news/healthcare/definium-nasdaqdftx-stock-sees-heavy-trading-volume-here-is-the-latest" target="_blank" rel="noopener noreferrer">Kalkine</a>).</td>
+          </tr>
+          <tr>
+            <td class="ticker-cell"><span class="tkr">RNG / ZETA</span><span class="co">RingCentral / Zeta</span></td>
+            <td class="layer-cell">Collab /<br>Analytics</td>
+            <td class="num-cell">RS 96 / 92<br><span class="neg-val">-13.5% / -8.8%</span> 50d</td>
+            <td>Both beat Q3 and raised FY26 guidance, yet broke their 50-day SMAs amid broad software selling (RNG also had a Nov 18 Form 144 insider sale after tripling YTD; <a href="https://ca.investing.com/news/stock-market-news/form-144-ringcentral-inc-for-18-november-93CH-4966320" target="_blank" rel="noopener noreferrer">Investing.com</a>, <a href="https://www.marketbeat.com/instant-alerts/price-zeta-global-nyse-zeta-stock-price-breaks-below-fifty-day-moving-average-heres-what-happened-2026-11-20/" target="_blank" rel="noopener noreferrer">MarketBeat</a>).</td>
+          </tr>
+          <tr>
+            <td class="ticker-cell"><span class="tkr">MPC</span><span class="co">Marathon Petroleum</span></td>
+            <td class="layer-cell">Refining</td>
+            <td class="num-cell">RS 91<br><span class="neg-val">-13.1%</span> 50d<br>-20.1% 1M</td>
+            <td>Fell on Russian diesel export headlines, then dropped ~8.2% on Nov 4 after record Q3 net income ($7.4B) on slipping margin capture and lower Q4 throughput (<a href="https://finviz.com/news/414974/marathon-petroleum-posts-record-quarter-but-a-narrow-beat-and-slipping-margin-capture-temper-the-victory-lap" target="_blank" rel="noopener noreferrer">Finviz</a>).</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Monday Open Action Plan: Applying Your Notebook Rules</h2>
+    <div class="split">
+      <div class="split-left">
+        <h3>Playbook discipline</h3>
+        <p>Combining <a href="https://gemini.google.com/notebook/3d6da47f-01c9-4f61-8e89-22243de615e4" target="_blank" rel="noopener noreferrer">Strong Stocks</a> and <a href="https://gemini.google.com/notebook/665980b2-d2ba-4f60-8c2d-e4152abafa39" target="_blank" rel="noopener noreferrer">Chart Patterns and Trading Strategies</a> narrows 2,993 ThemePulse stocks to three clear posture buckets for Monday, November 23.</p>
+      </div>
+      <div class="split-right">
+        <ul class="clean-list">
+          <li><strong>Prioritize dual RS ≥ 80 &amp; EPS ≥ 80 leaders near pivots in top themes:</strong> <strong>AMRX</strong> (RS 96, EPS 86, -3.5% off high), <strong>TGTX</strong> (RS 97, EPS 86, -4.2% off high), <strong>PCRX</strong> (RS 96, EPS 94▲, 0.0% off high), <strong>CDNA</strong> (RS 99, EPS 82▲, +2.0% vs 50d), <strong>ETON</strong> (RS 99, EPS 88), and <strong>ECO</strong> (RS 98, EPS 97)—confirming ≥40%–50% above-average volume on any base breakout.</li>
+          <li><strong>Respect event volatility and avoid chasing extended charts:</strong> In Cyber, wait to see how <strong>CRWD</strong> (-5.03% AH) and <strong>ZS</strong> (+16.39% AH) settle Monday before acting on sympathy moves in <strong>OKTA</strong> (earnings Dec 1) or <strong>GEN</strong>. Do not chase extended names like <strong>PLBL</strong> (+64.6% vs 50d), <strong>AXGN</strong> (+25.7%), or buyout-capped <strong>SGRY</strong> / <strong>ADT</strong>; wait for light-volume pullbacks to the 10-day, 21-day, or 50-day MA.</li>
+          <li><strong>Enforce 50-day / Stage 4 risk rules on breakdowns and unconfirmed rotations:</strong> Avoid catching falling knives in <strong>SNDK</strong>, <strong>AXTI</strong>, <strong>MXL</strong>, <strong>MU</strong>, <strong>TWST</strong>, <strong>TXG</strong>, and <strong>INTU</strong> while they live below the 50-day SMA, and size cautiously on <span class="mono-inline">Emerging 5</span> turnarounds until weekly volume confirms Stage 2 follow-through (favoring dual-qualifiers like <strong>CBRL</strong> and <strong>CARS</strong> over low-EPS bounces).</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Sources</h2>
+    <ol class="sources">
+      <li><a href="https://themepulse.vercel.app/" target="_blank" rel="noopener noreferrer">ThemePulse Trading Dashboard</a> — Theme RS rankings, top theme layers, Emerging 5, Strongest Stock 5, Leaders 60, Leaders breaking down 60, and Pre/After-market movers (Nov 20–21, 2026).</li>
+      <li><a href="https://gemini.google.com/notebook/3d6da47f-01c9-4f61-8e89-22243de615e4" target="_blank" rel="noopener noreferrer">Strong Stocks Notebook</a> — CAN SLIM, RS/EPS ≥80 dual criteria, top industry-group confirmation, and Momentum Masters earnings acceleration rules.</li>
+      <li><a href="https://gemini.google.com/notebook/665980b2-d2ba-4f60-8c2d-e4152abafa39" target="_blank" rel="noopener noreferrer">Chart Patterns and Trading Strategies Notebook</a> — Stage 2 breakout volume (40%–50%+), 50-day/10-week MA support &amp; sell rules, 8-week hold rule, and 7%–8% loss-cut discipline.</li>
+      <li><a href="https://finance.biggo.com/news/e4562667-f0e8-4c3b-b506-fdd7354bb74f" target="_blank" rel="noopener noreferrer">CrowdStrike–Zscaler Acquisition Talks (BigGo)</a> &amp; <a href="https://www.tipranks.com/news/crowdstrike-crwd-in-talks-to-buy-zscaler-zs-sending-shares-in-opposite-directions" target="_blank" rel="noopener noreferrer">TipRanks</a>.</li>
+      <li><a href="https://www.stocktitan.net/sec-filings/ETON/8-k-eton-pharmaceuticals-inc-reports-material-event-429e3f265d0f.html" target="_blank" rel="noopener noreferrer">Eton Pharmaceuticals 8-K</a>, <a href="https://investors.caredx.com/news/news-details/2026/CareDx-Announces-Third-Quarter-2026-Financial-Results/default.aspx" target="_blank" rel="noopener noreferrer">CareDx Q3</a>, <a href="https://mlq.ai/news/tg-therapeutics-raises-2026-revenue-outlook-to-about-1-billion-on-briumvi-growth/" target="_blank" rel="noopener noreferrer">TG Therapeutics</a>, <a href="https://investors.amneal.com/news/press-releases/press-release-details/2026/Amneal-Reports-Third-Quarter-2026-Financial-Results/default.aspx" target="_blank" rel="noopener noreferrer">Amneal Q3</a>, &amp; <a href="https://m1.com/invest/stocks/BHC" target="_blank" rel="noopener noreferrer">Bausch Health</a>.</li>
+      <li><a href="https://www.stocktitan.net/sec-filings/OSPN/8-k-one-span-inc-reports-material-event-baad50a1e347.html" target="_blank" rel="noopener noreferrer">OneSpan 8-K</a>, <a href="https://investor.okta.com/news-and-events/news-releases/news-details/2026/Okta-to-Announce-Third-Quarter-Fiscal-Year-2027-Financial-Results-on-December-1-2026/default.aspx" target="_blank" rel="noopener noreferrer">Okta Earnings Schedule</a>, <a href="https://www.marketbeat.com/earnings/reports/2026-11-11-okeanis-eco-tankers-corp-stock/" target="_blank" rel="noopener noreferrer">Okeanis Eco Tankers</a>, <a href="https://investorstiendas3b.com/news/news-details/2026/Tiendas-3B-3Q26-Earnings-Release/default.aspx" target="_blank" rel="noopener noreferrer">Tiendas 3B</a>, &amp; <a href="https://www.marketbeat.com/instant-alerts/price-academy-sports-and-outdoors-nasdaq-aso-stock-jumps-47-heres-what-happened-2026-11-16/" target="_blank" rel="noopener noreferrer">Academy Sports</a>.</li>
+      <li><a href="https://www.capricor.com/investors/news-events/press-releases/detail/359/capricor-therapeutics-reports-third-quarter-2026-financial" target="_blank" rel="noopener noreferrer">Capricor PDUFA</a>, <a href="https://investors.gapinc.com/press-releases/news-details/2026/Gap-Inc--Reports-Third-Quarter-Fiscal-2026-Results/default.aspx" target="_blank" rel="noopener noreferrer">Gap Q3</a>, &amp; <a href="https://investors.intuit.com/news-events/press-releases/detail/1331/intuit-reports-first-quarter-results-and-enters-agreement-to-sell-mailchimp-to-bending-spoons" target="_blank" rel="noopener noreferrer">Intuit Q1 &amp; Mailchimp Sale</a>.</li>
+      <li><a href="https://investor.crackerbarrel.com/news-releases/news-release-details/cracker-barrel-reports-fourth-quarter-and-full-year-fiscal-2026" target="_blank" rel="noopener noreferrer">Cracker Barrel</a>, <a href="https://investors.portillos.com/news-releases/news-release-details/portillos-inc-announces-third-quarter-2026-financial-results" target="_blank" rel="noopener noreferrer">Portillo’s</a>, <a href="https://investor.harley-davidson.com/news/news-details/2026/Harley-Davidson-Reports-Third-Quarter-Financial-Results-And-Raises-HDMC-and-HDFS-Guidance/default.aspx" target="_blank" rel="noopener noreferrer">Harley-Davidson</a>, <a href="https://bip.brookfield.com/press-releases/bipc/brookfield-infrastructure-announces-completion-corporate-simplification" target="_blank" rel="noopener noreferrer">Brookfield Infra</a>, <a href="https://investor.expeditors.com/press-releases/2026/11-03-2026-133039793" target="_blank" rel="noopener noreferrer">Expeditors</a>, &amp; <a href="https://investor.adt.com/News--Events/news/news-details/2026/ADT-to-be-Acquired-by-Thrive-Holdings-in-15-3-Billion-Transaction/default.aspx" target="_blank" rel="noopener noreferrer">ADT Buyout</a>.</li>
+      <li><a href="https://kalkine.com.au/news/technology/why-is-sandisk-nasdaqsndk-stock-down-14-in-us-trading-on-its-first-day-after-an-8-for-1-split" target="_blank" rel="noopener noreferrer">Sandisk</a>, <a href="https://tickeron.com/blogs/why-is-axt-inc-axti-stock-down-8-15-today-41905/" target="_blank" rel="noopener noreferrer">AXT</a>, <a href="https://koalagains.com/daily-top-movers/top-losers/details/136ca886-396a-4c6a-adcf-b87a1102acec" target="_blank" rel="noopener noreferrer">MaxLinear</a>, <a href="https://kalkine.com.au/news/technology/why-is-micron-nasdaqmu-stock-plunging-12-in-us-trading-as-the-ai-chip-trade-unravels" target="_blank" rel="noopener noreferrer">Micron</a>, <a href="https://www.tradingview.com/news/benzinga:7086b25b4094b:0-twist-bioscience-2027-outlook-signals-sharp-slowdown-in-ai-drug-discovery-growth/" target="_blank" rel="noopener noreferrer">Twist</a>, <a href="https://finviz.com/news/416335/grail-beats-on-eps-but-guidance-cut-price-concessions-and-margin-compression-undercut-a-de-risked-fda-story" target="_blank" rel="noopener noreferrer">GRAIL</a>, &amp; <a href="https://finviz.com/news/414974/marathon-petroleum-posts-record-quarter-but-a-narrow-beat-and-slipping-margin-capture-temper-the-victory-lap" target="_blank" rel="noopener noreferrer">Marathon Petroleum</a>.</li>
+    </ol>
+  </section>
+</main>
+</body>
+</html>
