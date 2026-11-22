@@ -2,11 +2,12 @@
   "id": "brief-2026-11-22-pm",
   "date": "2026-11-22",
   "session": "pm",
+  "label": "Nov 22, 2026 — Weekend / Monday Prep (Test)",
   "dataAsOf": "2026-11-20 / 2026-11-21",
   "headline": "Defensive Posture Required as VIX Spikes to 35.9 and QQQ Hits -20% Off Highs",
   "regime": {
-    "posture": "Market in Correction \u2014 Defensive",
-    "note": "S&P 500 fell 8.6% on the week (7th straight loss); wait for a Follow-Through Day before sizing up.",
+    "posture": "Market in Correction — Defensive",
+    "note": "S&P 500 fell 8.6% on the week; wait for a Follow-Through Day before sizing up.",
     "indexes": [
       {
         "symbol": "SPY",
@@ -21,7 +22,7 @@
         "price": 608.45,
         "chgPct": -5.67,
         "offHighPct": -20.2,
-        "closingRangePct": 6.0,
+        "closingRangePct": 6,
         "afterHours": 617.72
       },
       {
@@ -29,7 +30,7 @@
         "price": 256.61,
         "chgPct": -2.88,
         "offHighPct": -15.9,
-        "closingRangePct": 3.0,
+        "closingRangePct": 3,
         "afterHours": 258.73
       }
     ],
@@ -64,7 +65,7 @@
       "name": "DXY",
       "value": "103.81",
       "change": "-0.08%",
-      "impact": "Near 19-month high (103.97); pressures multinational Semis/Materials, favors domestic Healthcare/QSR."
+      "impact": "Near 19-month high (103.97); favors domestic Healthcare/QSR over multinationals."
     }
   ],
   "focusSetups": [
@@ -115,12 +116,12 @@
       "layer": "Diagnostics (99)",
       "rs": 99,
       "eps": 82,
-      "price": 70.0,
+      "price": 70,
       "adrPct": 6.3,
       "baseStage": "Stage 2 Pullback",
       "continuity": "50d Test",
       "rsLine": "RS Line Holding",
-      "pivot": 70.0,
+      "pivot": 70,
       "buyZoneMax": 73.5,
       "support50d": 68.63,
       "stop": 65.1,
@@ -251,39 +252,6 @@
       "catalyst": "Zscaler deal dilution fears + Nasdaq selloff.",
       "protocol": "Already -7.1% below 50d; bottom-half close confirms Stage 4.",
       "sourceUrl": "https://www.tipranks.com/news/crowdstrike-crwd-in-talks-to-buy-zscaler-zs-sending-shares-in-opposite-directions"
-    },
-    {
-      "ticker": "CAPR",
-      "session": "Pre",
-      "chgPct": 8.65,
-      "price": 8.18,
-      "vol": "1.3M",
-      "rs": 71,
-      "catalyst": "Nov 22 FDA PDUFA date for Deramiocel.",
-      "protocol": "Binary FDA event; fails EPS/RS quality screen.",
-      "sourceUrl": "https://www.capricor.com/investors/news-events/press-releases/detail/359/capricor-therapeutics-reports-third-quarter-2026-financial"
-    },
-    {
-      "ticker": "GAP",
-      "session": "Pre",
-      "chgPct": 7.93,
-      "price": 20.28,
-      "vol": "154K",
-      "rs": 43,
-      "catalyst": "Q3 EPS beat (+30%+) offset by FY26 EPS guide cut to $2.29-$2.34.",
-      "protocol": "Low RS (43); Stage 1 repair only if opening-range low holds on RVol >=1.5x.",
-      "sourceUrl": "https://investors.gapinc.com/press-releases/news-details/2026/Gap-Inc--Reports-Third-Quarter-Fiscal-2026-Results/default.aspx"
-    },
-    {
-      "ticker": "INTU",
-      "session": "Pre",
-      "chgPct": -8.35,
-      "price": 284.14,
-      "vol": "126K",
-      "rs": 10,
-      "catalyst": "Q1 FY27 results + Mailchimp sale to Bending Spoons.",
-      "protocol": "Heavy-volume gap-down in RS 10 stock; strict avoid.",
-      "sourceUrl": "https://investors.intuit.com/news-events/press-releases/detail/1331/intuit-reports-first-quarter-results-and-enters-agreement-to-sell-mailchimp-to-bending-spoons"
     }
   ],
   "breakdowns": [
@@ -296,44 +264,12 @@
       "sourceUrl": "https://kalkine.com.au/news/technology/why-is-sandisk-nasdaqsndk-stock-down-14-in-us-trading-on-its-first-day-after-an-8-for-1-split"
     },
     {
-      "ticker": "AXTI",
-      "layer": "Photonics",
-      "vs50dPct": -48.6,
-      "chg1mPct": -40.7,
-      "catalyst": "U.S.-China optical hardware restriction fears & indium phosphide export risk.",
-      "sourceUrl": "https://tickeron.com/blogs/why-is-axt-inc-axti-stock-down-8-15-today-41905/"
-    },
-    {
-      "ticker": "MXL",
-      "layer": "AI Connectivity",
-      "vs50dPct": -43.9,
-      "chg1mPct": -36.5,
-      "catalyst": "Negative Q3 OCF (-$13.6M), doubled wafer prepayments, target cuts.",
-      "sourceUrl": "https://koalagains.com/daily-top-movers/top-losers/details/136ca886-396a-4c6a-adcf-b87a1102acec"
-    },
-    {
       "ticker": "MU",
       "layer": "Memory + Storage",
       "vs50dPct": -34.8,
       "chg1mPct": -30.6,
       "catalyst": "Early-2027 NAND price warnings + broad AI chip unwind.",
       "sourceUrl": "https://kalkine.com.au/news/technology/why-is-micron-nasdaqmu-stock-plunging-12-in-us-trading-as-the-ai-chip-trade-unravels"
-    },
-    {
-      "ticker": "TWST",
-      "layer": "Diagnostics",
-      "vs50dPct": -30.4,
-      "chg1mPct": -23.7,
-      "catalyst": "FY27 guide signaled AI drug discovery slowing to 69% from 175%.",
-      "sourceUrl": "https://www.tradingview.com/news/benzinga:7086b25b4094b:0-twist-bioscience-2027-outlook-signals-sharp-slowdown-in-ai-drug-discovery-growth/"
-    },
-    {
-      "ticker": "TXG",
-      "layer": "Health IT",
-      "vs50dPct": -28.9,
-      "chg1mPct": -25.7,
-      "catalyst": "Instrument revenue -43% + ARK Invest sold 107.7K shares.",
-      "sourceUrl": "https://www.gurufocus.com/news/9181661/10x-genomics-inc-txg-q3-2026-earnings-call-highlights-atera-launch-takes-flight-as-revenue-outlook-climbs"
     }
   ],
   "radar": [
