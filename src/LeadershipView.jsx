@@ -1544,7 +1544,7 @@ function rsLeads(s) {
   const off = s.off_52w_high ?? s.pct_from_high;
   if (off == null || off > RSL_OFF[1] || off < RSL_OFF[0]) return null;
   if (s.change_pct == null || s.change_pct < 0) return null;
-  return `RS line at a new 52-week high on a +${s.change_pct.toFixed(1)}% close while price is ${off.toFixed(1)}% off its high — RS leading price`;
+  return `RS line at a new 52-week high on ${s.change_pct > 0 ? `a +${s.change_pct.toFixed(1)}%` : "an unchanged"} close while price is ${off.toFixed(1)}% off its high — RS leading price`;
 }
 const RslDot = ({ tip, A }) => (tip ? <span title={tip} style={{ color: A.blue || "#3b82f6", marginLeft: 4 }}>●</span> : null);
 
