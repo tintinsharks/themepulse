@@ -593,6 +593,7 @@ function StockTable({ rows, A, onTicker, chartTicker, mode, onLayer }) {
                 <td style={td(A)}>
                   <FlagButton t={r.ticker} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.ticker}</span>
                   {r.inLead && mode === "lead" && <span title="In a leading layer" style={{ color: A.green, marginLeft: 4 }}>●</span>}
+                  <RslDot tip={r.rsl} A={A} />
                   {r.pin && <span title={r.pin} style={{ color: A.yellow, marginLeft: 4, fontSize: 9, fontWeight: 700, border: `1px solid ${A.yellow}`, borderRadius: 3, padding: "0 3px" }}>PIN</span>}
                 </td>
                 <td style={{ ...td(A, "right"), color: r.rs >= 90 ? A.green : r.rs < 70 ? A.red : A.yellow, fontWeight: 700 }}>{r.rs ?? "—"}</td>
@@ -1530,6 +1531,19 @@ function pinReason(s) {
   return null;
 }
 
+// RS line leads price: the stock's RS line (close ÷ SPY) set a 52-week high in
+// the last 3 sessions while price is still 3–15% under its own high — still
+// basing, but already outperforming. Shown as a blue dot (IBD's convention).
+const RSL_DAYS = 3;
+function rsLeads(s) {
+  if (!s || s.rsl_hi_ago == null || s.rsl_hi_ago > RSL_DAYS) return null;
+  const off = s.off_52w_high ?? s.pct_from_high;
+  if (off == null || off > -3 || off < -15) return null;
+  const when = s.rsl_hi_ago === 0 ? "today" : `${s.rsl_hi_ago} session${s.rsl_hi_ago > 1 ? "s" : ""} ago`;
+  return `RS line new 52-week high (${when}) while price is ${off.toFixed(1)}% off its high — RS leading price`;
+}
+const RslDot = ({ tip, A }) => (tip ? <span title={tip} style={{ color: A.blue || "#3b82f6", marginLeft: 4 }}>●</span> : null);
+
 const SCAN_SORT = { m1w: "r1w", m1m: "r1m", m3m: "r3m", m6m: "r6m", strong: "rs", s20: "ago", antic: "ti65", hot: "r1m", liquid: "rs" };
 
 // ── Written briefs (BRIEF → Written) ─────────────────────────────────────
@@ -2017,7 +2031,7 @@ export function ScannerPanel({ A, stockMap, onTicker, chartTicker, tickerLayer, 
         chg: q?.change ?? s.change_pct ?? null,
         r1w: s.return_1w, r1m: s.return_1m, r3m: s.return_3m, r6m: s.return_6m,
         adr: s.adr20 ?? s.adr_pct, adr5: s.adr5, off: s.off_52w_high ?? s.pct_from_high, rs: s.rs_rank, eps: s.eps_rating ?? null, epsTip: s.eps_tip, epsAcc: s.eps_accel,
-        burst: s.burst20_pct, ago: s.burst20_ago, pb: s.burst20_pullback, ti65: s.ti65,
+        burst: s.burst20_pct, ago: s.burst20_ago, pb: s.burst20_pullback, ti65: s.ti65, rsl: rsLeads(s),
         layer: L?.name, layerSt: L?.st,
       });
     });
@@ -2052,7 +2066,8 @@ export function ScannerPanel({ A, stockMap, onTicker, chartTicker, tickerLayer, 
           </button>
         ))}
       </div>
-      <div style={{ fontSize: 10, color: A.textMuted, marginBottom: 6 }}>{SCAN_NOTES[scan]}</div>
+      <div style={{ fontSize: 10, color: A.textMuted, marginBottom: 6 }}>{SCAN_NOTES[scan]}
+        {" "}· <span style={{ color: A.blue || "#3b82f6" }}>●</span> RS line at a new 52-week high (last {RSL_DAYS} sessions) while price is 3–15% off its high</div>
       {!rows.length ? <div style={{ fontSize: 11, color: A.textMuted, padding: "6px 2px" }}>No names pass right now.</div> : (
         <div style={{ overflowX: "auto", maxHeight: "calc(100vh - 230px)", overflowY: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -2070,7 +2085,7 @@ export function ScannerPanel({ A, stockMap, onTicker, chartTicker, tickerLayer, 
               {rows.map((r) => (
                 <tr key={r.t} data-nav={r.t} onClick={() => onTicker(r.t)} style={{ cursor: "pointer", background: chartTicker === r.t ? A.bgHover : "transparent" }}>
                   <td style={td(A)}><FlagButton t={r.t} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span>
-                    {r.tag ? <span title={r.tag === "L" ? "$10B+ scan" : "under-$10B scan"} style={{ marginLeft: 5, fontSize: 9, color: A.textMuted }}>{r.tag}</span> : null}</td>
+                    {r.tag ? <span title={r.tag === "L" ? "$10B+ scan" : "under-$10B scan"} style={{ marginLeft: 5, fontSize: 9, color: A.textMuted }}>{r.tag}</span> : null}<RslDot tip={r.rsl} A={A} /></td>
                   <td style={{ ...td(A, "right"), color: A.text }}>{r.px != null ? r.px.toFixed(2) : "—"}</td>
                   <td style={{ ...td(A, "right"), color: pc(r.chg), fontWeight: 700 }}>{pct(r.chg, 2)}</td>
                   {extra.map(([k, , f]) => <td key={k} style={{ ...td(A, "right"), color: A.text }}>{f(r)}</td>)}
@@ -2404,7 +2419,7 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
       const L = tickerLayer[s.ticker];
       const row = {
         ticker: s.ticker, rs: s.rs_rank, eps: s.eps_rating ?? null, epsTip: s.eps_tip, epsAcc: s.eps_accel, sma50: s.sma50_pct, off: s.off_52w_high, r1m: s.return_1m,
-        layer: L?.name, layerSt: L?.st, inLead: L?.st === "lead", persist: pm[s.ticker]?.[0] ?? 0, pin,
+        layer: L?.name, layerSt: L?.st, inLead: L?.st === "lead", persist: pm[s.ticker]?.[0] ?? 0, pin, rsl: rsLeads(s),
       };
       if ((s.rs_rank ?? 0) >= 90 && s.above_50ma && (s.off_52w_high ?? -100) >= -25) {
         if (pin && hidePinned) pinned.push(s.ticker); else lead.push(row);
@@ -2587,7 +2602,7 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
             <div ref={stocksRef}>
             <Card A={A} title="Stocks"
               sub={stockTab === "layer" ? undefined : stockTab === "lead"
-                ? <span>RS ≥ 90, above the 50-day, within 25% of the high · ● = in a leading layer ·{" "}
+                ? <span>RS ≥ 90, above the 50-day, within 25% of the high · <span style={{ color: A.green }}>●</span> in a leading layer · <span style={{ color: A.blue || "#3b82f6" }}>●</span> RS line at a new high, price 3–15% off ·{" "}
                     <button onClick={togglePinned}
                       title={`Buyout-pinned / no-range names: 20-day or 5-day ADR under ${PIN_ADR}%, or a 5-day ADR collapsed to under half its normal while sitting at the high.${stocks.pinned.length ? `\nHidden: ${stocks.pinned.join(", ")}` : ""}`}
                       style={{ background: hidePinned ? A.bgHover : "transparent", border: `1px solid ${hidePinned ? A.yellow : A.border}`, color: hidePinned ? A.yellow : A.textMuted,
