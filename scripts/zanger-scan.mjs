@@ -51,6 +51,7 @@ import {
   buildEmailHtml,
   buildMarkdown,
 } from "./zanger-briefing.mjs";
+import { filterRecentHeadlines } from "../src/lead/briefLive.js";
 
 export {
   scoreZangerCandidate,
@@ -146,7 +147,7 @@ async function fetchMarketQuality(token) {
   }
 }
 
-async function fetchTickerHeadlines(tickers, token) {
+async function fetchTickerHeadlines(tickers, token, now = new Date()) {
   const out = new Map();
   if (!token || !tickers.length) return out;
   await Promise.all(
@@ -158,11 +159,13 @@ async function fetchTickerHeadlines(tickers, token) {
         });
         if (!r.ok) return;
         const d = await r.json();
-        const items = (d?.news || []).slice(0, 3).map((n) => ({
+        const raw = (d?.news || []).map((n) => ({
           title: n.title || n.headline || "",
           source: n.source || "",
           date: n.date || n.time || "",
+          url: n.url || "",
         })).filter((n) => n.title);
+        const items = filterRecentHeadlines(raw, now, 14).slice(0, 3);
         if (items.length) out.set(t, items);
       } catch { /* ignore */ }
     })
@@ -279,7 +282,9 @@ export async function runZangerScan({ offline = false, write = true, now = new D
   }
   const hlMap = dash.headlines || {};
   for (const [t, v] of Object.entries(hlMap)) {
-    if (rawMap[t] && Array.isArray(v?.headlines)) rawMap[t]._newsPipe = v.headlines.slice(0, 3);
+    if (rawMap[t] && Array.isArray(v?.headlines)) {
+      rawMap[t]._newsPipe = filterRecentHeadlines(v.headlines, now, 14).slice(0, 3);
+    }
   }
   const stockMap = withEpsRating(rawMap);
 
@@ -414,7 +419,7 @@ export async function runZangerScan({ offline = false, write = true, now = new D
   });
 
   const headlines = token && zangerMovers.length
-    ? await fetchTickerHeadlines(zangerMovers.slice(0, 8).map((m) => m.ticker), token)
+    ? await fetchTickerHeadlines(zangerMovers.slice(0, 8).map((m) => m.ticker), token, now)
     : new Map();
 
   const scanCtx = {

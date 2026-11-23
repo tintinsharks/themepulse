@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { evalPivotStatus, matchMacroLive, collectBriefTickers } from "../src/lead/briefLive.js";
+import { evalPivotStatus, matchMacroLive, collectBriefTickers, filterRecentHeadlines } from "../src/lead/briefLive.js";
 
 test("evalPivotStatus classifies buy zone, extended, near pivot, below pivot, and stopped", () => {
   const setup = { pivot: 100, buyZoneMax: 105, stop: 92 };
@@ -40,4 +40,22 @@ test("collectBriefTickers deduplicates symbols across indexes, focusSetups, exte
     breakdowns: [{ ticker: "CAPR" }],
   });
   assert.deepEqual(tickers, ["SPY", "QQQ", "AMRX", "COLM", "CRWD", "CAPR"]);
+});
+
+test("filterRecentHeadlines drops stale pipeline/Finviz headlines and inherits bare Finviz times", () => {
+  const now = new Date("2026-11-23T16:00:00Z");
+  const pipe = [
+    "Old Q1 earnings beat [5/4/2026 4:35 PM]",
+    "Fresh upgrade to Buy [11/20/2026 8:15 AM]",
+  ];
+  assert.deepEqual(filterRecentHeadlines(pipe, now, 14), ["Fresh upgrade to Buy [11/20/2026 8:15 AM]"]);
+
+  const finviz = [
+    { date: "Today 09:45AM", title: "Raises FY guidance" },
+    { date: "08:30AM", title: "Beats Q3 revenue" },
+    { date: "Oct-01-26 04:05PM", title: "Stale October press release" },
+    { date: "02:10PM", title: "Also from Oct 1 (inherited bare time)" },
+  ];
+  const kept = filterRecentHeadlines(finviz, now, 14);
+  assert.deepEqual(kept.map((x) => x.title), ["Raises FY guidance", "Beats Q3 revenue"]);
 });

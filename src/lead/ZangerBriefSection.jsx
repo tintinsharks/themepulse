@@ -14,9 +14,13 @@ import {
   useScanQuotes,
 } from "./core.jsx";
 import { authFetch } from "../utils.js";
+import { filterRecentHeadlines } from "./briefLive.js";
 
 const BRIEF_DIR = "/data/briefs/";
 const INDEX_TKS = ["SPY", "QQQ", "IWM", "DIA"];
+const NEWS_TTL_MS = 5 * 60 * 1000;
+const _newsCache = new Map();
+const safeUrl = (u) => (typeof u === "string" && /^https?:\/\//i.test(u) ? u : null);
 
 const BO_COLORS = {
   ZANGER: "#fbbf24",
@@ -45,6 +49,7 @@ export default function ZangerBriefSection({ A, stockMap, tickerLayer, layers, t
   const [moverSort, setMoverSort] = useState({ k: "score", d: -1 });
   const [flowSort, setFlowSort] = useState({ k: "avgChg", d: -1 });
   const [portSort, setPortSort] = useState({ k: "list", d: 1 });
+  const [liveNews, setLiveNews] = useState({});
   const profiles = useRvolProfiles();
 
   useEffect(() => {
@@ -195,6 +200,60 @@ export default function ZangerBriefSection({ A, stockMap, tickerLayer, layers, t
       onDeck,
     };
   }, [liveOn, quotes, poolTickers, stockMap, tickerLayer, tiers, profiles, snap]);
+
+  // Fetch fresh Finviz headlines via /api/live?news=TICKER for top 8 live movers (5m cache)
+  const top8Key = useMemo(() => {
+    const list = liveComputed ? liveComputed.movers : (snap?.zangerMovers || []);
+    return list.slice(0, 8).map((m) => m.ticker).join(",");
+  }, [liveComputed, snap]);
+
+  useEffect(() => {
+    if (!liveOn || !top8Key) return;
+    let alive = true;
+    const tickers = top8Key.split(",").filter(Boolean);
+    const nowMs = Date.now();
+    const initial = {};
+    const toFetch = [];
+    for (const tk of tickers) {
+      const cached = _newsCache.get(tk);
+      if (cached && nowMs - cached.ts < NEWS_TTL_MS) {
+        initial[tk] = cached.items;
+      } else {
+        toFetch.push(tk);
+      }
+    }
+    if (Object.keys(initial).length) {
+      setLiveNews((prev) => ({ ...prev, ...initial }));
+    }
+    if (!toFetch.length) return () => { alive = false; };
+
+    Promise.all(
+      toFetch.map(async (tk) => {
+        try {
+          const r = await authFetch(`/api/live?news=${encodeURIComponent(tk)}`, { cache: "no-store" });
+          if (!r.ok) return [tk, []];
+          const d = await r.json();
+          const raw = (d?.news || []).map((n) => ({
+            title: n.title || n.headline || "",
+            source: n.source || "",
+            date: n.date || n.time || "",
+            url: n.url || "",
+          })).filter((n) => n.title);
+          const fresh = filterRecentHeadlines(raw, new Date(), 14).slice(0, 2);
+          _newsCache.set(tk, { ts: Date.now(), items: fresh });
+          return [tk, fresh];
+        } catch {
+          return [tk, []];
+        }
+      })
+    ).then((pairs) => {
+      if (!alive) return;
+      const patch = {};
+      for (const [tk, items] of pairs) patch[tk] = items;
+      setLiveNews((prev) => ({ ...prev, ...patch }));
+    });
+    return () => { alive = false; };
+  }, [liveOn, top8Key]);
 
   const pc = (v) => (typeof v !== "number" ? A.textMuted : v >= 0 ? A.green : A.red);
   const rsC = (v) => (v >= 90 ? A.green : v >= 70 ? A.yellow : typeof v === "number" ? A.red : A.textMuted);
@@ -648,15 +707,47 @@ export default function ZangerBriefSection({ A, stockMap, tickerLayer, layers, t
         {/* Catalyst Check */}
         {movers.length > 0 && (
           <div style={{ marginTop: 10, borderTop: `1px solid ${A.border}`, paddingTop: 8 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: A.text, marginBottom: 4 }}>Catalyst Check (Top Movers)</div>
-            <ul style={{ margin: 0, paddingLeft: 18, fontSize: 11, color: A.textDim, lineHeight: 1.45 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: A.text, marginBottom: 4 }}>
+              Catalyst Check (Top Movers)
+              <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 400, color: A.textMuted }}>
+                {liveOn ? "live Finviz news · last 14d only" : "snapshot · last 14d only"}
+              </span>
+            </div>
+            <ul style={{ margin: 0, paddingLeft: 18, fontSize: 11, color: A.textDim, lineHeight: 1.5 }}>
               {movers.slice(0, 8).map((m) => {
-                const liveH = headlines[m.ticker];
-                const items = liveH?.length ? liveH.map((h) => `${h.title}${h.source ? ` (${h.source})` : ""}`) : (m.pipelineNews || []);
+                const now = new Date();
+                const hasLive = liveOn && Object.prototype.hasOwnProperty.call(liveNews, m.ticker);
+                const liveList = hasLive ? liveNews[m.ticker] : null;
+                const snapList = filterRecentHeadlines(headlines[m.ticker] || [], now, 14);
+                const pipeList = filterRecentHeadlines(m.pipelineNews || [], now, 14).map((t) => ({ title: t }));
+                const items = liveList?.length ? liveList : snapList.length ? snapList : pipeList;
+                const loadingNews = liveOn && !hasLive && !items.length;
                 return (
-                  <li key={m.ticker} style={{ marginBottom: 3 }}>
+                  <li key={m.ticker} style={{ marginBottom: 4 }}>
                     <Tk t={m.ticker} /> <span style={{ color: A.textMuted }}>({m.theme}, {fmtPct(m.chg)}, ZVR {m.zvr != null ? `${m.zvr.toFixed(2)}x` : "—"}):</span>{" "}
-                    {items.length ? items.join(" | ") : <em>No live headline returned</em>}
+                    {loadingNews ? (
+                      <em style={{ color: A.textMuted }}>Fetching live headlines…</em>
+                    ) : items.length ? (
+                      items.slice(0, 2).map((h, i) => {
+                        const href = safeUrl(h.url);
+                        const meta = [h.date, h.source].filter(Boolean).join(" · ");
+                        return (
+                          <span key={i}>
+                            {i > 0 ? " | " : ""}
+                            {href ? (
+                              <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: A.text, textDecoration: "underline", textDecorationColor: A.border }}>
+                                {h.title}
+                              </a>
+                            ) : (
+                              <span style={{ color: A.text }}>{h.title}</span>
+                            )}
+                            {meta && <span style={{ color: A.textMuted, fontSize: 10 }}> ({meta})</span>}
+                          </span>
+                        );
+                      })
+                    ) : (
+                      <em style={{ color: A.textMuted }}>No recent catalyst headline (last 14d)</em>
+                    )}
                   </li>
                 );
               })}

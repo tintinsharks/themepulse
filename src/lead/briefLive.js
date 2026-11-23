@@ -96,3 +96,66 @@ export function collectBriefTickers(brief) {
   for (const b of brief.breakdowns || []) add(b?.ticker);
   return [...set];
 }
+
+const MON_MAP = {
+  jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+  jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
+};
+
+// Parse date from Finviz ("Today 09:42AM", "Nov-23-26 08:30AM", "09:42AM"),
+// pipeline bracket timestamps ("[5/18/2026 9:00 PM]"), or ISO strings.
+// Returns { ts: number|null, bareTime: boolean }.
+export function parseHeadlineDate(raw, now = new Date()) {
+  const s = String(raw || "").trim();
+  if (!s) return { ts: null, bareTime: false };
+  if (/^today\b/i.test(s)) return { ts: now.getTime(), bareTime: false };
+  if (/^\d{1,2}:\d{2}\s*(?:AM|PM)?$/i.test(s)) return { ts: null, bareTime: true };
+
+  // Finviz: "Nov-23-26 08:30AM" or "Nov-23-26"
+  const fv = s.match(/\b([A-Za-z]{3})-(\d{1,2})-(\d{2})\b/);
+  if (fv) {
+    const m = MON_MAP[fv[1].toLowerCase()];
+    if (m != null) {
+      const yr = 2000 + Number(fv[3]);
+      return { ts: Date.UTC(yr, m, Number(fv[2]), 12, 0, 0), bareTime: false };
+    }
+  }
+
+  // Bracketed or inline US numeric date: "[5/18/2026 9:00 PM]" or "11/23/2026"
+  const us = s.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/);
+  if (us) {
+    return { ts: Date.UTC(Number(us[3]), Number(us[1]) - 1, Number(us[2]), 12, 0, 0), bareTime: false };
+  }
+
+  // ISO date: "2026-11-23"
+  const iso = s.match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
+  if (iso) {
+    return { ts: Date.UTC(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]), 12, 0, 0), bareTime: false };
+  }
+
+  const parsed = Date.parse(s);
+  return { ts: Number.isFinite(parsed) ? parsed : null, bareTime: false };
+}
+
+// Keep only headlines within maxDays of `now`. Finviz news tables list the date
+// on the first headline of a day and bare times ("09:15AM") on subsequent rows,
+// so bare times inherit the most recent prior row's date.
+export function filterRecentHeadlines(items, now = new Date(), maxDays = 14) {
+  if (!Array.isArray(items) || !items.length) return [];
+  const cutoff = now.getTime() - maxDays * 86400000;
+  let lastTs = null;
+  const out = [];
+  for (const item of items) {
+    const isStr = typeof item === "string";
+    const title = isStr ? item : (item?.title || item?.headline || "");
+    if (!title) continue;
+    const rawDate = isStr ? item : (item?.date || item?.time || title);
+    const { ts, bareTime } = parseHeadlineDate(rawDate, now);
+    const effTs = bareTime ? (lastTs ?? now.getTime()) : ts;
+    if (ts != null) lastTs = ts;
+    // Drop headlines that have a known date older than maxDays
+    if (effTs != null && effTs < cutoff) continue;
+    out.push(item);
+  }
+  return out;
+}
