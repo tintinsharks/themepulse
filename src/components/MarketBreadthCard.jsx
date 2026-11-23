@@ -53,7 +53,7 @@ function RatioBar({ title, pct, leftLabel, rightLabel, accentColor, trackBg, tex
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}
       onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } } : undefined}
-      title={onClick ? (expanded ? "Hide 1-month history chart" : "Click to view 1-month daily history chart") : undefined}
+      title={onClick ? (expanded ? "Hide history chart" : "Click to view daily history chart (1M / 3M / 6M / 1Y)") : undefined}
       style={{ marginBottom: expanded ? 8 : 14, cursor: onClick ? "pointer" : "default", userSelect: onClick ? "none" : "auto" }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
@@ -127,8 +127,10 @@ function BreadthHistoryChart({ A, series, posLabel, negLabel, range, onRange }) 
     return `${x.toFixed(1)},${Math.max(padT, Math.min(padT + plotH, y)).toFixed(1)}`;
   }).join(" ");
 
-  const fmtShortDate = (d) => (d === "Today (Live)" ? "Live" : String(d || "").slice(5));
+  const spansYear = series[0]?.date && series[n - 1]?.date && String(series[0].date).slice(0, 4) !== String(series[n - 1].date).slice(0, 4);
+  const fmtShortDate = (d) => (d === "Today (Live)" ? "Live" : spansYear ? String(d || "").slice(2) : String(d || "").slice(5));
   const midIdx = Math.floor((n - 1) / 2);
+  const partialNote = n < range ? `${n}d shown (earliest ${series[0].date})` : null;
 
   return (
     <div
@@ -150,7 +152,7 @@ function BreadthHistoryChart({ A, series, posLabel, negLabel, range, onRange }) 
           </span>
         </div>
         <div style={{ display: "inline-flex", gap: 4 }}>
-          {[[22, "1M"], [63, "3M"], [126, "6M"]].map(([days, lbl]) => (
+          {[[22, "1M"], [63, "3M"], [126, "6M"], [252, "1Y"]].map(([days, lbl]) => (
             <button
               key={lbl}
               onClick={() => { setHoverIdx(null); onRange(days); }}
@@ -204,7 +206,7 @@ function BreadthHistoryChart({ A, series, posLabel, negLabel, range, onRange }) 
                 y={midY - posH}
                 width={barW}
                 height={posH}
-                rx={1.5}
+                rx={n > 150 ? 0.5 : 1.5}
                 fill={COLORS.blue}
                 fillOpacity={isActive ? 1 : d.isLive ? 0.9 : 0.72}
               />
@@ -214,7 +216,7 @@ function BreadthHistoryChart({ A, series, posLabel, negLabel, range, onRange }) 
                 y={midY}
                 width={barW}
                 height={negH}
-                rx={1.5}
+                rx={n > 150 ? 0.5 : 1.5}
                 fill={COLORS.pink}
                 fillOpacity={isActive ? 1 : d.isLive ? 0.9 : 0.72}
               />
@@ -249,10 +251,13 @@ function BreadthHistoryChart({ A, series, posLabel, negLabel, range, onRange }) 
         </text>
       </svg>
 
-      <div style={{ display: "flex", gap: 12, marginTop: 4, fontSize: 10, color: A.textMuted, fontFamily: "monospace" }}>
-        <span><span style={{ color: COLORS.blue }}>■</span> {posLabel} (up)</span>
-        <span><span style={{ color: COLORS.pink }}>■</span> {negLabel} (down)</span>
-        <span><span style={{ color: COLORS.gold }}>━</span> Net ({posLabel} − {negLabel})</span>
+      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginTop: 4, fontSize: 10, color: A.textMuted, fontFamily: "monospace" }}>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <span><span style={{ color: COLORS.blue }}>■</span> {posLabel} (up)</span>
+          <span><span style={{ color: COLORS.pink }}>■</span> {negLabel} (down)</span>
+          <span><span style={{ color: COLORS.gold }}>━</span> Net ({posLabel} − {negLabel})</span>
+        </div>
+        {partialNote && <span>{partialNote}</span>}
       </div>
     </div>
   );
@@ -279,7 +284,9 @@ function StageHistoryChart({ A, series, range, onRange }) {
   const activeIdx = hoverIdx != null && hoverIdx < n ? hoverIdx : n - 1;
   const cur = series[activeIdx];
   const midIdx = Math.floor((n - 1) / 2);
-  const fmtShortDate = (d) => String(d || "").slice(5);
+  const spansYear = series[0]?.date && series[n - 1]?.date && String(series[0].date).slice(0, 4) !== String(series[n - 1].date).slice(0, 4);
+  const fmtShortDate = (d) => (spansYear ? String(d || "").slice(2) : String(d || "").slice(5));
+  const partialNote = n < range ? `${n}d available (since ${series[0].date})` : null;
 
   return (
     <div
@@ -300,7 +307,7 @@ function StageHistoryChart({ A, series, range, onRange }) {
           <span style={{ color: STAGE_COLOR[4], fontWeight: 700 }}>S4 {cur.s4}%</span>
         </div>
         <div style={{ display: "inline-flex", gap: 4 }}>
-          {[[22, "1M"], [63, "3M"], [126, "6M"]].map(([days, lbl]) => (
+          {[[22, "1M"], [63, "3M"], [126, "6M"], [252, "1Y"]].map(([days, lbl]) => (
             <button
               key={lbl}
               onClick={() => { setHoverIdx(null); onRange(days); }}
@@ -375,7 +382,10 @@ function StageHistoryChart({ A, series, range, onRange }) {
           <span style={{ color: STAGE_COLOR[3] }}>■</span> S3 Top &nbsp;
           <span style={{ color: STAGE_COLOR[4] }}>■</span> S4 Down
         </span>
-        <span>{cur.exact ? "Exact stock-level count" : "Derived from daily MA breadth"}</span>
+        <span>
+          {cur.exact ? "Exact stock-level count" : "Derived from daily MA breadth"}
+          {partialNote ? ` · ${partialNote}` : ""}
+        </span>
       </div>
     </div>
   );

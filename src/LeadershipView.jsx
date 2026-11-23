@@ -42,7 +42,6 @@ function lazyWithReload(load) {
 const BriefPanel = lazyWithReload(() => import("./lead/Brief.jsx"));
 const ScannerPanel = lazyWithReload(() => import("./lead/Scanner.jsx"));
 const RotationView = lazyWithReload(() => import("./lead/Rotation.jsx"));
-const ZangerPanel = lazyWithReload(() => import("./lead/Zanger.jsx"));
 
 export default function LeadershipView({
   ARIA: A,
@@ -368,7 +367,7 @@ export default function LeadershipView({
       @media (max-width: 520px) {
         .tp-hide-sm { display: none; }
       }`}</style>
-      {view === "scanner" || view === "brief" || view === "zanger" ? (
+      {view === "scanner" || view === "brief" ? (
         <div style={{ flex: "1 1 640px", minWidth: 0 }} ref={stocksRef}>
           {stockTab === "layer" && shownLayer && (
             <Card A={A} title={`${shownLayer.key.startsWith("t:") ? "Theme" : "Layer"}: ${shownLayer.name}`} right={<button onClick={closeLayer} title="Close this layer"
@@ -383,10 +382,6 @@ export default function LeadershipView({
                 portfolio={portfolio} setPortfolio={setPortfolio} watchlist={watchlist} setWatchlist={setWatchlist}
                 brk={stocks.brk} pipeline={pipeline} dates={dates} theme={theme} lb={layerBreadth}
                 onTicker={onTickerClick} chartTicker={chartTicker} onLayer={(l) => showLayer(l)} onTheme={showTheme} layerOfTicker={layerOfTicker} />
-            : view === "zanger"
-            ? <ZangerPanel A={A} stockMap={stockMapX} layers={layers} themes={themes} tickerLayer={tickerLayer} tiers={tiers}
-                onTicker={onTickerClick} chartTicker={chartTicker} onLayer={layerOfTicker}
-                portfolio={portfolio} setPortfolio={setPortfolio} watchlist={watchlist} setWatchlist={setWatchlist} />
             : <ScannerPanel A={A} stockMap={stockMapX} onTicker={onTickerClick} chartTicker={chartTicker} tickerLayer={tickerLayer} onLayer={layerOfTicker} />}
         </div>
       ) : (

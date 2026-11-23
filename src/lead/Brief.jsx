@@ -506,6 +506,7 @@ function BriefPanel(props) {
         stockMap={props.stockMap}
         tickerLayer={props.tickerLayer}
         layers={props.layers}
+        themes={props.themes}
         tiers={props.tiers}
         portfolio={props.portfolio}
         setPortfolio={props.setPortfolio}

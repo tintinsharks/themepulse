@@ -261,7 +261,7 @@ test("buildEmailSubject and buildEmailHtml format breakouts, ADR column, and dee
   assert.ok(html.includes("General Market &amp; Commentary"));
   assert.ok(html.includes("YES · 82/100 · FULL"));
   assert.ok(html.includes("Top Sectors:"));
-  assert.ok(html.includes("https://themepulse.vercel.app/?view=zanger&ticker=NVDA"));
+  assert.ok(html.includes("https://themepulse.vercel.app/?view=brief&ticker=NVDA"));
   assert.ok(html.includes(">ADR<"));
   assert.ok(html.includes("4.2%"));
   assert.ok(html.includes("Compute &lt;Silicon&gt;"));

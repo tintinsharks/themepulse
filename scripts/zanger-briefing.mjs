@@ -727,7 +727,7 @@ export function buildEmailHtml(
   const emergCount = (emergingLayers || []).length;
   const ph = phase || getBriefingPhase(stamp);
   const isPremarket = ph.id === "premarket";
-  const tLink = (tk) => `${url}/?view=zanger&ticker=${encodeURIComponent(tk)}`;
+  const tLink = (tk) => `${url}/?view=brief&ticker=${encodeURIComponent(tk)}`;
 
   // Overnight Futures & Macro strip
   const futuresHtml = (() => {
@@ -1135,7 +1135,7 @@ export function buildEmailHtml(
           <h1 style="margin:4px 0 0;font-size:20px;font-weight:800;color:#ffffff;">${escHtml(stamp?.pretty || "")}</h1>
           <div style="margin-top:3px;font-size:11px;color:#94a3b8;">${escHtml(ph.subtitle)}</div>
         </div>
-        <a href="${url}/?view=zanger" style="display:inline-block;background:#22c55e;color:#052e16;font-weight:800;font-size:12px;padding:9px 14px;border-radius:6px;text-decoration:none;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">Open Live Zanger Tab →</a>
+        <a href="${url}/?view=brief" style="display:inline-block;background:#22c55e;color:#052e16;font-weight:800;font-size:12px;padding:9px 14px;border-radius:6px;text-decoration:none;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">Open Live Brief →</a>
       </div>
       <div style="margin-top:12px;font-size:12px;color:#cbd5e1;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">
         <strong style="color:#fbbf24;">${bos.length}</strong> Breakouts${delta?.newBreakouts?.length ? ` (<strong style="color:#38bdf8;">${delta.newBreakouts.length} NEW</strong>)` : ""} &nbsp;·&nbsp;

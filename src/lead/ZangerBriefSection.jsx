@@ -4,10 +4,12 @@ import {
   CopyTickersBtn,
   EPS_TIP,
   FlagButton,
+  RslDot,
   TierMark,
   closingRange,
   pinReason,
   scoreZangerCandidate,
+  statusColor,
   td,
   th,
   useRvolProfiles,
@@ -54,11 +56,41 @@ const fmtVol = (v) => {
   return String(Math.round(v));
 };
 
+function ZvrMeter({ zvr, A }) {
+  if (zvr == null) return <span style={{ color: A.textMuted }}>—</span>;
+  const pct = Math.min(100, Math.round((zvr / 3.5) * 100));
+  const color = zvr >= 2.0 ? "#fbbf24" : zvr >= 1.5 ? A.green : A.textDim;
+  return (
+    <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", gap: 2, minWidth: 48 }}>
+      <span style={{ color, fontWeight: zvr >= 1.5 ? 800 : 500, fontFamily: "monospace", fontSize: 11 }}>{zvr.toFixed(2)}x</span>
+      <div style={{ width: 44, height: 3, borderRadius: 2, background: A.border, overflow: "hidden" }}>
+        <div style={{ width: `${pct}%`, height: "100%", background: color, borderRadius: 2 }} />
+      </div>
+    </div>
+  );
+}
+
+function CrMeter({ cr, A }) {
+  if (cr == null) return <span style={{ color: A.textMuted }}>—</span>;
+  const color = cr >= 75 ? A.green : cr >= 60 ? A.cyan : cr >= 40 ? A.textDim : A.red;
+  return (
+    <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", gap: 2, minWidth: 40 }}>
+      <span style={{ color, fontWeight: cr >= 70 ? 700 : 400, fontFamily: "monospace", fontSize: 11 }}>{cr}%</span>
+      <div style={{ width: 36, height: 3, borderRadius: 2, background: A.border, position: "relative" }}>
+        <div style={{ position: "absolute", left: 0, top: 0, width: `${Math.max(4, Math.min(100, cr))}%`, height: "100%", background: color, borderRadius: 2 }} />
+      </div>
+    </div>
+  );
+}
+
+const VALID_CAT_TABS = new Set(["bo", "zanger", "rsl", "leaders"]);
+
 export default function ZangerBriefSection({
   A,
   stockMap,
   tickerLayer,
   layers,
+  themes,
   tiers,
   portfolio = [],
   setPortfolio,
@@ -73,14 +105,20 @@ export default function ZangerBriefSection({
   const [err, setErr] = useState(null);
   const [liveOn, setLiveOn] = useState(true);
   const [mq, setMq] = useState(null);
-  const [catTab, setCatTab] = useState("zanger"); // "bo" | "zanger" | "rsl" | "leaders"
+  const [catTab, setCatTab] = useState(() => {
+    try {
+      const saved = localStorage.getItem("tp-brief-cat");
+      if (VALID_CAT_TABS.has(saved)) return saved;
+    } catch { /* ignore */ }
+    return "zanger";
+  });
   const [boFilter, setBoFilter] = useState(null); // null | "ZANGER" | "SB4%" | "SB$" | "QMAG"
   const [themeFilter, setThemeFilter] = useState(null);
   const [minZvr, setMinZvr] = useState(1.0);
   const [minRs, setMinRs] = useState(70);
   const [epsOnly, setEpsOnly] = useState(false);
   const [cleanOnly, setCleanOnly] = useState(false);
-  const [moverSort, setMoverSort] = useState({ k: "score", d: -1 });
+  const [moverSort, setMoverSort] = useState(() => (catTab === "leaders" || catTab === "rsl" ? { k: "rs", d: -1 } : { k: "score", d: -1 }));
   const [flowSort, setFlowSort] = useState({ k: "avgChg", d: -1 });
   const [portSort, setPortSort] = useState({ k: "list", d: 1 });
   const [liveNews, setLiveNews] = useState({});
@@ -438,9 +476,30 @@ export default function ZangerBriefSection({
   const pickCatTab = (t) => {
     setCatTab(t);
     if (t !== "bo" && t !== "zanger") setBoFilter(null);
+    try { localStorage.setItem("tp-brief-cat", t); } catch { /* ignore */ }
     if (t === "leaders" || t === "rsl") setMoverSort({ k: "rs", d: -1 });
     else setMoverSort({ k: "score", d: -1 });
   };
+  const topThemes = (() => {
+    const list = (themes || []).filter((t) => t.st === "lead" || t.st === "emerg").slice(0, 12);
+    const hitCount = {};
+    for (const r of allPool) {
+      if (!r.theme) continue;
+      const inTab = catTab === "bo"
+        ? r.isBreakout
+        : catTab === "rsl"
+        ? r.rsl
+        : catTab === "leaders"
+        ? (r.tier === "lead" && r.layerStatus === "lead")
+        : r.qualifiesZanger;
+      if (inTab) hitCount[r.theme] = (hitCount[r.theme] || 0) + 1;
+    }
+    return list.map((t) => {
+      const hasWarn = (t.layers || []).some((l) => (l.flags || []).some(([k]) => k === "distrib" || k === "exiting"));
+      return { ...t, hits: hitCount[t.theme] || 0, hasWarn };
+    });
+  })();
+  const extraThemeChip = themeFilter && !topThemes.some((t) => t.theme === themeFilter) ? themeFilter : null;
   const ph = snap?.phase || { id: "midday", label: "INTRADAY UPDATE", subtitle: "", accent: A.green };
   const portAlerts = snap?.portfolioAlerts || {};
   const portEarnings = snap?.portfolioEarnings || [];
@@ -729,7 +788,36 @@ export default function ZangerBriefSection({
           })}
         </div>
 
-        {/* Sub-filters: Breakout type, ZVR, RS, EPS, Clean layers, active Theme */}
+        {/* Leading & Emerging Themes Filter Strip */}
+        {(topThemes.length > 0 || extraThemeChip) && (
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 5, marginBottom: 8, padding: "6px 8px", background: A.bg, border: `1px solid ${A.border}`, borderRadius: 6 }}>
+            <span style={{ fontSize: 9, fontWeight: 700, color: A.textMuted, fontFamily: "monospace", letterSpacing: 0.5, marginRight: 2 }}>THEMES</span>
+            <button onClick={() => setThemeFilter(null)} style={chipStyle(!themeFilter, A.green)}>All</button>
+            {topThemes.map((t) => {
+              const active = themeFilter === t.theme;
+              const c = statusColor(t.st, A);
+              return (
+                <button
+                  key={t.themeId || t.theme}
+                  onClick={() => setThemeFilter(active ? null : t.theme)}
+                  title={`${t.theme} (rank ${Math.round(t.now)})${t.hasWarn ? " · contains layers with distrib/exiting flags" : ""}`}
+                  style={chipStyle(active, c)}
+                >
+                  {t.theme}
+                  <span style={{ opacity: 0.75, marginLeft: 4 }}>{t.hits}</span>
+                  {t.hasWarn && <span style={{ color: "#f59e0b", marginLeft: 3 }}>•</span>}
+                </button>
+              );
+            })}
+            {extraThemeChip && (
+              <button onClick={() => setThemeFilter(null)} style={chipStyle(true, A.cyan)} title="Clear theme filter">
+                {extraThemeChip} ✕
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Sub-filters: Breakout type, ZVR, RS, EPS, Clean layers */}
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, marginBottom: 8, paddingBottom: 8, borderBottom: `1px solid ${A.border}` }}>
           {(catTab === "bo" || catTab === "zanger") && (
             <div style={{ display: "inline-flex", flexWrap: "wrap", alignItems: "center", gap: 4 }}>
@@ -761,11 +849,6 @@ export default function ZangerBriefSection({
           </div>
           <button onClick={() => setEpsOnly((v) => !v)} style={chipStyle(epsOnly, A.green)} title="Require O'Neil EPS Rating ≥ 50">EPS ≥ 50</button>
           <button onClick={() => setCleanOnly((v) => !v)} style={chipStyle(cleanOnly, A.green)} title="Hide layers with distribution or exiting-leader warnings">Clean layers</button>
-          {themeFilter && (
-            <button onClick={() => setThemeFilter(null)} style={chipStyle(true, A.cyan)} title="Clear theme filter">
-              Theme: {themeFilter} ✕
-            </button>
-          )}
         </div>
 
         {sortedMovers.length === 0 ? (
@@ -790,8 +873,9 @@ export default function ZangerBriefSection({
                   {moverTh("theme", "Theme · Layer", "left", undefined, true)}
                   {moverTh("adr", "ADR")}
                   {moverTh("chg", "Chg%")}
-                  {moverTh("zvr", "ZVR")}
-                  {moverTh("cr", "CR%")}
+                  {moverTh("fromOpen", "Open%", "right", "Intraday gain/loss from today's open")}
+                  {moverTh("zvr", "ZVR", "right", "Zanger Volume Ratio vs 10-day intraday volume profile")}
+                  {moverTh("cr", "CR%", "right", "Closing Range — where price sits in today's low-to-high range")}
                   {moverTh("rs", "RS")}
                   {moverTh("eps", "EPS", "right", EPS_TIP)}
                   {moverTh("off52", "Off 52wH")}
@@ -803,6 +887,7 @@ export default function ZangerBriefSection({
                 {sortedMovers.map((m) => {
                   const inPf = pfSet.has(m.ticker);
                   const inWl = wlSet.has(m.ticker);
+                  const company = m.company || stockMap?.[m.ticker]?.company || "";
                   return (
                   <tr
                     key={m.ticker}
@@ -828,13 +913,21 @@ export default function ZangerBriefSection({
                       </span>
                     </td>
                     <td style={td(A)}>
-                      <FlagButton t={m.ticker} A={A} />
-                      <Tk t={m.ticker} />
-                      <TierMark t={m.ticker} />
-                      {m.earningsDays != null && m.earningsDays >= 0 && m.earningsDays <= 5 && (
-                        <span title={m.earningsDisplay || ""} style={{ marginLeft: 4, fontSize: 9, fontWeight: 700, fontFamily: "monospace", padding: "0 4px", borderRadius: 3, background: "rgba(245,158,11,0.18)", color: "#f59e0b" }}>
-                          ER {m.earningsDays}d
-                        </span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                        <FlagButton t={m.ticker} A={A} />
+                        <Tk t={m.ticker} />
+                        <TierMark t={m.ticker} />
+                        <RslDot tip={m.rslTip} A={A} />
+                        {m.earningsDays != null && m.earningsDays >= 0 && m.earningsDays <= 5 && (
+                          <span title={m.earningsDisplay || ""} style={{ marginLeft: 3, fontSize: 9, fontWeight: 700, fontFamily: "monospace", padding: "0 4px", borderRadius: 3, background: "rgba(245,158,11,0.18)", color: "#f59e0b" }}>
+                            ER {m.earningsDays}d
+                          </span>
+                        )}
+                      </div>
+                      {company && (
+                        <div style={{ fontSize: 9, color: A.textMuted, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {company}
+                        </div>
                       )}
                     </td>
                     <td style={{ ...td(A), fontSize: 11, color: A.textDim }}>
@@ -847,12 +940,11 @@ export default function ZangerBriefSection({
                         <span style={{ display: "block", fontSize: 9, fontWeight: 500, color: A.cyan }}>+${m.dollarMove.toFixed(2)}</span>
                       )}
                     </td>
-                    <td style={{ ...td(A, "right"), fontFamily: "monospace", fontWeight: 700, color: (m.zvr ?? 0) >= 2.5 ? "#fbbf24" : (m.zvr ?? 0) >= 1.8 ? A.green : A.textDim }}>
-                      {m.zvr != null ? `${m.zvr.toFixed(2)}x` : "—"}
+                    <td style={{ ...td(A, "right"), fontFamily: "monospace", color: pc(m.fromOpen) }}>
+                      {fmtPct(m.fromOpen, 1)}
                     </td>
-                    <td style={{ ...td(A, "right"), fontFamily: "monospace", fontWeight: 700, color: m.cr == null ? A.textMuted : m.cr >= 75 ? A.green : m.cr >= 50 ? "#f59e0b" : A.red }}>
-                      {m.cr != null ? `${m.cr}%` : "—"}
-                    </td>
+                    <td style={td(A, "right")}><ZvrMeter zvr={m.zvr} A={A} /></td>
+                    <td style={td(A, "right")}><CrMeter cr={m.cr} A={A} /></td>
                     <td style={{ ...td(A, "right"), fontFamily: "monospace", fontWeight: 700, color: rsC(m.rs) }}>{m.rs}</td>
                     <td style={{ ...td(A, "right"), fontFamily: "monospace", color: epsC(m.eps) }}>{m.eps ?? "—"}{m.epsAccel ? <span style={{ color: A.green, fontSize: 9 }}>▲</span> : null}</td>
                     <td style={{ ...td(A, "right"), fontFamily: "monospace", color: (m.off52 ?? -99) >= -5 ? A.green : A.textDim }}>{fmtPct(m.off52, 1)}</td>
