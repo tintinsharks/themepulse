@@ -45,12 +45,26 @@ const STAGE_COLOR = {
   4: COLORS.pink,
 };
 
-function RatioBar({ title, pct, leftLabel, rightLabel, accentColor, trackBg, textColor, mutedColor }) {
+function RatioBar({ title, pct, leftLabel, rightLabel, accentColor, trackBg, textColor, mutedColor, onClick, expanded }) {
   const safePct = Number.isFinite(pct) ? Math.max(0, Math.min(100, pct)) : 0;
   return (
-    <div style={{ marginBottom: 14 }}>
+    <div
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } } : undefined}
+      title={onClick ? (expanded ? "Hide 1-month history chart" : "Click to view 1-month daily history chart") : undefined}
+      style={{ marginBottom: expanded ? 8 : 14, cursor: onClick ? "pointer" : "default", userSelect: onClick ? "none" : "auto" }}
+    >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
-        <span style={{ fontSize: 13, fontWeight: 700, color: textColor, letterSpacing: -0.1 }}>{title}</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, color: textColor, letterSpacing: -0.1 }}>
+          <span>{title}</span>
+          {onClick && (
+            <span style={{ fontSize: 10, fontWeight: 500, color: mutedColor, fontFamily: "monospace" }}>
+              {expanded ? "▾ hide" : "▸ 1M"}
+            </span>
+          )}
+        </span>
         <span style={{ fontSize: 13, fontWeight: 800, color: accentColor, fontVariantNumeric: "tabular-nums" }}>
           {Number.isFinite(pct) ? `${Math.round(pct)}%` : "—"}
         </span>
@@ -74,8 +88,176 @@ function RatioBar({ title, pct, leftLabel, rightLabel, accentColor, trackBg, tex
   );
 }
 
+// Mirrored daily bar chart (Up = Highs/Advance in blue, Down = Lows/Decline in pink, + Net curve in gold)
+function BreadthHistoryChart({ A, series, posLabel, negLabel, range, onRange }) {
+  const [hoverIdx, setHoverIdx] = useState(null);
+  if (!series || series.length === 0) {
+    return (
+      <div style={{ fontSize: 11, color: A.textMuted, padding: "8px 10px", marginBottom: 14, background: A.bg, border: `1px solid ${A.border}`, borderRadius: 8 }}>
+        No historical daily breadth series available yet.
+      </div>
+    );
+  }
+
+  const W = 600, H = 152;
+  const padL = 36, padR = 10, padT = 10, padB = 22;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+  const midY = padT + plotH / 2;
+  const halfH = plotH / 2;
+
+  const maxVal = Math.max(10, ...series.map((d) => Math.max(d.pos || 0, d.neg || 0)));
+  const n = series.length;
+  const step = plotW / n;
+  const barW = Math.max(2, Math.min(16, step * 0.68));
+  const activeIdx = hoverIdx != null && hoverIdx < n ? hoverIdx : n - 1;
+  const cur = series[activeIdx];
+  const curTot = (cur.pos || 0) + (cur.neg || 0);
+  const curPct = curTot > 0 ? Math.round((cur.pos / curTot) * 100) : 0;
+  const curNet = (cur.pos || 0) - (cur.neg || 0);
+
+  const netPts = series.map((d, i) => {
+    const x = padL + i * step + step / 2;
+    const net = (d.pos || 0) - (d.neg || 0);
+    const y = midY - (net / maxVal) * halfH;
+    return `${x.toFixed(1)},${Math.max(padT, Math.min(padT + plotH, y)).toFixed(1)}`;
+  }).join(" ");
+
+  const fmtShortDate = (d) => (d === "Today (Live)" ? "Live" : String(d || "").slice(5));
+  const midIdx = Math.floor((n - 1) / 2);
+
+  return (
+    <div
+      style={{
+        marginBottom: 14,
+        padding: "10px 12px 8px",
+        background: A.bg,
+        border: `1px solid ${A.border}`,
+        borderRadius: 8,
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 6, fontSize: 11, fontFamily: "monospace" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <strong style={{ color: A.text }}>{cur.date}</strong>
+          <span style={{ color: COLORS.blue, fontWeight: 700 }}>{cur.pos.toLocaleString()} {posLabel}</span>
+          <span style={{ color: COLORS.pink, fontWeight: 700 }}>{cur.neg.toLocaleString()} {negLabel}</span>
+          <span style={{ color: curNet >= 0 ? COLORS.blue : COLORS.pink }}>
+            Net {curNet > 0 ? `+${curNet.toLocaleString()}` : curNet.toLocaleString()} ({curPct}%)
+          </span>
+        </div>
+        <div style={{ display: "inline-flex", gap: 4 }}>
+          {[[22, "1M"], [63, "3M"]].map(([days, lbl]) => (
+            <button
+              key={lbl}
+              onClick={() => { setHoverIdx(null); onRange(days); }}
+              style={{
+                background: range === days ? A.bgHover : "transparent",
+                border: `1px solid ${range === days ? COLORS.blue : A.border}`,
+                color: range === days ? COLORS.blue : A.textMuted,
+                borderRadius: 4,
+                padding: "1px 6px",
+                fontSize: 10,
+                fontWeight: 700,
+                fontFamily: "monospace",
+                cursor: "pointer",
+              }}
+            >
+              {lbl}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        style={{ width: "100%", height: "auto", display: "block" }}
+        onMouseLeave={() => setHoverIdx(null)}
+      >
+        {/* Subtle horizontal guide lines */}
+        <line x1={padL} y1={padT} x2={W - padR} y2={padT} stroke={A.border} strokeDasharray="2 3" strokeOpacity="0.6" />
+        <line x1={padL} y1={midY} x2={W - padR} y2={midY} stroke={A.textMuted} strokeOpacity="0.45" />
+        <line x1={padL} y1={padT + plotH} x2={W - padR} y2={padT + plotH} stroke={A.border} strokeDasharray="2 3" strokeOpacity="0.6" />
+
+        {/* Y-axis scale labels */}
+        <text x={padL - 5} y={padT + 8} textAnchor="end" fontSize="9" fill={COLORS.blue} fontFamily="monospace">+{maxVal}</text>
+        <text x={padL - 5} y={midY + 3} textAnchor="end" fontSize="9" fill={A.textMuted} fontFamily="monospace">0</text>
+        <text x={padL - 5} y={padT + plotH} textAnchor="end" fontSize="9" fill={COLORS.pink} fontFamily="monospace">-{maxVal}</text>
+
+        {/* Mirrored bars per day */}
+        {series.map((d, i) => {
+          const cx = padL + i * step + step / 2;
+          const x = cx - barW / 2;
+          const posH = Math.max(0, ((d.pos || 0) / maxVal) * halfH);
+          const negH = Math.max(0, ((d.neg || 0) / maxVal) * halfH);
+          const isActive = i === activeIdx;
+          return (
+            <g key={d.date} onMouseEnter={() => setHoverIdx(i)} style={{ cursor: "crosshair" }}>
+              {/* Full-height hit zone */}
+              <rect x={padL + i * step} y={padT} width={step} height={plotH} fill={isActive ? A.text : "transparent"} fillOpacity={isActive ? 0.06 : 0} />
+              {/* Upward bar: Highs / Advance */}
+              <rect
+                x={x}
+                y={midY - posH}
+                width={barW}
+                height={posH}
+                rx={1.5}
+                fill={COLORS.blue}
+                fillOpacity={isActive ? 1 : d.isLive ? 0.9 : 0.72}
+              />
+              {/* Downward bar: Lows / Decline */}
+              <rect
+                x={x}
+                y={midY}
+                width={barW}
+                height={negH}
+                rx={1.5}
+                fill={COLORS.pink}
+                fillOpacity={isActive ? 1 : d.isLive ? 0.9 : 0.72}
+              />
+            </g>
+          );
+        })}
+
+        {/* Net line overlay */}
+        {n >= 2 && (
+          <polyline
+            fill="none"
+            stroke={COLORS.gold}
+            strokeWidth="1.6"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            points={netPts}
+            style={{ pointerEvents: "none" }}
+          />
+        )}
+
+        {/* X-axis date ticks */}
+        <text x={padL} y={H - 5} textAnchor="start" fontSize="9" fill={A.textMuted} fontFamily="monospace">
+          {fmtShortDate(series[0].date)}
+        </text>
+        {n > 4 && (
+          <text x={padL + midIdx * step + step / 2} y={H - 5} textAnchor="middle" fontSize="9" fill={A.textMuted} fontFamily="monospace">
+            {fmtShortDate(series[midIdx].date)}
+          </text>
+        )}
+        <text x={W - padR} y={H - 5} textAnchor="end" fontSize="9" fill={series[n - 1].isLive ? A.green : A.textMuted} fontFamily="monospace">
+          {fmtShortDate(series[n - 1].date)}
+        </text>
+      </svg>
+
+      <div style={{ display: "flex", gap: 12, marginTop: 4, fontSize: 10, color: A.textMuted, fontFamily: "monospace" }}>
+        <span><span style={{ color: COLORS.blue }}>■</span> {posLabel} (up)</span>
+        <span><span style={{ color: COLORS.pink }}>■</span> {negLabel} (down)</span>
+        <span><span style={{ color: COLORS.gold }}>━</span> Net ({posLabel} − {negLabel})</span>
+      </div>
+    </div>
+  );
+}
+
 export default function MarketBreadthCard({ A, stockMap, breadth, monitor }) {
   const [slide, setSlide] = useState(0); // 0 = Breadth + Stage Analysis (Deepvue view), 1 = MA Breadth + 4% Movers
+  const [openChart, setOpenChart] = useState(null); // null | "nhnl" | "ad"
+  const [histRange, setHistRange] = useState(22); // 22 trading days (~1M) | 63 (~3M)
   const [liveStats, setLiveStats] = useState(() => _hpCache.stats);
   const [liveAt, setLiveAt] = useState(() => (_hpCache.ts ? new Date(_hpCache.ts) : null));
 
@@ -128,6 +310,31 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor }) {
     }
     return null;
   }, [liveStats, breadth]);
+
+  // Historical daily series for New Highs vs New Lows and Advance vs Decline (last 1M / 3M + live Today bar)
+  const { nhnlSeries, adSeries } = useMemo(() => {
+    const raw = Array.isArray(breadth?.ad_history) ? breadth.ad_history : [];
+    const todayStr = etClock().today;
+    const lastDate = raw.length ? raw[raw.length - 1]?.date : null;
+
+    const nhRows = raw
+      .filter((d) => d?.nh != null && d?.nl != null)
+      .slice(-histRange)
+      .map((d) => ({ date: d.date, pos: d.nh, neg: d.nl, isLive: false }));
+    if (nhNl?.isLive && lastDate !== todayStr) {
+      nhRows.push({ date: "Today (Live)", pos: nhNl.nh, neg: nhNl.nl, isLive: true });
+    }
+
+    const adRows = raw
+      .filter((d) => d?.adv != null && d?.dec != null)
+      .slice(-histRange)
+      .map((d) => ({ date: d.date, pos: d.adv, neg: d.dec, isLive: false }));
+    if (advDec?.isLive && lastDate !== todayStr) {
+      adRows.push({ date: "Today (Live)", pos: advDec.adv, neg: advDec.dec, isLive: true });
+    }
+
+    return { nhnlSeries: nhRows, adSeries: adRows };
+  }, [breadth, histRange, nhNl, advDec]);
 
   // 3. Stan Weinstein Stage Analysis (Stages 1-4 across stockMap universe)
   const stageDist = useMemo(() => computeStageDistribution(stockMap), [stockMap]);
@@ -251,7 +458,19 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor }) {
               trackBg={trackBg}
               textColor={A.text}
               mutedColor={A.textMuted}
+              expanded={openChart === "nhnl"}
+              onClick={() => setOpenChart((cur) => (cur === "nhnl" ? null : "nhnl"))}
             />
+            {openChart === "nhnl" && (
+              <BreadthHistoryChart
+                A={A}
+                series={nhnlSeries}
+                posLabel="Highs"
+                negLabel="Lows"
+                range={histRange}
+                onRange={setHistRange}
+              />
+            )}
 
             <RatioBar
               title="Advance vs Decline"
@@ -262,7 +481,19 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor }) {
               trackBg={trackBg}
               textColor={A.text}
               mutedColor={A.textMuted}
+              expanded={openChart === "ad"}
+              onClick={() => setOpenChart((cur) => (cur === "ad" ? null : "ad"))}
             />
+            {openChart === "ad" && (
+              <BreadthHistoryChart
+                A={A}
+                series={adSeries}
+                posLabel="Advance"
+                negLabel="Decline"
+                range={histRange}
+                onRange={setHistRange}
+              />
+            )}
 
             {/* Stan Weinstein Stage Analysis */}
             <div>
