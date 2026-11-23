@@ -14,7 +14,7 @@ function clamp(v, lo = 0, hi = 100) { return Math.max(lo, Math.min(hi, v)); }
 
 async function fetchJson(origin, path) {
   try {
-    const r = await fetch(`${origin}${path}`, { headers: { "User-Agent": "ThemePulse-Scanner" } });
+    const r = await fetch(`${origin}${path}`, { headers: { "User-Agent": "ThemePulse-Scanner" }, signal: AbortSignal.timeout(10000) });
     if (!r.ok) return null;
     return await r.json();
   } catch { return null; }
@@ -31,7 +31,7 @@ async function fetchFmpQuotes(tickers, apiKey) {
   await Promise.all(chunks.map(async (chunk) => {
     try {
       const url = `${FMP_BASE}/batch-quote?symbols=${chunk.join(",")}&apikey=${apiKey}`;
-      const r = await fetch(url);
+      const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
       if (!r.ok) return;
       const data = await r.json();
       (Array.isArray(data) ? data : []).forEach(q => { if (q.symbol) map[q.symbol] = q; });

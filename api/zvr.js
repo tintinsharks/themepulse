@@ -42,6 +42,7 @@ const redisCmd = async (...args) => {
     method: "POST",
     headers: { Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}`, "Content-Type": "application/json" },
     body: JSON.stringify(args),
+    signal: AbortSignal.timeout(8000),
   });
   const result = await resp.json();
   if (result.error) throw new Error(result.error);

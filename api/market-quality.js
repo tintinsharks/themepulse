@@ -28,7 +28,7 @@ function pct(v, lo, hi) { return clamp(((v - lo) / (hi - lo)) * 100); }
 async function fetchQuotes(tickers, apiKey) {
   const url = `https://financialmodelingprep.com/stable/batch-quote?symbols=${tickers.join(",")}&apikey=${apiKey}`;
   try {
-    const r = await fetch(url);
+    const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
     if (!r.ok) return {};
     const data = await r.json();
     const map = {};
@@ -40,7 +40,7 @@ async function fetchQuotes(tickers, apiKey) {
 // ── Fetch JSON from own origin ──
 async function fetchJson(origin, path) {
   try {
-    const r = await fetch(`${origin}${path}`, { headers: { "User-Agent": "ThemePulse-Internal" } });
+    const r = await fetch(`${origin}${path}`, { headers: { "User-Agent": "ThemePulse-Internal" }, signal: AbortSignal.timeout(10000) });
     if (!r.ok) return null;
     return await r.json();
   } catch { return null; }
@@ -415,6 +415,7 @@ export default async function handler(req, res) {
             method: "POST",
             headers: { Authorization: `Bearer ${upstashToken}`, "Content-Type": "application/json" },
             body: JSON.stringify(["GET", "tp_userdata"]),
+            signal: AbortSignal.timeout(8000),
           });
           const result = await r.json();
           return result.result ? JSON.parse(result.result) : { portfolio: [], watchlist: [] };
@@ -422,27 +423,17 @@ export default async function handler(req, res) {
       })(),
     ]);
 
-    // Also try to get VIX directly
+    // Fetch ^VIX and ^TNX via FMP /stable/quote in parallel
     let vixQuote = quotes.VIXY || null;
-    // If we have VIXY, estimate VIX from it (VIXY tracks VIX short-term futures)
-    // Better: use FMP index quote
-    try {
-      const vixResp = await fetch(`https://financialmodelingprep.com/api/v3/quote/%5EVIX?apikey=${fmpKey}`);
-      if (vixResp.ok) {
-        const vd = await vixResp.json();
-        if (Array.isArray(vd) && vd[0]) vixQuote = vd[0];
-      }
-    } catch {}
-
-    // Try TNX
     let tnxQuote = null;
-    try {
-      const tnxResp = await fetch(`https://financialmodelingprep.com/api/v3/quote/%5ETNX?apikey=${fmpKey}`);
-      if (tnxResp.ok) {
-        const td = await tnxResp.json();
-        if (Array.isArray(td) && td[0]) tnxQuote = td[0];
-      }
-    } catch {}
+    const [vixData, tnxData] = await Promise.all([
+      fetch(`https://financialmodelingprep.com/stable/quote?symbol=%5EVIX&apikey=${fmpKey}`, { signal: AbortSignal.timeout(8000) })
+        .then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`https://financialmodelingprep.com/stable/quote?symbol=%5ETNX&apikey=${fmpKey}`, { signal: AbortSignal.timeout(8000) })
+        .then(r => r.ok ? r.json() : null).catch(() => null),
+    ]);
+    if (Array.isArray(vixData) && vixData[0]) vixQuote = vixData[0];
+    if (Array.isArray(tnxData) && tnxData[0]) tnxQuote = tnxData[0];
 
     // Score each dimension
     const volatility = scoreVolatility(vixQuote);

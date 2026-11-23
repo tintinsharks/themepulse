@@ -61,6 +61,7 @@ const redis = (cmd, ...args) =>
       "Content-Type": "application/json",
     },
     body: JSON.stringify([cmd, ...args]),
+    signal: AbortSignal.timeout(8000),
   }).then((r) => r.json());
 
 async function getTokens() {
@@ -80,6 +81,7 @@ async function refreshAccessToken(refreshToken) {
     method: "POST",
     headers: { Authorization: `Basic ${basic}`, "Content-Type": "application/x-www-form-urlencoded" },
     body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(refreshToken)}`,
+    signal: AbortSignal.timeout(10000),
   });
   if (!resp.ok) throw new Error(`Schwab token refresh failed (${resp.status}): ${await resp.text()}`);
   const data = await resp.json();
@@ -122,6 +124,7 @@ async function fetchChain(symbol, accessToken, minDte, maxDte, contractType = "A
   });
   const resp = await fetch(`${SCHWAB_CHAINS_URL}?${params}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
+    signal: AbortSignal.timeout(12000),
   });
   if (!resp.ok) throw new Error(`Schwab chain fetch failed (${resp.status}): ${await resp.text()}`);
   return resp.json();

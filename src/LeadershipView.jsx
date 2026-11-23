@@ -15,7 +15,7 @@
 // ──────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { AdrFilter, Card, ChangesPanel, Delta, ExtHoursMovers, FlaggedTab, IndexPanel, IntradayScan, LEAD, LEAD_INDEXES, LayerMembers, LayerTable, MarketGate, PEAK_LOOKBACK, PIN_ADR, SPARK_N, STATUS, StockTable, Tabs, ThemeBoard, TierCtx, classify, computeTiers, layerConfirm, layerRanksFrom, layerStats, pinReason, rankHeld, rankTrend, rsLeads, statusColor, td, th, useIndexBars, useJson, useLiveRS, withEpsRating } from "./lead/core.jsx";
-export { LEAD_INDEXES, zvrFor, useRvolProfiles, TierMark, computeTiers } from "./lead/core.jsx";
+export { LEAD_INDEXES, zvrFor, useRvolProfiles, useJson, TierMark, computeTiers } from "./lead/core.jsx";
 const BriefPanel = React.lazy(() => import("./lead/Brief.jsx"));
 const ScannerPanel = React.lazy(() => import("./lead/Scanner.jsx"));
 const RotationView = React.lazy(() => import("./lead/Rotation.jsx"));

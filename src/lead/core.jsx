@@ -14,14 +14,31 @@ export const STATUS = {
   lag:   { label: "Lagging",        hint: "Not leading and no recent leadership" },
 };
 
+const _jsonCache = new Map();
+const _jsonInflight = new Map();
+
 export function useJson(path) {
-  const [d, setD] = useState(null);
+  const [d, setD] = useState(() => (_jsonCache.has(path) ? _jsonCache.get(path) : null));
   useEffect(() => {
+    if (!path) return;
+    if (_jsonCache.has(path)) { setD(_jsonCache.get(path)); return; }
     let live = true;
-    fetch(path, { cache: "no-cache" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => { if (live) setD(j); })
-      .catch(() => {});
+    let p = _jsonInflight.get(path);
+    if (!p) {
+      p = fetch(path, { cache: "no-cache" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => {
+          if (j != null) _jsonCache.set(path, j);
+          _jsonInflight.delete(path);
+          return j;
+        })
+        .catch(() => {
+          _jsonInflight.delete(path);
+          return null;
+        });
+      _jsonInflight.set(path, p);
+    }
+    p.then((j) => { if (live && j != null) setD(j); });
     return () => { live = false; };
   }, [path]);
   return d;

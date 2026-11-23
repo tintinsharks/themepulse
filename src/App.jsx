@@ -18,7 +18,7 @@ import React, { useEffect, useState, useMemo, useCallback, useRef } from "react"
 import { ARIA_DARK, ARIA_LIGHT, ARIA } from "./styles.js";
 import { isPipelineStale } from "./utils.js";
 import { mergeTrades, applyClearTombstone, newestStamp } from "./wheelTrades.js";
-import LeadershipView, { LEAD_INDEXES, zvrFor, useRvolProfiles, TierMark } from "./LeadershipView.jsx";
+import LeadershipView, { LEAD_INDEXES, zvrFor, useRvolProfiles, useJson, TierMark } from "./LeadershipView.jsx";
 
 // One-time cleanup: preferences saved by the retired Dash tab (Scan Watch,
 // rotation board, chain table, earnings calendar). Nothing reads them now.
@@ -180,6 +180,11 @@ function useDashboardData() {
     error: null,
     pipeline: null,
   });
+  const [retryNonce, setRetryNonce] = useState(0);
+  const retry = useCallback(() => {
+    setData({ loading: true, error: null, pipeline: null });
+    setRetryNonce((n) => n + 1);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -225,9 +230,9 @@ function useDashboardData() {
       clearInterval(iv);
       document.removeEventListener("visibilitychange", onVis);
     };
-  }, []);
+  }, [retryNonce]);
 
-  return data;
+  return { ...data, retry };
 }
 
 
@@ -453,20 +458,7 @@ function useSpyCloses() {
   return m;
 }
 
-let _rsRotCache = null, _rsRotFetching = false; const _rsRotListeners = [];
-function useRsRotation() {
-  const [d, setD] = useState(_rsRotCache);
-  useEffect(() => {
-    if (_rsRotCache) { setD(_rsRotCache); return; }
-    if (_rsRotFetching) { _rsRotListeners.push(setD); return; }
-    _rsRotFetching = true;
-    fetch("/data/rs_rotation.json", { cache: "no-cache" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => { _rsRotCache = j; setD(j); _rsRotListeners.forEach((fn) => fn(j)); _rsRotListeners.length = 0; })
-      .catch(() => { _rsRotFetching = false; });
-  }, []);
-  return d;
-}
+function useRsRotation() { return useJson("/data/rs_rotation.json"); }
 
 // ── Intraday cumulative volume profile (U-shaped) ──
 // Expected fraction of a typical day's volume traded N minutes after the
@@ -482,23 +474,8 @@ function sessionVolFraction(minsSinceOpen) {
   return 1;
 }
 
-// ── useChainLayers: loads chain_layers.json (full layer membership — curated +
-// industry fallback, the same file the RS Rotation Layers tab uses). Module-level
-// cache so the ticker drawer's layer chips and any future consumer share one fetch.
-let _chainLayersCache = null, _chainLayersFetching = false; const _chainLayersListeners = [];
-function useChainLayers() {
-  const [d, setD] = useState(_chainLayersCache);
-  useEffect(() => {
-    if (_chainLayersCache) { setD(_chainLayersCache); return; }
-    if (_chainLayersFetching) { _chainLayersListeners.push(setD); return; }
-    _chainLayersFetching = true;
-    fetch("/data/chain_layers.json", { cache: "no-cache" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => { _chainLayersCache = j || []; setD(_chainLayersCache); _chainLayersListeners.forEach((fn) => fn(_chainLayersCache)); _chainLayersListeners.length = 0; })
-      .catch(() => { _chainLayersFetching = false; });
-  }, []);
-  return d;
-}
+// ── useChainLayers: shares useJson's in-memory cache with LeadershipView ──
+function useChainLayers() { return useJson("/data/chain_layers.json"); }
 
 
 
@@ -1828,6 +1805,20 @@ function ChartPanelInline({
   );
   const [tf, setTf] = useState(() => localStorage.getItem("themepulse-chart-tf") || "D");
   const [tickerInput, setTickerInput] = useState("");
+  const tickerInputRef = useRef(null);
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey) return;
+      const tag = e.target?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || e.target?.isContentEditable) return;
+      if (!tickerInputRef.current) return;
+      e.preventDefault();
+      tickerInputRef.current.focus();
+      tickerInputRef.current.select();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   // EPS + Revenue bars below the CANSLIM stats row.
   //   quarters: quarterly bars (Finviz FactSet → FMP fallback)
   //   annuals:  annual bars (FMP only)
@@ -1845,7 +1836,7 @@ function ChartPanelInline({
     catch { return { accountSize: 300000, riskPct: 1.0, maxAllocPct: 25.0, atrLen: 14 }; }
   });
   useEffect(() => {
-    localStorage.setItem("themepulse-risk-settings", JSON.stringify(tradeSettings));
+    try { localStorage.setItem("themepulse-risk-settings", JSON.stringify(tradeSettings)); } catch {}
   }, [tradeSettings]);
   useEffect(() => {
     if (!ticker) return;
@@ -2132,7 +2123,7 @@ function ChartPanelInline({
         )}
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
           {["D", "W"].map(tfOpt => (
-            <button key={tfOpt} onClick={() => { setTf(tfOpt); localStorage.setItem("themepulse-chart-tf", tfOpt); }}
+            <button key={tfOpt} onClick={() => { setTf(tfOpt); try { localStorage.setItem("themepulse-chart-tf", tfOpt); } catch {} }}
               style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, cursor: "pointer", background: tf === tfOpt ? "#0d9163" : "transparent", border: "1px solid #0d9163", color: tf === tfOpt ? "#fff" : "#0d9163", fontFamily: "monospace", fontWeight: 700, minWidth: 18 }}>
               {tfOpt}
             </button>
@@ -2144,7 +2135,7 @@ function ChartPanelInline({
           <button onClick={togglePF} title={inPF ? "Remove from Portfolio" : "Add to Portfolio"} style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, border: `1px solid ${ARIA.yellow}80`, color: inPF ? ARIA.bg : ARIA.yellow, background: inPF ? ARIA.yellow : "transparent", cursor: "pointer", fontFamily: "monospace", fontWeight: 700 }}>{inPF ? "✓PF" : "+PF"}</button>
           <button onClick={toggleFC} title={inFC ? "Remove from Focus" : "Add to Focus (high-priority recent setups)"} style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, border: `1px solid ${ARIA.cyan}80`, color: inFC ? ARIA.bg : ARIA.cyan, background: inFC ? ARIA.cyan : "transparent", cursor: "pointer", fontFamily: "monospace", fontWeight: 700 }}>{inFC ? "✓FC" : "⚡FC"}</button>
           <button onClick={toggleWL} title={inWL ? "Remove from Watchlist" : "Add to Watchlist"} style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, border: `1px solid ${ARIA.green}80`, color: inWL ? ARIA.bg : ARIA.green, background: inWL ? ARIA.green : "transparent", cursor: "pointer", fontFamily: "monospace", fontWeight: 700 }}>{inWL ? "✓WL" : "+WL"}</button>
-          <input value={tickerInput} onChange={(e) => setTickerInput(e.target.value.toUpperCase())} onKeyDown={(e) => e.key === "Enter" && submitTicker()} placeholder="Ticker" style={{ width: 64, fontSize: 9, padding: "2px 6px", background: ARIA.bg, border: `1px solid ${ARIA.border}`, borderRadius: 3, color: ARIA.textDim, fontFamily: "monospace", textTransform: "uppercase", outline: "none" }} />
+          <input ref={tickerInputRef} value={tickerInput} onChange={(e) => setTickerInput(e.target.value.toUpperCase())} onKeyDown={(e) => { if (e.key === "Enter") { submitTicker(); e.currentTarget.blur(); } else if (e.key === "Escape") { e.currentTarget.blur(); } }} placeholder="Ticker (/)" title="Jump to ticker (press /)" style={{ width: 70, fontSize: 9, padding: "2px 6px", background: ARIA.bg, border: `1px solid ${ARIA.border}`, borderRadius: 3, color: ARIA.textDim, fontFamily: "monospace", textTransform: "uppercase", outline: "none" }} />
         </div>
       </div>
 
@@ -2957,6 +2948,23 @@ function AppMain() {
         <div style={{ fontSize: 11, color: ARIA.textDim, marginTop: 6 }}>
           Pipeline data is required. Check that /dashboard_data.json exists.
         </div>
+        <button
+          onClick={data.retry}
+          style={{
+            marginTop: 12,
+            padding: "6px 14px",
+            background: "rgba(13,145,99,0.14)",
+            border: `1px solid ${ARIA.green}`,
+            color: ARIA.green,
+            borderRadius: 4,
+            cursor: "pointer",
+            fontFamily: "monospace",
+            fontSize: 11,
+            fontWeight: 700,
+          }}
+        >
+          Retry
+        </button>
       </div>
     );
   }
@@ -3170,7 +3178,7 @@ export default function App() {
   const toggleTheme = useCallback(() => {
     setThemeMode((m) => {
       const next = m === "dark" ? "light" : "dark";
-      localStorage.setItem("themepulse-theme", next);
+      try { localStorage.setItem("themepulse-theme", next); } catch {}
       return next;
     });
   }, []);
@@ -3184,7 +3192,7 @@ export default function App() {
       let next = Math.round((cur + dir * 0.05) * 100) / 100;
       if (next < 0.5) next = 0.5;
       if (next > 2) next = 2;
-      localStorage.setItem("themepulse-zoom", String(next));
+      try { localStorage.setItem("themepulse-zoom", String(next)); } catch {}
       return next;
     });
   }, []);
