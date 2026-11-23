@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, EPS_TIP, FlagButton, LayerLink, RslDot, TierMark, rsLeads, td, th, useScanQuotes } from "./core.jsx";
 
 // ── Scanner: preset scans over the ThemePulse universe ─────────────────────

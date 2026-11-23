@@ -13,7 +13,7 @@
       ]
     },
     {
-      "source": "/(rvol|pm|ah)_picks.json",
+      "source": "/data/:path*.json",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=60, stale-while-revalidate=300" }
       ]
@@ -29,7 +29,7 @@
     "api/schwab-callback.js": {
       "maxDuration": 15
     },
-"api/ohlc.js": {
+    "api/ohlc.js": {
       "maxDuration": 15
     },
     "api/scan-scores.js": {
@@ -52,7 +52,11 @@
     },
     "api/earnings.js": {
       "maxDuration": 15
-    }  },
+    },
+    "api/zvr.js": {
+      "maxDuration": 20
+    }
+  },
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/:path*" },
     { "source": "/((?!api/).*)", "destination": "/" }

@@ -119,10 +119,20 @@ function applyListOps(field, list, ops) {
   return (list || []).filter((t) => (ops || {})[`${field}:${t}`]?.op !== "del");
 }
 
+const ALLOWED_ORIGINS = new Set([
+  "https://themepulse.vercel.app",
+  "http://localhost:5173",
+  "http://localhost:4173",
+]);
+
 export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.has(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+  }
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") return res.status(200).end();
 
   if (!UPSTASH_URL || !UPSTASH_TOKEN) {

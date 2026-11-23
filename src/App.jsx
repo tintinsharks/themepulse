@@ -14,16 +14,10 @@
 // Phase 5   — Cutover
 // ════════════════════════════════════════════════════════════════════════════
 
-import React, { useEffect, useState, useMemo, useCallback, useRef, useContext, useImperativeHandle, forwardRef } from "react";
-import { createPortal } from "react-dom";
+import React, { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { ARIA_DARK, ARIA_LIGHT, ARIA } from "./styles.js";
-import { scrollRowIntoScroller } from "./utils.js";
-import { parseSchwabRealized, summarizeTrades, mergeTrades, applyClearTombstone, newestStamp } from "./wheelTrades.js";
-import {
-  LWChart as LegacyLWChart,
-  IntradayChart as LegacyIntradayChart,
-} from "./LWChartLegacy.jsx";
-import SubthemeRotation, { SubthemeRotationAutoRefresh } from "./SubthemeRotation";
+import { isPipelineStale } from "./utils.js";
+import { mergeTrades, applyClearTombstone, newestStamp } from "./wheelTrades.js";
 import LeadershipView, { LEAD_INDEXES, zvrFor, useRvolProfiles, TierMark } from "./LeadershipView.jsx";
 
 // One-time cleanup: preferences saved by the retired Dash tab (Scan Watch,
@@ -200,7 +194,7 @@ function useDashboardData() {
     };
     const load = (isRefresh = false) => {
       lastFetchMs = Date.now();
-      fetch("/dashboard_data.json", { cache: "no-store" })
+      fetch("/dashboard_data.json", { cache: "no-cache" })
         .then((r) => (r.ok ? r.json() : null))
         .then((pipeline) => {
           if (cancelled) return;
@@ -382,7 +376,7 @@ const _quoteManager = {
 
 function useLiveQuotes(tickers, _intervalMs) {
   // _intervalMs is ignored — the central manager controls timing
-  const [, forceUpdate] = useState(0);
+  const [tick, forceUpdate] = useState(0);
   const idRef = useRef(null);
 
   const tickerList = useMemo(
@@ -409,13 +403,14 @@ function useLiveQuotes(tickers, _intervalMs) {
   }, [tickerList]);
 
   const quotes = useMemo(() => {
+    void tick;
     const m = new Map();
     tickerList.forEach((t) => {
       const q = _quoteManager.cache.get(t);
       if (q) m.set(t, q);
     });
     return m;
-  }, [tickerList, _quoteManager.updated]);
+  }, [tickerList, tick]);
 
   return { quotes, updated: _quoteManager.updated };
 }
@@ -465,7 +460,7 @@ function useRsRotation() {
     if (_rsRotCache) { setD(_rsRotCache); return; }
     if (_rsRotFetching) { _rsRotListeners.push(setD); return; }
     _rsRotFetching = true;
-    fetch("/data/rs_rotation.json", { cache: "no-store" })
+    fetch("/data/rs_rotation.json", { cache: "no-cache" })
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => { _rsRotCache = j; setD(j); _rsRotListeners.forEach((fn) => fn(j)); _rsRotListeners.length = 0; })
       .catch(() => { _rsRotFetching = false; });
@@ -473,55 +468,10 @@ function useRsRotation() {
   return d;
 }
 
-function chainSetup(r, ctx) {
-  const { zvr, rs: eif, cr, str, alpha, erDays, chg, rsRank, off52, d20, d50, adr } = r;
-  const f = ctx?.zFactor ?? 1;
-  const zHi = 150 * f, zEP = 200 * f, zLo = -150 * f, zBO = 130 * f, zDry = 80 * f;
-  // DIST: heavy volume selling in a quality name — exit/avoid warning
-  if (zvr != null && zvr <= zLo && eif != null && eif >= 52)
-    return { key: "DIST", color: "#ef4444", rank: 1, desc: `Distribution: ZVR ≤ ${Math.round(zLo)}% in a leader (EIF ≥ 52). Institutions selling — exit/avoid.` };
-  // EP: post-earnings accumulation (Qullamaggie episodic pivot follow-through)
-  if (erDays != null && erDays >= -3 && erDays <= 0 && zvr != null && zvr >= zEP && chg != null && chg > 0)
-    return { key: "EP", color: "#22d3ee", rank: 5, desc: `Episodic Pivot: earnings ≤ 3d ago + ZVR ≥ ${Math.round(zEP)}% + green. Post-ER accumulation.` };
-  // BO: breakout to new highs on a range-expansion up day with volume — the entry.
-  // Jack-in-the-Box extension guard (Wiedmaier): expansion must still be anchored
-  // to the structural averages — within 3 ATR of the 20dma and 5 ATR of the 50sma.
-  // Beyond that the stock is "expanding and trending" — chasing, not entering.
-  const notExtended = (d20 == null || d20 <= 3) && (d50 == null || d50 <= 5);
-  if (off52 != null && off52 >= -6 && chg != null && chg > 0 && chg >= (adr || 4) &&
-      zvr != null && zvr >= zBO && cr != null && cr >= 60 && eif != null && eif >= 50 && notExtended)
-    return { key: "BO", color: "#a855f7", rank: 7, desc: `Breakout: within 6% of the 52w high, up ≥ its ADR on ZVR ≥ ${Math.round(zBO)}% with a strong close (CR ≥ 60), NOT extended (≤3/5 ATR from 20/50 MAs). CONFIRMATION ONLY — backtests negative (−0.6% +10d) as a standalone buy; valid as the trigger on a name already on your Reset/T2 list.` };
-  // ACC: institutional accumulation in a leader — strong close on volume
-  if (alpha != null && alpha > 0 && zvr != null && zvr >= zHi && cr != null && cr >= 70 && eif != null && eif >= 52)
-    return { key: "ACC", color: "#34d399", rank: 6, desc: `Accumulation: α > 0, ZVR ≥ ${Math.round(zHi)}%, CR% ≥ 70, EIF ≥ 52. Buyers in control of a leader.` };
-  // RST: RS≥90 leader pulled back to the 20dma on dry volume — add-on-support entry
-  // (the 🪃 leader-reset / Reset preset, as a live badge)
-  if (rsRank != null && rsRank >= 90 && d20 != null && Math.abs(d20) <= 1 && d50 != null && d50 > 0 &&
-      zvr != null && Math.abs(zvr) <= 100 && chg != null && chg > -2.5)
-    return { key: "RST", color: "#0ea5e9", rank: 4, desc: "Reset: RS ≥ 90 leader within ±1 ATR of the 20dma on dry volume (|ZVR| ≤ 100%), above the 50sma, not breaking down. Buy support, not extension." };
-  // VCP: volume dry-up in a strong name — quiet before the breakout
-  // |chg| < 2 keeps VCP honest: a big price day on light volume is a conviction
-  // warning, not a tight-base consolidation
-  if (zvr != null && Math.abs(zvr) < zDry && eif != null && eif >= 60 && str != null && str >= 70 && chg != null && Math.abs(chg) < 2)
-    return { key: "VCP", color: "#fbbf24", rank: 3, desc: `Volume dry-up: |ZVR| < ${Math.round(zDry)}%, |Chg| < 2%, EIF ≥ 60, Str ≥ 70. Quiet tight day in a leader — watch for breakout on volume return.` };
-  return null;
-}
-
-// ── Earnings Calendar — collapsible weekly ER schedule above Scan Watch ──
-// Replicates the leaderboard's renderEarningsCalendar logic:
-//   1. FMP /api/earnings as authoritative source, falls back to pipeline
-//   2. Drawer (theme-universe + WL/PF) vs All Universe ($100M dvol min) scope
-//   3. Prev/Next week navigation
-//   4. Logo tiles with BMO/AMC badges, drawer tickers sorted first
-const ER_LOGO = (tk) => `https://images.financialmodelingprep.com/symbol/${tk}.png`;
-// ── useZVR: polls /api/zvr for Zanger Volume Ratio (true intraday comparison) ──
-// Returns Map<ticker, zvrPct> where zvrPct is an integer % (e.g. 245 = 2.45x avg).
-// Polls every 60s during RTH, 5min outside. Only fetches when tickers array is non-empty.
 // ── Intraday cumulative volume profile (U-shaped) ──
 // Expected fraction of a typical day's volume traded N minutes after the
 // open. Linear elapsed time badly overstates early-session ZVR (the first
-// hour carries ~21% of daily volume in 15% of session time). Used by the
-// linear ZVR fallback; the API ZVR is inherently profile-aware.
+// hour carries ~21% of daily volume in 15% of session time).
 const VOL_PROFILE = [[0, 0], [5, 0.04], [15, 0.08], [30, 0.13], [60, 0.21], [90, 0.27], [120, 0.33], [150, 0.38], [180, 0.43], [210, 0.48], [240, 0.53], [270, 0.59], [300, 0.66], [330, 0.74], [360, 0.84], [375, 0.91], [390, 1]];
 function sessionVolFraction(minsSinceOpen) {
   const m = Math.max(0, Math.min(390, minsSinceOpen));
@@ -531,21 +481,6 @@ function sessionVolFraction(minsSinceOpen) {
   }
   return 1;
 }
-
-// Rolling intraday ZVR history per ticker (session-scoped, last ~40 polls)
-const _zvrHistory = new Map();
-function useZVR(tickers) {
-  // DEPRECATED as a network hook (FMP data budget): /api/zvr's per-ticker
-  // 5-min-bar fetching was the main driver of the 150GB/mo overage, and FMP's
-  // batch-quote lacks avgVolume so a cheap server-side version isn't possible.
-  // Every consumer already computes profile-aware ZVR locally via calcZVR
-  // (live volume ÷ avg_volume_raw × session U-profile) — this hook now just
-  // returns empty maps so those fallbacks take over, keeping call sites and
-  // the rolling _zvrHistory sampling untouched.
-  void tickers;
-  return { cur: _EMPTY_ZVR_MAP, prev: _EMPTY_ZVR_MAP, history: _zvrHistory };
-}
-const _EMPTY_ZVR_MAP = new Map();
 
 // ── useChainLayers: loads chain_layers.json (full layer membership — curated +
 // industry fallback, the same file the RS Rotation Layers tab uses). Module-level
@@ -557,7 +492,7 @@ function useChainLayers() {
     if (_chainLayersCache) { setD(_chainLayersCache); return; }
     if (_chainLayersFetching) { _chainLayersListeners.push(setD); return; }
     _chainLayersFetching = true;
-    fetch("/data/chain_layers.json", { cache: "no-store" })
+    fetch("/data/chain_layers.json", { cache: "no-cache" })
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => { _chainLayersCache = j || []; setD(_chainLayersCache); _chainLayersListeners.forEach((fn) => fn(_chainLayersCache)); _chainLayersListeners.length = 0; })
       .catch(() => { _chainLayersFetching = false; });
@@ -903,14 +838,6 @@ function avgLetter(grades) {
   const idx = Math.max(0, Math.min(5, 5 - Math.round(avg)));
   return CANSLIM_LETTERS[idx];
 }
-function gradeColor(letter, ARIA) {
-  if (letter === "A+" || letter === "A") return ARIA.green;
-  if (letter === "B") return ARIA.blue;
-  if (letter === "C") return ARIA.yellow;
-  if (letter === "D") return "#f59e0b";
-  if (letter === "F") return ARIA.red;
-  return ARIA.textMuted;
-}
 // Compact CANSLIM composite (letter A+..F) from synchronously-available
 // fields — same gradeBand thresholds as the full IBD scorecard, dropping
 // the async 12mo-RS and CF-vs-EPS criteria. Used in the chart panel's perf bar.
@@ -952,7 +879,6 @@ function canslimComposite(stockInfo, annuals, stockMap) {
     gradeBand(industryPct, [95, 85, 70, 50, 30]),
   ]);
 }
-const fmtPct = (v) => (v >= 0 ? "+" : "") + v.toFixed(1) + "%";
 
 
 // Mini bar chart — one series (EPS or Revenue) across N quarters. Pure CSS:
@@ -1871,32 +1797,27 @@ function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = f
 
 
 
-// ── useEifReasons: fetch the compact per-ticker EIF driver breakdown once ──
-let _eifReasonsCache = null;
-let _eifReasonsFetching = false;
-const _eifReasonsListeners = [];
-function useEifReasons() {
-  const [map, setMap] = useState(_eifReasonsCache);
-  useEffect(() => {
-    if (_eifReasonsCache) { setMap(_eifReasonsCache); return; }
-    if (_eifReasonsFetching) { _eifReasonsListeners.push(setMap); return; }
-    _eifReasonsFetching = true;
-    fetch("/data/framework_reasons.json", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : {}))
-      .then((d) => { _eifReasonsCache = d || {}; setMap(_eifReasonsCache); _eifReasonsListeners.forEach((fn) => fn(_eifReasonsCache)); _eifReasonsListeners.length = 0; })
-      .catch(() => { _eifReasonsFetching = false; });
-  }, []);
-  return map || {};
+const _tickerNewsCache = new Map();
+const _tickerOhlcCache = new Map();
+const _tickerEarningsCache = new Map();
+const TICKER_CACHE_TTL_MS = 5 * 60 * 1000;
+const TICKER_DEBOUNCE_MS = 120;
+function _ttlGet(map, key) {
+  const hit = map.get(key);
+  if (!hit) return null;
+  if (Date.now() - hit.ts > TICKER_CACHE_TTL_MS) { map.delete(key); return null; }
+  return hit.data;
 }
-
+function _ttlSet(map, key, data) {
+  if (map.size > 150) map.delete(map.keys().next().value);
+  map.set(key, { ts: Date.now(), data });
+}
 
 function ChartPanelInline({
   ticker,
   onTickerChange,
   height = 580,
   stockMap,
-  themeHealth,
-  tickerStrengthMap,
 }) {
   const ARIA = useAriaTheme();
   // layer membership chips (chain_layers.json — same file the RS Rotation Layers tab uses)
@@ -1907,18 +1828,14 @@ function ChartPanelInline({
   );
   const [tf, setTf] = useState(() => localStorage.getItem("themepulse-chart-tf") || "D");
   const [tickerInput, setTickerInput] = useState("");
-  // EPS + Revenue bars below the CANSLIM stats row. Fetches the same
-  // /api/live?news=X payload TickerInfoBox uses — browser coalesces the
-  // duplicate in-flight request when both components mount together.
+  // EPS + Revenue bars below the CANSLIM stats row.
   //   quarters: quarterly bars (Finviz FactSet → FMP fallback)
   //   annuals:  annual bars (FMP only)
-  //   qbarsMode: which series to display ("quarter" or "annual")
   const [quarters, setQuarters] = useState([]);
   const [annuals, setAnnuals] = useState([]);
   const [news, setNews] = useState([]);
   const [newsOpen, setNewsOpen] = useState(true);
   const [description, setDescription] = useState("");
-  const [peers, setPeers] = useState([]);
   const [liveEarningsDate, setLiveEarningsDate] = useState(null);
   const [ohlcBars, setOhlcBars] = useState([]);
   const [showTrade, setShowTrade] = useState(false);
@@ -1930,52 +1847,62 @@ function ChartPanelInline({
   useEffect(() => {
     localStorage.setItem("themepulse-risk-settings", JSON.stringify(tradeSettings));
   }, [tradeSettings]);
-  const [qbarsMode, setQbarsMode] = useState(
-    () => localStorage.getItem("themepulse-qbars-mode") || "quarter"
-  );
-  const setQbarsModePersist = useCallback((mode) => {
-    setQbarsMode(mode);
-    localStorage.setItem("themepulse-qbars-mode", mode);
-  }, []);
   useEffect(() => {
     if (!ticker) return;
-    let cancelled = false;
-    setPeers([]);
-    setLiveEarningsDate(null);
-    fetch(`/api/live?news=${encodeURIComponent(ticker)}`).then(r => r.ok ? r.json() : null).then((d) => {
-      if (cancelled) return;
-      const orient = (arr) => {
-        if (!Array.isArray(arr) || arr.length <= 1) return arr || [];
-        return arr[0].year > arr[arr.length - 1].year ? arr.slice().reverse() : arr;
-      };
+    const orient = (arr) => {
+      if (!Array.isArray(arr) || arr.length <= 1) return arr || [];
+      return arr[0].year > arr[arr.length - 1].year ? arr.slice().reverse() : arr;
+    };
+    const apply = (d) => {
       setQuarters(orient(d?.finvizQuarters));
       setAnnuals(orient(d?.finvizAnnual));
       setNews(d?.news || []);
       setDescription(d?.description || "");
-      setPeers(d?.fmpPeers || d?.peers || []);
-      if (d?.earningsDate) setLiveEarningsDate(d.earningsDate);
-    }).catch(() => {
-      if (!cancelled) {
-        setQuarters([]);
-        setAnnuals([]);
-        setNews([]);
-        setDescription("");
-        setPeers([]);
-      }
-    });
-    return () => { cancelled = true; };
+      setLiveEarningsDate(d?.earningsDate || null);
+    };
+    const cached = _ttlGet(_tickerNewsCache, ticker);
+    if (cached) { apply(cached); return; }
+    setLiveEarningsDate(null);
+    const ac = new AbortController();
+    const tid = setTimeout(() => {
+      fetch(`/api/live?news=${encodeURIComponent(ticker)}`, { signal: ac.signal })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (ac.signal.aborted) return;
+          if (d) _ttlSet(_tickerNewsCache, ticker, d);
+          apply(d);
+        })
+        .catch(() => {
+          if (!ac.signal.aborted) {
+            setQuarters([]);
+            setAnnuals([]);
+            setNews([]);
+            setDescription("");
+          }
+        });
+    }, TICKER_DEBOUNCE_MS);
+    return () => { clearTimeout(tid); ac.abort(); };
   }, [ticker]);
 
   // Fetch OHLC bars for inline SVG daily chart
   useEffect(() => {
     if (!ticker) return;
-    let cancelled = false;
     const interval = tf === "W" ? "1wk" : "1d";
-    fetch(`/api/ohlc?ticker=${encodeURIComponent(ticker)}&interval=${interval}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (!cancelled && d?.ohlc) setOhlcBars(d.ohlc); })
-      .catch(() => {});
-    return () => { cancelled = true; };
+    const key = `${ticker}:${interval}`;
+    const cached = _ttlGet(_tickerOhlcCache, key);
+    if (cached) { setOhlcBars(cached); return; }
+    const ac = new AbortController();
+    const tid = setTimeout(() => {
+      fetch(`/api/ohlc?ticker=${encodeURIComponent(ticker)}&interval=${interval}`, { signal: ac.signal })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (ac.signal.aborted || !d?.ohlc) return;
+          _ttlSet(_tickerOhlcCache, key, d.ohlc);
+          setOhlcBars(d.ohlc);
+        })
+        .catch(() => {});
+    }, TICKER_DEBOUNCE_MS);
+    return () => { clearTimeout(tid); ac.abort(); };
   }, [ticker, tf]);
   // Right pane subtab: 'chart' (intraday OHLC) or 'picks' (agent picks list)
 
@@ -1988,43 +1915,19 @@ function ChartPanelInline({
   const tickerList = useMemo(() => (ticker ? [ticker] : []), [ticker]);
   const { quotes } = useLiveQuotes(tickerList, 30000);
   const liveQuote = quotes.get(ticker);
-  const stockInfo = stockMap?.[ticker] || {};
+  const stockInfo = useMemo(() => stockMap?.[ticker] || {}, [stockMap, ticker]);
   const avgVol = stockInfo.avg_volume_raw || 0;
 
   // Aria-faithful OHLC line: O H L C +chg ($abs+%) Vol RV + badges
   const o = liveQuote?.open ?? 0;
-  const h = liveQuote?.high ?? 0;
   const l = liveQuote?.low ?? 0;
   const c = liveQuote?.price ?? 0;
   const chgPct = liveQuote?.change ?? null;
-  const chgAbs = liveQuote && c && chgPct != null ? c - c / (1 + chgPct / 100) : null;
   const liveVol = liveQuote?.volume || 0;
   const rvol = liveVol && avgVol > 0 ? Math.round((liveVol / avgVol) * 100) / 100 : null;
   const rvolProfiles = useRvolProfiles();
   const zvr = zvrFor(stockInfo.ticker ? stockInfo : { ...stockInfo, ticker }, liveQuote, rvolProfiles);
   const fromOpenPct = o > 0 && c > 0 ? (c / o - 1) * 100 : null;
-
-  const fmtVol = (v) => {
-    if (!v) return "—";
-    if (v >= 1e9) return (v / 1e9).toFixed(2) + "B";
-    if (v >= 1e6) return (v / 1e6).toFixed(2) + "M";
-    if (v >= 1e3) return (v / 1e3).toFixed(0) + "K";
-    return String(v);
-  };
-
-  const chgColor =
-    chgPct == null
-      ? ARIA.textMuted
-      : chgPct >= 0
-      ? ARIA.green
-      : ARIA.red;
-  const rvColor = rvol == null
-    ? ARIA.textMuted
-    : rvol >= 1.5
-    ? ARIA.purple
-    : rvol >= 1
-    ? ARIA.textDim
-    : ARIA.textMuted;
 
   // 9M badge: today's volume >= 8.9M but avg < 8.9M (unusual institutional)
   const todayVol = avgVol * (rvol || 0);
@@ -2034,33 +1937,6 @@ function ChartPanelInline({
   const gradeColor =
     grade && grade[0] === "A" ? ARIA.green : grade && grade[0] === "B" ? ARIA.blue : ARIA.textMuted;
 
-  // CANSLIM stats from stockMap
-  const csClr = (v) =>
-    v == null ? ARIA.textMuted : v > 25 ? ARIA.green : v > 0 ? ARIA.textDim : ARIA.red;
-  const epsYoy = stockInfo.eps_yoy ?? null;
-  const epsYoyPrev = stockInfo.eps_yoy_prev ?? null;
-  const epsSurprise = stockInfo.last_eps_surprise_pct ?? null;
-  const salesYoy = stockInfo.sales_yoy ?? null;
-  const salesYoyPrev = stockInfo.sales_yoy_prev ?? null;
-  const salesSurprise = stockInfo.last_revenue_surprise_pct ?? null;
-  const epsThisY = stockInfo.eps_this_y ?? null;
-  const eps5y = stockInfo.eps_past_5y ?? null;
-  const sales5y = stockInfo.sales_past_5y ?? null;
-  const margin = (() => {
-    const m = stockInfo.profit_margin ?? null;
-    return m != null ? (m < 1 ? m * 100 : m) : null;
-  })();
-  const roe = (() => {
-    const r = stockInfo.roe ?? null;
-    return r != null ? (Math.abs(r) < 5 ? r * 100 : r) : null;
-  })();
-  const roic = (() => {
-    const r = stockInfo.roic ?? null;
-    return r != null ? (Math.abs(r) < 5 ? r * 100 : r) : null;
-  })();
-  const instOwn = stockInfo.inst_own_pct ?? null;
-  const instTrans = stockInfo.inst_trans_pct ?? null;
-  const magna = stockInfo.magna ?? null;
   const adr = stockInfo.adr_pct ?? null;
   // Prefer live FMP earnings date over pipeline's stale earnings_days
   const { erDaysRaw, erTimingRaw } = useMemo(() => {
@@ -2130,30 +2006,27 @@ function ChartPanelInline({
     };
   }, [riskEntry, dailyATR, riskDayLow, riskPDL, tradeSettings]);
 
-  // Minervini / O'Neill fundamentals gate — simple floor criteria. Green
-  // light only when EPS + Sales growth and net margin all clear the bar
-  // (standard SEPA / CANSLIM thresholds). `hot` flags the super-growth
-  // tier (EPS & Sales both ≥ 40%) and upgrades the badge to orange.
-  // Hides entirely for tickers missing data (ETFs, recent IPOs).
-  const mo =
-    epsYoy != null && salesYoy != null && margin != null &&
-    epsYoy >= 25 && salesYoy >= 20 && margin >= 5
-      ? { epsYoy, salesYoy, margin, hot: epsYoy >= 40 && salesYoy >= 40 }
-      : null;
-
   // Prior earnings responses — lazy-loaded from /api/earnings when opened
   const [erHistOpen, setErHistOpen] = useState(() => { try { return localStorage.getItem("tp-erhist-open") === "1"; } catch { return false; } });
   const [erHist, setErHist] = useState(null);
   useEffect(() => {
     if (!ticker) return;
-    if (erHist && erHist.ticker === ticker) return;
-    let dead = false;
-    fetch(`/api/earnings?ticker=${encodeURIComponent(ticker)}`)
-      .then((r) => r.json())
-      .then((d) => { if (!dead && d && Array.isArray(d.history)) setErHist({ ticker, history: d.history, next: d.next }); })
-      .catch(() => {});
-    return () => { dead = true; };
-  }, [ticker, erHist]);
+    const cached = _ttlGet(_tickerEarningsCache, ticker);
+    if (cached) { setErHist(cached); return; }
+    const ac = new AbortController();
+    const tid = setTimeout(() => {
+      fetch(`/api/earnings?ticker=${encodeURIComponent(ticker)}`, { signal: ac.signal })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (ac.signal.aborted || !d || !Array.isArray(d.history)) return;
+          const entry = { ticker, history: d.history, next: d.next };
+          _ttlSet(_tickerEarningsCache, ticker, entry);
+          setErHist(entry);
+        })
+        .catch(() => {});
+    }, TICKER_DEBOUNCE_MS);
+    return () => { clearTimeout(tid); ac.abort(); };
+  }, [ticker]);
 
   // Portfolio/Watchlist via shared cross-component hook (Aria's +WL / +PF)
   const [portfolio, setPortfolio] = useLocalStorageList("themepulse-portfolio");
@@ -2752,459 +2625,6 @@ function ChartPanelInline({
 
 
 
-// ──────────────────────────────────────────────────────────────────────────
-// SetupJournal — full-page view of logged setup-badge firings (ACC/EP/VCP/DIST)
-// Data: GET /api/zvr?journal=N (Upstash-backed, deduped per ticker+badge+day).
-// Shows entry conditions at fire time + live "since fire" return.
-// ──────────────────────────────────────────────────────────────────────────
-const JOURNAL_BADGE_COLORS = { BO: "#a855f7", ACC: "#34d399", EP: "#22d3ee", RST: "#0ea5e9", VCP: "#fbbf24", DIST: "#ef4444" };
-const JOURNAL_BADGE_DESC = {
-  BO: "Breakout: within 6% of 52w high, up ≥ ADR, ZVR≥130%, CR≥60, EIF≥50 — the entry",
-  ACC: "Accumulation: α>0, ZVR≥150%, CR%≥70, EIF≥52",
-  EP: "Episodic Pivot: ER ≤3d ago, ZVR≥200%, green",
-  RST: "Reset: RS≥90 leader at the 20dma, |ZVR|≤100%, above 50sma, not breaking down",
-  VCP: "Volume dry-up: |ZVR|<80%, |Chg|<2%, EIF≥60, Str≥70",
-  DIST: "Distribution: ZVR≤−150%, EIF≥52",
-};
-
-// ──────────────────────────────────────────────────────────────────────────
-// LeadersView — the EIF × Setup synthesis: top themes by fundamental
-// leadership (avg EIF), and the tradeable shortlist of high-EIF leaders that
-// are ALSO flashing a technical trigger (setup badge / ZVR building / strong
-// close). This is "leading stocks in leading themes, with timing."
-// ──────────────────────────────────────────────────────────────────────────
-// Jensen's normal-dip band by price bracket — [minDip%, maxDip%] off recent high.
-function dipBand(price) {
-  if (price == null) return null;
-  if (price < 10) return [25, 55];
-  if (price < 20) return [18, 32];
-  if (price < 40) return [13, 22];
-  if (price < 80) return [9, 17];
-  return [6, 14];
-}
-
-// Shared data engine for the LEADERS views. mode: "leaders" | "catchup" | "dips".
-function useLeadersData(stockMap, themeFilter, mode = "leaders") {
-  // Theme aggregation: avg EIF + avg 3M return + Jensen archetypes per group.
-  const themes = useMemo(() => {
-    const byTheme = new Map();
-    DRAWER_SUBTHEMES.forEach((sub) => {
-      const e = byTheme.get(sub.themeId) || { themeId: sub.themeId, theme: sub.theme, mem: [] };
-      sub.tickers.forEach((t) => {
-        const s = stockMap?.[t];
-        if (s?.framework_score != null) e.mem.push({ t, eif: s.framework_score, ret3m: s.return_3m ?? null });
-      });
-      byTheme.set(sub.themeId, e);
-    });
-    const rows = [];
-    for (const e of byTheme.values()) {
-      if (!e.mem.length) continue;
-      const avg = e.mem.reduce((a, b) => a + b.eif, 0) / e.mem.length;
-      const rets = e.mem.filter((x) => x.ret3m != null);
-      const avgRet = rets.length ? rets.reduce((a, b) => a + b.ret3m, 0) / rets.length : null;
-      const leaders = e.mem.filter((x) => x.eif >= 60).length;
-      const byEif = [...e.mem].sort((a, b) => b.eif - a.eif);
-      const byRet = rets.length ? [...rets].sort((a, b) => b.ret3m - a.ret3m) : [];
-      rows.push({
-        themeId: e.themeId, theme: e.theme, avgEif: avg, avgRet3m: avgRet, n: e.mem.length, leaders,
-        top: byEif.slice(0, 3),
-        qualityLeader: byEif[0]?.t,          // highest EIF
-        rsLeader: byRet[0]?.t,               // best 3M return
-      });
-    }
-    return rows.sort((a, b) => b.avgEif - a.avgEif);
-  }, [stockMap]);
-  const groupAvgRet = useMemo(() => Object.fromEntries(themes.map((t) => [t.themeId, t.avgRet3m])), [themes]);
-  const groupAvgEif = useMemo(() => Object.fromEntries(themes.map((t) => [t.themeId, t.avgEif])), [themes]);
-
-  // Candidate leaders: EIF ≥ 55, in a theme. Poll live ZVR + quotes on these.
-  const candidates = useMemo(() => {
-    const out = [];
-    for (const [t, s] of Object.entries(stockMap || {})) {
-      const eif = s?.framework_score;
-      if (eif == null || eif < 55) continue;
-      const chains = chainsForStock(t, s);
-      if (!chains?.length) continue;
-      const themeId = chains[0].themeId;
-      const theme = DRAWER_SUBTHEMES.find((d) => d.themeId === themeId)?.theme ?? themeId;
-      out.push({ ticker: t, eif, themeId, theme, layer: chains[0].layer,
-                 ret3m: s.return_3m ?? null, offHigh: s.off_52w_high ?? null, price: s.price ?? s.close ?? null });
-    }
-    return out;
-  }, [stockMap]);
-  const candTickers = useMemo(() => candidates.map((c) => c.ticker).concat("SPY"), [candidates]);
-  const { cur: zvrMap } = useZVR(candTickers);
-  const { quotes: liveQuotes } = useLiveQuotes(candTickers, 30000);
-
-  // Tradeable rows — content depends on mode (leaders / catch-up / dips).
-  const rows = useMemo(() => {
-    const spyChg = liveQuotes.get("SPY")?.change ?? 0;
-    const now = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
-    const mins = now.getHours() * 60 + now.getMinutes();
-    const isRTH = mins >= 570 && mins < 960;
-    const elapsed = isRTH ? Math.max(0.02, (mins - 570) / 390) : 1.0;
-    const out = [];
-    for (const c of candidates) {
-      if (themeFilter && c.themeId !== themeFilter) continue;
-      const q = liveQuotes.get(c.ticker);
-      const s = stockMap[c.ticker];
-      const chg = q?.change ?? s?.change_pct ?? null;
-      const hi = q?.dayHigh, lo = q?.dayLow, px = q?.price ?? c.price;
-      const cr = (px && hi && lo && hi > lo) ? Math.round((px - lo) / (hi - lo) * 100) : null;
-      let zvr = zvrMap.get(c.ticker) ?? null;
-      if (zvr == null) {
-        const lv = q?.volume, av = s?.avg_volume_raw || q?.avgVolume || 0;
-        if (lv && av > 0) zvr = Math.round((lv / (av * elapsed)) * 100);
-        else if (s?.rel_volume > 0) zvr = Math.round(s.rel_volume * 100);
-      }
-      if (zvr != null && chg != null && chg < 0) zvr = -zvr;
-      const row = { ...c, rs: c.eif, chg, cr, zvr, alpha: chg != null ? Math.round((chg - spyChg) * 10) / 10 : null,
-                    str: null, erDays: s?.earnings_days ?? null };
-      const setup = chainSetup(row);
-      const thrust = (zvr != null && zvr >= 130) || (cr != null && cr >= 60 && chg != null && chg > 0);
-
-      if (mode === "catchup") {
-        // Laggard in a leading group, now showing first thrust (Jensen catch-up).
-        const inLeadingGroup = (groupAvgEif[c.themeId] ?? 0) >= 55;
-        const gRet = groupAvgRet[c.themeId];
-        const lagged = c.ret3m != null && gRet != null && c.ret3m < gRet - 10;
-        if (!inLeadingGroup || !lagged || !thrust) continue;
-        const lagGap = (gRet ?? 0) - (c.ret3m ?? 0);
-        const score = lagGap * 0.4 + Math.min(Math.max(zvr ?? 0, 0), 300) / 3 * 0.4 + c.eif * 0.2;
-        out.push({ ...row, setup, score, lagGap: Math.round(lagGap), groupRet: Math.round(gRet) });
-      } else if (mode === "dips") {
-        // Leader pulled back into its normal dip band, holding (buyable pullback).
-        const band = dipBand(c.price);
-        const off = c.offHigh != null ? Math.abs(c.offHigh) : null;
-        if (!band || off == null) continue;
-        const inBand = off >= band[0] && off <= band[1] * 1.15;
-        const holding = chg == null || chg > -4;
-        if (!inBand || !holding) continue;
-        const caution = off > band[1]; // exceeded normal band
-        const score = c.eif * 0.6 + (caution ? 0 : 15) + Math.min(Math.max(zvr ?? 0, 0), 200) / 200 * 10;
-        out.push({ ...row, setup, score, offHighPct: Math.round(c.offHigh), caution, band });
-      } else {
-        // Default leaders: high-EIF with a breakout/volume trigger.
-        const triggered = setup?.key === "ACC" || setup?.key === "EP" ||
-                          (zvr != null && zvr >= 130) || (cr != null && cr >= 70 && chg != null && chg > 0);
-        if (!triggered) continue;
-        const score = c.eif * 0.5 + Math.min(Math.max(zvr ?? 0, 0), 300) / 3 * 0.3 + (cr ?? 0) * 0.2
-                      + (setup?.key === "EP" ? 12 : setup?.key === "ACC" ? 10 : 0);
-        out.push({ ...row, setup, score });
-      }
-    }
-    return out.sort((a, b) => b.score - a.score).slice(0, 40);
-  }, [candidates, zvrMap, liveQuotes, stockMap, themeFilter, mode, groupAvgRet, groupAvgEif]);
-
-  return { themes, rows };
-}
-
-const eifTierColor = (ARIA, v) => v == null ? ARIA.textMuted : v >= 65 ? "#fbbf24" : v >= 55 ? ARIA.green : v >= 45 ? ARIA.blue : ARIA.textDim;
-
-function LeadersView({ stockMap, onTickerClick }) {
-  const ARIA = useAriaTheme();
-  const eifReasons = useEifReasons();
-  const [themeFilter, setThemeFilter] = useState(null);
-  const { themes, rows } = useLeadersData(stockMap, themeFilter);
-
-  const eifColor = (v) => eifTierColor(ARIA, v);
-  const chgColor = (v) => v == null || Math.abs(v) <= 2 ? ARIA.textDim : v > 0 ? ARIA.green : ARIA.red;
-  const cell = { padding: "3px 8px", fontSize: 10, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, fontFamily: "monospace", whiteSpace: "nowrap" };
-  const th = { padding: "4px 8px", fontSize: 8, fontWeight: 700, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.4, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, fontFamily: "monospace" };
-
-  return (
-    <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-      {/* Left: Top Themes by EIF (#3) */}
-      <div style={{ width: 320, flexShrink: 0, background: ARIA.bgCard, border: `1px solid ${ARIA.border}`, borderRadius: 8, overflow: "hidden" }}>
-        <div style={{ padding: "8px 12px", borderBottom: `1px solid ${ARIA.border}`, fontSize: 12, fontWeight: 800, fontFamily: "monospace", letterSpacing: 0.5, color: ARIA.text }}>
-          🎯 TOP THEMES BY EIF
-          {themeFilter && <button onClick={() => setThemeFilter(null)} style={{ marginLeft: 8, fontSize: 8, color: ARIA.textMuted, background: "transparent", border: `1px solid ${ARIA.border}`, borderRadius: 3, padding: "1px 6px", cursor: "pointer" }}>✕ clear</button>}
-        </div>
-        <div style={{ maxHeight: "calc(100vh - 180px)", overflow: "auto" }}>
-          {themes.map((tm) => {
-            const c = DRAWER_COLORS[tm.themeId] || { color: ARIA.textDim };
-            const active = themeFilter === tm.themeId;
-            return (
-              <div key={tm.themeId} onClick={() => setThemeFilter(active ? null : tm.themeId)}
-                style={{ padding: "5px 10px", borderBottom: `1px solid ${ARIA.border}`, cursor: "pointer", background: active ? `${c.color}1f` : "transparent" }}
-                onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = ARIA.bgHover; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = active ? `${c.color}1f` : "transparent"; }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontSize: 13, fontWeight: 800, fontFamily: "monospace", color: eifColor(tm.avgEif), width: 26, textAlign: "right" }}>{Math.round(tm.avgEif)}</span>
-                  <span style={{ fontSize: 7, fontWeight: 700, color: c.color, flexShrink: 0 }}>{(CHAIN_ABBR[tm.themeId] || tm.themeId).toUpperCase()}</span>
-                  <span style={{ fontSize: 9, fontWeight: 700, color: ARIA.text, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tm.theme}</span>
-                  <span style={{ fontSize: 7, color: ARIA.textMuted }}>{tm.leaders}/{tm.n} lead</span>
-                </div>
-                <div style={{ fontSize: 7.5, color: ARIA.textDim, marginLeft: 32, marginTop: 1 }}>
-                  {tm.top.map((x) => `${x.t} ${x.eif}`).join(" · ")}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Right: Tradeable Leaders (#1) */}
-      <div style={{ flex: 1, background: ARIA.bgCard, border: `1px solid ${ARIA.border}`, borderRadius: 8, overflow: "hidden" }}>
-        <div style={{ padding: "8px 12px", borderBottom: `1px solid ${ARIA.border}`, display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 12, fontWeight: 800, fontFamily: "monospace", letterSpacing: 0.5, color: ARIA.text }}>⚡ TRADEABLE LEADERS</span>
-          <span style={{ fontSize: 8, color: ARIA.textMuted, fontFamily: "monospace" }}>EIF ≥ 55 · in a theme · with a live trigger (setup / ZVR≥130 / strong close)</span>
-          <span style={{ fontSize: 8, color: ARIA.textMuted, fontFamily: "monospace", marginLeft: "auto" }}>{rows.length} candidates</span>
-        </div>
-        <div style={{ maxHeight: "calc(100vh - 180px)", overflow: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead><tr>
-              <th style={{ ...th, textAlign: "left" }}>Ticker</th>
-              <th style={{ ...th, textAlign: "left" }}>Theme · Layer</th>
-              <th style={th}>EIF</th>
-              <th style={{ ...th, textAlign: "center" }}>Setup</th>
-              <th style={th}>ZVR</th>
-              <th style={th}>CR%</th>
-              <th style={th}>Chg%</th>
-              <th style={{ ...th, textAlign: "left" }}>Why (top driver)</th>
-            </tr></thead>
-            <tbody>
-              {rows.length === 0 && (
-                <tr><td colSpan={8} style={{ padding: 24, textAlign: "center", fontSize: 11, fontFamily: "monospace", color: ARIA.textMuted }}>
-                  No leaders with a live trigger right now{themeFilter ? " in this theme" : ""}. Triggers populate during market hours.
-                </td></tr>
-              )}
-              {rows.map((r) => {
-                const c = DRAWER_COLORS[r.themeId] || { color: ARIA.textDim };
-                const su = r.setup;
-                const driver = eifReasons[r.ticker]?.drivers?.[0]?.text;
-                return (
-                  <tr key={r.ticker} onClick={() => onTickerClick && onTickerClick(r.ticker)} style={{ cursor: "pointer" }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = ARIA.bgHover; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
-                    <td style={{ ...cell, textAlign: "left", fontWeight: 800, color: ARIA.text }}>
-                      <img src={ER_LOGO(r.ticker)} alt="" style={{ width: 12, height: 12, borderRadius: 2, marginRight: 4, verticalAlign: "middle" }} onError={(e) => { e.target.style.display = "none"; }} />
-                      {r.ticker}
-                    </td>
-                    <td style={{ ...cell, textAlign: "left", fontSize: 8 }}>
-                      <span style={{ color: c.color, fontWeight: 700 }}>{(CHAIN_ABBR[r.themeId] || r.themeId).toUpperCase()}</span>
-                      <span style={{ color: ARIA.textDim, marginLeft: 4 }}>{r.layer}</span>
-                    </td>
-                    <td style={{ ...cell, color: eifColor(r.eif), fontWeight: 800 }}>{r.eif}</td>
-                    <td style={{ ...cell, textAlign: "center" }}>
-                      {su ? <span style={{ fontSize: 8, fontWeight: 800, color: su.color, background: `${su.color}1f`, border: `1px solid ${su.color}55`, borderRadius: 2, padding: "0 4px" }}>{su.key}</span> : <span style={{ color: ARIA.textMuted, fontSize: 8 }}>—</span>}
-                    </td>
-                    <td style={{ ...cell, color: r.zvr == null ? ARIA.textMuted : r.zvr >= 200 ? "#fbbf24" : r.zvr >= 130 ? ARIA.green : ARIA.textDim, fontWeight: 700 }}>{r.zvr != null ? r.zvr + "%" : "—"}</td>
-                    <td style={{ ...cell, color: r.cr != null && r.cr >= 70 ? ARIA.green : ARIA.textDim }}>{r.cr != null ? r.cr + "%" : "—"}</td>
-                    <td style={{ ...cell, color: chgColor(r.chg), fontWeight: r.chg != null && Math.abs(r.chg) > 2 ? 700 : 400 }}>{r.chg != null ? (r.chg > 0 ? "+" : "") + r.chg.toFixed(1) + "%" : "—"}</td>
-                    <td style={{ ...cell, textAlign: "left", fontSize: 8, color: ARIA.textDim, maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis" }}>{driver || "—"}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-
-
-function SetupJournal({ stockMap, onTickerClick }) {
-  const ARIA = useAriaTheme();
-  const [days, setDays] = useState(() => { try { return parseInt(localStorage.getItem("tp-journal-days")) || 7; } catch { return 7; } });
-  const [badgeFilter, setBadgeFilter] = useState("ALL");
-  const [journal, setJournal] = useState(null); // { "YYYY-MM-DD": [events] }
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-
-  const load = useCallback(() => {
-    setLoading(true);
-    setError(null);
-    fetch(`/api/zvr?journal=${days}`)
-      .then((r) => r.json())
-      .then((d) => { if (d.ok) setJournal(d.days || {}); else setError(d.error || "load failed"); })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, [days]);
-  useEffect(load, [load]);
-
-  const eventTickers = useMemo(
-    () => [...new Set(Object.values(journal || {}).flat().map((e) => e.ticker))],
-    [journal]
-  );
-  const { quotes: liveQuotes } = useLiveQuotes(eventTickers, 30000);
-
-  const nowPrice = (tk) => liveQuotes.get(tk)?.price ?? stockMap?.[tk]?.price ?? stockMap?.[tk]?.close ?? null;
-  const sincePct = (ev) => {
-    const now = nowPrice(ev.ticker);
-    return (now != null && ev.price > 0) ? ((now - ev.price) / ev.price) * 100 : null;
-  };
-
-  const dayEntries = useMemo(() => {
-    const entries = Object.entries(journal || {}).sort((a, b) => b[0].localeCompare(a[0]));
-    if (badgeFilter === "ALL") return entries;
-    return entries
-      .map(([d, evs]) => [d, evs.filter((e) => e.badge === badgeFilter)])
-      .filter(([, evs]) => evs.length > 0);
-  }, [journal, badgeFilter]);
-
-  // Per-badge summary: count + avg since-fire return
-  const summary = useMemo(() => {
-    const acc = {};
-    for (const evs of Object.values(journal || {})) {
-      for (const ev of evs) {
-        const s = sincePct(ev);
-        const b = acc[ev.badge] || { n: 0, sum: 0, withRet: 0 };
-        b.n++;
-        if (s != null) { b.sum += s; b.withRet++; }
-        acc[ev.badge] = b;
-      }
-    }
-    return acc;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [journal, liveQuotes]);
-
-  const etTime = (ts) => {
-    try { return new Date(ts).toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" }); }
-    catch { return "—"; }
-  };
-  const fmtDay = (d) => {
-    try { return new Date(d + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }); }
-    catch { return d; }
-  };
-  const chgColor = (v) => v == null || Math.abs(v) <= 2 ? ARIA.textDim : v > 0 ? ARIA.green : ARIA.red;
-  const cell = { padding: "3px 8px", fontSize: 10, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, fontFamily: "monospace", whiteSpace: "nowrap" };
-  const th = { padding: "4px 8px", fontSize: 8, fontWeight: 700, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.4, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, fontFamily: "monospace", whiteSpace: "nowrap" };
-
-  const totalEvents = Object.values(journal || {}).flat().length;
-
-  return (
-    <div style={{ background: ARIA.bgCard, border: `1px solid ${ARIA.border}`, borderRadius: 8, overflow: "hidden" }}>
-      {/* Controls */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderBottom: `1px solid ${ARIA.border}`, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 12, fontWeight: 800, color: ARIA.text, fontFamily: "monospace", letterSpacing: 0.5 }}>⚡ SETUP JOURNAL</span>
-        <span style={{ fontSize: 9, color: ARIA.textMuted, fontFamily: "monospace" }}>
-          {totalEvents} firings · {dayEntries.length} day{dayEntries.length === 1 ? "" : "s"}
-        </span>
-        <span style={{ flex: 1 }} />
-        {["ALL", "ACC", "EP", "VCP", "DIST"].map((b) => (
-          <button key={b} onClick={() => setBadgeFilter(b)}
-            title={JOURNAL_BADGE_DESC[b] || "Show all badge types"}
-            style={{
-              fontSize: 9, fontFamily: "monospace", fontWeight: 700, padding: "2px 8px", borderRadius: 3, cursor: "pointer", letterSpacing: 0.3,
-              color: badgeFilter === b ? (JOURNAL_BADGE_COLORS[b] || ARIA.text) : ARIA.textDim,
-              background: badgeFilter === b ? `${JOURNAL_BADGE_COLORS[b] || "#888888"}1f` : "transparent",
-              border: `1px solid ${badgeFilter === b ? (JOURNAL_BADGE_COLORS[b] || ARIA.border) : ARIA.border}`,
-            }}>{b}</button>
-        ))}
-        <span style={{ color: ARIA.border }}>|</span>
-        {[7, 30, 90].map((d) => (
-          <button key={d} onClick={() => { setDays(d); try { localStorage.setItem("tp-journal-days", String(d)); } catch {} }}
-            style={{
-              fontSize: 9, fontFamily: "monospace", fontWeight: 700, padding: "2px 8px", borderRadius: 3, cursor: "pointer",
-              color: days === d ? ARIA.green : ARIA.textDim, background: days === d ? "rgba(13,145,99,0.12)" : "transparent",
-              border: `1px solid ${days === d ? ARIA.green : ARIA.border}`,
-            }}>{d}d</button>
-        ))}
-        <button onClick={load} title="Refresh"
-          style={{ fontSize: 9, fontFamily: "monospace", padding: "2px 8px", borderRadius: 3, cursor: "pointer", color: ARIA.textDim, background: "transparent", border: `1px solid ${ARIA.border}` }}>
-          {loading ? "…" : "↻"}
-        </button>
-      </div>
-
-      {/* Per-badge summary strip */}
-      {Object.keys(summary).length > 0 && (
-        <div style={{ display: "flex", gap: 16, padding: "6px 12px", borderBottom: `1px solid ${ARIA.border}`, flexWrap: "wrap" }}>
-          {["ACC", "EP", "VCP", "DIST"].filter((b) => summary[b]).map((b) => {
-            const s = summary[b];
-            const avg = s.withRet > 0 ? s.sum / s.withRet : null;
-            return (
-              <span key={b} style={{ fontSize: 9, fontFamily: "monospace", color: ARIA.textDim }}>
-                <span style={{ color: JOURNAL_BADGE_COLORS[b], fontWeight: 800 }}>{b}</span>
-                {" "}{s.n} fired
-                {avg != null && (
-                  <span> · avg since <span style={{ color: chgColor(avg), fontWeight: 700 }}>{avg > 0 ? "+" : ""}{avg.toFixed(1)}%</span></span>
-                )}
-              </span>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Body */}
-      <div style={{ maxHeight: "calc(100vh - 220px)", overflow: "auto" }}>
-        {error && <div style={{ padding: 16, fontSize: 10, fontFamily: "monospace", color: ARIA.red }}>Error: {error}</div>}
-        {!error && !loading && dayEntries.length === 0 && (
-          <div style={{ padding: 24, fontSize: 11, fontFamily: "monospace", color: ARIA.textMuted, textAlign: "center" }}>
-            No setup firings logged yet. Badges are journaled automatically while the
-            Scan Watch → Chain → Tickers view is open during market hours.
-          </div>
-        )}
-        {dayEntries.map(([day, events]) => (
-          <div key={day}>
-            <div style={{ padding: "5px 12px", fontSize: 9, fontWeight: 800, fontFamily: "monospace", color: ARIA.textDim, letterSpacing: 0.6, background: "rgba(255,255,255,0.03)", borderBottom: `1px solid ${ARIA.border}` }}>
-              {fmtDay(day)} <span style={{ color: ARIA.textMuted, fontWeight: 400 }}>· {events.length} firing{events.length === 1 ? "" : "s"}</span>
-            </div>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  <th style={{ ...th, textAlign: "left" }}>Time ET</th>
-                  <th style={{ ...th, textAlign: "left" }}>Ticker</th>
-                  <th style={{ ...th, textAlign: "left" }}>Setup</th>
-                  <th style={th}>ZVR</th>
-                  <th style={th}>EIF</th>
-                  <th style={th}>CR%</th>
-                  <th style={th}>Chg% @fire</th>
-                  <th style={th}>Price @fire</th>
-                  <th style={th}>Now</th>
-                  <th style={th}>Since</th>
-                </tr>
-              </thead>
-              <tbody>
-                {events.map((ev, i) => {
-                  const since = sincePct(ev);
-                  const now = nowPrice(ev.ticker);
-                  const bc = JOURNAL_BADGE_COLORS[ev.badge] || ARIA.textDim;
-                  return (
-                    <tr key={`${ev.ticker}-${ev.badge}-${i}`}
-                        onClick={() => onTickerClick && onTickerClick(ev.ticker)}
-                        style={{ cursor: "pointer" }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = ARIA.bgHover; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
-                      <td style={{ ...cell, textAlign: "left", color: ARIA.textMuted }}>{etTime(ev.ts)}</td>
-                      <td style={{ ...cell, textAlign: "left", fontWeight: 800, color: ARIA.text }}>
-                        <img src={ER_LOGO(ev.ticker)} alt="" style={{ width: 12, height: 12, borderRadius: 2, marginRight: 4, verticalAlign: "middle" }} onError={(e) => { e.target.style.display = "none"; }} />
-                        {ev.ticker}
-                      </td>
-                      <td style={{ ...cell, textAlign: "left" }}>
-                        <span title={JOURNAL_BADGE_DESC[ev.badge]} style={{ fontSize: 8, fontWeight: 800, color: bc, background: `${bc}1f`, border: `1px solid ${bc}55`, borderRadius: 2, padding: "1px 5px", letterSpacing: 0.3 }}>{ev.badge}</span>
-                      </td>
-                      <td style={{ ...cell, color: ev.zvr != null && ev.zvr < 0 ? ARIA.red : ev.zvr >= 200 ? "#fbbf24" : ev.zvr >= 150 ? ARIA.green : ARIA.textDim, fontWeight: 700 }}>
-                        {ev.zvr != null ? `${ev.zvr}%` : "—"}
-                      </td>
-                      <td style={{ ...cell, color: ev.eif != null && ev.eif >= 60 ? ARIA.green : ev.eif != null && ev.eif >= 46 ? ARIA.blue : ARIA.textDim }}>
-                        {ev.eif != null ? Math.round(ev.eif) : "—"}
-                      </td>
-                      <td style={{ ...cell, color: ev.cr != null && ev.cr >= 70 ? ARIA.green : ARIA.textDim }}>
-                        {ev.cr != null ? `${Math.round(ev.cr)}%` : "—"}
-                      </td>
-                      <td style={{ ...cell, color: chgColor(ev.chg), fontWeight: 700 }}>
-                        {ev.chg != null ? `${ev.chg > 0 ? "+" : ""}${ev.chg.toFixed(1)}%` : "—"}
-                      </td>
-                      <td style={{ ...cell, color: ARIA.textDim }}>{ev.price != null ? `$${Number(ev.price).toFixed(2)}` : "—"}</td>
-                      <td style={{ ...cell, color: ARIA.textDim }}>{now != null ? `$${Number(now).toFixed(2)}` : "—"}</td>
-                      <td style={{ ...cell, color: chgColor(since), fontWeight: 700 }}>
-                        {since != null ? `${since > 0 ? "+" : ""}${since.toFixed(1)}%` : "—"}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 // ── Trade alerts: polls live quotes for portfolio ∪ focus during RTH and fires
 // when (a) a name crosses its DE trigger, (b) a focus/held name fires BO
 // conditions, (c) a PORTFOLIO name shows heavy distribution. Deduped per
@@ -3386,13 +2806,30 @@ function AppMain() {
   const { themeMode, toggleTheme, zoom, changeZoom } = useAriaThemeControls();
   const data = useDashboardData();
   const { quotes: indexQuotes } = useLiveQuotes(LEAD_INDEX_TICKERS);
-  // Active ticker for the inline chart panel.
-  // Default chart ticker. Persists in localStorage.
+  // Active ticker & top-level view: URL query (?view=...&ticker=...) takes precedence over localStorage.
   const [chartTicker, setChartTicker] = useState(() => {
+    try {
+      const q = (new URLSearchParams(window.location.search).get("ticker") || "").trim().toUpperCase();
+      if (/^[A-Z][A-Z0-9.\-]{0,11}$/.test(q)) return q;
+    } catch {}
     return localStorage.getItem("themepulse-chart-ticker") || "QQQ";
   });
-  // Top-level view: dashboard or setup journal
-  const [mainView, setMainView] = useState(() => { const v = localStorage.getItem("themepulse-view"); return v === "scanner" || v === "brief" ? v : "lead"; });
+  const [mainView, setMainView] = useState(() => {
+    try {
+      const qv = (new URLSearchParams(window.location.search).get("view") || "").trim().toLowerCase();
+      if (qv === "lead" || qv === "scanner" || qv === "brief") return qv;
+    } catch {}
+    const v = localStorage.getItem("themepulse-view");
+    return v === "scanner" || v === "brief" ? v : "lead";
+  });
+  useEffect(() => {
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set("view", mainView);
+      if (chartTicker) url.searchParams.set("ticker", chartTicker);
+      window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+    } catch {}
+  }, [mainView, chartTicker]);
   const switchView = useCallback((v) => {
     setMainView(v);
     try { localStorage.setItem("themepulse-view", v); } catch {}
@@ -3400,7 +2837,7 @@ function AppMain() {
   const handleTickerClick = useCallback((ticker) => {
     if (!ticker) return;
     setChartTicker(ticker);
-    localStorage.setItem("themepulse-chart-ticker", ticker);
+    try { localStorage.setItem("themepulse-chart-ticker", ticker); } catch {}
   }, []);
 
   // Listen for ETF pill clicks from the Themes view (or anywhere else
@@ -3427,7 +2864,7 @@ function AppMain() {
   // Framework scores (Execution & Integrity Framework) — loaded from static JSON.
   const [frameworkScoresRaw, setFrameworkScoresRaw] = useState({});
   useEffect(() => {
-    fetch("/data/framework_scores.json", { cache: "no-store" })
+    fetch("/data/framework_scores.json", { cache: "no-cache" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (d?.scores) setFrameworkScoresRaw(d.scores); })
       .catch(() => {});
@@ -3435,7 +2872,7 @@ function AppMain() {
 
   // stockMap depends on data.pipeline.stocks. Compute it BEFORE the early
   // returns so the hook count is stable across loading→loaded transitions.
-  const stocks = data.pipeline?.stocks || [];
+  const stocks = useMemo(() => data.pipeline?.stocks || [], [data.pipeline?.stocks]);
   const stockMap = useMemo(() => {
     const m = {};
     stocks.forEach((s) => {
@@ -3484,42 +2921,6 @@ function AppMain() {
   }, [stocks, frameworkScoresRaw, data.pipeline?.ep_signals, data.pipeline?.headlines, data.pipeline?.earnings_movers, data.pipeline?.pm_sip_movers, data.pipeline?.ah_sip_movers]);
   // 🔔 Trade alerts (portfolio + focus, RTH): DE trigger breaks, BO firing, DIST on holdings
   const tradeAlerts = useTradeAlerts(stockMap);
-
-  // Subtheme setup score per ticker — used in Scan Watch "Str" column.
-  // Formula mirrors computeDailySetupScore in SubthemeRotation.jsx.
-  const tickerStrengthMap = useMemo(() => {
-    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-    const map = {};
-    (data.pipeline?.themes || []).forEach(theme => {
-      (theme.subthemes || []).forEach(sub => {
-        if (sub.rs == null) return;
-        const rs = sub.rs;
-        const breadth = sub.breadth ?? 50;
-        const weeklyRs = sub.weekly_rs ?? null;
-        const monthlyRs = sub.monthly_rs ?? null;
-        const strength = rs * 0.6 + breadth * 0.4;
-        const d1 = weeklyRs != null && monthlyRs != null ? weeklyRs - monthlyRs : 0;
-        const d4 = monthlyRs != null ? monthlyRs - 50 : 0;
-        const d1Score = clamp(50 + d1 * 5, 0, 100);
-        const d4Score = clamp(50 + d4 * 2.5, 0, 100);
-        const direction = clamp(d1Score * 0.5 + d4Score * 0.3 + 50, 0, 100);
-        // Dispersion from constituent RS std dev
-        const rsVals = (sub.tickers || []).map(t => t.rs).filter(v => v != null);
-        let disp = 30;
-        if (rsVals.length >= 2) {
-          const mean = rsVals.reduce((a, b) => a + b, 0) / rsVals.length;
-          disp = Math.sqrt(rsVals.reduce((s, v) => s + (v - mean) ** 2, 0) / rsVals.length);
-        }
-        const conviction = clamp(100 - disp * 2.5, 0, 100);
-        const score = Math.round(Math.pow(strength * direction * conviction, 1 / 3));
-        (sub.tickers || []).forEach(t => {
-          const ticker = typeof t === "string" ? t : t.ticker;
-          if (ticker && map[ticker] == null) map[ticker] = score;
-        });
-      });
-    });
-    return map;
-  }, [data.pipeline]);
 
   // ── Now safe to do conditional early returns ───────────────────────────
   if (data.loading) {
@@ -3632,8 +3033,28 @@ function AppMain() {
             gap: 12,
           }}
         >
-          <span style={{ color: ARIA.textMuted, fontSize: 10 }}>
+          <span
+            style={{ color: isPipelineStale(data.pipeline?.date) ? "#f59e0b" : ARIA.textMuted, fontSize: 10 }}
+            title={isPipelineStale(data.pipeline?.date) ? "Pipeline data is more than 2 trading days old — check GitHub Actions" : undefined}
+          >
             {stocks.length.toLocaleString()} stocks · {data.pipeline?.date || ""}
+            {isPipelineStale(data.pipeline?.date) && (
+              <span
+                style={{
+                  marginLeft: 6,
+                  padding: "1px 5px",
+                  borderRadius: 3,
+                  background: "rgba(245,158,11,0.16)",
+                  border: "1px solid rgba(245,158,11,0.45)",
+                  color: "#f59e0b",
+                  fontFamily: "monospace",
+                  fontSize: 9,
+                  fontWeight: 700,
+                }}
+              >
+                STALE
+              </span>
+            )}
           </span>
           <button
             onClick={toggleTheme}
@@ -3715,396 +3136,27 @@ function AppMain() {
           zoom: zoom,
         }}
       >
-        {mainView === "journal" ? (
-          <SetupJournal
+        <ErrorBoundary>
+          <LeadershipView
+            view={mainView}
+            ARIA={ARIA}
+            indexQuotes={indexQuotes}
+            pipeline={data.pipeline}
             stockMap={stockMap}
-            onTickerClick={(t) => { handleTickerClick(t); switchView("lead"); }}
+            chartTicker={chartTicker}
+            onTickerClick={handleTickerClick}
+            chartSlot={
+              <ChartPanelInline
+                ticker={chartTicker}
+                onTickerChange={handleTickerClick}
+                stockMap={stockMap}
+              />
+            }
           />
-        ) : mainView === "leaders" ? (
-          <LeadersView
-            stockMap={stockMap}
-            onTickerClick={(t) => { handleTickerClick(t); switchView("lead"); }}
-          />
-        ) : (
-          <ErrorBoundary>
-            <LeadershipView
-              view={mainView}
-              ARIA={ARIA}
-              indexQuotes={indexQuotes}
-              pipeline={data.pipeline}
-              stockMap={stockMap}
-              chartTicker={chartTicker}
-              onTickerClick={handleTickerClick}
-              chartSlot={
-                <ChartPanelInline
-                  ticker={chartTicker}
-                  onTickerChange={handleTickerClick}
-                  stockMap={stockMap}
-                  themeHealth={data.pipeline?.theme_health || []}
-                  tickerStrengthMap={tickerStrengthMap}
-                />
-              }
-            />
-          </ErrorBoundary>
-        )}
+        </ErrorBoundary>
       </div>
     </div>
   );
-}
-
-// Curated subthemes — mirrors SUBTHEMES in theme-leaderboard.html
-const DRAWER_SUBTHEMES = [
-  { theme: "AI Infra", themeId: "ai", layer: "Compute Silicon", desc: "GPUs, accelerators & CPUs powering AI training and inference", tickers: ["NVDA","AMD","AVGO","INTC","MRVL","ARM","ALAB","TSM"] },
-  { theme: "AI Infra", themeId: "ai", layer: "AI Connectivity", desc: "High-speed interconnects, retimers & optics linking AI clusters", tickers: ["ALAB","CRDO","MRVL","AAOI","MXL","AVGO"] },
-  { theme: "AI Infra", themeId: "ai", layer: "Networking + Components", desc: "Switches & components for AI datacenter networks", tickers: ["ANET","CSCO","CIEN","APH","TEL","CLS","JBL"] },
-  { theme: "AI Infra", themeId: "ai", layer: "Memory + Storage", desc: "DRAM, HBM, NAND & storage feeding AI workloads", tickers: ["MU","SNDK","WDC","STX","RMBS","SIMO","P"] },
-  { theme: "AI Infra", themeId: "ai", layer: "DC + Cooling", desc: "Datacenter build-out — power, cooling & servers", tickers: ["DLR","EQIX","VRT","EME","SMCI","DELL","HPE","ETN","MOD","NVT","CARR","JCI","FIX","IRM"] },
-  { theme: "AI Infra", themeId: "ai", layer: "Photonics", desc: "Optical transceivers & silicon photonics for bandwidth", tickers: ["AAOI","CIEN","COHR","FN","CRDO","LITE","VIAV","AXTI","MTSI","POET","LWLG","LPTH"] },
-  { theme: "AI Infra", themeId: "ai", layer: "Neoclouds + Hyperscalers", desc: "Cloud platforms & GPU neoclouds renting AI compute", tickers: ["MSFT","GOOGL","AMZN","META","ORCL","NBIS","IREN","CRWV","APLD","WULF","HUT","CORZ"] },
-  { theme: "AI Infra", themeId: "ai", layer: "Power Generation (IPPs)", desc: "Independent power producers feeding datacenter demand", tickers: ["VST","CEG","TLN","NRG","NEE"] },
-  { theme: "AI Infra", themeId: "ai", layer: "Grid Equipment + EPC", desc: "Grid build-out & engineering for AI power loads", tickers: ["AGX","DY","EME","GEV","ETN","PWR","MYRG","PRIM"] },
-  { theme: "AI Infra", themeId: "ai", layer: "Nuclear / SMR", desc: "Nuclear & small modular reactors for clean baseload", tickers: ["OKLO","SMR","NNE","BWXT","LEU","CEG","UEC"] },
-  { theme: "AI Infra", themeId: "ai", layer: "Energy Storage + Fuel Cell", desc: "Grid batteries & fuel cells for backup/peak power", tickers: ["BE","EOSE","PLUG","BLDP","FCEL","FLNC"] },
-  { theme: "Software", themeId: "software", layer: "AI Agents + Apps", desc: "Applied-AI software & agentic platforms", tickers: ["PLTR","NOW","CRM","AI","BBAI","SOUN","PATH","IOT","ANT"] },
-  { theme: "Software", themeId: "software", layer: "Data Platforms", desc: "Cloud data warehouses & analytics infrastructure", tickers: ["SNOW","MDB","DDOG","ESTC","CFLT","TDC"] },
-  { theme: "Software", themeId: "software", layer: "Analytics", desc: "Data, scoring & decisioning platforms — sell the answer, not the warehouse", tickers: ["PLTR","FICO","VRSK","TRU","EFX","ZETA","AMPL","TDC"] },
-  { theme: "Software", themeId: "software", layer: "Enterprise SaaS", desc: "Large-cap enterprise application software", tickers: ["INTU","ADBE","WDAY","VEEV","HUBS","SAP","IBM"] },
-  { theme: "Software", themeId: "software", layer: "DevOps + Observability", desc: "Developer tooling & app/infra monitoring", tickers: ["DDOG","GTLB","TEAM","FROG","PD","ESTC"] },
-  { theme: "Software", themeId: "software", layer: "Collab + Productivity", desc: "Workplace collaboration & productivity apps", tickers: ["ASAN","MNDY","ZM","DOCU","BOX","RNG"] },
-  { theme: "Software", themeId: "software", layer: "Vertical SaaS", desc: "Industry-specific vertical software", tickers: ["TYL","GWRE","MANH","PCOR","CCC","VERX","TTAN","ALKT","PAYC","PCTY","APPF","AGYS","INTA","WK"] },
-  { theme: "Software", themeId: "software", layer: "CDN + Edge Cloud", desc: "Content delivery & edge compute networks", tickers: ["NET","FSLY","AKAM","DOCN"] },
-  { theme: "Cyber", themeId: "cyber", layer: "Platform + Endpoint", desc: "Endpoint, platform & identity security leaders", tickers: ["PANW","CRWD","FTNT","ZS","S","GEN","OKTA","SAIL","OSPN","LAES"] },
-  { theme: "Cyber", themeId: "cyber", layer: "Cloud + Network Sec", desc: "Cloud, network & web-application security", tickers: ["ZS","NET","AKAM","CHKP","RDWR","RBRK"] },
-  { theme: "Cyber", themeId: "cyber", layer: "Threat Operations", desc: "Vulnerability mgmt, SIEM & threat detection", tickers: ["TENB","QLYS","RPD","VRNS","OSPN","SPSC"] },
-  { theme: "Cyber", themeId: "cyber", layer: "Defense Cyber", desc: "Government IT & defense-focused cyber services", tickers: ["BAH","CACI","SAIC","LDOS","KBR","PSN","ICFI"] },
-  { theme: "Fintech", themeId: "fintech", layer: "Crypto Infra + Exchanges", desc: "Crypto exchanges, treasuries & infrastructure", tickers: ["COIN","MSTR","HOOD","GLXY","CRCL","BMNR","BLSH"] },
-  { theme: "Fintech", themeId: "fintech", layer: "Crypto Miners", desc: "Bitcoin miners & HPC-pivot datacenter plays", tickers: ["MARA","RIOT","CLSK","CIFR","IREN","WULF","HUT","CORZ","BTDR","BITF","HIVE"] },
-  { theme: "Fintech", themeId: "fintech", layer: "Bitcoin ETFs", desc: "Spot Bitcoin ETFs", tickers: ["IBIT","FBTC","BITB","BITO","BITW","GBTC","BRRR"] },
-  { theme: "Fintech", themeId: "fintech", layer: "Neobanks + Digital", desc: "Digital banks & consumer fintech apps", tickers: ["SOFI","NU","ALLY","HOOD","LC","DAVE","KSPI"] },
-  { theme: "Fintech", themeId: "fintech", layer: "Payments", desc: "Card networks & payment processors", tickers: ["V","MA","PYPL","AFRM","FOUR","TOST","PAGS","DLO","XYZ","FLYW","GPN","CPAY","WEX"] },
-  { theme: "Fintech", themeId: "fintech", layer: "Asset Mgmt + Trading", desc: "Brokers, asset managers & trading platforms", tickers: ["SCHW","BLK","KKR","BX","IBKR","FUTU","TIGR","RJF","MS","GS","EVR","PIPR","LAZ","JEF","MC"] },
-  { theme: "Defense", themeId: "defense", layer: "Prime Contractors", desc: "Major defense primes & aerospace OEMs", tickers: ["LMT","RTX","NOC","GD","BA","LHX","HII","TDG","GE","HEI","TXT","TDY","VSEC","MRCY","MOG-A"] },
-  { theme: "Defense", themeId: "defense", layer: "Aerospace Aftermarket", desc: "Aircraft parts, MRO & aftermarket", tickers: ["FTAI","HWM","WWD","LOAR","HXL","TDG","HEI"] },
-  { theme: "Defense", themeId: "defense", layer: "Drones + EVTOL", desc: "Drones, loitering munitions & eVTOL aircraft", tickers: ["AVAV","KTOS","ONDS","RCAT","UMAC","ACHR","JOBY","EH","EVTL"] },
-  { theme: "Defense", themeId: "defense", layer: "Space Defense", desc: "Defense-oriented space & satellite plays", tickers: ["RKLB","ASTS","LUNR","GSAT","IRDM","BKSY","PL","BWXT"] },
-  { theme: "Defense", themeId: "defense", layer: "Autonomous + AI Defense", desc: "AI software & autonomy for defense", tickers: ["PLTR","LDOS","BBAI","BAH","CACI","SAIC"] },
-  { theme: "Defense", themeId: "defense", layer: "Weapons + Munitions", desc: "Munitions, small arms & tactical weapons", tickers: ["AXON","GD","LHX","RTX","RGR","SWBI"] },
-  { theme: "Robotics", themeId: "robotics", layer: "Industrial Automation", desc: "Factory automation & industrial robotics", tickers: ["EMR","ETN","ROK","NDSN","NNDM","SYM"] },
-  { theme: "Robotics", themeId: "robotics", layer: "Service + Delivery", desc: "Service, delivery & security robots", tickers: ["SERV","RR","DASH","AUR"] },
-  { theme: "Robotics", themeId: "robotics", layer: "Machine Vision + LiDAR", desc: "Machine vision & LiDAR sensing", tickers: ["CGNX","AEVA","OUST","HSAI","LPTH","KOPN","CEVA","AMBA","MVIS"] },
-  { theme: "Robotics", themeId: "robotics", layer: "AV + Self-Driving", desc: "Autonomous-vehicle & robotaxi stack", tickers: ["TSLA","MBLY","AUR","GOOGL","PONY","WRD","NVDA"] },
-  { theme: "Robotics", themeId: "robotics", layer: "Medical Robotics", desc: "Surgical & medical robotics", tickers: ["ISRG","SYK","MDT","PRCT","GMED"] },
-  { theme: "Robotics", themeId: "robotics", layer: "Warehouse + Logistics", desc: "Warehouse automation & fulfillment robotics", tickers: ["AMZN","SYM","GXO","SERV","ZBRA","HON"] },
-  { theme: "EV", themeId: "ev", layer: "Makers", desc: "EV & auto manufacturers", tickers: ["TSLA","RIVN","F","GM","NIO","LI","XPEV","EVGO"] },
-  { theme: "EV", themeId: "ev", layer: "Batteries + Cells", desc: "EV battery makers & next-gen cells", tickers: ["ABAT","AMPX","ENVX","QS","SLDP","MVST"] },
-  { theme: "EV", themeId: "ev", layer: "Battery Materials", desc: "Lithium & cathode/anode raw materials", tickers: ["ALB","SQM","LAC","MP","NMG"] },
-  { theme: "EV", themeId: "ev", layer: "Auto Parts + Suppliers", desc: "EV/auto components & suppliers", tickers: ["APTV","MGA","LEA","WOLF","NVTS","BWA","ALV"] },
-  { theme: "Quantum", themeId: "quantum", layer: "Pure-Play Hardware", desc: "Pure-play quantum computing hardware", tickers: ["IONQ","RGTI","QUBT","QBTS","LAES"] },
-  { theme: "Quantum", themeId: "quantum", layer: "Mega-Cap Quantum", desc: "Mega-caps with quantum-computing programs", tickers: ["GOOGL","MSFT","AMZN","IBM","NVDA"] },
-  { theme: "Quantum", themeId: "quantum", layer: "Enabling Tech", desc: "Photonics & components enabling quantum", tickers: ["COHR","FORM","HON","NOVT","POET"] },
-  { theme: "Space", themeId: "space", layer: "Defense Space", desc: "Defense primes' space & satellite work", tickers: ["LMT","NOC","RTX","BA","LHX","BWXT"] },
-  { theme: "Space", themeId: "space", layer: "Satellites + Connect", desc: "Satellite comms & direct-to-device connectivity", tickers: ["SPCX","ASTS","GSAT","IRDM","VSAT","BKSY","ECHO","GILT","RKLB"] },
-  { theme: "Space", themeId: "space", layer: "Lunar + Deep Space", desc: "Lunar landers & deep-space exploration", tickers: ["LUNR","LDOS","LMT","RKLB","RDW","BWXT"] },
-  { theme: "Space", themeId: "space", layer: "Space Infrastructure", desc: "Launch, in-space services & space hardware", tickers: ["SPCX","BWXT","RDW","GHM","VVX","KTOS","LUNR"] },
-  { theme: "Materials", themeId: "materials", layer: "Rare Earths", desc: "Rare-earth mining & magnet supply chain", tickers: ["MP","USAR","IDR","CRML","NB","UAMY","AREC"] },
-  { theme: "Materials", themeId: "materials", layer: "Uranium", desc: "Uranium miners & nuclear fuel cycle", tickers: ["CCJ","NXE","UEC","DNN","UUUU","LEU"] },
-  { theme: "Materials", themeId: "materials", layer: "Lithium", desc: "Lithium producers", tickers: ["ALB","SQM","LAC","SGML","RIO"] },
-  { theme: "Materials", themeId: "materials", layer: "Copper", desc: "Copper miners — electrification demand", tickers: ["FCX","SCCO","TGB","HBM","ERO","BHP","TECK"] },
-  { theme: "Materials", themeId: "materials", layer: "Steel & Iron", desc: "Steel & iron-ore producers", tickers: ["NUE","STLD","CLF","CMC","RS","TS","VALE","MT"] },
-  { theme: "Materials", themeId: "materials", layer: "Specialty Chemicals", desc: "Specialty & diversified chemicals + industrial gases", tickers: ["EMN","CE","AVNT","OLN","LYB","TROX","HUN","MTRN","LIN","APD","SOLS"] },
-  { theme: "Materials", themeId: "materials", layer: "Precious Metals", desc: "Gold, silver & precious-metal miners", tickers: ["NEM","AEM","GOLD","WPM","FNV","AG","HL","EGO","KGC","SKE","VZLA"] },
-  { theme: "Semiconductors", themeId: "semis", layer: "Analog", desc: "Analog, power & mixed-signal chips", tickers: ["MPWR","ON","ADI","TXN","NXPI","MCHP","STM","ALGM","AOSL","CRUS","POWI","VSH","SMTC","SITM","SYNA","DIOD"] },
-  { theme: "Semiconductors", themeId: "semis", layer: "Compute", desc: "Compute, GPU & processor leaders", tickers: ["NVDA","AMD","ARM","ALAB","MRVL","AVGO","INTC","QCOM","AMBA","LSCC","AIP"] },
-  { theme: "Semiconductors", themeId: "semis", layer: "Packaging", desc: "Advanced packaging & test (OSAT)", tickers: ["AMKR","FORM","ONTO","KLIC","COHU","ASX","IMOS","Q"] },
-  { theme: "Semiconductors", themeId: "semis", layer: "Glass Substrate", desc: "Glass substrates & advanced-packaging materials", tickers: ["GLW","INTC","AMAT","LRCX","KLAC","CAMT","ONTO","IPGP","COHR"] },
-  { theme: "Semiconductors", themeId: "semis", layer: "Foundries", desc: "Chip foundries & contract manufacturing", tickers: ["TSM","GFS","UMC","SKYT","INTC","TSEM","HIMX"] },
-  { theme: "Semiconductors", themeId: "semis", layer: "Equipment", desc: "Wafer-fab equipment & semicap", tickers: ["AMAT","LRCX","ASML","KLAC","ACLS","TER","NVMI","MKSI","ENTG","VECO","CAMT","AEHR"] },
-  { theme: "Healthcare", themeId: "health", layer: "GLP-1 / Metabolic", desc: "GLP-1 & obesity/metabolic drugmakers", tickers: ["LLY","NVO","AMGN","VKTX","ALT","RVMD","TERN"] },
-  { theme: "Healthcare", themeId: "health", layer: "Oncology", desc: "Oncology & cancer therapeutics", tickers: ["TGTX","IBRX","RYTM","REGN","EXEL","LEGN","FTRE","MRNA"] },
-  { theme: "Healthcare", themeId: "health", layer: "Genomics / Gene Editing", desc: "Gene editing & genomics", tickers: ["CRSP","NTLA","BEAM","VRTX","RXRX","SDGR","RGEN"] },
-  { theme: "Healthcare", themeId: "health", layer: "Diagnostics", desc: "Diagnostics & lab testing", tickers: ["DGX","LH","EXAS","NTRA","GH","ICLR","PSNL"] },
-  { theme: "Healthcare", themeId: "health", layer: "Devices", desc: "Medical devices", tickers: ["ISRG","BSX","EW","ABT","MDT","SYK","DXCM","PODD"] },
-  { theme: "Healthcare", themeId: "health", layer: "Telemedicine / Health IT", desc: "Telehealth & healthcare IT", tickers: ["TDOC","HIMS","DOCS","OSCR","CLOV"] },
-  { theme: "Energy", themeId: "energy", layer: "Oil Majors", desc: "Integrated & large-cap oil producers", tickers: ["XOM","CVX","COP","EOG","OXY","FANG"] },
-  { theme: "Energy", themeId: "energy", layer: "Oil Services", desc: "Oilfield services", tickers: ["SLB","HAL","BKR","FTI","NOV","PTEN","LBRT","WTTR"] },
-  { theme: "Energy", themeId: "energy", layer: "Natural Gas / LNG", desc: "Natural gas producers & LNG", tickers: ["EQT","AR","RRC","LNG","CQP","AROC","EXE"] },
-  { theme: "Energy", themeId: "energy", layer: "Refining", desc: "Refiners", tickers: ["VLO","MPC","PSX","PARR","DK","CVI","DINO","CLMT"] },
-  { theme: "Energy", themeId: "energy", layer: "Solar", desc: "Solar manufacturers & installers", tickers: ["FSLR","ENPH","SEDG","ARRY","NXT","RUN","SHLS"] },
-  { theme: "Energy", themeId: "energy", layer: "Wind / Hydrogen", desc: "Wind, hydrogen & fuel cells", tickers: ["BEPC","NEE","PLUG","BE","BLDP","FCEL"] },
-  { theme: "Internet", themeId: "internet", layer: "Social Media", desc: "Social media & online platforms", tickers: ["META","SNAP","PINS","RDDT","MTCH"] },
-  { theme: "Internet", themeId: "internet", layer: "E-Commerce", desc: "E-commerce marketplaces & online retail", tickers: ["AMZN","SHOP","MELI","SE","ETSY","BABA","JD","PDD","CHWY"] },
-  { theme: "Internet", themeId: "internet", layer: "Streaming / Media", desc: "Streaming & digital media", tickers: ["NFLX","DIS","WBD","SPOT","ROKU","FUBO","SKYD","MSGK"] },
-  { theme: "Internet", themeId: "internet", layer: "Gaming", desc: "Video game publishers & platforms", tickers: ["TTWO","EA","RBLX","NTES","U","SONY"] },
-  { theme: "Internet", themeId: "internet", layer: "Adtech", desc: "Advertising technology", tickers: ["TTD","APP","MGNI","CRTO","PUBM","DV","APPS","ZD"] },
-  { theme: "Internet", themeId: "internet", layer: "Sports Betting", desc: "Online sports betting & casinos", tickers: ["DKNG","FLUT","MGM","CZR","PENN","RSI"] },
-  // ── Shipping & Maritime ──
-  { theme: "Shipping", themeId: "shipping", layer: "Tankers", desc: "Crude & product tanker operators", tickers: ["INSW","FRO","STNG","TNK","TRMD","DHT","NAT","HAFN","ASC","TEN","NGL"] },
-  { theme: "Shipping", themeId: "shipping", layer: "Dry Bulk", desc: "Dry-bulk shippers", tickers: ["SBLK","GNK","NMM","BWLP","HSHP","SB"] },
-  { theme: "Shipping", themeId: "shipping", layer: "Containers + Mixed", desc: "Container & mixed-fleet shipping", tickers: ["ZIM","MATX","DAC","GSL","CMRE"] },
-  // ── Transport & Logistics ──
-  { theme: "Transport", themeId: "transport", layer: "Trucking", desc: "Trucking & LTL carriers", tickers: ["XPO","ODFL","SAIA","KNX","TFII","ARCB","CVLG","ULH","HTLD","SNDR"] },
-  { theme: "Transport", themeId: "transport", layer: "Rail", desc: "Railroads & rail equipment", tickers: ["WAB","CSX","UNP","NSC","CP","TRN","GBX"] },
-  { theme: "Transport", themeId: "transport", layer: "Freight + Logistics", desc: "Parcel, freight & logistics", tickers: ["FDX","UPS","JBHT","LSTR","CHRW","RLGT","ZTO","EXPD"] },
-  { theme: "Transport", themeId: "transport", layer: "Airlines", desc: "Passenger airlines", tickers: ["DAL","UAL","LUV","AAL","ALK","ALGT","JBLU","SNCY","LTM","ULCC","UP"] },
-  // ── Infrastructure & Construction ──
-  { theme: "Infra Build", themeId: "infrabuild", layer: "E&C / Heavy Civil", desc: "Engineering & heavy-civil construction", tickers: ["MTZ","STRL","IESC","ECG","TPC","PRIM","ORN","GLDD","APG","GVA","FLR","ACA"] },
-  { theme: "Infra Build", themeId: "infrabuild", layer: "Electrical + Fire/Safety", desc: "Electrical, fire & safety products", tickers: ["HUBB","AEIS","ENS","PLPC","ATKR","NVT"] },
-  { theme: "Infra Build", themeId: "infrabuild", layer: "Specialty Metals", desc: "Specialty metals & alloys", tickers: ["ATI","CRS","HWM","MLI","AZZ","NWPX","MEC"] },
-  { theme: "Infra Build", themeId: "infrabuild", layer: "Waste + Environment", desc: "Waste management & environmental services", tickers: ["WM","RSG","WCN","NVRI","CLH","CECO","ATMU","GFL"] },
-  { theme: "Infra Build", themeId: "infrabuild", layer: "Heavy Equipment", desc: "Heavy machinery & equipment", tickers: ["CAT","DE","CMI","TEX","ASTE","PCAR","URI"] },
-  // ── Telecom & Connectivity ──
-  { theme: "Telecom", themeId: "telecom", layer: "Carriers", desc: "Wireless & wireline carriers", tickers: ["T","VZ","TMUS","AMX","SKM","LUMN","TIGO","VIV","ATEX","CABO"] },
-  { theme: "Telecom", themeId: "telecom", layer: "Comm Equipment", desc: "Telecom & networking equipment", tickers: ["NOK","ERIC","UI","ECHO","VIAV","CALX","ADTN"] },
-  { theme: "Telecom", themeId: "telecom", layer: "Towers + Infra", desc: "Cell towers & wireless-infrastructure REITs", tickers: ["AMT","CCI","SBAC","UNIT"] },
-  // ── Financials ──
-  { theme: "Financials", themeId: "financials", layer: "Mega Banks", desc: "Money-center & mega-cap banks", tickers: ["JPM","BAC","WFC","C","GS","MS","USB","PNC"] },
-  { theme: "Financials", themeId: "financials", layer: "Regional Banks", desc: "Regional & mid-cap banks", tickers: ["CFG","KEY","MTB","FITB","RF","HBAN","TFC","ZION","FHN","WAL","EWBC","FNB"] },
-  { theme: "Financials", themeId: "financials", layer: "Insurance", desc: "P&C, life & multiline insurers", tickers: ["PGR","ALL","TRV","MET","AIG","CB","AFL","PRU","ACGL","RNR","AJG","SKWD"] },
-  { theme: "Financials", themeId: "financials", layer: "Capital Markets + Exchanges", desc: "Exchanges & capital-market infrastructure", tickers: ["ICE","CME","NDAQ","CBOE","MKTX","VIRT","OPY","BGC","PIPR","EVR"] },
-  { theme: "Financials", themeId: "financials", layer: "Alt Asset Mgrs + PE", desc: "Alternative asset managers & private equity", tickers: ["BX","KKR","APO","ARES","CG","OWL","BAM","BN"] },
-  // ── Consumer ──
-  { theme: "Consumer", themeId: "consumer", layer: "Retail", desc: "Big-box, discount & specialty retail", tickers: ["WMT","COST","TGT","FIVE","DG","DLTR","HD","LOW","ULTA","TJX","ROST","BURL","AAPL","SONO"] },
-  { theme: "Consumer", themeId: "consumer", layer: "Restaurants + QSR", desc: "Restaurants & quick-service chains", tickers: ["MCD","SBUX","CMG","WING","CAVA","SHAK","DPZ","YUM","QSR","TXRH","EAT","LOCO","JMKE"] },
-  { theme: "Consumer", themeId: "consumer", layer: "Travel + Leisure", desc: "Travel, hotels & cruise lines", tickers: ["BKNG","EXPE","ABNB","MAR","HLT","RCL","CCL","NCLH","VIK","TNL","LIND"] },
-  { theme: "Consumer", themeId: "consumer", layer: "Luxury + Apparel", desc: "Apparel, footwear & luxury brands", tickers: ["RL","TPR","PVH","LEVI","VFC","ELA","FIGS","NKE","DECK","ON","CROX"] },
-  // ── Biotech (expanded) ──
-  { theme: "Healthcare", themeId: "health", layer: "Biotech Leaders", desc: "Large-cap profitable biotech", tickers: ["VRTX","REGN","GILD","BIIB","IONS","ALNY","BMRN","NBIX","UTHR","SRPT"] },
-  { theme: "Healthcare", themeId: "health", layer: "Pharma Majors", desc: "Big pharma", tickers: ["LLY","JNJ","MRK","PFE","AZN","GSK","TEVA","ELAN","VTRS"] },
-  { theme: "Healthcare", themeId: "health", layer: "Managed Care + Payers", desc: "Health insurers & managed care", tickers: ["UNH","CI","ELV","HUM","CNC","MOH","OSCR"] },
-  { theme: "Healthcare", themeId: "health", layer: "CRO + Services", desc: "Clinical research orgs & pharma services", tickers: ["ICLR","CRL","MEDP","IQV","DOCS","VEEV"] },
-  // ── Oil & Gas (expanded) ──
-  { theme: "Energy", themeId: "energy", layer: "E&P International", desc: "International oil & gas producers", tickers: ["PBR","E","CVE","EQNR","TTE","SU","IMO","YPF","VIST","EC"] },
-  { theme: "Energy", themeId: "energy", layer: "Oil Field Equipment", desc: "Drilling rigs & oilfield equipment", tickers: ["FET","VAL","OIS","SEI","PUMP","NESR","TTI","EFXT","RIG","NE","NBR"] },
-  { theme: "Energy", themeId: "energy", layer: "Midstream + Pipelines", desc: "Pipelines & midstream energy", tickers: ["ET","EPD","WMB","KMI","OKE","TRGP","MPLX","PAA","AM"] },
-  // ── Agriculture + Food ──
-  { theme: "Agriculture", themeId: "agriculture", layer: "Ag Commodities + Trade", desc: "Ag commodity processing & trading", tickers: ["ADM","BG","ANDE","AGRO","INGR","DAR"] },
-  { theme: "Agriculture", themeId: "agriculture", layer: "Farm Equipment", desc: "Farm machinery & equipment", tickers: ["DE","CAT","AGCO","ASTE","TITN","CNH"] },
-  { theme: "Agriculture", themeId: "agriculture", layer: "Fertilizers + Crop", desc: "Fertilizers & crop inputs", tickers: ["MOS","NTR","CF","FMC","CTVA","IPI","UAN"] },
-  { theme: "Healthcare", themeId: "health", layer: "Providers + Facilities", desc: "Hospitals, clinics & care facilities", tickers: ["HCA","THC","UHS","ENSG","PACS"] },
-  { theme: "Real Estate", themeId: "realestate", layer: "RE Services", desc: "Brokerage, property services & real-estate data/marketplaces", tickers: ["CBRE","JLL","CSGP","Z","COMP"] },
-  { theme: "Healthcare", themeId: "health", layer: "Biotech", desc: "Curated pins for biotechs FMP leaves without an industry (joins the industry-built Biotech layer)", tickers: ["EYPT","ZURA","LENZ"] },
-  { theme: "Materials", themeId: "materials", layer: "Paper + Forest", desc: "Curated pins (joins the industry-built layer): timber", tickers: ["WY"] },
-  { theme: "Real Estate", themeId: "realestate", layer: "Equity REITs", desc: "Curated pins (joins the industry-built layer): gaming REITs", tickers: ["GLPI"] },
-  { theme: "Consumer", themeId: "consumer", layer: "Food + Beverages", desc: "Curated pins (joins the industry-built layer): FMP leaves these without an industry", tickers: ["BYND"] },
-  { theme: "Utilities", themeId: "utilities", layer: "Diversified Utilities", desc: "Multi-utilities — curated pins for names FMP mis-files by industry", tickers: ["HZN"] },
-  { theme: "Utilities", themeId: "utilities", layer: "Renewables", desc: "Renewable power & clean-energy yield", tickers: ["BEP","CWEN","ORA","HASI"] },
-  { theme: "Fintech", themeId: "fintech", layer: "Credit + Lending", desc: "Consumer & mortgage credit platforms", tickers: ["UPST","AFRM","LC","TREE"] },
-  { theme: "Agriculture", themeId: "agriculture", layer: "Animal Health + Food Tech", desc: "Animal health & food technology", tickers: ["IDXX","ZTS","ELAN","PAHC"] },
-  // ── Industrials ──
-  { theme: "Industrials", themeId: "industrials", layer: "Conglomerates", desc: "Diversified industrial conglomerates", tickers: ["HON","MMM","GE","ITW","EMR","DHR","PH","ETN","ROK","IR"] },
-  { theme: "Industrials", themeId: "industrials", layer: "Machinery", desc: "Industrial machinery makers", tickers: ["CMI","GNRC","SWK","MIDD","TTC","NDSN","RRX","GRC","THR"] },
-  { theme: "Industrials", themeId: "industrials", layer: "Tools + Testing", desc: "Test, measurement & precision tools", tickers: ["KEYS","TDY","GRMN","FTV","A","BR","TER","ONTO"] },
-  { theme: "Industrials", themeId: "industrials", layer: "Rental + Leasing", desc: "Equipment rental & leasing", tickers: ["URI","CAR","HTZ","R","WLFC","CTOS","VSTS"] },
-  { theme: "Industrials", themeId: "industrials", layer: "Security + Services", desc: "Security products & industrial services", tickers: ["AXON","REZI","MG","NSSC","BCO","ALLE","JCI"] },
-];
-const DRAWER_COLORS = {
-  ai:          { bg: "rgba(108,213,232,0.12)", border: "#3a8a9e", color: "#6cd5e8" },
-  defense:     { bg: "rgba(251,191,36,0.12)",  border: "#a07a1f", color: "#fbbf24" },
-  robotics:    { bg: "rgba(34,211,238,0.12)",  border: "#1a8aa4", color: "#22d3ee" },
-  ev:          { bg: "rgba(109,222,142,0.12)", border: "#2c5e3e", color: "#6dde8e" },
-  quantum:     { bg: "rgba(184,106,252,0.12)", border: "#5a3e8e", color: "#b86afc" },
-  space:       { bg: "rgba(106,158,255,0.12)", border: "#3a5a8a", color: "#6a9eff" },
-  software:    { bg: "rgba(167,139,250,0.12)", border: "#5a3e8e", color: "#a78bfa" },
-  cyber:       { bg: "rgba(239,68,68,0.12)",   border: "#7e2828", color: "#ef4444" },
-  fintech:     { bg: "rgba(251,191,36,0.12)",  border: "#a07a1f", color: "#fbbf24" },
-  materials:   { bg: "rgba(163,230,53,0.12)",  border: "#4a6e1a", color: "#a3e635" },
-  semis:       { bg: "rgba(251,146,60,0.12)",  border: "#9a4e1a", color: "#fb923c" },
-  health:      { bg: "rgba(236,72,153,0.12)",  border: "#7e2860", color: "#ec4899" },
-  energy:      { bg: "rgba(250,204,21,0.12)",  border: "#7e6a14", color: "#facc15" },
-  internet:    { bg: "rgba(20,184,166,0.12)",  border: "#0d6e62", color: "#14b8a6" },
-  shipping:    { bg: "rgba(56,189,248,0.12)",  border: "#1e6a8e", color: "#38bdf8" },
-  transport:   { bg: "rgba(148,163,184,0.12)", border: "#4a5568", color: "#94a3b8" },
-  infrabuild:  { bg: "rgba(245,158,11,0.12)",  border: "#7e5a0a", color: "#f59e0b" },
-  telecom:     { bg: "rgba(129,140,248,0.12)", border: "#4338ca", color: "#818cf8" },
-  financials:  { bg: "rgba(52,211,153,0.12)",  border: "#1a6e4e", color: "#34d399" },
-  consumer:    { bg: "rgba(244,114,182,0.12)", border: "#8e2860", color: "#f472b6" },
-  agriculture: { bg: "rgba(132,204,22,0.12)",  border: "#4a6e14", color: "#84cc16" },
-  industrials: { bg: "rgba(209,213,219,0.12)", border: "#4a5568", color: "#d1d5db" },
-  realestate:  { bg: "rgba(217,119,87,0.12)",  border: "#8e4a2e", color: "#d97757" },
-  utilities:   { bg: "rgba(94,234,212,0.12)",  border: "#2e7e6e", color: "#5eead4" },
-};
-
-const CHAIN_ABBR = {
-  ai: "AI", software: "SW", cyber: "CY", fintech: "FT",
-  defense: "DEF", robotics: "ROB", ev: "EV", quantum: "QTM",
-  space: "SPC", materials: "MAT", semis: "SEM",
-  health: "HLT", energy: "ENG", internet: "WEB",
-  shipping: "SHIP", transport: "TRN", infrabuild: "BLD",
-  telecom: "TEL", financials: "FIN", consumer: "CON",
-  agriculture: "AGR", industrials: "IND",
-  realestate: "RE", utilities: "UTL",
-};
-
-// Ticker → array of { themeId, layer } entries (unique layers across all DRAWER_SUBTHEMES)
-const TICKER_CHAIN_MAP = (() => {
-  const m = new Map();
-  DRAWER_SUBTHEMES.forEach(({ themeId, layer, tickers }) => {
-    tickers.forEach((t) => {
-      if (!m.has(t)) m.set(t, []);
-      const arr = m.get(t);
-      if (!arr.some((e) => e.themeId === themeId && e.layer === layer)) {
-        arr.push({ themeId, layer });
-      }
-    });
-  });
-  return m;
-})();
-
-// ── Industry → chain/layer fallback for tickers not in any curated chain ──
-// Covers every FMP industry in the pipeline universe. Keys must match
-// dashboard_data.json `industry` strings exactly.
-const INDUSTRY_CHAIN_MAP = {
-  "Advertising Agencies": ["internet", "Adtech"],
-  "Aerospace & Defense": ["defense", "Aerospace & Defense"],
-  "Agricultural - Machinery": ["agriculture", "Farm Equipment"],
-  "Agricultural Farm Products": ["agriculture", "Ag Commodities + Trade"],
-  "Agricultural Inputs": ["agriculture", "Fertilizers + Crop"],
-  "Airlines, Airports & Air Services": ["transport", "Airlines"],
-  "Aluminum": ["materials", "Aluminum"],
-  "Apparel - Footwear & Accessories": ["consumer", "Luxury + Apparel"],
-  "Apparel - Manufacturers": ["consumer", "Luxury + Apparel"],
-  "Apparel - Retail": ["consumer", "Luxury + Apparel"],
-  "Asset Management": ["financials", "Asset Management"],
-  "Asset Management - Global": ["financials", "Asset Management"],
-  "Auto - Dealerships": ["consumer", "Autos + Dealers"],
-  "Auto - Manufacturers": ["ev", "Makers"],
-  "Auto - Parts": ["ev", "Auto Parts + Suppliers"],
-  "Auto - Recreational Vehicles": ["consumer", "Autos + Dealers"],
-  "Banks": ["financials", "Regional Banks"],
-  "Banks - Diversified": ["financials", "Mega Banks"],
-  "Banks - Regional": ["financials", "Regional Banks"],
-  "Beverages - Alcoholic": ["consumer", "Food + Beverages"],
-  "Beverages - Non-Alcoholic": ["consumer", "Food + Beverages"],
-  "Beverages - Wineries & Distilleries": ["consumer", "Food + Beverages"],
-  "Biotechnology": ["health", "Biotech"],
-  "Broadcasting": ["internet", "Streaming / Media"],
-  "Business Equipment & Supplies": ["industrials", "Business Products + Services"],
-  "Chemicals": ["materials", "Specialty Chemicals"],
-  "Chemicals - Specialty": ["materials", "Specialty Chemicals"],
-  "Coal": ["energy", "Coal"],
-  "Communication Equipment": ["telecom", "Comm Equipment"],
-  "Computer Hardware": ["ai", "Compute Hardware"],
-  "Conglomerates": ["industrials", "Conglomerates"],
-  "Construction": ["infrabuild", "Construction"],
-  "Construction Materials": ["infrabuild", "Construction Materials"],
-  "Consulting Services": ["industrials", "Business Products + Services"],
-  "Consumer Electronics": ["consumer", "Consumer Electronics"],
-  "Copper": ["materials", "Copper"],
-  "Department Stores": ["consumer", "Retail"],
-  "Discount Stores": ["consumer", "Retail"],
-  "Diversified Utilities": ["utilities", "Diversified Utilities"],
-  "Drug Manufacturers - General": ["health", "Pharma Majors"],
-  "Drug Manufacturers - Specialty & Generic": ["health", "Specialty Pharma"],
-  "Education & Training Services": ["consumer", "Education"],
-  "Electrical Equipment & Parts": ["infrabuild", "Electrical + Fire/Safety"],
-  "Electronic Gaming & Multimedia": ["internet", "Gaming"],
-  "Engineering & Construction": ["infrabuild", "E&C / Heavy Civil"],
-  "Entertainment": ["internet", "Streaming / Media"],
-  "Financial - Capital Markets": ["financials", "Capital Markets + Exchanges"],
-  "Financial - Conglomerates": ["financials", "Asset Management"],
-  "Financial - Credit Services": ["fintech", "Credit + Lending"],
-  "Financial - Data & Stock Exchanges": ["financials", "Capital Markets + Exchanges"],
-  "Financial - Diversified": ["financials", "Asset Management"],
-  "Financial - Mortgages": ["fintech", "Credit + Lending"],
-  "Food Confectioners": ["consumer", "Food + Beverages"],
-  "Food Distribution": ["consumer", "Food + Beverages"],
-  "Furnishings, Fixtures & Appliances": ["consumer", "Home + Furnishings"],
-  "Gambling, Resorts & Casinos": ["internet", "Sports Betting"],
-  "General Transportation": ["transport", "Freight + Logistics"],
-  "Gold": ["materials", "Precious Metals"],
-  "Grocery Stores": ["consumer", "Retail"],
-  "Hardware, Equipment & Parts": ["ai", "Networking + Components"],
-  "Home Improvement": ["consumer", "Retail"],
-  "Household & Personal Products": ["consumer", "Staples + Personal Care"],
-  "Independent Power Producers": ["ai", "Power Generation (IPPs)"],
-  "Industrial - Distribution": ["industrials", "Distribution"],
-  "Industrial - Infrastructure Operations": ["infrabuild", "Infrastructure Ops"],
-  "Industrial - Machinery": ["industrials", "Machinery"],
-  "Industrial - Pollution & Treatment Controls": ["infrabuild", "Waste + Environment"],
-  "Industrial Materials": ["materials", "Industrial Materials"],
-  "Information Technology Services": ["software", "IT Services"],
-  "Insurance - Brokers": ["financials", "Insurance"],
-  "Insurance - Diversified": ["financials", "Insurance"],
-  "Insurance - Life": ["financials", "Insurance"],
-  "Insurance - Property & Casualty": ["financials", "Insurance"],
-  "Insurance - Reinsurance": ["financials", "Insurance"],
-  "Insurance - Specialty": ["financials", "Insurance"],
-  "Integrated Freight & Logistics": ["transport", "Freight + Logistics"],
-  "Internet Content & Information": ["internet", "Internet Content"],
-  "Investment - Banking & Investment Services": ["fintech", "Asset Mgmt + Trading"],
-  "Leisure": ["consumer", "Travel + Leisure"],
-  "Luxury Goods": ["consumer", "Luxury + Apparel"],
-  "Manufacturing - Metal Fabrication": ["infrabuild", "Specialty Metals"],
-  "Manufacturing - Textiles": ["consumer", "Luxury + Apparel"],
-  "Manufacturing - Tools & Accessories": ["industrials", "Tools + Testing"],
-  "Marine Shipping": ["shipping", "Containers + Mixed"],
-  "Medical - Care Facilities": ["health", "Providers + Facilities"],
-  "Medical - Devices": ["health", "Devices"],
-  "Medical - Diagnostics & Research": ["health", "Diagnostics"],
-  "Medical - Distribution": ["health", "Distribution + Supplies"],
-  "Medical - Equipment & Services": ["health", "Devices"],
-  "Medical - Healthcare Information Services": ["health", "Telemedicine / Health IT"],
-  "Medical - Healthcare Plans": ["health", "Managed Care + Payers"],
-  "Medical - Instruments & Supplies": ["health", "Devices"],
-  "Medical - Pharmaceuticals": ["health", "Pharma Majors"],
-  "Oil & Gas Drilling": ["energy", "Oil Field Equipment"],
-  "Oil & Gas Energy": ["energy", "Oil Majors"],
-  "Oil & Gas Equipment & Services": ["energy", "Oil Services"],
-  "Oil & Gas Exploration & Production": ["energy", "E&P"],
-  "Oil & Gas Integrated": ["energy", "Oil Majors"],
-  "Oil & Gas Midstream": ["energy", "Midstream + Pipelines"],
-  "Oil & Gas Refining & Marketing": ["energy", "Refining"],
-  "Other Precious Metals": ["materials", "Precious Metals"],
-  "Silver": ["materials", "Precious Metals"],
-  "Packaged Foods": ["consumer", "Food + Beverages"],
-  "Packaging & Containers": ["materials", "Packaging"],
-  "Paper, Lumber & Forest Products": ["materials", "Paper + Forest"],
-  "Personal Products & Services": ["consumer", "Staples + Personal Care"],
-  "Publishing": ["internet", "Streaming / Media"],
-  "REIT - Diversified": ["realestate", "Equity REITs"],
-  "REIT - Healthcare Facilities": ["realestate", "Equity REITs"],
-  "REIT - Hotel & Motel": ["realestate", "Equity REITs"],
-  "REIT - Industrial": ["realestate", "Industrial REITs"],
-  "REIT - Mortgage": ["realestate", "Mortgage REITs"],
-  "REIT - Office": ["realestate", "Equity REITs"],
-  "REIT - Residential": ["realestate", "Equity REITs"],
-  "REIT - Retail": ["realestate", "Equity REITs"],
-  "REIT - Specialty": ["realestate", "Specialty REITs"],
-  "Railroads": ["transport", "Rail"],
-  "Real Estate - Services": ["realestate", "RE Services"],
-  "Regulated Electric": ["utilities", "Electric"],
-  "Regulated Gas": ["utilities", "Gas"],
-  "Regulated Water": ["utilities", "Water"],
-  "Renewable Utilities": ["utilities", "Renewables"],
-  "Rental & Leasing Services": ["industrials", "Rental + Leasing"],
-  "Residential Construction": ["infrabuild", "Homebuilders"],
-  "Restaurants": ["consumer", "Restaurants + QSR"],
-  "Security & Protection Services": ["industrials", "Security + Services"],
-  "Semiconductors": ["semis", "Semiconductors"],
-  "Software - Application": ["software", "Application Software"],
-  "Software - Infrastructure": ["software", "Infrastructure Software"],
-  "Software - Services": ["software", "IT Services"],
-  "Solar": ["energy", "Solar"],
-  "Specialty Business Services": ["industrials", "Business Products + Services"],
-  "Specialty Retail": ["consumer", "Retail"],
-  "Staffing & Employment Services": ["industrials", "Staffing + HR"],
-  "Steel": ["materials", "Steel & Iron"],
-  "Technology Distributors": ["industrials", "Distribution"],
-  "Telecommunications Services": ["telecom", "Carriers"],
-  "Tobacco": ["consumer", "Staples + Personal Care"],
-  "Travel Lodging": ["consumer", "Travel + Leisure"],
-  "Travel Services": ["consumer", "Travel + Leisure"],
-  "Trucking": ["transport", "Trucking"],
-  "Uranium": ["materials", "Uranium"],
-  "Waste Management": ["infrabuild", "Waste + Environment"],
-};
-
-// Resolve chains for a ticker: curated map first, industry fallback second.
-function chainsForStock(ticker, s) {
-  const curated = TICKER_CHAIN_MAP.get(ticker);
-  if (curated?.length) return curated;
-  const e = s?.industry && INDUSTRY_CHAIN_MAP[s.industry];
-  return e ? [{ themeId: e[0], layer: e[1] }] : null;
 }
 
 // ──────────────────────────────────────────────────────────────────────────

@@ -16,7 +16,7 @@ export default [
         localStorage: "readonly", sessionStorage: "readonly", fetch: "readonly",
         setTimeout: "readonly", clearTimeout: "readonly", setInterval: "readonly",
         clearInterval: "readonly", console: "readonly", URL: "readonly",
-        URLSearchParams: "readonly", AbortSignal: "readonly", CustomEvent: "readonly",
+        URLSearchParams: "readonly", AbortSignal: "readonly", AbortController: "readonly", CustomEvent: "readonly",
         requestAnimationFrame: "readonly", cancelAnimationFrame: "readonly",
         performance: "readonly", alert: "readonly", confirm: "readonly",
         Blob: "readonly", FileReader: "readonly", ResizeObserver: "readonly",
@@ -25,6 +25,11 @@ export default [
       },
     },
     linterOptions: { reportUnusedDisableDirectives: "off" },
-    rules: { "no-undef": "error" },
+    rules: {
+      "no-undef": "error",
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "warn",
+      "no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" }],
+    },
   },
 ];

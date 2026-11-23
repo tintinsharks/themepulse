@@ -1,6 +1,6 @@
 // Shared helpers, data hooks and small components for the Leaders / Scanner /
 // Brief views. Split out of LeadershipView.jsx.
-import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 
 export const LEAD = 88;          // layer leadership threshold (backtest)
 export const PEAK_LOOKBACK = 40; // sessions to look back for "was leading"
@@ -18,7 +18,7 @@ export function useJson(path) {
   const [d, setD] = useState(null);
   useEffect(() => {
     let live = true;
-    fetch(path, { cache: "no-store" })
+    fetch(path, { cache: "no-cache" })
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => { if (live) setD(j); })
       .catch(() => {});
@@ -978,7 +978,7 @@ export function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, 
   const { quotes, at } = useScanQuotes(base.map((b) => b.t), true);
   const [sort, setSort] = useState({ k: "fromOpen", d: -1 });
   const clock = etClock();
-  const snap = useMemo(() => (clock.rth ? null : readZvrSnap()), [clock.rth, quotes]);
+  const snap = useMemo(() => { if (clock.rth) return null; void quotes; return readZvrSnap(); }, [clock.rth, quotes]);
   const snapOk = !clock.rth && snap?.date === clock.session && snap?.z;
   const rows = useMemo(() => {
     const frac = sessionElapsedFrac();
@@ -1111,10 +1111,10 @@ export function extRows(snap, stockMap, tickerLayer, universeOnly) {
 export function ExtHoursMovers({ A, pipeline, stockMap, tickerLayer, onTicker, chartTicker, onLayer, keep }) {
   const [uOnly, setUOnly] = useState(true);
   const today = etClock().today;
-  const pmSnap = pipeline?.last_pm || (pipeline?.pm_sip_movers?.length || pipeline?.pm_earnings_movers?.length
-    ? { session: null, earnings: pipeline.pm_earnings_movers, movers: pipeline.pm_sip_movers, top: pipeline.pm_top_movers } : null);
-  const ahSnap = pipeline?.last_ah || (pipeline?.ah_sip_movers?.length || pipeline?.ah_earnings_movers?.length
-    ? { session: null, earnings: pipeline.ah_earnings_movers, movers: pipeline.ah_sip_movers, top: pipeline.ah_top_movers } : null);
+  const pmSnap = useMemo(() => pipeline?.last_pm || (pipeline?.pm_sip_movers?.length || pipeline?.pm_earnings_movers?.length
+    ? { session: null, earnings: pipeline.pm_earnings_movers, movers: pipeline.pm_sip_movers, top: pipeline.pm_top_movers } : null), [pipeline]);
+  const ahSnap = useMemo(() => pipeline?.last_ah || (pipeline?.ah_sip_movers?.length || pipeline?.ah_earnings_movers?.length
+    ? { session: null, earnings: pipeline.ah_earnings_movers, movers: pipeline.ah_sip_movers, top: pipeline.ah_top_movers } : null), [pipeline]);
   const pmRows = useMemo(() => extRows(pmSnap, stockMap, tickerLayer, uOnly).filter((r) => !keep || keep(r.t)), [pmSnap, stockMap, tickerLayer, uOnly, keep]);
   const ahRows = useMemo(() => extRows(ahSnap, stockMap, tickerLayer, uOnly).filter((r) => !keep || keep(r.t)), [ahSnap, stockMap, tickerLayer, uOnly, keep]);
   const fmtVol = (v) => (v == null ? "—" : v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `${Math.round(v / 1e3)}K` : String(v));
@@ -1307,7 +1307,7 @@ export function FlaggedTab({ A, stockMap, tickerLayer, onTicker, chartTicker, on
   // default: grouped by flag colour; header clicks sort like the Intraday scan
   const [sort, setSort] = useState({ k: "flag", d: 1 });
   const clock = etClock();
-  const snap = useMemo(() => (clock.rth ? null : readZvrSnap()), [clock.rth, quotes]);
+  const snap = useMemo(() => { if (clock.rth) return null; void quotes; return readZvrSnap(); }, [clock.rth, quotes]);
   const snapOk = !clock.rth && snap?.date === clock.session && snap?.z;
   const frac = sessionElapsedFrac();
   const rm = rthMinute();

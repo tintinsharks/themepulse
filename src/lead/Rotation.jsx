@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { STATUS } from "./core.jsx";
 
 // ── Rotation (Themes card, second tab) ───────────────────────────────────

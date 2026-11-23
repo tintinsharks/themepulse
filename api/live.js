@@ -18,6 +18,10 @@ const HEADERS = {
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 };
 
+// Guard all upstream calls so a stalled provider never hangs the 30s function
+const fetchT = (url, opts = {}, ms = 10000) =>
+  fetch(url, { signal: AbortSignal.timeout(ms), ...opts });
+
 // ── Cookie-based session login ──
 let cachedCookies = null;
 let cookieExpiry = 0;
@@ -47,7 +51,7 @@ async function loginFinviz() {
   console.log("Attempting Finviz login with email:", email);
 
   // Step 1: Hit screener to get initial cookies
-  const initResp = await fetch(FINVIZ_SCREENER_URL, {
+  const initResp = await fetchT(FINVIZ_SCREENER_URL, {
     headers: HEADERS,
     redirect: "manual",
   });
@@ -56,7 +60,7 @@ async function loginFinviz() {
 
   // Step 2: Login
   const body = new URLSearchParams({ email, password });
-  const loginResp = await fetch(FINVIZ_LOGIN_URL, {
+  const loginResp = await fetchT(FINVIZ_LOGIN_URL, {
     method: "POST",
     headers: {
       ...HEADERS,
@@ -210,7 +214,7 @@ async function fetchWatchlistFmp(tickers, apiKey) {
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
         const url = `${FMP_BASE}/batch-quote?symbols=${symbolStr}&apikey=${apiKey}`;
-        const resp = await fetch(url);
+        const resp = await fetchT(url);
         if (!resp.ok) {
           console.error(`FMP watchlist batch failed: ${resp.status}`);
           if (attempt < MAX_RETRIES) { await new Promise(r => setTimeout(r, 1000)); continue; }
@@ -260,7 +264,7 @@ async function fetchWatchlistFinviz(cookies, tickers) {
     const url = `${FINVIZ_EXPORT_URL}?v=152&t=${tickerStr}`;
 
     try {
-      const resp = await fetch(url, {
+      const resp = await fetchT(url, {
         headers: { ...HEADERS, Cookie: cookies },
       });
 
@@ -397,7 +401,7 @@ function parseQuotePage(ticker, html) {
 async function fetchTopGainers(cookies) {
   const url = `${FINVIZ_EXPORT_URL}?v=152&s=ta_topgainers&f=cap_midover&o=-change`;
 
-  const resp = await fetch(url, {
+  const resp = await fetchT(url, {
     headers: { ...HEADERS, Cookie: cookies },
   });
 
@@ -451,7 +455,7 @@ async function fetchThemeUniverse(cookies, tickers) {
     const url = `${FINVIZ_EXPORT_URL}?v=152&t=${tickerStr}`;
 
     try {
-      const resp = await fetch(url, { headers: { ...HEADERS, Cookie: cookies } });
+      const resp = await fetchT(url, { headers: { ...HEADERS, Cookie: cookies } });
 
       if (resp.status === 429) {
         if (attempt <= MAX_RETRIES) {
@@ -518,7 +522,7 @@ async function fetchThemeUniverse(cookies, tickers) {
 async function fetchPremarketMovers(cookies) {
   const url = `${FINVIZ_EXPORT_URL}?v=152&f=cap_midover,ta_gap_u1&o=-gap`;
 
-  const resp = await fetch(url, {
+  const resp = await fetchT(url, {
     headers: { ...HEADERS, Cookie: cookies },
   });
 
@@ -561,7 +565,7 @@ async function fetchPremarketMovers(cookies) {
 async function fetchTickerNews(cookies, ticker) {
   try {
     const url = `https://elite.finviz.com/quote.ashx?t=${ticker}`;
-    const resp = await fetch(url, { headers: { ...HEADERS, Cookie: cookies } });
+    const resp = await fetchT(url, { headers: { ...HEADERS, Cookie: cookies } });
     if (!resp.ok) return { news: [], peers: [], description: "", earningsData: {}, quarters: [], analyst: {} };
     const html = await resp.text();
     
@@ -814,7 +818,7 @@ async function fetchTickerNews(cookies, ticker) {
 async function fetchHomepage(cookies) {
   try {
     const url = cookies ? "https://elite.finviz.com/" : "https://finviz.com/";
-    const resp = await fetch(url, { headers: { ...HEADERS, Cookie: cookies } });
+    const resp = await fetchT(url, { headers: { ...HEADERS, Cookie: cookies } });
     if (!resp.ok) return { futures: [], earnings: [], major_news: [] };
     const html = await resp.text();
     
@@ -935,8 +939,8 @@ async function fetchFinancialsFmp(ticker, fmpKey, period = "quarter") {
     // Cash flow is a "nice to have" — if it 404s or rate-limits we still
     // want EPS/Revenue bars to render.
     const [incResp, cfResp] = await Promise.all([
-      fetch(incomeUrl),
-      fetch(cashUrl).catch(() => null),
+      fetchT(incomeUrl),
+      fetchT(cashUrl).catch(() => null),
     ]);
     if (!incResp.ok) return [];
     const data = await incResp.json();
@@ -1075,7 +1079,7 @@ async function fetchBriefing(apiKey, pipelineBriefing) {
 
   try {
     const url = `${FMP_BASE}/batch-quote?symbols=${allSyms.join(",")}&apikey=${apiKey}`;
-    const resp = await fetch(url);
+    const resp = await fetchT(url);
     if (!resp.ok) return null;
     const data = await resp.json();
     if (!Array.isArray(data)) return null;
@@ -1222,7 +1226,7 @@ async function fetchFmpUniverse(tickers, apiKey) {
       const symbolStr = batch.join(",");
       try {
         const url = `${FMP_BASE}/batch-quote?symbols=${symbolStr}&apikey=${apiKey}`;
-        const resp = await fetch(url);
+        const resp = await fetchT(url);
         if (!resp.ok) {
           console.error(`FMP universe batch failed: ${resp.status}`);
           return [];
@@ -1305,7 +1309,7 @@ async function getYahooCrumb() {
     return { crumb: yahooCrumb, cookies: yahooCookies };
   }
   // Step 1: Get cookies from fc.yahoo.com
-  const initResp = await fetch("https://fc.yahoo.com", {
+  const initResp = await fetchT("https://fc.yahoo.com", {
     headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" },
     redirect: "manual",
   });
@@ -1313,7 +1317,7 @@ async function getYahooCrumb() {
   const cookieStr = setCookies.map(c => c.split(";")[0]).join("; ");
 
   // Step 2: Get crumb
-  const crumbResp = await fetch("https://query2.finance.yahoo.com/v1/test/getcrumb", {
+  const crumbResp = await fetchT("https://query2.finance.yahoo.com/v1/test/getcrumb", {
     headers: {
       "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
       Cookie: cookieStr,
@@ -1342,7 +1346,7 @@ async function fetchYahooExtHours(tickers, session) {
     const batch = tickers.slice(i, i + BATCH).join(",");
     try {
       const url = `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${batch}&crumb=${encodeURIComponent(crumb)}&fields=${fields}`;
-      const resp = await fetch(url, {
+      const resp = await fetchT(url, {
         headers: {
           "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
           Cookie: cookies,
@@ -1449,7 +1453,7 @@ export default async function handler(req, res) {
       if (!fmpKey) return res.status(200).json({ holdings: [] });
       try {
         // /stable/etf/holdings (v3 etf-holder is 403 with the current key)
-        const r = await fetch(`https://financialmodelingprep.com/stable/etf/holdings?symbol=${encodeURIComponent(etfTicker)}&apikey=${fmpKey}`);
+        const r = await fetchT(`https://financialmodelingprep.com/stable/etf/holdings?symbol=${encodeURIComponent(etfTicker)}&apikey=${fmpKey}`);
         const raw = r.ok ? await r.json() : [];
         if (req.query.debug) return res.status(200).json({ status: r.status, raw: JSON.stringify(raw).slice(0, 2000) });
         const arr = Array.isArray(raw) ? raw : (raw?.holdings || []);
@@ -1473,8 +1477,8 @@ export default async function handler(req, res) {
       try {
         const fmpBase = "https://financialmodelingprep.com/stable";
         const [senate, house] = await Promise.all([
-          fetch(`${fmpBase}/senate-trades?symbol=${encodeURIComponent(congressTicker)}&apikey=${fmpKey}`).then(r => r.ok ? r.json() : []).catch(() => []),
-          fetch(`${fmpBase}/house-trades?symbol=${encodeURIComponent(congressTicker)}&apikey=${fmpKey}`).then(r => r.ok ? r.json() : []).catch(() => []),
+          fetchT(`${fmpBase}/senate-trades?symbol=${encodeURIComponent(congressTicker)}&apikey=${fmpKey}`).then(r => r.ok ? r.json() : []).catch(() => []),
+          fetchT(`${fmpBase}/house-trades?symbol=${encodeURIComponent(congressTicker)}&apikey=${fmpKey}`).then(r => r.ok ? r.json() : []).catch(() => []),
         ]);
         const all = [
           ...(Array.isArray(senate) ? senate : []).map(t => ({ ...t, chamber: "S" })),
@@ -1571,7 +1575,7 @@ export default async function handler(req, res) {
         await Promise.allSettled(
           needAvgVol.map(async (e) => {
             try {
-              const r = await fetch(
+              const r = await fetchT(
                 `${FMP_BASE}/profile?symbol=${e.ticker}&apikey=${fmpKey}`,
                 { signal: AbortSignal.timeout(5000) }
               );
@@ -1624,32 +1628,24 @@ export default async function handler(req, res) {
     const newsTicker = (req.query.news || "").trim().toUpperCase();
     const tickerData = newsTicker ? await fetchTickerNews(cookies, newsTicker) : null;
 
-    // FMP bar data + FMP peer comparison — run in parallel
+    // FMP bar data + earnings calendar — run in parallel
     let quartersFallback = [];
     let annualFallback = [];
-    let fmpPeers = [];
     let fmpEarningsDate = null;
     if (newsTicker && fmpKey) {
       const needQuarters = !tickerData?.quarters || tickerData.quarters.length === 0;
       const today = new Date();
       const from = today.toISOString().slice(0, 10);
       const to = new Date(today.getTime() + 120 * 86400000).toISOString().slice(0, 10);
-      const [qData, aData, peersResp, erResp] = await Promise.all([
+      const [qData, aData, erResp] = await Promise.all([
         needQuarters ? fetchFinancialsFmp(newsTicker, fmpKey, "quarter") : Promise.resolve([]),
         fetchFinancialsFmp(newsTicker, fmpKey, "annual"),
-        fetch(`${FMP_BASE}/stock-peers?symbol=${encodeURIComponent(newsTicker)}&apikey=${fmpKey}`)
-          .then(r => r.json())
-          .catch(() => null),
-        fetch(`${FMP_BASE}/earnings-calendar?symbol=${encodeURIComponent(newsTicker)}&from=${from}&to=${to}&apikey=${fmpKey}`)
+        fetchT(`${FMP_BASE}/earnings-calendar?symbol=${encodeURIComponent(newsTicker)}&from=${from}&to=${to}&apikey=${fmpKey}`, { signal: AbortSignal.timeout(8000) })
           .then(r => r.ok ? r.json() : null)
           .catch(() => null),
       ]);
       quartersFallback = qData;
       annualFallback = aData;
-      // FMP /stable/stock-peers returns [{symbol, companyName, price, mktCap, ...}]
-      if (Array.isArray(peersResp) && peersResp.length > 0 && peersResp[0]?.symbol) {
-        fmpPeers = peersResp.map(p => p.symbol).filter(p => p && p !== newsTicker);
-      }
       // FMP earnings calendar — pick the soonest upcoming date
       // Defensive: filter to date >= today (FMP sometimes returns historical
       // entries within the window) and require ticker symbol match.
@@ -1687,7 +1683,7 @@ export default async function handler(req, res) {
       theme_universe: themeUniverse,
       news: tickerData?.news || null,
       peers: tickerData?.peers || null,
-      fmpPeers: fmpPeers.length > 0 ? fmpPeers : null,
+      fmpPeers: null,
       description: tickerData?.description || null,
       earningsData: tickerData?.earningsData || null,
       earningsDate: fmpEarningsDate || null,

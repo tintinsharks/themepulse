@@ -5,6 +5,28 @@ export function getETNow() {
   return new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
 }
 
+/** Count weekday sessions strictly after YYYY-MM-DD up through nowEt's date */
+export function pipelineAgeWeekdays(dateStr, nowEt = getETNow()) {
+  if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const cur = new Date(Date.UTC(y, m - 1, d));
+  const end = new Date(Date.UTC(nowEt.getFullYear(), nowEt.getMonth(), nowEt.getDate()));
+  if (cur >= end) return 0;
+  let weekdays = 0;
+  while (cur < end) {
+    cur.setUTCDate(cur.getUTCDate() + 1);
+    const dow = cur.getUTCDay();
+    if (dow !== 0 && dow !== 6) weekdays++;
+  }
+  return weekdays;
+}
+
+/** True when pipeline data is > 2 weekday sessions behind (tolerates weekends + 1-day holidays) */
+export function isPipelineStale(dateStr, nowEt = getETNow()) {
+  const age = pipelineAgeWeekdays(dateStr, nowEt);
+  return age != null && age > 2;
+}
+
 /** Grade color map: A+ (dark green) through G (dark red) */
 export const GRADE_COLORS = {
   "A+":"#1B7A2B","A":"#2E8B3C","A-":"#44A04D",

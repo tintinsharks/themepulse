@@ -1,131 +1,64 @@
 # ThemePulse Frontend
 
 ## Overview
-Vite + React single-page dashboard for growth stock research. Deployed on Vercel at themepulse.vercel.app. All rendering is in one monolithic `src/App.jsx` (~8,800 lines). No chart libraries — all visualizations are pure CSS + inline SVG.
+Vite + React 18 single-page dashboard for CAN SLIM / momentum growth stock research, deployed on Vercel at `themepulse.vercel.app`. Visualizations are pure CSS + inline SVG (no charting library dependency).
 
 ## Repos
 - **Frontend**: `tintinsharks/themepulse` (this repo)
-- **Pipeline**: `tintinsharks/stock-pipeline` (Python pipeline, builds `dashboard_data.json` via GitHub Actions)
+- **Pipeline**: `tintinsharks/stock-pipeline` (Python pipeline pushing `public/dashboard_data.json` and `public/data/*.json` via GitHub Actions)
 
 ## Architecture
-- **Single-file app**: `src/App.jsx` contains all components (~20 functions, no separate component files)
-- **Lazy-loaded**: `USMarketQuadrant.jsx` is the only code-split module
-- **Data**: Fetches `dashboard_data.json` (pipeline output) + `data/ai_analysis.json` + `data/earnings_intel.json` from `public/`
-- **Serverless API**: `api/` directory — Vercel Edge Functions for auth, live quotes, OHLC, user data
-- **Styling**: 100% inline styles, no CSS files. Dark theme: `#121218` bg, `#0d9163` green accent, `#22d3ee` cyan for Earnings Intel
-- **Auth**: Simple token-based via `api/auth.js`, stored in localStorage
+- **Root app**: `src/App.jsx` (~3,150 lines) — theme context (Aria dark/light + zoom), pipeline data loading, quote manager (`useLiveQuotes`), userdata sync (`useServerState`), `ChartPanelInline` + `DailyChartSVG` + `EarningsBox`, trade alerts, and topbar navigation.
+- **Primary views**: Three views switched via topbar (`LEADERS`, `SCANNER`, `BRIEF`), orchestrated by `src/LeadershipView.jsx`:
+  - `src/lead/core.jsx` — Shared market gate, index panel, themes/layers boards, stock tables, intraday scan, extended-hours movers, ticker flags, tier/EPS/live-RS calculations.
+  - `src/lead/Scanner.jsx` (lazy-loaded) — Live scanner view.
+  - `src/lead/Brief.jsx` (lazy-loaded) — Daily PM/AM brief view.
+  - `src/lead/Rotation.jsx` (lazy-loaded) — Subtheme/layer rotation view.
+- **Shared modules**:
+  - `src/styles.js` — `ARIA_DARK` / `ARIA_LIGHT` palettes and shared style primitives.
+  - `src/utils.js` — ET clock helper, `GRADE_COLORS`, U-shaped volume curve (`_cumVolFrac`, `projectedRVol`), quadrant helpers.
+  - `src/wheelTrades.js` — Pure Schwab Realized Gain/Loss CSV parser, trade merge/tombstone logic, and wheel cost-basis math.
+  - `src/indicators.js` — Pure Wilder RSI, EMA, MACD, reversal signal detection, and forward-return study helpers.
+- **Styling**: 100% inline styles with `ARIA_DARK` / `ARIA_LIGHT` React context (`useAriaTheme()`).
 
-## Nav Tabs & Components
-
-| Tab | Component | Line | Description |
-|-----|-----------|------|-------------|
-| Live | `LiveView` | 6800 | Portfolio/watchlist with morning briefing, live quotes |
-| PKN | `PknView` | 6625 | Pradeep/Kumar/Nitin shared focus lists |
-| Scan Watch | `Scan` | 1436 | Main screener: Leaders + EP + Short Scan + Theme drill-down |
-| Research | `Grid` | 3819 | Full stock grid with sortable columns |
-| Execution | `Execution` | 5477 | Trade journal with entry/stop/target tracking |
-| Performance | `TradePerformance` | 7316 | P&L analytics, win rate, R-multiple distribution |
-| Quadrant | `USMarketQuadrant` | (lazy) | Market breadth regime visualization |
-| Earnings Intel | `EarningsIntel` | 7870 | Quarterly S&P 500 earnings themes/sentiment/signals |
-
-Sub-components inside Scan Watch:
-- `Leaders` (line 976) — Theme-based stock screening with RS/TS grades
-- `EpisodicPivots` (line 2552) — EP/Earnings/SIP movers unified table
-- Short Scan — Short-selling candidates (inside Scan)
-
-## Key Shared Components
-
-| Component | Line | Purpose |
-|-----------|------|---------|
-| `ChartPanel` | 374 | Right-side chart panel with TradingView + LW charts, catalyst notes |
-| `IntradayChart` | 4332 | SVG intraday price chart |
-| `LWChart` | 4703 | Lightweight multi-timeframe OHLC chart |
-| `TabbedAnalysis` | 262 | AI analysis reader (5 tabs: takeaways, revenue, margins, thesis, risks) |
-| `SimpleMarkdown` | 169 | Lightweight markdown renderer (headers, bold, italic, bullets, tables) |
-| `ErrorBoundary` | 5 | React error boundary wrapping each view |
-| `PipelineStatus` | 7784 | Pipeline run metadata display |
-
-## Data Flow
+## Data & Caching Flow
 ```
 stock-pipeline (GitHub Actions)
-  → dashboard_data.json (pushed to public/)
-  → Vercel serves static JSON
+  → public/dashboard_data.json + public/data/*.json
+  → Vercel serves static JSON with Cache-Control: public, max-age=60, stale-while-revalidate=300
+  → Frontend fetches static JSON with { cache: "no-cache" } (ETag/304 revalidation)
 
-Claude Cowork (scheduled sessions)
-  → reads /api/ai-queue for ticker list
-  → ai_analysis.json (pushed via git)
-  → earnings_intel.json (pushed via git)
-
-api/live.js (Vercel Edge)
-  → Real-time quotes from FMP /stable/batch-quote
+Vercel Serverless Functions (api/) — 12 functions (Vercel Hobby cap):
+  - api/live.js            — Real-time quotes + news/fundamentals (Finviz Elite / FMP)
+  - api/ohlc.js            — Historical daily/weekly OHLC bars (FMP)
+  - api/earnings.js        — Per-ticker earnings history/estimates
+  - api/userdata.js        — Upstash Redis persistence (watchlist/portfolio/wheelTrades + ?scope=flags|pm-movers|ah-movers)
+  - api/zvr.js             — Zanger Volume Ratio + setup journal queries
+  - api/market-quality.js  — Market Quality Terminal scoring (used by public/terminal.html)
+  - api/scan-scores.js     — Pre-computed EPS/C&A/MS scan scores
+  - api/analyze-ticker.js  — On-demand 4-agent ticker analysis
+  - api/theme-analysis.js  — EOD theme analysis storage (Upstash, x-api-key gated)
+  - api/wheel.js           — Schwab options chain wheel screener
+  - api/schwab-callback.js — Schwab OAuth callback handler
+  - api/auth.js            — PIN → HMAC token auth (requires TP_PIN + TP_SESSION_SECRET)
 ```
-
-## AI-Powered Features
-
-### AI Analysis (`scripts/run-ai-analysis.sh`) — via Cowork
-- Reads ticker queue from `GET /api/ai-queue` (manually added by user in Scan > AI Analysis tab)
-- Full research mode (WebSearch + WebFetch stockanalysis.com) or incremental price-action update
-- Output: `public/data/ai_analysis.json` → `TabbedAnalysis` component in ChartPanel
-- **Cowork schedule**: Every 60 min, weekdays 8 AM–5 PM ET
-- **Cowork prompt**: `scripts/ai-analysis-prompt.md` (full) or `scripts/ai-analysis-update-prompt.md` (incremental)
-
-### Earnings Intelligence (`scripts/run-earnings-intel.sh`) — via Cowork
-- Researches all 11 GICS sectors via WebSearch/WebFetch
-- Synthesizes cross-sector themes, momentum signals, executive quotes
-- Output: `public/data/earnings_intel.json` → `EarningsIntel` component
-- **Cowork schedule**: Once quarterly (Feb 15, May 15, Aug 15, Nov 15)
-- **Cowork prompt**: `scripts/earnings-intel-prompt.md`
-
-### AI Queue API
-- `GET /api/ai-queue` — Public endpoint returning `{ aiQueue: [...], updated: "..." }` from Upstash Redis
-- Queue is populated by user in Scan > AI Analysis tab (persisted via `api/userdata.js` to Upstash)
-- Cowork reads this to know which tickers to analyze
-
-## Trading System Context
-This dashboard supports a **CAN SLIM / momentum breakout** style:
-- **RS/TS rankings**: Relative Strength + Trend Strength composite grades (A+ through G)
-- **Theme-based**: Stocks grouped by sector themes (AI, Cybersecurity, GLP-1, etc.)
-- **Episodic Pivots**: Gap+volume+range breakout scanner (Pradeep Bonde method)
-- **Momentum Burst**: Stockbee +4% breakout scan
-- **Key metrics**: ADR%, distance from moving averages in ATR multiples, float, dollar volume
-
-## Serverless API (`api/`)
-
-| File | Purpose |
-|------|---------|
-| `auth.js` | Token validation |
-| `live.js` | Real-time FMP batch quotes (called by LiveView every 30s during market hours) |
-| `ohlc.js` | Historical OHLC for LWChart |
-| `userdata.js` | Persist portfolio/watchlist/trades to Vercel KV |
-| `catalyst-summary.js` | AI catalyst summaries |
 
 ## Commands
 ```bash
-# Dev server
+# Dev server (proxies /api/* to https://themepulse.vercel.app)
 npm run dev
 
-# Production build
-npx vite build
+# Lint (no-undef, react-hooks/rules-of-hooks, exhaustive-deps, no-unused-vars)
+npm run lint
 
-# Deploy (auto on push to main)
-git push
+# Unit tests (Node built-in test runner, zero extra deps)
+npm test
 
-# AI analysis (manual — or let Cowork run it)
-./scripts/run-ai-analysis.sh --dry
-
-# Earnings intel (manual — or let Cowork run it)
-./scripts/run-earnings-intel.sh --dry
-
-# Check AI queue
-curl -s https://themepulse.vercel.app/api/ai-queue | python3 -m json.tool
+# Production build (runs lint + Vite build)
+npm run build
 ```
 
 ## Key Patterns
-- **All components are functions** inside App.jsx (no class components except ErrorBoundary)
-- **State lives in AppMain** (~line 8187) and is passed down as props
-- **stockMap**: `useMemo` keyed by ticker for O(1) lookups — most components receive this
-- **openChart/closeChart**: Shared chart panel pattern — right-side split view with draggable divider
-- **onVisibleTickers**: Components report visible tickers for chart panel scrolling sync
-- **Grade colors**: `GRADE_COLORS` constant maps A+ through G to green→red gradient
-- **Inline styles everywhere**: No CSS classes except a few injected via `useEffect` for responsive breakpoints
-- **localStorage**: Trades, portfolio, watchlist, chart notes, account size all persisted locally + synced via `api/userdata.js`
+- **State & Persistence**: Pipeline data loads once via `useDashboardData()` and refreshes every 30 min during pipeline windows. User lists sync via `/api/userdata` with localStorage offline cache; ticker flags sync via `/api/userdata?scope=flags`.
+- **Error Boundaries**: `ErrorBoundary` wraps both `AppMain` and `LeadershipView` and surfaces the failing component name (preserved in prod via `esbuild.keepNames: true` in `vite.config.js`).
+- **Lint Guardrails**: `eslint.config.js` enforces `no-undef` and `react-hooks/rules-of-hooks` as errors, plus `react-hooks/exhaustive-deps` and `no-unused-vars` as warnings.

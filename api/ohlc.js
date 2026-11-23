@@ -56,7 +56,7 @@ export default async function handler(req, res) {
       const fromStr = new Date(now.getTime() - intraSpec.lookback * 24 * 3600 * 1000).toISOString().split("T")[0];
       const toStr = now.toISOString().split("T")[0];
       const url = `${FMP_BASE}/historical-chart/${intraSpec.path}?symbol=${encodeURIComponent(ticker)}&from=${fromStr}&to=${toStr}&apikey=${apiKey}`;
-      const resp = await fetch(url);
+      const resp = await fetch(url, { signal: AbortSignal.timeout(10000) });
       if (!resp.ok) throw new Error(`FMP HTTP ${resp.status}`);
       const data = await resp.json();
       if (!Array.isArray(data)) throw new Error("No data from FMP");
@@ -81,7 +81,7 @@ export default async function handler(req, res) {
       const fromStr = fromDate.toISOString().split("T")[0];
       const toStr = now.toISOString().split("T")[0];
       const url = `${FMP_BASE}/historical-price-eod/full?symbol=${encodeURIComponent(ticker)}&from=${fromStr}&to=${toStr}&apikey=${apiKey}`;
-      const resp = await fetch(url);
+      const resp = await fetch(url, { signal: AbortSignal.timeout(10000) });
       if (!resp.ok) throw new Error(`FMP HTTP ${resp.status}`);
       const data = await resp.json();
       const rows = Array.isArray(data) ? data : data?.historical;
