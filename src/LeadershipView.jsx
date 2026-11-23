@@ -16,10 +16,32 @@
 import React, { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { AdrFilter, Card, ChangesPanel, Delta, ExtHoursMovers, FlaggedTab, IndexPanel, IntradayScan, LEAD, LEAD_INDEXES, LayerMembers, LayerTable, MarketGate, PEAK_LOOKBACK, PIN_ADR, SPARK_N, STATUS, StockTable, Tabs, ThemeBoard, TierCtx, WatchlistPortfolioTab, classify, computeTiers, layerConfirm, layerRanksFrom, layerStats, pinReason, rankHeld, rankTrend, rsLeads, statusColor, td, th, useIndexBars, useJson, useLiveRS, withEpsRating } from "./lead/core.jsx";
 export { LEAD_INDEXES, zvrFor, useRvolProfiles, useJson, TierMark, computeTiers } from "./lead/core.jsx";
-const BriefPanel = React.lazy(() => import("./lead/Brief.jsx"));
-const ScannerPanel = React.lazy(() => import("./lead/Scanner.jsx"));
-const RotationView = React.lazy(() => import("./lead/Rotation.jsx"));
-const ZangerPanel = React.lazy(() => import("./lead/Zanger.jsx"));
+function lazyWithReload(load) {
+  return React.lazy(() =>
+    load().catch((err) => {
+      const msg = String(err?.message || err || "");
+      const isChunkErr = /dynamically imported module|Importing a module script failed|ChunkLoadError/i.test(msg);
+      if (isChunkErr && typeof window !== "undefined") {
+        try {
+          const last = Number(sessionStorage.getItem("tp_chunk_reload_at") || 0);
+          if (Date.now() - last > 15000) {
+            sessionStorage.setItem("tp_chunk_reload_at", String(Date.now()));
+            window.location.reload();
+            return new Promise(() => {});
+          }
+        } catch {
+          window.location.reload();
+          return new Promise(() => {});
+        }
+      }
+      throw err;
+    })
+  );
+}
+const BriefPanel = lazyWithReload(() => import("./lead/Brief.jsx"));
+const ScannerPanel = lazyWithReload(() => import("./lead/Scanner.jsx"));
+const RotationView = lazyWithReload(() => import("./lead/Rotation.jsx"));
+const ZangerPanel = lazyWithReload(() => import("./lead/Zanger.jsx"));
 
 export default function LeadershipView({
   ARIA: A,

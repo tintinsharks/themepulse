@@ -23,15 +23,21 @@ export class ErrorBoundary extends React.Component {
       const firstLine = lines[0] || "";
       const m = firstLine.match(/at\s+(\w+)/);
       const culprit = m ? m[1] : "unknown";
+      const errStr = String(this.state.err);
+      const isChunkErr = /dynamically imported module|Importing a module script failed|ChunkLoadError/i.test(errStr);
       return (
         <div style={{ padding: 16, color: ARIA.red, fontFamily: "monospace" }}>
           <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>
-            Render error in <span style={{ color: ARIA.yellow }}>{culprit}</span>
+            {isChunkErr ? (
+              <span style={{ color: ARIA.yellow }}>New version deployed — reload required</span>
+            ) : (
+              <>Render error in <span style={{ color: ARIA.yellow }}>{culprit}</span></>
+            )}
           </div>
           <div style={{ fontSize: 10, color: ARIA.textDim, marginBottom: 8 }}>
-            {String(this.state.err)}
+            {errStr}
           </div>
-          {stack && (
+          {stack && !isChunkErr && (
             <details style={{ marginBottom: 8 }}>
               <summary
                 style={{
@@ -61,7 +67,9 @@ export class ErrorBoundary extends React.Component {
           )}
           <button
             onClick={() =>
-              this.setState({ hasError: false, err: null, info: null })
+              isChunkErr
+                ? window.location.reload()
+                : this.setState({ hasError: false, err: null, info: null })
             }
             style={{
               padding: "6px 14px",
@@ -74,7 +82,7 @@ export class ErrorBoundary extends React.Component {
               fontFamily: "monospace",
             }}
           >
-            Retry
+            {isChunkErr ? "Reload page" : "Retry"}
           </button>
         </div>
       );
