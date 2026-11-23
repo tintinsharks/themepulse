@@ -29,6 +29,21 @@ const BO_COLORS = {
   QMAG: "#c084fc",
 };
 
+const BO_META = {
+  ZANGER: { label: "🔥 ZNG", color: "#fbbf24", tip: "Dan Zanger Breakout: ZVR ≥ 2.0x, up ≥ +3%, CR ≥ 70%, within 10% of 52wH" },
+  "SB4%": { label: "⚡ 4%", color: "#4ade80", tip: "Stockbee 4% Momentum Burst: up ≥ +4% on ≥ 1.0x volume, CR ≥ 60%" },
+  "SB$": { label: "💵 $BO", color: "#38bdf8", tip: "Stockbee $ Breakout: up ≥ $0.90 (and ≥ +1.5%) on ≥ 1.2x volume, CR ≥ 60%" },
+  QMAG: { label: "🚀 QMAG", color: "#c084fc", tip: "Qullamaggie Breakout: prior momentum leader + tight/EMA structure + ≥0.7x ADR thrust on ≥ 1.3x vol" },
+};
+const BO_KEYS = ["ZANGER", "SB4%", "SB$", "QMAG"];
+
+const CAT_TABS = [
+  ["bo", "🔥 Breakouts", "#fbbf24", "Any of the 4 breakouts: Zanger, Stockbee 4%, Stockbee $, Qullamaggie"],
+  ["zanger", "⚡ All Movers", "#4ade80", "Any breakout OR ZVR ≥ 1.5x volume surge in a leading/emerging theme"],
+  ["rsl", "🔵 RS Leading", "#38bdf8", "RS line at a new 52-week high on a green close while basing 5–15% off highs"],
+  ["leaders", "⭐ Core Leaders", "#f59e0b", "RS 90+ Tier Leaders in Leading theme layers"],
+];
+
 const fmtPct = (v, dg = 1) =>
   typeof v === "number" && Number.isFinite(v) ? `${v > 0 ? "+" : ""}${v.toFixed(dg)}%` : "—";
 
@@ -39,18 +54,45 @@ const fmtVol = (v) => {
   return String(Math.round(v));
 };
 
-export default function ZangerBriefSection({ A, stockMap, tickerLayer, layers, tiers, onTicker, chartTicker }) {
+export default function ZangerBriefSection({
+  A,
+  stockMap,
+  tickerLayer,
+  layers,
+  tiers,
+  portfolio = [],
+  setPortfolio,
+  watchlist = [],
+  setWatchlist,
+  onTicker,
+  chartTicker,
+}) {
   const [index, setIndex] = useState(null);
   const [sel, setSel] = useState(null);
   const [snap, setSnap] = useState(null);
   const [err, setErr] = useState(null);
   const [liveOn, setLiveOn] = useState(true);
   const [mq, setMq] = useState(null);
+  const [catTab, setCatTab] = useState("zanger"); // "bo" | "zanger" | "rsl" | "leaders"
+  const [boFilter, setBoFilter] = useState(null); // null | "ZANGER" | "SB4%" | "SB$" | "QMAG"
+  const [themeFilter, setThemeFilter] = useState(null);
+  const [minZvr, setMinZvr] = useState(1.0);
+  const [minRs, setMinRs] = useState(70);
+  const [epsOnly, setEpsOnly] = useState(false);
+  const [cleanOnly, setCleanOnly] = useState(false);
   const [moverSort, setMoverSort] = useState({ k: "score", d: -1 });
   const [flowSort, setFlowSort] = useState({ k: "avgChg", d: -1 });
   const [portSort, setPortSort] = useState({ k: "list", d: 1 });
   const [liveNews, setLiveNews] = useState({});
   const profiles = useRvolProfiles();
+
+  const pfSet = useMemo(() => new Set(portfolio || []), [portfolio]);
+  const wlSet = useMemo(() => new Set(watchlist || []), [watchlist]);
+  const toggleList = (t, target) => {
+    const setter = target === "pf" ? setPortfolio : setWatchlist;
+    if (!setter) return;
+    setter((prev) => ((prev || []).includes(t) ? prev.filter((x) => x !== t) : [...(prev || []), t]));
+  };
 
   useEffect(() => {
     let live = true;
@@ -191,6 +233,7 @@ export default function ZangerBriefSection({ A, stockMap, tickerLayer, layers, t
       .slice(0, 8);
 
     return {
+      allScored: scored,
       movers,
       themeFlow: {
         hottest: flowRows.slice(0, 5),
@@ -368,7 +411,36 @@ export default function ZangerBriefSection({ A, stockMap, tickerLayer, layers, t
   const decColor = dec === "YES" ? A.green : dec === "CAUTION" ? "#f59e0b" : A.red;
 
   const movers = liveComputed ? liveComputed.movers : (snap?.zangerMovers || []);
-  const bos = movers.filter((m) => m.isBreakout);
+  const allPool = liveComputed ? liveComputed.allScored : [...(snap?.zangerMovers || []), ...(snap?.onDeckRsl || [])];
+  const bos = allPool.filter((m) => m.isBreakout);
+  const catCounts = {
+    bo: bos.length,
+    zanger: liveComputed ? allPool.filter((r) => r.qualifiesZanger).length : (snap?.zangerMovers || []).length,
+    rsl: allPool.filter((r) => r.rsl).length,
+    leaders: allPool.filter((r) => r.tier === "lead" && r.layerStatus === "lead").length,
+  };
+  const boTypeCounts = { ZANGER: 0, "SB4%": 0, "SB$": 0, QMAG: 0 };
+  for (const r of allPool) {
+    for (const k of r.breakoutTypes || []) if (boTypeCounts[k] != null) boTypeCounts[k]++;
+  }
+  const chipStyle = (active, accent) => ({
+    background: active ? `${accent || A.green}22` : "transparent",
+    border: `1px solid ${active ? (accent || A.green) : A.border}`,
+    color: active ? (accent || A.green) : A.textDim,
+    padding: "2px 7px",
+    borderRadius: 4,
+    cursor: "pointer",
+    fontFamily: "monospace",
+    fontSize: 10,
+    fontWeight: active ? 700 : 500,
+    whiteSpace: "nowrap",
+  });
+  const pickCatTab = (t) => {
+    setCatTab(t);
+    if (t !== "bo" && t !== "zanger") setBoFilter(null);
+    if (t === "leaders" || t === "rsl") setMoverSort({ k: "rs", d: -1 });
+    else setMoverSort({ k: "score", d: -1 });
+  };
   const ph = snap?.phase || { id: "midday", label: "INTRADAY UPDATE", subtitle: "", accent: A.green };
   const portAlerts = snap?.portfolioAlerts || {};
   const portEarnings = snap?.portfolioEarnings || [];
@@ -424,7 +496,21 @@ export default function ZangerBriefSection({ A, stockMap, tickerLayer, layers, t
   const flowTh = makeSortTh(flowSort, setFlowSort);
   const portTh = makeSortTh(portSort, setPortSort);
 
-  const sortedMovers = [...movers].sort((a, b) => {
+  const filteredRows = allPool.filter((r) => {
+    if (catTab === "bo" && !r.isBreakout) return false;
+    if (catTab === "zanger" && !r.qualifiesZanger) return false;
+    if (catTab === "rsl" && !r.rsl) return false;
+    if (catTab === "leaders" && !(r.tier === "lead" && r.layerStatus === "lead")) return false;
+    if (boFilter && !(r.breakoutTypes || []).includes(boFilter)) return false;
+    if (themeFilter && r.theme !== themeFilter) return false;
+    if ((catTab === "zanger" || catTab === "bo") && minZvr > 1.0 && (r.zvr ?? 0) < minZvr) return false;
+    if (minRs > 70 && (r.rs ?? 0) < minRs) return false;
+    if (epsOnly && (r.eps ?? 0) < 50) return false;
+    if (cleanOnly && (r.layerFlags || []).some(([k]) => k === "distrib" || k === "exiting")) return false;
+    return true;
+  });
+
+  const sortedMovers = [...filteredRows].sort((a, b) => {
     if (moverSort.k === "score" && moverSort.d < 0) {
       const diffNew = Number(Boolean(b.isNew)) - Number(Boolean(a.isNew));
       if (diffNew) return diffNew;
@@ -436,7 +522,7 @@ export default function ZangerBriefSection({ A, stockMap, tickerLayer, layers, t
       if (k === "theme") return `${r.theme || ""} ${r.layer || ""}`;
       return r[k];
     });
-  });
+  }).slice(0, 60);
 
   const sortedPortAlerts = [...(portAlerts.alerts || [])].sort((a, b) =>
     cmpSort(a, b, portSort, (r, k) => (k === "list" ? (r.list === "PORT" ? 0 : 1) : r[k]))
@@ -609,15 +695,95 @@ export default function ZangerBriefSection({ A, stockMap, tickerLayer, layers, t
       <Card
         A={A}
         title="Breakouts & Intraday Volume Movers"
-        sub={`${liveComputed ? "Live 60s scan · " : ""}Zanger · Stockbee 4% / $ · Qullamaggie · click any row to chart`}
-        right={<CopyTickersBtn A={A} tickers={boTickers.length ? boTickers : allMoverTickers} label={boTickers.length ? "Copy BOs" : "Copy Movers"} />}
+        sub={`${liveComputed ? "Live 60s scan · " : ""}${sortedMovers.length} shown · click any row to chart`}
+        right={<CopyTickersBtn A={A} tickers={sortedMovers.map((m) => m.ticker)} label="Copy Shown" />}
       >
-        {movers.length === 0 ? (
-          <div style={{ fontSize: 11, color: A.textMuted }}>No stocks currently pass breakout or ZVR ≥ 1.5x criteria.</div>
+        {/* Category Tabs matching Zanger view */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+          {CAT_TABS.map(([id, label, color, tip]) => {
+            const active = catTab === id;
+            return (
+              <button
+                key={id}
+                onClick={() => pickCatTab(id)}
+                title={tip}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  background: active ? `${color}1f` : A.bg,
+                  border: `1px solid ${active ? color : A.border}`,
+                  color: active ? color : A.textDim,
+                  borderRadius: 6,
+                  padding: "4px 10px",
+                  fontSize: 11,
+                  fontWeight: active ? 800 : 600,
+                  fontFamily: "monospace",
+                  cursor: "pointer",
+                }}
+              >
+                <span>{label}</span>
+                <span style={{ opacity: 0.85, fontSize: 11 }}>{catCounts[id]}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Sub-filters: Breakout type, ZVR, RS, EPS, Clean layers, active Theme */}
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, marginBottom: 8, paddingBottom: 8, borderBottom: `1px solid ${A.border}` }}>
+          {(catTab === "bo" || catTab === "zanger") && (
+            <div style={{ display: "inline-flex", flexWrap: "wrap", alignItems: "center", gap: 4 }}>
+              <span style={{ fontSize: 9, color: A.textMuted, fontFamily: "monospace" }}>TYPE</span>
+              <button onClick={() => setBoFilter(null)} style={chipStyle(!boFilter, A.green)}>All</button>
+              {BO_KEYS.map((k) => {
+                const bm = BO_META[k];
+                return (
+                  <button key={k} onClick={() => setBoFilter(boFilter === k ? null : k)} title={bm.tip} style={chipStyle(boFilter === k, bm.color)}>
+                    {bm.label} <span style={{ opacity: 0.75 }}>{boTypeCounts[k]}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {(catTab === "bo" || catTab === "zanger") && (
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <span style={{ fontSize: 9, color: A.textMuted, fontFamily: "monospace" }}>ZVR</span>
+              {[1.0, 1.5, 2.0, 2.5].map((v) => (
+                <button key={v} onClick={() => setMinZvr(v)} style={chipStyle(minZvr === v, "#fbbf24")}>{v === 1.0 ? "Any" : `≥${v.toFixed(1)}x`}</button>
+              ))}
+            </div>
+          )}
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <span style={{ fontSize: 9, color: A.textMuted, fontFamily: "monospace" }}>RS</span>
+            {[70, 80, 90].map((v) => (
+              <button key={v} onClick={() => setMinRs(v)} style={chipStyle(minRs === v, A.cyan)}>≥{v}</button>
+            ))}
+          </div>
+          <button onClick={() => setEpsOnly((v) => !v)} style={chipStyle(epsOnly, A.green)} title="Require O'Neil EPS Rating ≥ 50">EPS ≥ 50</button>
+          <button onClick={() => setCleanOnly((v) => !v)} style={chipStyle(cleanOnly, A.green)} title="Hide layers with distribution or exiting-leader warnings">Clean layers</button>
+          {themeFilter && (
+            <button onClick={() => setThemeFilter(null)} style={chipStyle(true, A.cyan)} title="Clear theme filter">
+              Theme: {themeFilter} ✕
+            </button>
+          )}
+        </div>
+
+        {sortedMovers.length === 0 ? (
+          <div style={{ fontSize: 11, color: A.textMuted, padding: "8px 0" }}>
+            No stocks match the current filters in this tab.
+            {catTab !== "leaders" && (
+              <>
+                {" "}
+                <button onClick={() => pickCatTab("leaders")} style={{ background: "none", border: "none", color: A.green, textDecoration: "underline", cursor: "pointer", fontSize: 11, fontFamily: "monospace" }}>
+                  View Core Leaders ({catCounts.leaders})
+                </button>
+              </>
+            )}
+          </div>
         ) : (
-          <div style={{ overflowX: "auto" }}>
+          <div style={{ overflowX: "auto", maxHeight: 520, overflowY: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
+              <thead style={{ position: "sticky", top: 0, background: A.bgCard, zIndex: 1 }}>
                 <tr>
                   {moverTh("sig", "Sig", "left")}
                   {moverTh("ticker", "Ticker", "left", undefined, true)}
@@ -630,10 +796,14 @@ export default function ZangerBriefSection({ A, stockMap, tickerLayer, layers, t
                   {moverTh("eps", "EPS", "right", EPS_TIP)}
                   {moverTh("off52", "Off 52wH")}
                   {moverTh("score", "Score")}
+                  {(setPortfolio || setWatchlist) && <th style={th(A, "right")}>List</th>}
                 </tr>
               </thead>
               <tbody>
-                {sortedMovers.map((m) => (
+                {sortedMovers.map((m) => {
+                  const inPf = pfSet.has(m.ticker);
+                  const inWl = wlSet.has(m.ticker);
+                  return (
                   <tr
                     key={m.ticker}
                     data-nav={m.ticker}
@@ -651,7 +821,9 @@ export default function ZangerBriefSection({ A, stockMap, tickerLayer, layers, t
                             <span key={k} style={{ fontSize: 9, fontWeight: 700, fontFamily: "monospace", padding: "1px 4px", borderRadius: 3, background: `${c}20`, color: c, border: `1px solid ${c}66` }}>{k}</span>
                           );
                         }) : (
-                          <span style={{ fontSize: 9, fontWeight: 700, fontFamily: "monospace", padding: "1px 4px", borderRadius: 3, background: "rgba(34,197,94,0.16)", color: A.green }}>{m.rsl ? "RSL" : "VOL"}</span>
+                          <span style={{ fontSize: 9, fontWeight: 700, fontFamily: "monospace", padding: "1px 4px", borderRadius: 3, background: m.rsl ? "rgba(56,189,248,0.16)" : m.qualifiesZanger ? "rgba(34,197,94,0.16)" : "transparent", color: m.rsl ? A.cyan : m.qualifiesZanger ? A.green : A.textDim, border: m.rsl || m.qualifiesZanger ? "none" : `1px solid ${A.border}` }}>
+                            {m.rsl ? "RSL" : m.qualifiesZanger ? "VOL" : "LEAD"}
+                          </span>
                         )}
                       </span>
                     </td>
@@ -685,8 +857,33 @@ export default function ZangerBriefSection({ A, stockMap, tickerLayer, layers, t
                     <td style={{ ...td(A, "right"), fontFamily: "monospace", color: epsC(m.eps) }}>{m.eps ?? "—"}{m.epsAccel ? <span style={{ color: A.green, fontSize: 9 }}>▲</span> : null}</td>
                     <td style={{ ...td(A, "right"), fontFamily: "monospace", color: (m.off52 ?? -99) >= -5 ? A.green : A.textDim }}>{fmtPct(m.off52, 1)}</td>
                     <td style={{ ...td(A, "right"), fontFamily: "monospace", fontWeight: 800, color: (m.score ?? 0) >= 70 ? "#fbbf24" : A.text }}>{m.score != null ? m.score.toFixed(1) : "—"}</td>
+                    {(setPortfolio || setWatchlist) && (
+                      <td style={td(A, "right")} onClick={(e) => e.stopPropagation()}>
+                        <span style={{ display: "inline-flex", gap: 3 }}>
+                          {setPortfolio && (
+                            <button
+                              title={inPf ? "Remove from Portfolio" : "Add to Portfolio"}
+                              onClick={() => toggleList(m.ticker, "pf")}
+                              style={{ background: inPf ? `${A.green}22` : "transparent", border: `1px solid ${inPf ? A.green : A.border}`, color: inPf ? A.green : A.textMuted, borderRadius: 3, padding: "1px 4px", fontSize: 9, fontFamily: "monospace", fontWeight: inPf ? 700 : 500, cursor: "pointer" }}
+                            >
+                              PF
+                            </button>
+                          )}
+                          {setWatchlist && (
+                            <button
+                              title={inWl ? "Remove from Watchlist" : "Add to Watchlist"}
+                              onClick={() => toggleList(m.ticker, "wl")}
+                              style={{ background: inWl ? `${A.cyan}22` : "transparent", border: `1px solid ${inWl ? A.cyan : A.border}`, color: inWl ? A.cyan : A.textMuted, borderRadius: 3, padding: "1px 4px", fontSize: 9, fontFamily: "monospace", fontWeight: inWl ? 700 : 500, cursor: "pointer" }}
+                            >
+                              WL
+                            </button>
+                          )}
+                        </span>
+                      </td>
+                    )}
                   </tr>
-                ))}
+                );
+                })}
               </tbody>
             </table>
           </div>
@@ -761,7 +958,7 @@ export default function ZangerBriefSection({ A, stockMap, tickerLayer, layers, t
       {/* Intraday Theme Money Flow + Leader Damage + On Deck */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 10 }}>
         {sortedFlow.length > 0 && (
-          <Card A={A} title="Today's Theme Money Flow">
+          <Card A={A} title="Today's Theme Money Flow" sub="Click a theme to filter movers above">
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
@@ -774,9 +971,15 @@ export default function ZangerBriefSection({ A, stockMap, tickerLayer, layers, t
               <tbody>
                 {sortedFlow.map((t) => {
                   const isCold = (themeFlow.coldest || []).some((c) => c.theme === t.theme);
+                  const selected = themeFilter === t.theme;
                   return (
-                    <tr key={t.theme}>
-                      <td style={{ ...td(A), fontWeight: isCold ? 400 : 600, color: isCold ? A.textDim : A.text }}>{isCold ? `❄️ ${t.theme}` : t.theme}</td>
+                    <tr
+                      key={t.theme}
+                      onClick={() => setThemeFilter((cur) => (cur === t.theme ? null : t.theme))}
+                      title={selected ? "Click to clear theme filter" : `Filter movers by ${t.theme}`}
+                      style={{ cursor: "pointer", background: selected ? A.bgHover : "transparent" }}
+                    >
+                      <td style={{ ...td(A), fontWeight: selected || !isCold ? 600 : 400, color: selected ? A.cyan : isCold ? A.textDim : A.text }}>{isCold ? `❄️ ${t.theme}` : t.theme}</td>
                       <td style={{ ...td(A, "right"), fontFamily: "monospace", fontWeight: 700, color: pc(t.avgChg) }}>{fmtPct(t.avgChg, 2)}</td>
                       <td style={{ ...td(A, "right"), fontFamily: "monospace", color: isCold ? A.textMuted : A.textDim }}>{t.pctGreen}%</td>
                       <td style={{ ...td(A, "right"), fontFamily: "monospace", color: t.breakouts ? "#fbbf24" : A.textMuted }}>{t.breakouts || "—"}</td>

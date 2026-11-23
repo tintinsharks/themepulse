@@ -61,7 +61,7 @@ function RatioBar({ title, pct, leftLabel, rightLabel, accentColor, trackBg, tex
           <span>{title}</span>
           {onClick && (
             <span style={{ fontSize: 10, fontWeight: 500, color: mutedColor, fontFamily: "monospace" }}>
-              {expanded ? "▾ hide" : "▸ 1M"}
+              {expanded ? "▾ hide" : "▸ chart"}
             </span>
           )}
         </span>
@@ -106,10 +106,14 @@ function BreadthHistoryChart({ A, series, posLabel, negLabel, range, onRange }) 
   const midY = padT + plotH / 2;
   const halfH = plotH / 2;
 
-  const maxVal = Math.max(10, ...series.map((d) => Math.max(d.pos || 0, d.neg || 0)));
+  const peaks = series.map((d) => Math.max(d.pos || 0, d.neg || 0)).sort((a, b) => a - b);
+  const rawMax = peaks[peaks.length - 1] || 10;
+  const p97 = peaks[Math.max(0, Math.floor((peaks.length - 1) * 0.97))] || rawMax;
+  // Prevent a single pipeline glitch spike (e.g. 6x normal) from squashing 6M bars
+  const maxVal = rawMax > p97 * 2.2 ? Math.max(10, Math.ceil(p97 * 1.15)) : Math.max(10, rawMax);
   const n = series.length;
   const step = plotW / n;
-  const barW = Math.max(2, Math.min(16, step * 0.68));
+  const barW = Math.max(1.5, Math.min(16, step * 0.7));
   const activeIdx = hoverIdx != null && hoverIdx < n ? hoverIdx : n - 1;
   const cur = series[activeIdx];
   const curTot = (cur.pos || 0) + (cur.neg || 0);
@@ -146,7 +150,7 @@ function BreadthHistoryChart({ A, series, posLabel, negLabel, range, onRange }) 
           </span>
         </div>
         <div style={{ display: "inline-flex", gap: 4 }}>
-          {[[22, "1M"], [63, "3M"]].map(([days, lbl]) => (
+          {[[22, "1M"], [63, "3M"], [126, "6M"]].map(([days, lbl]) => (
             <button
               key={lbl}
               onClick={() => { setHoverIdx(null); onRange(days); }}
@@ -187,8 +191,8 @@ function BreadthHistoryChart({ A, series, posLabel, negLabel, range, onRange }) 
         {series.map((d, i) => {
           const cx = padL + i * step + step / 2;
           const x = cx - barW / 2;
-          const posH = Math.max(0, ((d.pos || 0) / maxVal) * halfH);
-          const negH = Math.max(0, ((d.neg || 0) / maxVal) * halfH);
+          const posH = Math.min(halfH, Math.max(0, ((d.pos || 0) / maxVal) * halfH));
+          const negH = Math.min(halfH, Math.max(0, ((d.neg || 0) / maxVal) * halfH));
           const isActive = i === activeIdx;
           return (
             <g key={d.date} onMouseEnter={() => setHoverIdx(i)} style={{ cursor: "crosshair" }}>
@@ -271,7 +275,7 @@ function StageHistoryChart({ A, series, range, onRange }) {
   const plotH = H - padT - padB;
   const n = series.length;
   const step = plotW / n;
-  const barW = Math.max(2, Math.min(18, step * 0.72));
+  const barW = Math.max(1.5, Math.min(18, step * 0.76));
   const activeIdx = hoverIdx != null && hoverIdx < n ? hoverIdx : n - 1;
   const cur = series[activeIdx];
   const midIdx = Math.floor((n - 1) / 2);
@@ -296,7 +300,7 @@ function StageHistoryChart({ A, series, range, onRange }) {
           <span style={{ color: STAGE_COLOR[4], fontWeight: 700 }}>S4 {cur.s4}%</span>
         </div>
         <div style={{ display: "inline-flex", gap: 4 }}>
-          {[[22, "1M"], [63, "3M"]].map(([days, lbl]) => (
+          {[[22, "1M"], [63, "3M"], [126, "6M"]].map(([days, lbl]) => (
             <button
               key={lbl}
               onClick={() => { setHoverIdx(null); onRange(days); }}
@@ -636,7 +640,7 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor }) {
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, color: A.text, letterSpacing: -0.1 }}>
                     <span>Stage Analysis</span>
                     <span style={{ fontSize: 10, fontWeight: 500, color: A.textMuted, fontFamily: "monospace" }}>
-                      {openChart === "stage" ? "▾ hide" : "▸ 1M"}
+                      {openChart === "stage" ? "▾ hide" : "▸ chart"}
                     </span>
                   </span>
                   <span style={{ fontSize: 10, color: A.textMuted, fontFamily: "monospace" }}>

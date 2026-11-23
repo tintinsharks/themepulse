@@ -507,6 +507,10 @@ function BriefPanel(props) {
         tickerLayer={props.tickerLayer}
         layers={props.layers}
         tiers={props.tiers}
+        portfolio={props.portfolio}
+        setPortfolio={props.setPortfolio}
+        watchlist={props.watchlist}
+        setWatchlist={props.setWatchlist}
         onTicker={props.onTicker}
         chartTicker={props.chartTicker}
       />
