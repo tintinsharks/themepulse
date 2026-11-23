@@ -1,11 +1,13 @@
 import { useMemo, useState } from "react";
 import {
   Card,
+  CopyTickersBtn,
   EPS_TIP,
   FlagButton,
   RslDot,
   TierMark,
   etClock,
+  layerFlags,
   pinReason,
   scoreZangerCandidate,
   statusColor,
@@ -112,7 +114,21 @@ function SignalPill({ r, A }) {
   );
 }
 
-function ZangerPanel({ A, stockMap, layers, themes, tickerLayer, tiers, onTicker, chartTicker, onLayer }) {
+function ZangerPanel({
+  A,
+  stockMap,
+  layers,
+  themes,
+  tickerLayer,
+  tiers,
+  onTicker,
+  chartTicker,
+  onLayer,
+  portfolio = [],
+  setPortfolio,
+  watchlist = [],
+  setWatchlist,
+}) {
   const [mode, setMode] = useState(() => {
     try { return localStorage.getItem("tp-zanger-mode") || "zanger"; } catch { return "zanger"; }
   });
@@ -122,7 +138,26 @@ function ZangerPanel({ A, stockMap, layers, themes, tickerLayer, tiers, onTicker
   const [minRs, setMinRs] = useState(70);
   const [cleanOnly, setCleanOnly] = useState(false);
   const [epsOnly, setEpsOnly] = useState(false);
+  const [showIntel, setShowIntel] = useState(() => {
+    try { return localStorage.getItem("tp-zanger-intel") !== "0"; } catch { return true; }
+  });
   const [sort, setSort] = useState({ k: "score", d: -1 });
+
+  const toggleIntel = () => setShowIntel((v) => {
+    try { localStorage.setItem("tp-zanger-intel", v ? "0" : "1"); } catch { /* ignore */ }
+    return !v;
+  });
+
+  const pfSet = useMemo(() => new Set(portfolio || []), [portfolio]);
+  const wlSet = useMemo(() => new Set(watchlist || []), [watchlist]);
+  const pfColor = A.green;
+  const wlColor = A.cyan || "#38bdf8";
+
+  const toggleIn = (t, target) => {
+    const setter = target === "pf" ? setPortfolio : setWatchlist;
+    if (!setter) return;
+    setter((prev) => ((prev || []).includes(t) ? prev.filter((x) => x !== t) : [...(prev || []), t]));
+  };
 
   const pickMode = (m) => {
     setMode(m);
@@ -194,6 +229,85 @@ function ZangerPanel({ A, stockMap, layers, themes, tickerLayer, tiers, onTicker
       return { ...t, hits: hitCount[t.themeId] || 0, hasWarn };
     });
   }, [themes, allScored, mode]);
+
+  // Live Intraday Theme Money Flow (top 5 hottest & bottom 3 coldest, min 4 liquid stocks)
+  const themeFlow = useMemo(() => {
+    const boByTheme = new Map();
+    for (const r of allScored) {
+      if (!r.isBreakout || !r.themeId) continue;
+      boByTheme.set(r.themeId, (boByTheme.get(r.themeId) || 0) + 1);
+    }
+
+    const buckets = new Map();
+    for (const [tk, s] of Object.entries(stockMap || {})) {
+      if ((s?.avg_dollar_vol_raw ?? 0) < 20e6) continue;
+      const L = tickerLayer?.[tk];
+      if (!L?.themeId || !L?.theme) continue;
+      const q = quotes.get(tk);
+      const chg = q?.change ?? s.chg_live ?? s.change_pct;
+      if (chg == null || !Number.isFinite(chg)) continue;
+      let b = buckets.get(L.themeId);
+      if (!b) {
+        b = { themeId: L.themeId, theme: L.theme, sum: 0, count: 0, green: 0, best: null };
+        buckets.set(L.themeId, b);
+      }
+      b.sum += chg;
+      b.count++;
+      if (chg > 0) b.green++;
+      if (!b.best || chg > b.best.chg) b.best = { ticker: tk, chg };
+    }
+
+    const list = [];
+    for (const b of buckets.values()) {
+      if (b.count < 4) continue;
+      list.push({
+        themeId: b.themeId,
+        theme: b.theme,
+        avgChg: Math.round((b.sum / b.count) * 100) / 100,
+        pctGreen: Math.round((b.green / b.count) * 100),
+        count: b.count,
+        breakouts: boByTheme.get(b.themeId) || 0,
+        topMover: b.best,
+      });
+    }
+    list.sort((a, b) => b.avgChg - a.avgChg || b.pctGreen - a.pctGreen);
+    const hottest = list.slice(0, 5);
+    const hottestIds = new Set(hottest.map((x) => x.themeId));
+    const coldest = list.filter((x) => !hottestIds.has(x.themeId)).slice(-3).reverse();
+    return { hottest, coldest };
+  }, [stockMap, tickerLayer, quotes, allScored]);
+
+  // Leader Damage Watch ("Generals Getting Hit")
+  const leaderDamage = useMemo(() => {
+    const damaged = allScored
+      .filter((r) => {
+        if (r.rs < 90 && r.tier !== "lead") return false;
+        if (r.chg == null || r.chg > -3.0) return false;
+        const heavyVol = r.zvr != null && r.zvr >= 1.5;
+        const weakClose = r.cr != null && r.cr <= 30;
+        return heavyVol || weakClose || r.chg <= -4.5;
+      })
+      .sort((a, b) => a.chg - b.chg || (b.zvr ?? 0) - (a.zvr ?? 0))
+      .slice(0, 12);
+
+    const warnLayers = (layers || [])
+      .map((l) => {
+        const fl = l.flags?.length ? l.flags : layerFlags(l);
+        const bad = fl.filter(([k]) => k === "distrib" || k === "exiting").map(([k]) => k);
+        return l.st === "lead" && bad.length ? { key: l.key, themeId: l.themeId, theme: l.theme, layer: l.name, rank: l.now, flags: bad } : null;
+      })
+      .filter(Boolean)
+      .slice(0, 6);
+
+    return { damaged, warnLayers };
+  }, [allScored, layers]);
+
+  const activeExtraTheme = useMemo(() => {
+    if (!themeId || topThemes.some((t) => t.themeId === themeId)) return null;
+    const match = (themes || []).find((t) => t.themeId === themeId)
+      || [...themeFlow.hottest, ...themeFlow.coldest].find((t) => t.themeId === themeId);
+    return match ? { themeId, theme: match.theme } : { themeId, theme: themeId };
+  }, [themeId, topThemes, themes, themeFlow]);
 
   const rows = useMemo(() => {
     let list = allScored.filter((r) => {
@@ -292,7 +406,7 @@ function ZangerPanel({ A, stockMap, layers, themes, tickerLayer, tiers, onTicker
       </div>
 
       {/* Leading Themes Filter Strip */}
-      {topThemes.length > 0 && (
+      {(topThemes.length > 0 || activeExtraTheme) && (
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, background: A.bgCard, border: `1px solid ${A.border}`, borderRadius: 8, padding: "7px 10px", marginBottom: 10 }}>
           <span style={{ fontSize: 9, fontWeight: 700, color: A.textMuted, fontFamily: "monospace", letterSpacing: 0.5, marginRight: 2 }}>THEMES</span>
           <button onClick={() => setThemeId(null)} style={chipStyle(!themeId, A.green)}>All</button>
@@ -312,6 +426,15 @@ function ZangerPanel({ A, stockMap, layers, themes, tickerLayer, tiers, onTicker
               </button>
             );
           })}
+          {activeExtraTheme && (
+            <button
+              onClick={() => setThemeId(null)}
+              title={`Filtered to ${activeExtraTheme.theme} — click to clear`}
+              style={chipStyle(true, A.cyan)}
+            >
+              {activeExtraTheme.theme} ✕
+            </button>
+          )}
         </div>
       )}
 
@@ -321,12 +444,13 @@ function ZangerPanel({ A, stockMap, layers, themes, tickerLayer, tiers, onTicker
         title={modeMeta[1]}
         sub={modeMeta[2]}
         right={
-          <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: "monospace", fontSize: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: "monospace", fontSize: 10, flexWrap: "wrap" }}>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: clock.rth ? A.green : A.textMuted }}>
               <span className={clock.rth ? "tp-livedot" : undefined} style={{ width: 6, height: 6, borderRadius: 3, background: clock.rth ? A.green : A.textMuted, display: "inline-block" }} />
               {clock.rth ? `LIVE${at ? ` · ${at.toLocaleTimeString()}` : ""}` : `EOD · ${clock.session}`}
             </span>
             <span style={{ color: A.textMuted }}>{rows.length} shown</span>
+            <CopyTickersBtn tickers={rows.map((r) => r.ticker)} A={A} />
           </div>
         }
       >
@@ -366,6 +490,16 @@ function ZangerPanel({ A, stockMap, layers, themes, tickerLayer, tiers, onTicker
           <button onClick={() => setCleanOnly((v) => !v)} style={chipStyle(cleanOnly, A.green)} title="Hide stocks whose layer has distribution or exiting-leader warnings">
             Clean layers only
           </button>
+          <button
+            onClick={toggleIntel}
+            style={chipStyle(showIntel, leaderDamage.damaged.length > 0 ? A.red : A.cyan)}
+            title="Toggle Today's Intraday Theme Money Flow & Leader Damage Watch strip below"
+          >
+            {showIntel ? "▾" : "▸"} Flow &amp; Damage
+            {leaderDamage.damaged.length > 0 && (
+              <span style={{ marginLeft: 4, color: A.red, fontWeight: 800 }}>({leaderDamage.damaged.length})</span>
+            )}
+          </button>
           <span style={{ marginLeft: "auto", fontSize: 9, color: A.textMuted, fontFamily: "monospace" }}>
             ↑/↓ step chart · updates every 60s RTH
           </span>
@@ -403,15 +537,19 @@ function ZangerPanel({ A, stockMap, layers, themes, tickerLayer, tiers, onTicker
                   {col("eps", "EPS", "right", EPS_TIP)}
                   {col("off52", "Off 52wH")}
                   {col("score", "Score", "right", "Composite Zanger score: ZVR + RS + Layer + CR + EPS + 52w proximity")}
+                  <th style={th(A, "right")}>List</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.slice(0, 80).map((r) => {
                   const active = chartTicker === r.ticker;
+                  const inPf = pfSet.has(r.ticker);
+                  const inWl = wlSet.has(r.ticker);
                   const warn = (r.layerFlags || []).some(([k]) => k === "distrib" || k === "exiting");
                   const lColor = statusColor(r.layerStatus, A) || A.textMuted;
                   const chgColor = r.chg == null ? A.textMuted : r.chg >= 0 ? A.green : A.red;
                   const openColor = r.fromOpen == null ? A.textMuted : r.fromOpen >= 0 ? A.green : A.red;
+                  const showEr = r.earningsDays != null && r.earningsDays >= 0 && r.earningsDays <= 5;
                   return (
                     <tr
                       key={r.ticker}
@@ -429,6 +567,25 @@ function ZangerPanel({ A, stockMap, layers, themes, tickerLayer, tiers, onTicker
                           <span style={{ color: A.text, fontWeight: 800, fontFamily: "monospace" }}>{r.ticker}</span>
                           <TierMark t={r.ticker} />
                           <RslDot tip={r.rslTip} A={A} />
+                          {showEr && (
+                            <span
+                              title={r.earningsDisplay ? `Earnings: ${r.earningsDisplay}` : `Earnings ${r.earningsDays === 0 ? "today" : `in ${r.earningsDays} days`}`}
+                              style={{
+                                marginLeft: 3,
+                                fontSize: 9,
+                                fontWeight: 700,
+                                fontFamily: "monospace",
+                                padding: "0px 4px",
+                                borderRadius: 3,
+                                background: "rgba(245,158,11,0.18)",
+                                color: "#f59e0b",
+                                border: "1px solid rgba(245,158,11,0.45)",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              ER {r.earningsDays}d
+                            </span>
+                          )}
                         </div>
                         {r.company && (
                           <div style={{ fontSize: 9, color: A.textMuted, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -487,6 +644,46 @@ function ZangerPanel({ A, stockMap, layers, themes, tickerLayer, tiers, onTicker
                       <td style={{ ...td(A, "right"), fontWeight: 800, fontFamily: "monospace", color: r.score >= 70 ? "#fbbf24" : r.score >= 55 ? A.green : A.textDim }}>
                         {r.score.toFixed(1)}
                       </td>
+                      <td style={td(A, "right")} onClick={(e) => e.stopPropagation()}>
+                        <span style={{ display: "inline-flex", gap: 3, alignItems: "center" }}>
+                          <button
+                            type="button"
+                            title={inPf ? "Remove from Portfolio" : "Add to Portfolio"}
+                            onClick={() => toggleIn(r.ticker, "pf")}
+                            style={{
+                              background: inPf ? `${pfColor}22` : "transparent",
+                              border: `1px solid ${inPf ? pfColor : A.border}`,
+                              color: inPf ? pfColor : A.textMuted,
+                              borderRadius: 3,
+                              padding: "1px 4px",
+                              fontSize: 9,
+                              fontWeight: inPf ? 700 : 500,
+                              fontFamily: "monospace",
+                              cursor: setPortfolio ? "pointer" : "default",
+                            }}
+                          >
+                            PF
+                          </button>
+                          <button
+                            type="button"
+                            title={inWl ? "Remove from Watchlist" : "Add to Watchlist"}
+                            onClick={() => toggleIn(r.ticker, "wl")}
+                            style={{
+                              background: inWl ? `${wlColor}22` : "transparent",
+                              border: `1px solid ${inWl ? wlColor : A.border}`,
+                              color: inWl ? wlColor : A.textMuted,
+                              borderRadius: 3,
+                              padding: "1px 4px",
+                              fontSize: 9,
+                              fontWeight: inWl ? 700 : 500,
+                              fontFamily: "monospace",
+                              cursor: setWatchlist ? "pointer" : "default",
+                            }}
+                          >
+                            WL
+                          </button>
+                        </span>
+                      </td>
                     </tr>
                   );
                 })}
@@ -495,6 +692,209 @@ function ZangerPanel({ A, stockMap, layers, themes, tickerLayer, tiers, onTicker
           </div>
         )}
       </Card>
+
+      {/* Live Intraday Theme Money Flow & Leader Damage Intelligence Strip */}
+      {showIntel && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 10 }}>
+          {/* Today's Intraday Theme Money Flow */}
+          <div style={{ background: A.bgCard, border: `1px solid ${A.border}`, borderRadius: 8, padding: "10px 12px" }}>
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: A.text, letterSpacing: 0.3 }}>
+                Intraday Theme Money Flow
+              </div>
+              <span style={{ fontSize: 9, color: A.textMuted, fontFamily: "monospace" }}>
+                ≥4 liquid · click theme to filter
+              </span>
+            </div>
+            {themeFlow.hottest.length === 0 ? (
+              <div style={{ fontSize: 11, color: A.textMuted, padding: "6px 0" }}>Waiting for theme breadth…</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: A.green, fontFamily: "monospace", letterSpacing: 0.5, marginBottom: 4 }}>
+                    HOTTEST INFLOWS
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                    {themeFlow.hottest.map((t) => {
+                      const active = themeId === t.themeId;
+                      return (
+                        <button
+                          key={t.themeId}
+                          type="button"
+                          onClick={() => setThemeId(active ? null : t.themeId)}
+                          title={`${t.theme}: avg ${fmtPct(t.avgChg, 2)} · ${t.pctGreen}% green (${t.count} liquid)${t.topMover ? ` · leader ${t.topMover.ticker} ${fmtPct(t.topMover.chg, 1)}` : ""} — click to filter table`}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            width: "100%",
+                            textAlign: "left",
+                            padding: "4px 7px",
+                            borderRadius: 5,
+                            cursor: "pointer",
+                            background: active ? `${A.green}1c` : A.bgRow,
+                            border: `1px solid ${active ? A.green : A.border}`,
+                            fontFamily: "monospace",
+                            fontSize: 10,
+                          }}
+                        >
+                          <span style={{ color: A.text, fontWeight: 700, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {t.theme}
+                          </span>
+                          {t.breakouts > 0 && (
+                            <span style={{ fontSize: 9, fontWeight: 800, padding: "0px 4px", borderRadius: 3, color: "#fbbf24", background: "rgba(251,191,36,0.16)", border: "1px solid rgba(251,191,36,0.45)" }}>
+                              🔥 {t.breakouts}
+                            </span>
+                          )}
+                          <span style={{ color: A.textMuted, minWidth: 46, textAlign: "right" }}>{t.pctGreen}% grn</span>
+                          <span style={{ color: t.avgChg >= 0 ? A.green : A.red, fontWeight: 800, minWidth: 52, textAlign: "right" }}>
+                            {fmtPct(t.avgChg, 2)}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {themeFlow.coldest.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: A.red, fontFamily: "monospace", letterSpacing: 0.5, marginBottom: 4 }}>
+                      COLDEST OUTFLOWS
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                      {themeFlow.coldest.map((t) => {
+                        const active = themeId === t.themeId;
+                        return (
+                          <button
+                            key={t.themeId}
+                            type="button"
+                            onClick={() => setThemeId(active ? null : t.themeId)}
+                            title={`${t.theme}: avg ${fmtPct(t.avgChg, 2)} · ${t.pctGreen}% green (${t.count} liquid) — click to filter table`}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                              width: "100%",
+                              textAlign: "left",
+                              padding: "4px 7px",
+                              borderRadius: 5,
+                              cursor: "pointer",
+                              background: active ? `${A.red}1c` : A.bgRow,
+                              border: `1px solid ${active ? A.red : A.border}`,
+                              fontFamily: "monospace",
+                              fontSize: 10,
+                            }}
+                          >
+                            <span style={{ color: A.textDim, fontWeight: 600, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {t.theme}
+                            </span>
+                            {t.breakouts > 0 && (
+                              <span style={{ fontSize: 9, fontWeight: 800, padding: "0px 4px", borderRadius: 3, color: "#fbbf24", background: "rgba(251,191,36,0.16)", border: "1px solid rgba(251,191,36,0.45)" }}>
+                                🔥 {t.breakouts}
+                              </span>
+                            )}
+                            <span style={{ color: A.textMuted, minWidth: 46, textAlign: "right" }}>{t.pctGreen}% grn</span>
+                            <span style={{ color: t.avgChg >= 0 ? A.green : A.red, fontWeight: 800, minWidth: 52, textAlign: "right" }}>
+                              {fmtPct(t.avgChg, 2)}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Leader Damage Watch ("Generals Getting Hit") */}
+          <div style={{ background: A.bgCard, border: `1px solid ${A.border}`, borderRadius: 8, padding: "10px 12px" }}>
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: leaderDamage.damaged.length > 0 ? A.red : A.text, letterSpacing: 0.3 }}>
+                Leader Damage Watch
+              </div>
+              <span style={{ fontSize: 9, color: A.textMuted, fontFamily: "monospace" }}>
+                Generals Getting Hit · RS 90+ / Core ≤ -3%
+              </span>
+            </div>
+            {leaderDamage.damaged.length === 0 ? (
+              <div style={{ fontSize: 11, color: A.green, fontFamily: "monospace", padding: "8px 0" }}>
+                ✓ No RS 90+ or Core Leaders taking heavy volume / weak-close damage.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {leaderDamage.damaged.map((r) => {
+                  const active = chartTicker === r.ticker;
+                  return (
+                    <button
+                      key={r.ticker}
+                      type="button"
+                      onClick={() => onTicker(r.ticker)}
+                      title={`${r.ticker} (${r.theme} · ${r.layer}) · RS ${r.rs} · Chg ${fmtPct(r.chg, 2)}${r.zvr != null ? ` · ZVR ${r.zvr.toFixed(2)}x` : ""}${r.cr != null ? ` · CR ${r.cr}%` : ""}`}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 5,
+                        padding: "4px 8px",
+                        borderRadius: 5,
+                        cursor: "pointer",
+                        background: active ? `${A.red}28` : `${A.red}10`,
+                        border: `1px solid ${active ? A.red : `${A.red}55`}`,
+                        fontFamily: "monospace",
+                        fontSize: 10,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      <span style={{ color: A.text, fontWeight: 800 }}>{r.ticker}</span>
+                      <span style={{ color: A.red, fontWeight: 800 }}>{fmtPct(r.chg, 1)}</span>
+                      {r.zvr != null && r.zvr >= 1.5 && (
+                        <span style={{ fontSize: 9, color: "#fbbf24", fontWeight: 700 }}>{r.zvr.toFixed(1)}x</span>
+                      )}
+                      {r.cr != null && r.cr <= 30 && (
+                        <span style={{ fontSize: 9, color: A.textMuted }}>CR {r.cr}%</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {leaderDamage.warnLayers.length > 0 && (
+              <div style={{ marginTop: 10, paddingTop: 8, borderTop: `1px solid ${A.border}` }}>
+                <div style={{ fontSize: 9, fontWeight: 700, color: "#f59e0b", fontFamily: "monospace", letterSpacing: 0.5, marginBottom: 4 }}>
+                  LEADING LAYERS WITH DISTRIB / EXITING FLAGS
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                  {leaderDamage.warnLayers.map((wl) => {
+                    const active = themeId === wl.themeId;
+                    return (
+                      <button
+                        key={wl.key}
+                        type="button"
+                        onClick={() => setThemeId(active ? null : wl.themeId)}
+                        title={`${wl.theme} · ${wl.layer} (rank ${wl.rank}) — ${wl.flags.join(", ")}`}
+                        style={{
+                          background: active ? "rgba(245,158,11,0.22)" : A.bgRow,
+                          border: `1px solid ${active ? "#f59e0b" : A.border}`,
+                          color: A.textDim,
+                          borderRadius: 4,
+                          padding: "2px 6px",
+                          fontSize: 9,
+                          fontFamily: "monospace",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <span style={{ color: A.text, fontWeight: 600 }}>{wl.layer}</span>{" "}
+                        <span style={{ color: "#f59e0b" }}>{wl.flags.join("/")}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 // Shared helpers, data hooks and small components for the Leaders / Scanner /
 // Brief views. Split out of LeadershipView.jsx.
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { authFetch } from "../utils.js";
 import { quoteStore } from "../liveQuotes.js";
 
@@ -102,6 +102,76 @@ export function TickerChip({ t, onClick, active, A, dim }) {
         color: dim ? A.textMuted : A.text, borderRadius: 4, padding: "1px 5px", fontSize: 11, cursor: "pointer",
         fontFamily: "monospace", marginRight: 3, marginBottom: 2,
       }}>{t}</button>
+  );
+}
+
+export function CopyTickersBtn({ tickers = [], A, label = "Copy Tickers", title }) {
+  const [copied, setCopied] = useState(0);
+  const timerRef = useRef(null);
+  const list = useMemo(
+    () => [...new Set((tickers || []).map((t) => String(t || "").trim()).filter(Boolean))],
+    [tickers]
+  );
+
+  useEffect(() => () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+  }, []);
+
+  const flash = (n) => {
+    setCopied(n);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setCopied(0), 1800);
+  };
+
+  const onCopy = (e) => {
+    e.stopPropagation();
+    if (!list.length) return;
+    const text = list.join(",");
+    const fallbackCopy = () => {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+        flash(list.length);
+      } catch { /* ignore */ }
+    };
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(() => flash(list.length)).catch(fallbackCopy);
+    } else {
+      fallbackCopy();
+    }
+  };
+
+  const disabled = list.length === 0;
+  const active = copied > 0;
+  return (
+    <button
+      type="button"
+      onClick={onCopy}
+      disabled={disabled}
+      title={title || (disabled ? "No tickers to copy" : `Copy ${list.length} ticker${list.length === 1 ? "" : "s"} in TradingView comma-separated format`)}
+      style={{
+        background: active ? `${A.green}1f` : "transparent",
+        border: `1px solid ${active ? A.green : A.border}`,
+        color: active ? A.green : A.textDim,
+        borderRadius: 4,
+        padding: "2px 8px",
+        fontSize: 10,
+        fontWeight: active ? 700 : 600,
+        fontFamily: "monospace",
+        cursor: disabled ? "default" : "pointer",
+        opacity: disabled ? 0.45 : 1,
+        whiteSpace: "nowrap",
+        transition: "border-color 0.15s, color 0.15s",
+      }}
+    >
+      {active ? `Copied ${copied} ✓` : label}
+    </button>
   );
 }
 
@@ -1097,7 +1167,10 @@ export function FlaggedTab({ A, stockMap, tickerLayer, onTicker, chartTicker, on
             {k ? k[0].toUpperCase() + k.slice(1) : "All"} <span style={{ color: A.textMuted }}>{k ? counts[k] : tickers.length}</span>
           </button>
         ))}
-        <span style={{ marginLeft: "auto", fontSize: 10, color: A.textMuted }}>{at && tickers.length ? `Live · ${at.toLocaleTimeString()}` : ""}</span>
+        <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 8 }}>
+          <CopyTickersBtn tickers={rows.map((r) => r.t)} A={A} />
+          {at && tickers.length ? <span style={{ fontSize: 10, color: A.textMuted }}>{`Live · ${at.toLocaleTimeString()}`}</span> : null}
+        </span>
       </div>
       {!rows.length ? (
         <div style={{ fontSize: 11, color: A.textMuted, padding: "6px 2px" }}>
@@ -1374,8 +1447,11 @@ export function WatchlistPortfolioTab({
           </button>
         </form>
 
-        <span style={{ marginLeft: "auto", fontSize: 10, color: A.textMuted }}>
-          {at && allTickers.length ? `Live · ${at.toLocaleTimeString()} · synced to email alerts` : "Synced across devices & hourly email"}
+        <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 8 }}>
+          <CopyTickersBtn tickers={rows.map((r) => r.t)} A={A} />
+          <span style={{ fontSize: 10, color: A.textMuted }}>
+            {at && allTickers.length ? `Live · ${at.toLocaleTimeString()} · synced to email alerts` : "Synced across devices & hourly email"}
+          </span>
         </span>
       </div>
 

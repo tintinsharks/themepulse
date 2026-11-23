@@ -359,7 +359,8 @@ export default function LeadershipView({
                 onTicker={onTickerClick} chartTicker={chartTicker} onLayer={(l) => showLayer(l)} onTheme={showTheme} layerOfTicker={layerOfTicker} />
             : view === "zanger"
             ? <ZangerPanel A={A} stockMap={stockMapX} layers={layers} themes={themes} tickerLayer={tickerLayer} tiers={tiers}
-                onTicker={onTickerClick} chartTicker={chartTicker} onLayer={layerOfTicker} />
+                onTicker={onTickerClick} chartTicker={chartTicker} onLayer={layerOfTicker}
+                portfolio={portfolio} setPortfolio={setPortfolio} watchlist={watchlist} setWatchlist={setWatchlist} />
             : <ScannerPanel A={A} stockMap={stockMapX} onTicker={onTickerClick} chartTicker={chartTicker} tickerLayer={tickerLayer} onLayer={layerOfTicker} />}
         </div>
       ) : (
