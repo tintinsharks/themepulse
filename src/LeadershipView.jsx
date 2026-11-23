@@ -14,14 +14,27 @@
 // NEGATIVE, so it is shown but labelled unproven, never mixed in with leaders.
 // ──────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useRef, useState, Suspense } from "react";
-import { AdrFilter, Card, ChangesPanel, Delta, ExtHoursMovers, FlaggedTab, IndexPanel, IntradayScan, LEAD, LEAD_INDEXES, LayerMembers, LayerTable, MarketGate, PEAK_LOOKBACK, PIN_ADR, SPARK_N, STATUS, StockTable, Tabs, ThemeBoard, TierCtx, classify, computeTiers, layerConfirm, layerRanksFrom, layerStats, pinReason, rankHeld, rankTrend, rsLeads, statusColor, td, th, useIndexBars, useJson, useLiveRS, withEpsRating } from "./lead/core.jsx";
+import { AdrFilter, Card, ChangesPanel, Delta, ExtHoursMovers, FlaggedTab, IndexPanel, IntradayScan, LEAD, LEAD_INDEXES, LayerMembers, LayerTable, MarketGate, PEAK_LOOKBACK, PIN_ADR, SPARK_N, STATUS, StockTable, Tabs, ThemeBoard, TierCtx, WatchlistPortfolioTab, classify, computeTiers, layerConfirm, layerRanksFrom, layerStats, pinReason, rankHeld, rankTrend, rsLeads, statusColor, td, th, useIndexBars, useJson, useLiveRS, withEpsRating } from "./lead/core.jsx";
 export { LEAD_INDEXES, zvrFor, useRvolProfiles, useJson, TierMark, computeTiers } from "./lead/core.jsx";
 const BriefPanel = React.lazy(() => import("./lead/Brief.jsx"));
 const ScannerPanel = React.lazy(() => import("./lead/Scanner.jsx"));
 const RotationView = React.lazy(() => import("./lead/Rotation.jsx"));
 const ZangerPanel = React.lazy(() => import("./lead/Zanger.jsx"));
 
-export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTickerClick, chartTicker, chartSlot, indexQuotes, pipeline, view = "lead" }) {
+export default function LeadershipView({
+  ARIA: A,
+  stockMap: stockMapIn,
+  onTickerClick,
+  chartTicker,
+  chartSlot,
+  indexQuotes,
+  pipeline,
+  view = "lead",
+  portfolio = [],
+  setPortfolio,
+  watchlist = [],
+  setWatchlist,
+}) {
   const rot = useJson("/data/rs_rotation.json");
   const hist = useJson("/data/rank_history.json");
   const seats = useJson("/data/ticker_seats.json");
@@ -436,7 +449,7 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
                         borderRadius: 4, padding: "1px 7px", fontSize: 10, cursor: "pointer" }}>
                       {hidePinned ? `Hiding ${stocks.pinned.length} pinned (ADR < ${PIN_ADR}% / M&A)` : `Show pinned names · click to hide`}
                     </button></span>
-                : stockTab === "intra" || stockTab === "ext" || stockTab === "flag"
+                : stockTab === "intra" || stockTab === "ext" || stockTab === "flag" || stockTab === "pw"
                 ? undefined
                 : "Held the top RS decile ≥ 40% of the quarter, now RS < 70 or ≥ 8% below the 50-day"}
               right={<div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
@@ -459,10 +472,14 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
                 ["intra", "Intraday scan", "", A.cyan],
                 ["ext", "Pre/After-market", "", A.purple],
                 ["flag", "Flagged", "", A.gold],
+                ["pw", "Watchlist / Portfolio", new Set([...(portfolio || []), ...(watchlist || [])]).size || "", A.blue || "#3b82f6"],
               ]} /></div>}>
               {stockTab === "layer" && shownLayer
                 ? <LayerMembers A={A} layer={shownLayer} tickers={members[shownLayer.key] || (shownLayer.holds || []).map((h) => h.t)}
                     stockMap={stockMapX} onTicker={onTickerClick} chartTicker={chartTicker} keep={keepAdr} />
+                : stockTab === "pw"
+                ? <WatchlistPortfolioTab A={A} stockMap={stockMapX} tickerLayer={tickerLayer} onTicker={onTickerClick} chartTicker={chartTicker} onLayer={layerOfTicker}
+                    portfolio={portfolio} setPortfolio={setPortfolio} watchlist={watchlist} setWatchlist={setWatchlist} />
                 : stockTab === "flag"
                 ? <FlaggedTab A={A} stockMap={stockMapX} tickerLayer={tickerLayer} onTicker={onTickerClick} chartTicker={chartTicker} onLayer={layerOfTicker} keep={keepAdr} />
                 : stockTab === "ext"

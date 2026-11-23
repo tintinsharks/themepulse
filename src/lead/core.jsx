@@ -18,6 +18,8 @@ import {
   expectedVolAt,
   EPS_TIP,
   rsScore,
+  closingRange,
+  rsLeads,
 } from "./math.js";
 export * from "./math.js";
 
@@ -1125,6 +1127,391 @@ export function FlaggedTab({ A, stockMap, tickerLayer, onTicker, chartTicker, on
                   <td title={r.epsTip || ""} style={{ ...td(A, "right"), color: r.eps >= 80 ? A.green : r.eps >= 50 ? A.yellow : r.eps != null ? A.red : A.textMuted }}>{r.eps ?? "—"}{r.epsAcc ? <span style={{ color: A.green, fontSize: 9 }}>▲</span> : null}</td>
                   <td style={{ ...td(A), fontSize: 11, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis" }}>
                     <LayerLink r={r} A={A} onLayer={onLayer} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Watchlist / Portfolio tab ─────────────────────────────────────────────
+// Synced across devices via /api/userdata (shared with ChartPanelInline +PF/+WL
+// and the hourly Zanger email Portfolio & Watchlist Pulse).
+export function WatchlistPortfolioTab({
+  A,
+  stockMap,
+  tickerLayer,
+  onTicker,
+  chartTicker,
+  onLayer,
+  portfolio = [],
+  setPortfolio,
+  watchlist = [],
+  setWatchlist,
+}) {
+  const profiles = useJson("/data/rvol_profiles.json");
+  const [only, setOnly] = useState(null); // null = all | "pf" | "wl"
+  const [input, setInput] = useState("");
+  const [sort, setSort] = useState({ k: "group", d: 1 });
+
+  const pfSet = useMemo(() => new Set(portfolio || []), [portfolio]);
+  const wlSet = useMemo(() => new Set(watchlist || []), [watchlist]);
+  const allTickers = useMemo(() => {
+    const out = [];
+    const seen = new Set();
+    for (const t of portfolio || []) { if (t && !seen.has(t)) { seen.add(t); out.push(t); } }
+    for (const t of watchlist || []) { if (t && !seen.has(t)) { seen.add(t); out.push(t); } }
+    return out;
+  }, [portfolio, watchlist]);
+
+  const visibleTickers = useMemo(() => {
+    if (only === "pf") return allTickers.filter((t) => pfSet.has(t));
+    if (only === "wl") return allTickers.filter((t) => wlSet.has(t));
+    return allTickers;
+  }, [allTickers, only, pfSet, wlSet]);
+
+  const { quotes, at } = useScanQuotes(allTickers, true);
+  const clock = etClock();
+  const snap = useMemo(() => { if (clock.rth) return null; void quotes; return readZvrSnap(); }, [clock.rth, quotes]);
+  const snapOk = !clock.rth && snap?.date === clock.session && snap?.z;
+  const frac = sessionElapsedFrac();
+  const rm = rthMinute();
+
+  const parseTickers = (raw) =>
+    [...new Set(
+      String(raw || "")
+        .toUpperCase()
+        .split(/[\s,;]+/)
+        .map((s) => s.replace(/[^A-Z0-9.-]/g, ""))
+        .filter((s) => s.length >= 1 && s.length <= 8)
+    )];
+
+  const addTo = (target) => {
+    const list = parseTickers(input);
+    if (!list.length) return;
+    const setter = target === "pf" ? setPortfolio : setWatchlist;
+    if (setter) {
+      setter((prev) => {
+        const cur = new Set(prev || []);
+        const next = [...(prev || [])];
+        for (const t of list) {
+          if (!cur.has(t)) { cur.add(t); next.push(t); }
+        }
+        return next;
+      });
+    }
+    setInput("");
+  };
+
+  const toggleIn = (t, target) => {
+    const setter = target === "pf" ? setPortfolio : setWatchlist;
+    if (!setter) return;
+    setter((prev) => ((prev || []).includes(t) ? prev.filter((x) => x !== t) : [...(prev || []), t]));
+  };
+
+  const removeTicker = (t) => {
+    if (only === "pf") {
+      if (setPortfolio) setPortfolio((prev) => (prev || []).filter((x) => x !== t));
+    } else if (only === "wl") {
+      if (setWatchlist) setWatchlist((prev) => (prev || []).filter((x) => x !== t));
+    } else {
+      if (pfSet.has(t) && setPortfolio) setPortfolio((prev) => (prev || []).filter((x) => x !== t));
+      if (wlSet.has(t) && setWatchlist) setWatchlist((prev) => (prev || []).filter((x) => x !== t));
+    }
+  };
+
+  const rows = useMemo(() => {
+    const out = visibleTickers.map((t) => {
+      const q = quotes.get(t), s = stockMap?.[t] || {}, L = tickerLayer?.[t];
+      const inPf = pfSet.has(t), inWl = wlSet.has(t);
+      const c0 = s.close || s.price;
+      const px = q?.rthPrice ?? q?.price ?? c0 ?? null;
+      const hiLvl = s.hi52_lvl ?? (c0 && s.off_52w_high != null ? c0 / (1 + s.off_52w_high / 100) : null);
+      const hi = Math.max(hiLvl || 0, q?.yearHigh || 0) || null;
+      const avg10 = (s.last_bar_date && s.last_bar_date === clock.session && s.avg_vol_10d_prior) || s.avg_vol_10d || s.avg_volume_raw;
+      let zvr = null;
+      if (snapOk && snap.z[t] != null) zvr = snap.z[t];
+      else if (q?.volume != null) {
+        const exp = expectedVolAt(profiles?.p?.[t], rm);
+        zvr = exp ? +(q.volume / exp).toFixed(2) : avg10 ? +(q.volume / (avg10 * frac)).toFixed(2) : null;
+      }
+      return {
+        t,
+        inPf,
+        inWl,
+        group: inPf ? 0 : 1,
+        px,
+        zvr,
+        chg: q?.change ?? (q?.previousClose && px ? (px / q.previousClose - 1) * 100 : s.change_pct ?? null),
+        fromOpen: q?.open && px ? (px / q.open - 1) * 100 : null,
+        cr: closingRange(q, s),
+        adr: s.adr20 ?? s.adr_pct ?? null,
+        offHi: hi && px ? (px / hi - 1) * 100 : (s.off_52w_high ?? null),
+        rs: s.rs_rank ?? null,
+        eps: s.eps_rating ?? null,
+        epsTip: s.eps_tip,
+        epsAcc: s.eps_accel,
+        erDays: s.earnings_days ?? null,
+        rslTip: rsLeads(s),
+        layer: L?.name,
+        layerSt: L?.st,
+      };
+    });
+    const { k, d } = sort;
+    out.sort((a, b) => {
+      const x = a[k], y = b[k];
+      if (x == null && y == null) return a.t.localeCompare(b.t);
+      if (x == null) return 1;
+      if (y == null) return -1;
+      return ((x - y) * d) || a.t.localeCompare(b.t);
+    });
+    return out;
+  }, [visibleTickers, quotes, stockMap, tickerLayer, pfSet, wlSet, clock.session, snapOk, snap, profiles, rm, frac, sort]);
+
+  const col = (k, label, align = "right", title) => (
+    <th
+      key={k}
+      style={{ ...th(A, align), cursor: "pointer", userSelect: "none", color: sort.k === k ? A.text : A.textMuted }}
+      title={title}
+      onClick={() => setSort((p) => ({ k, d: p.k === k ? -p.d : k === "group" ? 1 : -1 }))}
+    >
+      {label}{sort.k === k ? (sort.d < 0 ? " ▼" : " ▲") : ""}
+    </th>
+  );
+  const pct = (v, dgt = 1) => (v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(dgt)}%`);
+  const pfColor = A.green;
+  const wlColor = A.cyan || "#38bdf8";
+
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
+        {[
+          [null, "All", allTickers.length, null],
+          ["pf", "Portfolio", portfolio.length, pfColor],
+          ["wl", "Watchlist", watchlist.length, wlColor],
+        ].map(([k, label, n, dot]) => (
+          <button
+            key={k || "all"}
+            onClick={() => setOnly(k)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+              background: only === k ? A.bgHover : "transparent",
+              border: `1px solid ${only === k ? (dot || A.borderLight) : A.border}`,
+              borderRadius: 4,
+              padding: "2px 8px",
+              fontSize: 11,
+              color: only === k && dot ? dot : A.text,
+              fontWeight: only === k ? 700 : 500,
+              cursor: "pointer",
+            }}
+          >
+            {dot && <span style={{ width: 7, height: 7, borderRadius: "50%", background: dot }} />}
+            {label} <span style={{ color: A.textMuted }}>{n}</span>
+          </button>
+        ))}
+
+        <form
+          onSubmit={(e) => { e.preventDefault(); addTo(only === "pf" ? "pf" : "wl"); }}
+          style={{ display: "inline-flex", alignItems: "center", gap: 4, marginLeft: 4 }}
+        >
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Add tickers (NVDA, CLS)…"
+            style={{
+              background: A.bg,
+              border: `1px solid ${A.border}`,
+              borderRadius: 4,
+              padding: "2px 7px",
+              fontSize: 11,
+              fontFamily: "monospace",
+              color: A.text,
+              width: 155,
+              outline: "none",
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => addTo("pf")}
+            title="Add to Portfolio"
+            style={{
+              background: "transparent",
+              border: `1px solid ${pfColor}`,
+              color: pfColor,
+              borderRadius: 4,
+              padding: "2px 7px",
+              fontSize: 10,
+              fontWeight: 700,
+              fontFamily: "monospace",
+              cursor: "pointer",
+            }}
+          >
+            +PF
+          </button>
+          <button
+            type="button"
+            onClick={() => addTo("wl")}
+            title="Add to Watchlist"
+            style={{
+              background: "transparent",
+              border: `1px solid ${wlColor}`,
+              color: wlColor,
+              borderRadius: 4,
+              padding: "2px 7px",
+              fontSize: 10,
+              fontWeight: 700,
+              fontFamily: "monospace",
+              cursor: "pointer",
+            }}
+          >
+            +WL
+          </button>
+        </form>
+
+        <span style={{ marginLeft: "auto", fontSize: 10, color: A.textMuted }}>
+          {at && allTickers.length ? `Live · ${at.toLocaleTimeString()} · synced to email alerts` : "Synced across devices & hourly email"}
+        </span>
+      </div>
+
+      {!rows.length ? (
+        <div style={{ fontSize: 11, color: A.textMuted, padding: "8px 2px" }}>
+          {allTickers.length
+            ? `No tickers in ${only === "pf" ? "Portfolio" : "Watchlist"} yet.`
+            : "No holdings or watched stocks yet. Add tickers above or use +PF / +WL in the chart header."}
+        </div>
+      ) : (
+        <div style={{ overflowX: "auto", maxHeight: 520, overflowY: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead style={{ position: "sticky", top: 0, background: A.bg, zIndex: 1 }}>
+              <tr>
+                {col("group", "List", "left", "Grouped by Portfolio then Watchlist")}
+                <th style={th(A, "left")}>Ticker</th>
+                {col("zvr", "ZVR", "right", "Relative volume at time vs 10-day intraday volume profile")}
+                {col("chg", "Chg")}
+                {col("fromOpen", "From open")}
+                {col("cr", "CR%", "right", "Closing Range — where price sits in today's low-to-high range")}
+                {col("adr", "ADR")}
+                {col("offHi", "Off high")}
+                {col("rs", "RS")}
+                {col("eps", "EPS", "right", EPS_TIP)}
+                <th style={th(A)}>Layer</th>
+                <th style={th(A, "right")}>Edit</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr
+                  key={r.t}
+                  data-nav={r.t}
+                  onClick={() => onTicker(r.t)}
+                  style={{ cursor: "pointer", background: chartTicker === r.t ? A.bgHover : "transparent" }}
+                >
+                  <td style={td(A)}>
+                    <span style={{ display: "inline-flex", gap: 3 }}>
+                      {r.inPf && (
+                        <span style={{ fontSize: 9, fontWeight: 800, fontFamily: "monospace", padding: "1px 4px", borderRadius: 3, background: `${pfColor}22`, color: pfColor, border: `1px solid ${pfColor}66` }}>
+                          PF
+                        </span>
+                      )}
+                      {r.inWl && (
+                        <span style={{ fontSize: 9, fontWeight: 800, fontFamily: "monospace", padding: "1px 4px", borderRadius: 3, background: `${wlColor}22`, color: wlColor, border: `1px solid ${wlColor}66` }}>
+                          WL
+                        </span>
+                      )}
+                    </span>
+                  </td>
+                  <td style={td(A)}>
+                    <FlagButton t={r.t} A={A} />
+                    <span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span>
+                    <TierMark t={r.t} />
+                    <RslDot tip={r.rslTip} A={A} />
+                    {r.erDays != null && r.erDays >= 0 && r.erDays <= 5 && (
+                      <span
+                        title={`Earnings in ${r.erDays === 0 ? "today" : `${r.erDays} days`}`}
+                        style={{ marginLeft: 4, fontSize: 9, fontWeight: 700, fontFamily: "monospace", padding: "0px 4px", borderRadius: 3, background: "rgba(245,158,11,0.18)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.45)" }}
+                      >
+                        ER {r.erDays}d
+                      </span>
+                    )}
+                  </td>
+                  <td style={{ ...td(A, "right"), color: r.zvr >= 1.5 ? A.green : r.zvr >= 1 ? A.text : A.textMuted, fontWeight: r.zvr >= 1.5 ? 700 : 400 }}>
+                    {r.zvr == null ? "—" : r.zvr.toFixed(2)}
+                  </td>
+                  <td style={{ ...td(A, "right"), color: (r.chg ?? 0) >= 0 ? A.green : A.red, fontWeight: 600 }}>
+                    {pct(r.chg, 2)}
+                  </td>
+                  <td style={{ ...td(A, "right"), color: (r.fromOpen ?? 0) >= 0 ? A.green : A.red, fontWeight: 700 }}>
+                    {pct(r.fromOpen, 2)}
+                  </td>
+                  <td style={{ ...td(A, "right"), color: r.cr == null ? A.textMuted : r.cr >= 75 ? A.green : r.cr >= 50 ? A.yellow : A.red, fontWeight: 600 }}>
+                    {r.cr == null ? "—" : `${r.cr}%`}
+                  </td>
+                  <td style={td(A, "right")}>{r.adr == null ? "—" : `${r.adr.toFixed(1)}%`}</td>
+                  <td style={td(A, "right")}>{pct(r.offHi)}</td>
+                  <td style={{ ...td(A, "right"), color: r.rs >= 90 ? A.green : r.rs >= 70 ? A.yellow : r.rs != null ? A.red : A.textMuted }}>
+                    {r.rs ?? "—"}
+                  </td>
+                  <td title={r.epsTip || ""} style={{ ...td(A, "right"), color: r.eps >= 80 ? A.green : r.eps >= 50 ? A.yellow : r.eps != null ? A.red : A.textMuted }}>
+                    {r.eps ?? "—"}{r.epsAcc ? <span style={{ color: A.green, fontSize: 9 }}>▲</span> : null}
+                  </td>
+                  <td style={{ ...td(A), fontSize: 11, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <LayerLink r={r} A={A} onLayer={onLayer} />
+                  </td>
+                  <td style={td(A, "right")} onClick={(e) => e.stopPropagation()}>
+                    <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
+                      <button
+                        title={r.inPf ? "Remove from Portfolio" : "Add to Portfolio"}
+                        onClick={() => toggleIn(r.t, "pf")}
+                        style={{
+                          background: r.inPf ? `${pfColor}22` : "transparent",
+                          border: `1px solid ${r.inPf ? pfColor : A.border}`,
+                          color: r.inPf ? pfColor : A.textMuted,
+                          borderRadius: 3,
+                          padding: "1px 4px",
+                          fontSize: 9,
+                          fontFamily: "monospace",
+                          cursor: "pointer",
+                        }}
+                      >
+                        PF
+                      </button>
+                      <button
+                        title={r.inWl ? "Remove from Watchlist" : "Add to Watchlist"}
+                        onClick={() => toggleIn(r.t, "wl")}
+                        style={{
+                          background: r.inWl ? `${wlColor}22` : "transparent",
+                          border: `1px solid ${r.inWl ? wlColor : A.border}`,
+                          color: r.inWl ? wlColor : A.textMuted,
+                          borderRadius: 3,
+                          padding: "1px 4px",
+                          fontSize: 9,
+                          fontFamily: "monospace",
+                          cursor: "pointer",
+                        }}
+                      >
+                        WL
+                      </button>
+                      <button
+                        title={`Remove ${r.t}`}
+                        onClick={() => removeTicker(r.t)}
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          color: A.textMuted,
+                          padding: "0 2px",
+                          fontSize: 11,
+                          cursor: "pointer",
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </span>
                   </td>
                 </tr>
               ))}

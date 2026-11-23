@@ -2832,6 +2832,8 @@ function AppMain() {
   const { themeMode, toggleTheme, zoom, changeZoom } = useAriaThemeControls();
   const data = useDashboardData();
   const { quotes: indexQuotes } = useLiveQuotes(LEAD_INDEX_TICKERS);
+  const [portfolio, setPortfolio] = useLocalStorageList("themepulse-portfolio");
+  const [watchlist, setWatchlist] = useLocalStorageList("themepulse-watchlist");
   // Active ticker & top-level view: URL query (?view=...&ticker=...) takes precedence over localStorage.
   const [chartTicker, setChartTicker] = useState(() => {
     try {
@@ -3189,6 +3191,10 @@ function AppMain() {
             stockMap={stockMap}
             chartTicker={chartTicker}
             onTickerClick={handleTickerClick}
+            portfolio={portfolio}
+            setPortfolio={setPortfolio}
+            watchlist={watchlist}
+            setWatchlist={setWatchlist}
             chartSlot={
               <ChartPanelInline
                 ticker={chartTicker}
