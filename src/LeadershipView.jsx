@@ -481,7 +481,7 @@ const LAYER_SORT = {
   held: (l) => l.persist,
 };
 
-function LayerTable({ rows: rowsIn, A, onTicker, chartTicker, stockMap, showPeak, members, expanded, onToggle, focus }) {
+function LayerTable({ rows: rowsIn, A, onTicker, chartTicker, stockMap, showPeak, members, expanded, onToggle, focus, compact }) {
   const [sort, setSort] = useState(() => { try { return JSON.parse(localStorage.getItem("tp_layer_sort")) || null; } catch { return null; } });
   const rows = useMemo(() => {
     if (!sort || !LAYER_SORT[sort.k]) return rowsIn;
@@ -518,13 +518,13 @@ function LayerTable({ rows: rowsIn, A, onTicker, chartTicker, stockMap, showPeak
             {sh("w1", "1w", "right", "Rank change over a week")}
             {sh("m1", "1m", "right", "Rank change over a month")}
             {showPeak && sh("peak", "Peak", "right")}
-            {sh("spark", `${SPARK_N}d`, "left", `Rank change over ${SPARK_N} sessions`, "tp-hide-sm")}
+            {!compact && sh("spark", `${SPARK_N}d`, "left", `Rank change over ${SPARK_N} sessions`, "tp-hide-sm")}
             {sh("trend", "Trend", "right", "Rank change per session, least-squares over the last 5 sessions · sessions out of the last 10 the rank rose", "tp-hide-sm")}
             {sh("vol", "Volume", "right", "Accumulation / distribution days across members over 10 sessions (up or down ≥ 1% on ≥ 1.5× 50-day volume) · layer's share of universe dollar volume, 5-day vs 20-day · sorts by accumulation minus distribution", "tp-hide-sm")}
             {sh("rs90", "RS 90+", "right", "Members at stock RS 90+ (change vs 5 sessions ago) · leaders that cracked this week (were RS 90+, now below the 50-day or under RS 80)", "tp-hide-sm")}
             {sh("held20", "80+ of 20", "right", "Rank stability: sessions of the last 20 the layer ranked 80 or higher", "tp-hide-sm")}
-            {sh("held", "Held", "right", "Share of the trailing quarter this layer ranked ≥ 88", "tp-hide-sm")}
-            <th style={th(A)}>Strongest names <span style={{ fontWeight: 400 }}>· click a row for every member</span></th>
+            {!compact && sh("held", "Held", "right", "Share of the trailing quarter this layer ranked ≥ 88", "tp-hide-sm")}
+            {!compact && <th style={th(A)}>Strongest names <span style={{ fontWeight: 400 }}>· click a row for every member</span></th>}
           </tr>
         </thead>
         <tbody>
@@ -541,7 +541,7 @@ function LayerTable({ rows: rowsIn, A, onTicker, chartTicker, stockMap, showPeak
               <React.Fragment key={l.key}>
               <tr onClick={() => onToggle?.(l)} title="Show every member in the Stocks box"
                 style={{ cursor: "pointer", background: open ? A.bgHover : "transparent", boxShadow: open ? `inset 3px 0 0 ${c}` : "none" }}>
-                <td style={td(A)}>
+                <td style={compact ? { ...td(A), whiteSpace: "normal", minWidth: 120 } : td(A)}>
                   <div style={{ color: A.text, fontWeight: 600 }}>{l.name}</div>
                   <div style={{ fontSize: 10, color: A.textMuted }}>{l.theme}
                     {flags.map(([k, why]) => (
@@ -556,7 +556,7 @@ function LayerTable({ rows: rowsIn, A, onTicker, chartTicker, stockMap, showPeak
                 <td style={td(A, "right")}><Delta v={l.now - l.w1} A={A} /></td>
                 <td style={td(A, "right")}><Delta v={l.now - l.m1} A={A} /></td>
                 {showPeak && <td style={td(A, "right")}>{l.peak}</td>}
-                <td className="tp-hide-sm" style={td(A)}><Spark vals={l.hist} color={c} A={A} /></td>
+                {!compact && <td className="tp-hide-sm" style={td(A)}><Spark vals={l.hist} color={c} A={A} /></td>}
                 <td className="tp-hide-sm" style={{ ...td(A, "right"), whiteSpace: "nowrap" }}>
                   {tr?.slope != null ? <span style={{ color: tr.slope > 0.5 ? A.green : tr.slope < -0.5 ? A.red : A.textMuted }}>{tr.slope > 0 ? "+" : ""}{tr.slope.toFixed(1)}</span> : "—"}
                   <span style={{ color: A.textMuted, fontSize: 10 }}> {tr?.of ? `${tr.ups}/${tr.of}` : ""}</span>
@@ -577,14 +577,14 @@ function LayerTable({ rows: rowsIn, A, onTicker, chartTicker, stockMap, showPeak
                 <td className="tp-hide-sm" style={{ ...td(A, "right"), fontSize: 11 }}>
                   {l.held?.of ? <span style={{ color: l.held.held >= 15 ? A.green : l.held.held >= 8 ? A.yellow : A.textMuted }}>{l.held.held}</span> : "—"}
                 </td>
-                <td className="tp-hide-sm" style={td(A, "right")}>{l.persist != null ? `${l.persist}%` : "—"}</td>
-                <td style={{ ...td(A), whiteSpace: "normal", minWidth: 160 }}>
+                {!compact && <td className="tp-hide-sm" style={td(A, "right")}>{l.persist != null ? `${l.persist}%` : "—"}</td>}
+                {!compact && <td style={{ ...td(A), whiteSpace: "normal", minWidth: 160 }}>
                   {names.map((h) => (
                     <TickerChip key={h.t} t={h.t} onClick={(t) => { onTicker(t); }} active={chartTicker === h.t || focus === h.t} A={A}
                       dim={(stockMap[h.t]?.rs_rank ?? 0) < 80} />
                   ))}
                   {all.length > 5 && <span style={{ fontSize: 10, color: A.textMuted }}>+{all.length - 5}</span>}
-                </td>
+                </td>}
               </tr>
               </React.Fragment>
             );
@@ -2600,6 +2600,17 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
   };
 
   const loading = !rot || !hist;
+  // Layers card width: when it sits beside Themes (< 900px) the table drops
+  // its widest columns (names, sparkline, Held) so it fits without scrolling.
+  const layersBoxRef = useRef(null);
+  const [layersNarrow, setLayersNarrow] = useState(false);
+  useEffect(() => {
+    const el = layersBoxRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return undefined;
+    const ro = new ResizeObserver(([e]) => setLayersNarrow(e.contentRect.width < 900));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [loading, view]); // the box mounts once data has loaded, on the LEADERS view
   const regime = breadth?.regime?.primary;
   const verdict = breadth?.conditions?.verdict;
   const cur = breadth?.current;
@@ -2766,15 +2777,21 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
               onTicker={onTickerClick} onLayer={(l) => { setTheme(l.themeId); setLayerTab(l.st); showLayer(l); }}
               onTheme={(id) => setTheme(id)} />
 
+            {/* Themes and Layers side by side. The Rotation tab's charts need
+                the full width, so the pair stacks while it is open; narrow
+                screens wrap to a stack as well. */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "flex-start" }}>
+            <div style={{ flex: themeView === "rot" ? "1 1 100%" : "0 1 200px", minWidth: 0 }}>
             <Card A={A} title="Themes"
               sub={themeView === "rot" ? "Who is rotating in and out — RS rank change by layer or theme" : "Average layer RS rank · ▲ leading / weakening / ▼ breaking-down layers · click to filter"}
               right={<Tabs A={A} value={themeView} onChange={pickThemeView} items={[["board", "Board", "", A.green], ["rot", "Rotation", "", A.cyan]]} />}>
               {themeView === "rot"
                 ? <RotationView A={A} layers={layers} themes={themes} dates={dates} theme={theme} lb={layerBreadth}
                     onLayer={(l) => showLayer(l)} onTheme={(id, stocks) => (stocks ? showTheme(id) : setTheme(id))} />
-                : <ThemeBoard themes={themes} A={A} selected={theme} onSelect={setTheme} />}
+                : <div style={{ maxHeight: 640, overflowY: "auto" }}><ThemeBoard themes={themes} A={A} selected={theme} onSelect={setTheme} /></div>}
             </Card>
-
+            </div>
+            <div ref={layersBoxRef} style={{ flex: themeView === "rot" ? "1 1 100%" : "1 1 560px", minWidth: 0 }}>
             <Card A={A} title="Layers" sub={STATUS[layerTab].hint}
               right={<Tabs A={A} value={layerTab} onChange={setLayerTab} items={[
                 ["lead", "Leading", layerBuckets.lead.length, A.green],
@@ -2785,8 +2802,11 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
               ]} />}>
               <div ref={layersRef} />
               <LayerTable rows={layerBuckets[layerTab]} A={A} onTicker={onTickerClick} chartTicker={chartTicker} stockMap={stockMapX}
-                showPeak={layerTab === "weak" || layerTab === "brk"} members={members} expanded={expanded} onToggle={(l) => showLayer(l)} focus={lookupQ} />
+                showPeak={layerTab === "weak" || layerTab === "brk"} members={members} expanded={expanded} onToggle={(l) => showLayer(l)} focus={lookupQ}
+                compact={layersNarrow} />
             </Card>
+            </div>
+            </div>
 
 
 
