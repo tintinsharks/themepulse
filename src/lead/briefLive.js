@@ -1,5 +1,6 @@
 // Pure helpers for overlaying live intraday quotes & macro data onto static
 // Written Brief snapshots (public/data/briefs/brief-*.json).
+import { closingRange, scoreZangerCandidate, zvrFor } from "./math.js";
 
 export function evalPivotStatus(price, { pivot, buyZoneMax, stop } = {}) {
   if (typeof price !== "number" || !Number.isFinite(price)) return null;
@@ -158,4 +159,129 @@ export function filterRecentHeadlines(items, now = new Date(), maxDays = 14) {
     out.push(item);
   }
   return out;
+}
+
+function normTicker(x) {
+  const raw = typeof x === "string" ? x : x?.ticker;
+  const t = String(raw || "").trim().toUpperCase();
+  return t || null;
+}
+
+// Compute live intraday alerts across the user's portfolio & watchlist tickers.
+export function computeLivePortfolioPulse({
+  portfolio = [],
+  watchlist = [],
+  stockMap = {},
+  quotes = new Map(),
+  profiles = null,
+  tickerLayer = {},
+  tiers = null,
+  now = new Date(),
+} = {}) {
+  const portTickers = [...new Set((Array.isArray(portfolio) ? portfolio : []).map(normTicker).filter(Boolean))];
+  const watchTickers = [...new Set((Array.isArray(watchlist) ? watchlist : []).map(normTicker).filter(Boolean))];
+
+  const seen = new Set();
+  const entries = [];
+  for (const t of portTickers) {
+    seen.add(t);
+    entries.push([t, "PORT"]);
+  }
+  for (const t of watchTickers) {
+    if (!seen.has(t)) {
+      seen.add(t);
+      entries.push([t, "WATCH"]);
+    }
+  }
+
+  const scoredAlerts = [];
+  for (const [t, list] of entries) {
+    const rawS = stockMap?.[t] || null;
+    const s = rawS ? (rawS.ticker ? rawS : { ...rawS, ticker: t }) : null;
+    const rawQ = quotes instanceof Map ? (quotes.get(t) || null) : (quotes?.[t] || null);
+    let q = rawQ;
+    if (rawQ && rawQ.change == null && rawQ.previousClose > 0) {
+      const qPx = rawQ.rthPrice ?? rawQ.price ?? null;
+      if (qPx != null && Number.isFinite(qPx)) {
+        q = { ...rawQ, change: Math.round(((qPx / rawQ.previousClose) - 1) * 10000) / 100 };
+      }
+    }
+
+    const layer = tickerLayer?.[t] || null;
+    const tier = tiers?.leaders?.has(t) ? "lead" : tiers?.emerging?.has(t) ? "emerg" : null;
+    const r = s ? scoreZangerCandidate({ s, q, layer, tier, profiles, now }) : null;
+
+    const chg = r?.chg != null
+      ? r.chg
+      : (q?.change != null && Number.isFinite(q.change)
+        ? q.change
+        : (s?.change_pct != null && Number.isFinite(s.change_pct) ? s.change_pct : null));
+
+    const cr = r?.cr != null ? r.cr : closingRange(q, s);
+
+    let zvr = r?.zvr ?? null;
+    if (zvr == null && s) {
+      let rawZvr = q ? zvrFor(s, q, profiles, now) : null;
+      if (rawZvr == null && s.rel_volume > 0) rawZvr = s.rel_volume;
+      if (rawZvr != null && Number.isFinite(rawZvr)) {
+        zvr = Math.round(rawZvr * 100) / 100;
+      }
+    }
+
+    const earningsDays = r?.earningsDays ?? s?.earnings_days ?? null;
+
+    const tags = [];
+    const isBo = Boolean(r?.isBreakout);
+    if (isBo) {
+      tags.push({
+        label: r.breakoutTypes?.length ? `BO (${r.breakoutTypes.join("/")})` : "BREAKOUT",
+        tone: "good",
+      });
+    } else if ((zvr ?? 0) >= 1.5 && (chg ?? 0) >= 2.0 && (cr ?? 100) >= 60) {
+      tags.push({ label: "VOL SURGE", tone: "good" });
+    }
+
+    if ((chg ?? 0) > 0 && (zvr ?? 0) >= 1.5 && cr != null && cr <= 30) {
+      tags.push({ label: "SQUATTING", tone: "warn" });
+    }
+
+    const isHeavySell = (chg ?? 0) <= -3.0 && ((zvr ?? 0) >= 1.5 || (cr != null && cr <= 30) || (chg ?? 0) <= -4.5);
+    if (isHeavySell) {
+      tags.push({ label: "HEAVY SELL", tone: "bad" });
+    } else if ((chg ?? 0) <= -3.0) {
+      tags.push({ label: "DOWN ≥3%", tone: "warn" });
+    }
+
+    if (earningsDays != null && earningsDays >= 0 && earningsDays <= 3) {
+      tags.push({
+        label: earningsDays === 0 ? "ER TODAY" : `ER ${earningsDays}d`,
+        tone: "warn",
+      });
+    }
+
+    if (!tags.length) continue;
+
+    const hasBad = tags.some((x) => x.tone === "bad");
+    const hasWarn = tags.some((x) => x.tone === "warn");
+    const severity = hasBad ? 4 : isBo ? 3 : hasWarn ? 2 : 1;
+
+    scoredAlerts.push({
+      severity,
+      alert: { ticker: t, list, chg, zvr, cr, tags },
+    });
+  }
+
+  scoredAlerts.sort(
+    (a, b) =>
+      b.severity - a.severity ||
+      Math.abs(b.alert.chg ?? 0) - Math.abs(a.alert.chg ?? 0) ||
+      a.alert.ticker.localeCompare(b.alert.ticker)
+  );
+
+  return {
+    alerts: scoredAlerts.map((x) => x.alert),
+    portfolioCount: portTickers.length,
+    watchlistCount: watchTickers.length,
+    isLive: true,
+  };
 }

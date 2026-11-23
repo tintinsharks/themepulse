@@ -500,7 +500,15 @@ function BriefPanel(props) {
       {mode === "written"
         ? <WrittenBrief A={A} stockMap={props.stockMap} onTicker={props.onTicker} chartTicker={props.chartTicker} modeSwitch={modeSwitch} />
         : <LiveBrief {...props} modeSwitch={modeSwitch} />}
-      <MarketBreadthCard A={A} stockMap={props.stockMap} breadth={props.breadth} monitor={props.monitor} />
+      <MarketBreadthCard
+        A={A}
+        stockMap={props.stockMap}
+        breadth={props.breadth}
+        monitor={props.monitor}
+        onTicker={props.onTicker}
+        chartTicker={props.chartTicker}
+        tickerLayer={props.tickerLayer}
+      />
       <ZangerBriefSection
         A={A}
         stockMap={props.stockMap}
@@ -514,6 +522,7 @@ function BriefPanel(props) {
         setWatchlist={props.setWatchlist}
         onTicker={props.onTicker}
         chartTicker={props.chartTicker}
+        onLayer={props.layerOfTicker}
       />
     </>
   );
