@@ -1248,6 +1248,7 @@ async function fetchFmpUniverse(tickers, apiKey) {
         universe.push({
           ticker: q.symbol,
           price: q.price ?? null,
+          rthPrice: q.price ?? null,
           change: q.changePercentage ?? null,
           volume: q.volume ?? null,
           avgVolume: q.avgVolume ?? null,
@@ -1606,7 +1607,9 @@ export default async function handler(req, res) {
             const ext = yahooExt.get(u.ticker);
             return {
               ...u,
+              rthPrice: u.price ?? null,
               price: ext ? ext.extPrice : u.price,
+              ext_session: extSession,
               ext_change: ext ? ext.extChange : null,
               ext_volume: null,
             };

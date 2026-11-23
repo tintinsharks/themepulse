@@ -20,6 +20,7 @@ import { isPipelineStale, getAuthToken, setAuthToken, authHeaders, authFetch } f
 import { quoteStore } from "./liveQuotes.js";
 import { mergeTrades, applyClearTombstone, newestStamp } from "./wheelTrades.js";
 import LeadershipView, { LEAD_INDEXES, zvrFor, useRvolProfiles, useJson, TierMark } from "./LeadershipView.jsx";
+import { closingRange } from "./lead/math.js";
 
 // One-time cleanup: preferences saved by the retired Dash tab (Scan Watch,
 // rotation board, chain table, earnings calendar). Nothing reads them now.
@@ -240,34 +241,6 @@ function useDashboardData() {
 // Polls the three picks endpoints (Phase 4). Falls back to static JSON files
 // in /public/ if the live endpoints return empty/error — useful for local dev
 // before the Vercel KV env vars are set up.
-
-// Closing range %: where the last *completed* daily bar's CLOSE sits within
-// that bar's high-low range. 100 = closed at high (strong buyer demand),
-// 0 = closed at low (sellers in control), 50 = mid-range.
-//
-// During RTH the live quote's "price" is the current intraday quote, NOT a
-// close — using it would give "current range location," a different concept.
-// So we PREFER the pipeline's cr_pct (computed on the most recent completed
-// daily bar). Live calc is a fallback only for tickers the pipeline doesn't
-// cover, and is most meaningful after market close.
-// Always clamped to [0, 100], rounded to integer. Null when no usable data.
-function computeCR(q, s) {
-  // LIVE quote first — CR has to move intraday. The pipeline's cr_pct is the
-  // fallback for whenever a quote is missing (outside market hours, before the
-  // first poll lands, or a ticker a batch missed), which is what kept CR — and
-  // the ZCR built on it — blank while every sibling column had a fallback.
-  const price = q?.price ?? s?.price ?? s?.close ?? null;
-  const high = q?.dayHigh ?? q?.high ?? null;
-  const low = q?.dayLow ?? q?.low ?? null;
-  if (price != null && high != null && low != null && high > low && !isNaN(price)) {
-    const raw = ((price - low) / (high - low)) * 100;
-    return Math.max(0, Math.min(100, Math.round(raw)));
-  }
-  if (s?.cr_pct != null && !isNaN(s.cr_pct)) {
-    return Math.max(0, Math.min(100, Math.round(s.cr_pct)));
-  }
-  return null;
-}
 
 // ── Centralized live-quote hook (backed by shared src/liveQuotes.js store) ──
 function useLiveQuotes(tickers, _intervalMs) {
@@ -2545,7 +2518,7 @@ function useTradeAlerts(stockMap) {
           const price = q.price, chg = q.change, vol = q.volume, avg = st.avg_volume_raw || q.avgVolume || 0;
           let zvr = null;
           if (vol && avg > 0) { zvr = Math.round((vol / (avg * frac)) * 100); if (chg != null && chg < 0) zvr = -zvr; }
-          const cr = computeCR(q, st);
+          const cr = closingRange(q, st);
           // (a) DE trigger break
           if (st.de_ready && st.de_trigger && price != null && price >= st.de_trigger)
             push(t, "DE", `crossed its DE trigger ${st.de_trigger} — delayed-entry breakout`);

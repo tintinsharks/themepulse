@@ -18,6 +18,7 @@ import {
   withEpsRating,
   rsScore,
   layerRanksFrom,
+  closingRange,
 } from "../src/lead/math.js";
 
 test("rankHeld counts sessions at or above threshold in trailing window", () => {
@@ -192,4 +193,30 @@ test("rsScore and layerRanksFrom rank layers monotonically with shrinkage", () =
   );
   assert.equal(ranks["t|High"], 100);
   assert.equal(ranks["t|Low"], 0);
+});
+
+test("closingRange uses rthPrice during ext hours, avoids cross-day mixing, and falls back to prev_close_range", () => {
+  // Normal RTH quote
+  assert.equal(closingRange({ price: 108, dayHigh: 110, dayLow: 100 }, null), 80);
+
+  // Extended-hours overlay: price is AH print (115 > dayHigh), rthPrice is RTH close (103) -> must use rthPrice (30%, NOT 100%)
+  assert.equal(
+    closingRange({ price: 115, rthPrice: 103, dayHigh: 110, dayLow: 100, ext_session: "afterhours", ext_change: 11.6 }, { cr_pct: 30 }),
+    30
+  );
+
+  // Extended-hours quote without rthPrice -> must NOT clamp AH print against RTH range; falls back to s.cr_pct
+  assert.equal(
+    closingRange({ price: 115, dayHigh: 110, dayLow: 100, ext_change: 5.0 }, { cr_pct: 42 }),
+    42
+  );
+
+  // Missing q.price -> must NOT mix s.close with q.dayHigh/q.dayLow; falls back to s.cr_pct
+  assert.equal(
+    closingRange({ dayHigh: 110, dayLow: 100 }, { close: 109, cr_pct: 25 }),
+    25
+  );
+
+  // ETF without cr_pct (e.g. SPY/QQQ) -> falls back to prev_close_range
+  assert.equal(closingRange(null, { close: 689.81, prev_close_range: 9.7 }), 10);
 });

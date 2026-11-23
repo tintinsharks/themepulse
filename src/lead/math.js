@@ -389,15 +389,34 @@ export function layerRanksFrom(keys, members, stockMap, field) {
   return out;
 }
 
-/** Intraday / daily closing range 0..100: where price sits inside day's low..high */
+/**
+ * Intraday / daily closing range 0..100: where regular-session price sits inside
+ * the regular-session low..high range.
+ * - Never mixes extended-hours price with regular-session dayHigh/dayLow.
+ * - Never mixes pipeline s.close with a live quote's dayHigh/dayLow.
+ * - Falls back to pipeline cr_pct → prev_close_range (for ETFs like SPY/QQQ) → s H/L.
+ */
 export function closingRange(q, s) {
-  const px = q?.price ?? s?.price ?? s?.close ?? null;
-  const hi = q?.dayHigh ?? q?.high ?? null;
-  const lo = q?.dayLow ?? q?.low ?? null;
-  if (px != null && hi != null && lo != null && hi > lo) {
-    return Math.max(0, Math.min(100, Math.round(((px - lo) / (hi - lo)) * 100)));
+  if (q) {
+    const isExtOnly = q.rthPrice == null && (q.ext_change != null || Boolean(q.ext_session));
+    const px = isExtOnly ? null : (q.rthPrice ?? q.price ?? null);
+    const hi = q.dayHigh ?? q.high ?? null;
+    const lo = q.dayLow ?? q.low ?? null;
+    if (px != null && hi != null && lo != null && Number.isFinite(px) && Number.isFinite(hi) && Number.isFinite(lo) && hi > lo) {
+      return Math.max(0, Math.min(100, Math.round(((px - lo) / (hi - lo)) * 100)));
+    }
   }
-  return s?.cr_pct != null ? Math.round(s.cr_pct) : null;
+  if (s?.cr_pct != null && Number.isFinite(s.cr_pct)) {
+    return Math.max(0, Math.min(100, Math.round(s.cr_pct)));
+  }
+  if (s?.prev_close_range != null && Number.isFinite(s.prev_close_range)) {
+    return Math.max(0, Math.min(100, Math.round(s.prev_close_range)));
+  }
+  const spx = s?.price ?? s?.close ?? null;
+  if (spx != null && s?.day_high != null && s?.day_low != null && s.day_high > s.day_low) {
+    return Math.max(0, Math.min(100, Math.round(((spx - s.day_low) / (s.day_high - s.day_low)) * 100)));
+  }
+  return null;
 }
 
 /**
