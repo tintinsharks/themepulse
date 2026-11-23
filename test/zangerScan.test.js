@@ -4,6 +4,7 @@ import {
   scoreZangerCandidate,
   isUsMarketHoliday,
   isMarketScanWindow,
+  buildMarketSummary,
   buildEmailSubject,
   buildEmailHtml,
 } from "../scripts/zanger-scan.mjs";
@@ -180,11 +181,60 @@ test("buildEmailSubject and buildEmailHtml format breakouts, ADR column, and dee
     headlines: new Map(),
   };
 
-  const subj = buildEmailSubject(ctx);
-  assert.ok(subj.includes("1 Breakout (NVDA)"));
+  const market = buildMarketSummary({
+    mq: {
+      decision: "YES",
+      total: 82,
+      position_size: "FULL",
+      scores: {
+        trend: { details: { regime: { value: "Uptrend" } } },
+        volatility: { details: { vix_level: { value: "14.8", label: "Low" } } },
+        macro: { details: { fomc: { value: "18d away", label: "Clear" } } },
+      },
+      tape: [
+        { ticker: "SPY", price: "600.00", change: "0.85" },
+        { ticker: "QQQ", price: "520.00", change: "1.30" },
+        { ticker: "IWM", price: "230.00", change: "0.40" },
+        { ticker: "DIA", price: "440.00", change: "0.35" },
+        { ticker: "VIX", price: "14.80", change: "-5.2" },
+        { ticker: "TNX", price: "4.15", change: "-1.1" },
+      ],
+      sectors: [
+        { ticker: "XLK", name: "Technology", change: 1.5 },
+        { ticker: "XLC", name: "Communication", change: 1.1 },
+        { ticker: "XLE", name: "Energy", change: -0.4 },
+      ],
+      breadthStats: { sma50Above: { pct: 68 }, sma200Above: { pct: 74 } },
+    },
+    monitor: {
+      current: { up_4pct: 320, down_4pct: 65, t2108: 61.5, ratio_5d: 2.8 },
+      indices: { SPY: { ema10: 595, ema21: 590, sma50: 580, sma200: 550 } },
+    },
+    liveQuotes: new Map([
+      ["SPY", { price: 600, dayHigh: 601, dayLow: 595, change: 0.85 }],
+      ["QQQ", { price: 520, dayHigh: 521, dayLow: 513, change: 1.3 }],
+    ]),
+    zangerMovers: ctx.zangerMovers,
+  });
+
+  const subj = buildEmailSubject({ ...ctx, market });
+  assert.ok(subj.includes("1 BO (NVDA)"));
+  assert.ok(subj.includes("SPY +0.8%") || subj.includes("SPY +0.9%"));
+  assert.ok(subj.includes("QQQ +1.3%"));
   assert.ok(subj.includes("11:00 ET"));
 
-  const html = buildEmailHtml(ctx, { baseUrl: "https://themepulse.vercel.app" });
+  assert.equal(market.decision, "YES");
+  assert.equal(market.score, 82);
+  assert.equal(market.indices[0].maStatus, "Above all MAs");
+  assert.equal(market.indices[0].cr, 83);
+  assert.ok(market.commentary.some((c) => c.includes("Market Quality 82/100")));
+  assert.ok(market.commentary.some((c) => c.includes("QQQ leading vs")));
+  assert.ok(market.commentary.some((c) => c.includes("Buyers are in control")));
+
+  const html = buildEmailHtml({ ...ctx, market }, { baseUrl: "https://themepulse.vercel.app" });
+  assert.ok(html.includes("General Market &amp; Commentary"));
+  assert.ok(html.includes("YES · 82/100 · FULL"));
+  assert.ok(html.includes("Top Sectors:"));
   assert.ok(html.includes("https://themepulse.vercel.app/?view=zanger&ticker=NVDA"));
   assert.ok(html.includes(">ADR<"));
   assert.ok(html.includes("4.2%"));

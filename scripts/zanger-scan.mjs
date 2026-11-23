@@ -32,6 +32,7 @@ import {
   computeTiers,
   pinReason,
   etClock,
+  closingRange,
   scoreZangerCandidate,
 } from "../src/lead/math.js";
 
@@ -94,6 +95,21 @@ async function fetchLiveQuotes(tickers, token) {
     } catch { /* partial failure ok */ }
   }
   return map;
+}
+
+async function fetchMarketQuality(token) {
+  if (!token) return null;
+  try {
+    const r = await fetch(`${BASE_URL}/api/market-quality`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!r.ok) return null;
+    const d = await r.json();
+    return d?.ok ? d : null;
+  } catch {
+    return null;
+  }
 }
 
 async function fetchTickerHeadlines(tickers, token) {
@@ -230,27 +246,297 @@ const BO_EMAIL_COLORS = {
   QMAG:   { bg: "#f3e8ff", fg: "#6b21a8", bd: "#a855f7" },
 };
 
-export function buildEmailSubject({ stamp, zangerMovers }) {
-  const bos = (zangerMovers || []).filter((m) => m.isBreakout);
-  const timeShort = stamp?.pretty ? stamp.pretty.slice(11) : "";
-  if (bos.length > 0) {
-    const top = bos.slice(0, 4).map((m) => m.ticker).join(", ");
-    const more = bos.length > 4 ? ` +${bos.length - 4}` : "";
-    return `🔥 ThemePulse Zanger: ${bos.length} Breakout${bos.length === 1 ? "" : "s"} (${top}${more}) · ${zangerMovers.length} Movers — ${timeShort}`;
-  }
-  if ((zangerMovers || []).length > 0) {
-    const top = zangerMovers.slice(0, 4).map((m) => m.ticker).join(", ");
-    return `⚡ ThemePulse Zanger: ${zangerMovers.length} Volume Mover${zangerMovers.length === 1 ? "" : "s"} (${top}) — ${timeShort}`;
-  }
-  return `ThemePulse Zanger Scan (0 Movers) — ${timeShort}`;
+const INDEX_META = [
+  ["SPY", "S&P 500"],
+  ["QQQ", "Nasdaq 100"],
+  ["IWM", "Russell 2000"],
+  ["DIA", "Dow 30"],
+];
+
+function parseNum(v) {
+  if (v == null || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
 }
 
-export function buildEmailHtml({ stamp, mode, clock, pipelineDate, leadingLayers, emergingLayers, zangerMovers, headlines }, { baseUrl = BASE_URL } = {}) {
+function indexMaPosture(price, ma) {
+  if (!ma) return null;
+  const p = price ?? ma.price;
+  if (p == null) return null;
+  const a10 = ma.ema10 ? p >= ma.ema10 : ma.above_ema10;
+  const a21 = ma.ema21 ? p >= ma.ema21 : ma.above_ema21;
+  const a50 = ma.sma50 ? p >= ma.sma50 : ma.above_sma50;
+  const a200 = ma.sma200 ? p >= ma.sma200 : ma.above_sma200;
+  if (a10 && a21 && a50 && a200) return "Above all MAs";
+  if (!a10 && a21 && a50 && a200) return "<10EMA, >21/50/200";
+  if (!a21 && a50 && a200) return "<21EMA, >50/200";
+  if (!a50 && a200) return "<50SMA, >200";
+  if (!a50 && !a200) return "Below 50 & 200";
+  const parts = [];
+  if (a21) parts.push(">21");
+  if (a50) parts.push(">50");
+  if (a200) parts.push(">200");
+  return parts.length ? parts.join("/") : "Below key MAs";
+}
+
+export function buildMarketSummary({ mq = null, monitor = null, liveQuotes = null, dashStocks = [], zangerMovers = [] } = {}) {
+  const tapeMap = new Map();
+  for (const item of mq?.tape || []) {
+    if (item?.ticker) {
+      tapeMap.set(item.ticker, {
+        price: parseNum(item.price),
+        change: parseNum(item.change),
+      });
+    }
+  }
+
+  const getLive = (tk) => (liveQuotes instanceof Map ? liveQuotes.get(tk) : liveQuotes?.[tk]) || null;
+
+  const indices = INDEX_META.map(([ticker, name]) => {
+    const q = getLive(ticker);
+    const t = tapeMap.get(ticker);
+    const ma = monitor?.indices?.[ticker] || null;
+    const price = q?.rthPrice ?? q?.price ?? t?.price ?? ma?.price ?? null;
+    const change = q?.change ?? t?.change ?? null;
+    const cr = q ? closingRange(q, null) : null;
+    const maStatus = indexMaPosture(price, ma);
+    return { ticker, name, price, change, cr, maStatus };
+  });
+
+  const vixTape = tapeMap.get("VIX");
+  const vixLevel = vixTape?.price ?? parseNum(mq?.scores?.volatility?.details?.vix_level?.value);
+  const vixChange = vixTape?.change ?? parseNum(String(mq?.scores?.volatility?.details?.vix_trend?.value || "").replace("%", ""));
+  const vix = vixLevel != null ? {
+    price: vixLevel,
+    change: vixChange,
+    label: mq?.scores?.volatility?.details?.vix_level?.label || (vixLevel < 16 ? "Low" : vixLevel < 22 ? "Normal" : vixLevel < 28 ? "Elevated" : "Extreme"),
+  } : null;
+
+  const tnxTape = tapeMap.get("TNX");
+  const tnx = tnxTape?.price != null ? { price: tnxTape.price, change: tnxTape.change } : null;
+
+  // Breadth from live universe + dashboard/monitor
+  const totalStocks = dashStocks.length || 0;
+  const pctAbove50 = mq?.breadthStats?.sma50Above?.pct
+    ?? (totalStocks ? Math.round(dashStocks.filter((s) => s.above_50ma === 1 || s.sma50_above === 1).length / totalStocks * 100) : null);
+  const pctAbove200 = mq?.breadthStats?.sma200Above?.pct
+    ?? (totalStocks ? Math.round(dashStocks.filter((s) => s.above_200ma === 1 || s.sma200_above === 1).length / totalStocks * 100) : null);
+
+  let liveAdv = 0, liveDec = 0;
+  if (liveQuotes instanceof Map) {
+    for (const [tk, q] of liveQuotes.entries()) {
+      if (INDEX_META.some(([i]) => i === tk)) continue;
+      if (q?.change == null) continue;
+      if (q.change > 0) liveAdv++;
+      else if (q.change < 0) liveDec++;
+    }
+  }
+  const liveTotal = liveAdv + liveDec;
+  const livePctAdv = liveTotal >= 20 ? Math.round((liveAdv / liveTotal) * 100) : null;
+
+  const cur = monitor?.current || {};
+  const breadth = {
+    pctAbove50,
+    pctAbove200,
+    up4: cur.up_4pct ?? null,
+    down4: cur.down_4pct ?? null,
+    t2108: cur.t2108 ?? null,
+    ratio5d: cur.ratio_5d ?? null,
+    liveAdv,
+    liveDec,
+    livePctAdv,
+  };
+
+  // Sector rotation from /api/market-quality
+  const secList = Array.isArray(mq?.sectors) ? mq.sectors : [];
+  const sectors = secList.length ? {
+    positive: secList.filter((s) => (s.change ?? 0) > 0).length,
+    total: secList.length,
+    leaders: secList.slice(0, 3),
+    laggards: secList.slice(-3).reverse(),
+  } : null;
+
+  const decision = mq?.decision ?? null;
+  const score = mq?.total ?? null;
+  const positionSize = mq?.position_size ?? null;
+  const regime = mq?.scores?.trend?.details?.regime?.value ?? null;
+  const fomc = mq?.scores?.macro?.details?.fomc ?? null;
+
+  // Build crisp, trader-focused market commentary
+  const commentary = [];
+  const spy = indices.find((i) => i.ticker === "SPY");
+  const qqq = indices.find((i) => i.ticker === "QQQ");
+  const iwm = indices.find((i) => i.ticker === "IWM");
+
+  if (score != null && decision) {
+    const tone = decision === "YES"
+      ? "Constructive tape — favors active swing exposure with normal sizing."
+      : decision === "CAUTION"
+        ? "Mixed/selective tape — stick to A+ leaders and reduced sizing."
+        : "Defensive tape — capital preservation mode; avoid forcing breakouts.";
+    commentary.push(`Market Quality ${score}/100 (${decision}${positionSize ? ` · ${positionSize} size` : ""}${regime ? ` · ${regime}` : ""}). ${tone}`);
+  } else if (spy?.maStatus) {
+    commentary.push(`Index posture: SPY is ${spy.maStatus}${qqq?.maStatus ? `, QQQ is ${qqq.maStatus}` : ""}${iwm?.maStatus ? `, IWM is ${iwm.maStatus}` : ""}.`);
+  }
+
+  // Index action + leadership divergence + intraday closing range
+  const idxChgs = indices.filter((i) => i.change != null);
+  if (idxChgs.length) {
+    const sorted = [...idxChgs].sort((a, b) => b.change - a.change);
+    const best = sorted[0], worst = sorted[sorted.length - 1];
+    const parts = indices
+      .filter((i) => i.change != null)
+      .map((i) => `${i.ticker} ${fmtPct(i.change, 2)}${i.cr != null ? ` (CR ${i.cr}%)` : ""}`);
+    let tapeNote = `Index action: ${parts.join(" · ")}.`;
+    if (best.change - worst.change >= 0.4) {
+      tapeNote += ` ${best.ticker} leading vs ${worst.ticker} lagging.`;
+    }
+    const avgCr = idxChgs.filter((i) => i.cr != null);
+    if (avgCr.length >= 2) {
+      const meanCr = avgCr.reduce((a, b) => a + b.cr, 0) / avgCr.length;
+      if (meanCr >= 72) tapeNote += " Buyers are in control near session highs.";
+      else if (meanCr <= 32) tapeNote += " Indices are fading near session lows — watch for failed breakouts.";
+    }
+    commentary.push(tapeNote);
+  }
+
+  // Breadth & sector rotation
+  const bParts = [];
+  if (livePctAdv != null) bParts.push(`${livePctAdv}% of liquid leaders green intraday (${liveAdv}↑ / ${liveDec}↓)`);
+  if (sectors) {
+    const topStr = sectors.leaders.slice(0, 2).map((s) => `${s.ticker} ${fmtPct(s.change, 1)}`).join(", ");
+    const botStr = sectors.laggards.slice(0, 2).map((s) => `${s.ticker} ${fmtPct(s.change, 1)}`).join(", ");
+    bParts.push(`${sectors.positive}/${sectors.total} sectors positive (leaders: ${topStr}; laggards: ${botStr})`);
+  }
+  if (pctAbove50 != null) bParts.push(`${pctAbove50}% of stocks >50MA`);
+  if (breadth.up4 != null && breadth.down4 != null) {
+    bParts.push(`Stockbee 4% movers ${breadth.up4}↑ vs ${breadth.down4}↓${breadth.t2108 != null ? ` (T2108 ${breadth.t2108}%)` : ""}`);
+  }
+  if (bParts.length) commentary.push(`Breadth & rotation: ${bParts.join("; ")}.`);
+
+  // Volatility / Macro / FOMC + breakout tape alignment
+  const mParts = [];
+  if (vix) {
+    mParts.push(`VIX ${vix.price.toFixed(2)}${vix.change != null ? ` (${fmtPct(vix.change, 1)})` : ""} — ${vix.label.toLowerCase()} volatility`);
+  }
+  if (tnx) {
+    mParts.push(`10Y yield ${tnx.price.toFixed(2)}%${tnx.change != null ? ` (${fmtPct(tnx.change, 1)})` : ""}`);
+  }
+  if (fomc && (fomc.label === "Event risk!" || fomc.label === "Caution")) {
+    mParts.push(`FOMC ${fomc.value} (${fomc.label})`);
+  }
+  const boCount = (zangerMovers || []).filter((m) => m.isBreakout).length;
+  if (boCount > 0 && decision === "NO") {
+    mParts.push(`${boCount} breakout${boCount === 1 ? "" : "s"} firing against a weak tape — demand top RS/CR and tight risk`);
+  } else if (boCount >= 8 && decision === "YES") {
+    mParts.push(`${boCount} breakouts confirming healthy risk-on participation`);
+  }
+  if (mParts.length) commentary.push(`Risk & macro: ${mParts.join(" · ")}.`);
+
+  return {
+    decision,
+    score,
+    positionSize,
+    regime,
+    indices,
+    vix,
+    tnx,
+    sectors,
+    breadth,
+    fomc,
+    commentary,
+  };
+}
+
+export function buildEmailSubject({ stamp, zangerMovers, market }) {
+  const bos = (zangerMovers || []).filter((m) => m.isBreakout);
+  const timeShort = stamp?.pretty ? stamp.pretty.slice(11) : "";
+  const spy = market?.indices?.find((i) => i.ticker === "SPY");
+  const qqq = market?.indices?.find((i) => i.ticker === "QQQ");
+  const idxBits = [
+    spy?.change != null ? `SPY ${fmtPct(spy.change, 1)}` : null,
+    qqq?.change != null ? `QQQ ${fmtPct(qqq.change, 1)}` : null,
+  ].filter(Boolean);
+  const idxTag = idxBits.length ? ` | ${idxBits.join(" ")}` : "";
+
+  if (bos.length > 0) {
+    const top = bos.slice(0, 3).map((m) => m.ticker).join(", ");
+    const more = bos.length > 3 ? ` +${bos.length - 3}` : "";
+    return `🔥 Zanger: ${bos.length} BO (${top}${more}) · ${zangerMovers.length} Movers${idxTag} — ${timeShort}`;
+  }
+  if ((zangerMovers || []).length > 0) {
+    const top = zangerMovers.slice(0, 3).map((m) => m.ticker).join(", ");
+    return `⚡ Zanger: ${zangerMovers.length} Mover${zangerMovers.length === 1 ? "" : "s"} (${top})${idxTag} — ${timeShort}`;
+  }
+  return `ThemePulse Zanger Scan (0 Movers)${idxTag} — ${timeShort}`;
+}
+
+export function buildEmailHtml({ stamp, mode, clock, pipelineDate, leadingLayers, emergingLayers, zangerMovers, headlines, market }, { baseUrl = BASE_URL } = {}) {
   const url = baseUrl.replace(/\/$/, "");
   const movers = zangerMovers || [];
   const bos = movers.filter((m) => m.isBreakout);
   const leadCount = (leadingLayers || []).length;
   const emergCount = (emergingLayers || []).length;
+
+  const marketSectionHtml = (() => {
+    if (!market) return "";
+    const dec = market.decision;
+    const decStyle = dec === "YES"
+      ? { bg: "#dcfce7", fg: "#166534", bd: "#22c55e" }
+      : dec === "CAUTION"
+        ? { bg: "#fef3c7", fg: "#92400e", bd: "#f59e0b" }
+        : { bg: "#fee2e2", fg: "#991b1b", bd: "#ef4444" };
+
+    const indexCells = (market.indices || []).map((idx) => {
+      const chgColor = idx.change == null ? "#64748b" : idx.change >= 0 ? "#15803d" : "#dc2626";
+      const crTxt = idx.cr != null ? `CR ${idx.cr}%` : "";
+      const subBits = [crTxt, idx.maStatus].filter(Boolean).join(" · ");
+      return `<td style="width:25%;padding:8px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;vertical-align:top;">
+        <div style="font-size:10px;color:#64748b;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:700;">${escHtml(idx.ticker)} <span style="font-weight:400;">${escHtml(idx.name)}</span></div>
+        <div style="margin-top:3px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">
+          <span style="font-size:15px;font-weight:800;color:${chgColor};">${idx.change != null ? escHtml(fmtPct(idx.change, 2)) : "—"}</span>
+          ${idx.price != null ? `<span style="font-size:11px;color:#475569;margin-left:4px;">${idx.price.toFixed(2)}</span>` : ""}
+        </div>
+        ${subBits ? `<div style="margin-top:2px;font-size:10px;color:#64748b;">${escHtml(subBits)}</div>` : ""}
+      </td>`;
+    }).join("");
+
+    const macroBits = [
+      market.vix ? `VIX <strong>${market.vix.price.toFixed(2)}</strong>${market.vix.change != null ? ` (${escHtml(fmtPct(market.vix.change, 1))})` : ""}` : null,
+      market.tnx ? `10Y <strong>${market.tnx.price.toFixed(2)}%</strong>` : null,
+      market.breadth?.pctAbove50 != null ? `&gt;50MA <strong>${market.breadth.pctAbove50}%</strong>` : null,
+      market.breadth?.up4 != null && market.breadth?.down4 != null ? `4% Movers <strong>${market.breadth.up4}↑ / ${market.breadth.down4}↓</strong>` : null,
+      market.breadth?.t2108 != null ? `T2108 <strong>${market.breadth.t2108}%</strong>` : null,
+      market.sectors ? `Sectors <strong>${market.sectors.positive}/${market.sectors.total}</strong> green` : null,
+    ].filter(Boolean);
+
+    const sectorStrip = market.sectors ? `
+      <div style="margin-top:8px;font-size:11px;color:#475569;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">
+        <span style="color:#15803d;font-weight:700;">Top Sectors:</span>
+        ${market.sectors.leaders.map((s) => `${escHtml(s.ticker)} ${escHtml(fmtPct(s.change, 1))}`).join(" · ")}
+        &nbsp;&nbsp;|&nbsp;&nbsp;
+        <span style="color:#dc2626;font-weight:700;">Laggards:</span>
+        ${market.sectors.laggards.map((s) => `${escHtml(s.ticker)} ${escHtml(fmtPct(s.change, 1))}`).join(" · ")}
+      </div>` : "";
+
+    const bullets = (market.commentary || []).map((c) =>
+      `<li style="margin-bottom:5px;line-height:1.45;color:#1e293b;">${escHtml(c)}</li>`
+    ).join("");
+
+    return `
+      <div style="margin-bottom:20px;padding:14px 16px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+          <h2 style="margin:0;font-size:15px;color:#0f172a;">General Market &amp; Commentary</h2>
+          ${dec ? `<span style="display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:800;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:${decStyle.bg};color:${decStyle.fg};border:1px solid ${decStyle.bd};">
+            ${escHtml(dec)}${market.score != null ? ` · ${market.score}/100` : ""}${market.positionSize ? ` · ${escHtml(market.positionSize)}` : ""}
+          </span>` : ""}
+        </div>
+        ${indexCells ? `<table style="width:100%;border-collapse:separate;border-spacing:6px 0;margin:0 -6px 8px;"><tr>${indexCells}</tr></table>` : ""}
+        ${macroBits.length ? `<div style="font-size:11px;color:#334155;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;margin-top:4px;">${macroBits.join(" &nbsp;·&nbsp; ")}</div>` : ""}
+        ${sectorStrip}
+        ${bullets ? `<ul style="margin:10px 0 0;padding-left:18px;font-size:12px;">${bullets}</ul>` : ""}
+      </div>`;
+  })();
 
   const badgeHtml = (m) => {
     if (m.breakoutTypes?.length) {
@@ -345,6 +631,7 @@ export function buildEmailHtml({ stamp, mode, clock, pipelineDate, leadingLayers
     </div>
 
     <div style="padding:18px 20px;">
+      ${marketSectionHtml}
       <h2 style="margin:0 0 10px;font-size:15px;color:#0f172a;">1. Breakouts &amp; Volume Movers <span style="font-weight:400;font-size:12px;color:#64748b;">(Zanger · SB 4% · SB $ · QMAG)</span></h2>
       ${movers.length === 0
         ? `<p style="color:#64748b;font-size:13px;background:#f8fafc;padding:14px;border-radius:6px;border:1px solid #e2e8f0;">No stocks currently pass breakout or ZVR ≥ 1.5x volume surge criteria.</p>`
@@ -400,7 +687,7 @@ export function buildEmailHtml({ stamp, mode, clock, pipelineDate, leadingLayers
 </html>`;
 }
 
-function buildMarkdown({ stamp, mode, clock, pipelineDate, leadingLayers, emergingLayers, zangerMovers, themeLeaders, headlines }) {
+function buildMarkdown({ stamp, mode, clock, pipelineDate, leadingLayers, emergingLayers, zangerMovers, themeLeaders, headlines, market }) {
   const lines = [];
   lines.push(`# ThemePulse Zanger & Leadership Scan — ${stamp.pretty}`);
   lines.push("");
@@ -408,6 +695,23 @@ function buildMarkdown({ stamp, mode, clock, pipelineDate, leadingLayers, emergi
   lines.push(`- **Session**: ${clock.session} (${clock.rth ? "RTH Live" : "Outside RTH"}) · **Pipeline**: ${pipelineDate || "unknown"}`);
   lines.push(`- **Summary**: ${leadingLayers.length} leading layers · ${emergingLayers.length} confirmed emerging layers · ${zangerMovers.length} Dan Zanger volume movers`);
   lines.push("");
+
+  if (market) {
+    lines.push("## 0. General Market & Commentary");
+    lines.push("");
+    if (market.indices?.length) {
+      lines.push("| Index | Price | Chg% | CR% | MA Posture |");
+      lines.push("|-------|------:|-----:|----:|------------|");
+      for (const i of market.indices) {
+        lines.push(`| **${i.ticker}** (${i.name}) | ${i.price != null ? i.price.toFixed(2) : "—"} | ${i.change != null ? fmtPct(i.change, 2) : "—"} | ${i.cr != null ? `${i.cr}%` : "—"} | ${i.maStatus || "—"} |`);
+      }
+      lines.push("");
+    }
+    for (const c of market.commentary || []) {
+      lines.push(`- ${c}`);
+    }
+    lines.push("");
+  }
 
   lines.push("## 1. Breakouts & Intraday Volume Movers (Zanger · Stockbee 4% / $ · Qullamaggie)");
   lines.push("");
@@ -483,6 +787,7 @@ export async function runZangerScan({ offline = false, write = true, now = new D
   const chain = readJson("public/data/chain_layers.json") || [];
   const lb = readJson("public/data/layer_breadth.json") || {};
   const profiles = readJson("public/data/rvol_profiles.json") || null;
+  const monitor = readJson("public/market_monitor.json") || null;
 
   if (!dash?.stocks || !rot?.layers) {
     throw new Error("Missing public/dashboard_data.json or public/data/rs_rotation.json");
@@ -548,12 +853,17 @@ export async function runZangerScan({ offline = false, write = true, now = new D
   }
 
   let liveQuotes = new Map();
+  let mq = null;
   let token = null;
   let mode = "Pipeline EOD (offline)";
   if (!offline) {
     token = await getToken();
     if (token) {
-      liveQuotes = await fetchLiveQuotes([...poolSet], token);
+      const quoteList = [...poolSet, ...INDEX_META.map(([t]) => t)];
+      [liveQuotes, mq] = await Promise.all([
+        fetchLiveQuotes(quoteList, token),
+        fetchMarketQuality(token),
+      ]);
       mode = liveQuotes.size > 0
         ? `Live Intraday (${liveQuotes.size} quotes from ${BASE_URL})`
         : "Pipeline EOD (live endpoint returned 0 quotes)";
@@ -584,6 +894,14 @@ export async function runZangerScan({ offline = false, write = true, now = new D
     ? await fetchTickerHeadlines(zangerMovers.slice(0, 8).map((m) => m.ticker), token)
     : new Map();
 
+  const market = buildMarketSummary({
+    mq,
+    monitor,
+    liveQuotes,
+    dashStocks: dash.stocks,
+    zangerMovers,
+  });
+
   const stamp = formatEtStamp(now);
   const clock = etClock(now);
   const scanCtx = {
@@ -596,6 +914,7 @@ export async function runZangerScan({ offline = false, write = true, now = new D
     zangerMovers,
     themeLeaders,
     headlines,
+    market,
   };
   const markdown = buildMarkdown(scanCtx);
   const emailSubject = buildEmailSubject(scanCtx);
@@ -615,6 +934,7 @@ export async function runZangerScan({ offline = false, write = true, now = new D
     mode,
     pipelineDate: dash.date,
     reportPath,
+    market,
     leadingLayers: leadingLayers.map((l) => ({ theme: l.theme, layer: l.name, rank: l.now, w1: l.w1, m1: l.m1, flags: l.flags.map(([k]) => k) })),
     emergingLayers: emergingLayers.map((l) => ({ theme: l.theme, layer: l.name, rank: l.now, w1: l.w1, m1: l.m1 })),
     zangerMovers: zangerMovers.slice(0, 25),
