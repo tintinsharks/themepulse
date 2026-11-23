@@ -1,0 +1,195 @@
+{
+  "id": "brief-2026-11-23-intraday-1010",
+  "date": "2026-11-23",
+  "session": "intraday",
+  "label": "Intraday Brief — Nov 23, 2026 (10:10 AM PT)",
+  "headline": "CBRL Clears $72.80 Handle Pivot (+3.72%) With BLMN (+3.06%) Group Confirmation; XERS ($17.59), INSM ($149.28), AMRX ($21.75) & GEN ($29.98) Hit Fresh Session Highs",
+  "regime": {
+    "posture": "Day 1 Rally Hold / Selective Stage 2 Breakouts (45%–55% Exposure)",
+    "spy": "$722.57 (+4.75%)",
+    "qqq": "$650.96 (+6.99%)",
+    "iwm": "$265.04 (+3.29%)",
+    "breadth": "20 Leading / 4 Emerging / 21 Breaking Down (133 Passing Intraday Scan)"
+  },
+  "macroTape": {
+    "vix": "27.54 (-23.27%)",
+    "us10y": "4.96%",
+    "wti": "$81.87 (-1.85%)",
+    "dxy": "103.81"
+  },
+  "intradayMovers": [
+    {
+      "ticker": "XERS",
+      "layer": "Specialty Pharma",
+      "price": 17.55,
+      "changePct": 3.42,
+      "fromOpenPct": 3.24,
+      "zvr": "1.92x+",
+      "rs": 99,
+      "eps": 74,
+      "progression": "Building (+2.53% -> +2.47% -> +2.71% -> +3.06% -> +3.42%)",
+      "signal": "Printed another fresh 52-week high of $17.59 on 1.23M shares following 44% Q3 revenue growth",
+      "sourceUrl": "https://www.stocktitan.net/news/XERS/xeris-biopharma-reports-third-quarter-2026-financial-results-and-1864fi6uljqw.html"
+    },
+    {
+      "ticker": "INSM",
+      "layer": "Biotech",
+      "price": 149.24,
+      "changePct": 5.6,
+      "fromOpenPct": 4.2,
+      "zvr": "1.7x",
+      "rs": 97,
+      "eps": 68,
+      "progression": "Building (+1.54% -> +3.89% -> +3.68% -> +4.83% -> +5.60%)",
+      "signal": "Expanded to new session high $149.28 on 1.83M shares on Sanofi buyout interest reports and 268% Q3 revenue growth",
+      "sourceUrl": "https://www.tradingview.com/news/zacks:063323b3c094b:0-insmed-s-stock-rises-21-on-reports-of-buyout-interest-from-sanofi/"
+    },
+    {
+      "ticker": "BLMN",
+      "layer": "Restaurants + QSR",
+      "price": 10.28,
+      "changePct": 3.06,
+      "fromOpenPct": 2.44,
+      "zvr": "1.47x+",
+      "rs": 88,
+      "eps": 82,
+      "progression": "Fresh Afternoon Wave (+2.01% -> +1.10% -> +2.01% -> +1.81% -> +3.06%)",
+      "signal": "Surged +1.25% over the past 40 minutes to $10.28 alongside CBRL (+3.72%) breakout in Leading Restaurants + QSR",
+      "sourceUrl": "https://themepulse.vercel.app/?view=scanner&ticker=APPN"
+    },
+    {
+      "ticker": "HPE",
+      "layer": "Hardware / AI Servers",
+      "price": 47.81,
+      "changePct": 16.78,
+      "fromOpenPct": -6.25,
+      "zvr": "3.5x",
+      "rs": 84,
+      "eps": 81,
+      "progression": "Fresh Afternoon Wave (+13.26% -> +15.03% -> +12.48% -> +14.36% -> +16.78%)",
+      "signal": "Rallied from $45.84 midday trough to $47.93 on 17.7M shares ahead of tonight's after-hours Q4 earnings report",
+      "sourceUrl": "https://mlq.ai/news/week-ahead-pce-inflation-and-gdp-on-wednesday-thanksgiving-market-closures-and-earnings-from-dell-hpe-and-deere-nov-23-27/"
+    },
+    {
+      "ticker": "PTRN",
+      "layer": "Strongest Stock 5",
+      "price": 20.11,
+      "changePct": 8.64,
+      "fromOpenPct": 1.77,
+      "zvr": "2.1x",
+      "rs": 96,
+      "eps": 84,
+      "progression": "Holding Tight (+6.16% -> +9.56% -> +9.91% -> +8.59% -> +8.64%)",
+      "signal": "Holding constructive shelf at $20.11 above $20.00 breakout trigger",
+      "sourceUrl": "https://themepulse.vercel.app/?view=scanner&ticker=APPN"
+    },
+    {
+      "ticker": "KYMR",
+      "layer": "Biotech",
+      "price": 156.06,
+      "changePct": 35.34,
+      "fromOpenPct": 13.09,
+      "zvr": "89.92x",
+      "rs": 98,
+      "eps": 65,
+      "progression": "Pulling Back From Peak (+24.79% -> +24.44% -> +31.87% -> +39.52% -> +35.34%)",
+      "signal": "Peaked at $161.49 (+40.05%) on KT-621 Phase 2b eczema readout before pulling back $5.43 on 5.23M shares",
+      "sourceUrl": "https://www.stocktitan.net/sec-filings/KYMR/8-k-kymera-therapeutics-inc-reports-material-event-ede1dc49ed4a.html"
+    },
+    {
+      "ticker": "BIP",
+      "layer": "Utilities / Infrastructure",
+      "price": 44.79,
+      "changePct": 4.26,
+      "fromOpenPct": 1.8,
+      "zvr": "3.92x",
+      "rs": 91,
+      "eps": 76,
+      "progression": "Fading (+4.88% -> +6.12% -> +6.18% -> +7.08% -> +4.26%)",
+      "signal": "Gave back 9:25 AM second-wave pop ($46.04) to $44.79 on Day 1 corporate simplification share turnover",
+      "sourceUrl": "https://www.stocktitan.net/sec-filings/BIP/6-k-brookfield-infrastructure-partners-l-p-current-report-foreign-iss-52f8d5fe7549.html"
+    }
+  ],
+  "leadingPulse": [
+    {
+      "ticker": "CBRL",
+      "grade": "B+",
+      "price": 73.38,
+      "changePct": 3.72,
+      "pivot": 72.8,
+      "buyZoneMax": 76.44,
+      "stop": 67.7,
+      "status": "Fresh Breakout Triggered — Surged to $73.45 high, clearing $72.80 handle pivot with BLMN peer confirmation"
+    },
+    {
+      "ticker": "AMRX",
+      "grade": "A+",
+      "price": 21.73,
+      "changePct": 2.86,
+      "pivot": 22.13,
+      "buyZoneMax": 23.24,
+      "stop": 20.58,
+      "status": "New Session High in Handle — Hit $21.75 (+2.98%), marching to within 1.8% of $22.13 52W high pivot"
+    },
+    {
+      "ticker": "GEN",
+      "grade": "A-",
+      "price": 29.95,
+      "changePct": 2.6,
+      "pivot": 30.2,
+      "buyZoneMax": 31.71,
+      "stop": 28.09,
+      "status": "New Session High — Hit $29.98 on 2.79M shares, pressing within 0.8% of $30.20 handle pivot"
+    },
+    {
+      "ticker": "CDNA",
+      "grade": "A",
+      "price": 75.23,
+      "changePct": 7.46,
+      "pivot": 72.5,
+      "buyZoneMax": 76.13,
+      "stop": 67.43,
+      "status": "Expanding in Buy Zone — Touched $75.60 at 9:55 AM PT and holds $75.23 (+3.8% above $72.50 pivot)"
+    },
+    {
+      "ticker": "WWW",
+      "grade": "B+",
+      "price": 25.78,
+      "changePct": 4.12,
+      "pivot": 25.1,
+      "buyZoneMax": 26.36,
+      "stop": 23.34,
+      "status": "Expanding in Buy Zone — Matched $25.78 session high, sitting 0.8% below $25.99 52-week high"
+    },
+    {
+      "ticker": "VCEL",
+      "grade": "B+",
+      "price": 58.8,
+      "changePct": 2.22,
+      "pivot": 58.8,
+      "buyZoneMax": 61.74,
+      "stop": 54.68,
+      "status": "Holding Pivot — Trading right on $58.80 pivot after $59.14 morning high"
+    },
+    {
+      "ticker": "ETON",
+      "grade": "A",
+      "price": 62.27,
+      "changePct": 2.33,
+      "pivot": 62.5,
+      "buyZoneMax": 65.63,
+      "stop": 58.13,
+      "status": "Light-Volume Pivot Test — Drifted 23 cents below $62.50 pivot on 150K shares after $63.53 high"
+    },
+    {
+      "ticker": "LTH",
+      "grade": "A-",
+      "price": 47.24,
+      "changePct": 1.93,
+      "pivot": 48.48,
+      "buyZoneMax": 50.9,
+      "stop": 45.09,
+      "status": "Holding Handle — Touched $47.46 high in Leading Travel + Leisure, digesting at $47.24"
+    }
+  ]
+}
