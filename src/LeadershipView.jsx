@@ -13,7 +13,7 @@
 // edge, so "leading" means >= 88 and holding. Early rotation (emerging) tested
 // NEGATIVE, so it is shown but labelled unproven, never mixed in with leaders.
 // ──────────────────────────────────────────────────────────────────────────
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 const LEAD = 88;          // layer leadership threshold (backtest)
 const PEAK_LOOKBACK = 40; // sessions to look back for "was leading"
@@ -1273,7 +1273,7 @@ function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, allowed
             <tbody>
               {rows.map((r) => (
                 <tr key={r.t} data-nav={r.t} onClick={() => onTicker(r.t)} style={{ cursor: "pointer", background: chartTicker === r.t ? A.bgHover : "transparent" }}>
-                  <td style={td(A)}><FlagButton t={r.t} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span></td>
+                  <td style={td(A)}><FlagButton t={r.t} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span><TierMark t={r.t} /></td>
                   <td style={{ ...td(A, "right"), color: r.zvr >= 1.5 ? A.green : r.zvr >= 1 ? A.text : A.textMuted, fontWeight: r.zvr >= 1.5 ? 700 : 400 }}>{r.zvr == null ? "—" : r.zvr.toFixed(2)}</td>
                   <td style={{ ...td(A, "right"), color: A.green }}>{pct(r.chg, 2)}</td>
                   <td style={{ ...td(A, "right"), color: (r.fromOpen ?? 0) >= 0 ? A.green : A.red, fontWeight: 700 }}>{pct(r.fromOpen, 2)}</td>
@@ -1377,7 +1377,7 @@ function ExtHoursMovers({ A, pipeline, stockMap, tickerLayer, onTicker, chartTic
               {rows.map((r) => (
                 <tr key={r.t} data-nav={r.t} onClick={() => onTicker(r.t)} style={{ cursor: "pointer", background: chartTicker === r.t ? A.bgHover : "transparent" }}>
                   <td style={td(A)}>
-                    <FlagButton t={r.t} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span>
+                    <FlagButton t={r.t} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span><TierMark t={r.t} />
                     {r.er && <span title={r.grade ? `Earnings · EP quality ${r.grade}` : "Earnings"} style={{ marginLeft: 5, fontSize: 9, fontWeight: 700, color: A.cyan, border: `1px solid ${A.cyan}`, borderRadius: 3, padding: "0 3px" }}>ER</span>}
                   </td>
                   <td style={{ ...td(A, "right"), color: r.chg >= 0 ? A.green : A.red, fontWeight: 700 }}>{r.chg > 0 ? "+" : ""}{r.chg.toFixed(2)}%</td>
@@ -1597,7 +1597,7 @@ function FlaggedTab({ A, stockMap, tickerLayer, onTicker, chartTicker, onLayer, 
             <tbody>
               {rows.map((r) => (
                 <tr key={r.t} data-nav={r.t} onClick={() => onTicker(r.t)} style={{ cursor: "pointer", background: chartTicker === r.t ? A.bgHover : "transparent" }}>
-                  <td style={td(A)}><FlagButton t={r.t} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span></td>
+                  <td style={td(A)}><FlagButton t={r.t} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span><TierMark t={r.t} /></td>
                   <td style={{ ...td(A, "right"), color: r.zvr >= 1.5 ? A.green : r.zvr >= 1 ? A.text : A.textMuted, fontWeight: r.zvr >= 1.5 ? 700 : 400 }}>{r.zvr == null ? "—" : r.zvr.toFixed(2)}</td>
                   <td style={{ ...td(A, "right"), color: (r.chg ?? 0) >= 0 ? A.green : A.red }}>{pct(r.chg, 2)}</td>
                   <td style={{ ...td(A, "right"), color: (r.fromOpen ?? 0) >= 0 ? A.green : A.red, fontWeight: 700 }}>{pct(r.fromOpen, 2)}</td>
@@ -1711,6 +1711,36 @@ function rsLeads(s) {
   if (s.change_pct == null || s.change_pct < 0) return null;
   return `RS line at a new 52-week high on ${s.change_pct > 0 ? `a +${s.change_pct.toFixed(1)}%` : "an unchanged"} close while price is ${off.toFixed(1)}% off its high — RS leading price`;
 }
+// ⭐ Leader / 🌱 Emerging — computed from the Leaders data (LeadershipView
+// publishes the sets through TierCtx) so every list marks the same names the
+// Leaders tab shows. Filters (ADR, pinned toggle, theme) don't change tiers.
+//   Leader   = passes the Leaders screen: RS 90+, above the 50d, within 25% of
+//              the high, $20M+/day, not buyout-pinned.
+//   Emerging = not a leader yet, but RS 75+, above the 50d, $20M+/day, and
+//              within 8% of the high or RS line at a new high, in a leading
+//              or emerging layer. Top 40 by RS.
+const TierCtx = createContext(null);
+export function computeTiers(stockMap, tickerLayer) {
+  const leaders = new Set(), em = [];
+  Object.values(stockMap || {}).forEach((s) => {
+    if (!s?.ticker || (s.avg_dollar_vol_raw ?? 0) < 20e6 || !s.above_50ma) return;
+    const rs = s.rs_rank ?? 0, off = s.off_52w_high ?? -100;
+    if (rs >= 90 && off >= -25 && !pinReason(s)) { leaders.add(s.ticker); return; }
+    const st = tickerLayer?.[s.ticker]?.st;
+    if (rs >= 75 && (st === "lead" || st === "emerg") && (off >= -8 || s.rs_line_new_high || rsLeads(s))) em.push(s);
+  });
+  em.sort((a, b) => (b.rs_rank ?? 0) - (a.rs_rank ?? 0) || (b.off_52w_high ?? -100) - (a.off_52w_high ?? -100));
+  return { leaders, emerging: new Set(em.slice(0, 40).map((s) => s.ticker)) };
+}
+export function TierMark({ t }) {
+  const tiers = useContext(TierCtx);
+  if (!tiers || !t) return null;
+  const L = tiers.leaders.has(t), E = !L && tiers.emerging.has(t);
+  if (!L && !E) return null;
+  return <span title={L ? "⭐ Leader — passes the Leaders screen (RS 90+, above 50d, within 25% of high)"
+    : "🌱 Emerging — RS 75+ in a leading/emerging layer, near its high or RS line at a new high; not a leader yet"}
+    style={{ marginLeft: 4, fontSize: 9 }}>{L ? "⭐" : "🌱"}</span>;
+}
 const RslDot = ({ tip, A }) => (tip ? <span title={tip} style={{ color: A.blue || "#3b82f6", marginLeft: 4 }}>●</span> : null);
 
 const SCAN_SORT = { m1w: "r1w", m1m: "r1m", m3m: "r3m", m6m: "r6m", strong: "rs", s20: "ago", antic: "ti65", hot: "r1m", liquid: "rs" };
@@ -1747,7 +1777,7 @@ function WrittenBrief({ A, onTicker, chartTicker, modeSwitch }) {
   const arr = (x) => (Array.isArray(x) ? x : []);
   const td = (align = "left") => ({ padding: "5px 6px", fontSize: 11, color: A.text, borderBottom: `1px solid ${A.border}`, textAlign: align, verticalAlign: "top", fontVariantNumeric: "tabular-nums" });
   const Tk = ({ t }) => (typeof t === "string" && t
-    ? <span onClick={() => onTicker(t)} style={{ cursor: "pointer", fontFamily: "monospace", fontWeight: 700, color: chartTicker === t ? A.green : A.text }}>{t}</span>
+    ? <><span onClick={() => onTicker(t)} style={{ cursor: "pointer", fontFamily: "monospace", fontWeight: 700, color: chartTicker === t ? A.green : A.text }}>{t}</span><TierMark t={t} /></>
     : null);
   const Src = ({ u }) => { const h = safeUrl(u); return h ? <a href={h} target="_blank" rel="noopener noreferrer" style={{ color: A.cyan, fontSize: 10, marginLeft: 4 }}>src</a> : null; };
   const label = (b) => `${b.label || b.date || b.id}${b.session ? ` · ${SESSION_LABEL[b.session] || b.session}` : ""}`;
@@ -1966,8 +1996,8 @@ function LiveBrief({ A, themes, layers, stockMap, tickerLayer, members, brk, pip
     </div>
   );
   const Tk = ({ t }) => (
-    <span onClick={(e) => { e.stopPropagation(); onTicker(t); }} style={{ cursor: "pointer", fontFamily: "monospace", fontWeight: 700,
-      color: chartTicker === t ? A.green : A.text }}>{t}</span>
+    <><span onClick={(e) => { e.stopPropagation(); onTicker(t); }} style={{ cursor: "pointer", fontFamily: "monospace", fontWeight: 700,
+      color: chartTicker === t ? A.green : A.text }}>{t}</span><TierMark t={t} /></>
   );
   const Metric = ({ big, color, label, sub }) => (
     <div style={{ flex: "1 1 180px", minWidth: 0 }}>
@@ -2140,7 +2170,7 @@ function LayerMembers({ A, layer, tickers, stockMap, onTicker, chartTicker, keep
           <tbody>
             {rows.map((r) => (
               <tr key={r.t} data-nav={r.t} onClick={() => onTicker(r.t)} style={{ cursor: "pointer", background: chartTicker === r.t ? A.bgHover : "transparent" }}>
-                <td style={td(A)}><FlagButton t={r.t} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span>
+                <td style={td(A)}><FlagButton t={r.t} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span><TierMark t={r.t} />
                   {r.top && <span title="Fastest EPS grower in this layer" style={{ color: A.green, marginLeft: 4 }}>★</span>}
                   {r.nh && <span title="Closed at a 20-session high" style={{ color: A.cyan, marginLeft: 4, fontSize: 9 }}>NH</span>}</td>
                 <td style={{ ...td(A, "right"), color: A.text }}>{r.px != null ? r.px.toFixed(2) : "—"}</td>
@@ -2253,7 +2283,7 @@ export function ScannerPanel({ A, stockMap, onTicker, chartTicker, tickerLayer, 
             <tbody>
               {rows.map((r) => (
                 <tr key={r.t} data-nav={r.t} onClick={() => onTicker(r.t)} style={{ cursor: "pointer", background: chartTicker === r.t ? A.bgHover : "transparent" }}>
-                  <td style={td(A)}><FlagButton t={r.t} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span>
+                  <td style={td(A)}><FlagButton t={r.t} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span><TierMark t={r.t} />
                     {r.tag ? <span title={r.tag === "L" ? "$10B+ scan" : "under-$10B scan"} style={{ marginLeft: 5, fontSize: 9, color: A.textMuted }}>{r.tag}</span> : null}<RslDot tip={r.rsl} A={A} /></td>
                   <td style={{ ...td(A, "right"), color: A.text }}>{r.px != null ? r.px.toFixed(2) : "—"}</td>
                   <td style={{ ...td(A, "right"), color: pc(r.chg), fontWeight: 700 }}>{pct(r.chg, 2)}</td>
@@ -2664,6 +2694,8 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
     return { lead: lead.slice(0, 60), brk: brk.slice(0, 60), pinned: pinned.sort() };
   }, [stockMapX, seats, tickerLayer, theme, visLayers, hidePinned, keepAdr]);
 
+  const tiers = useMemo(() => computeTiers(stockMapX, tickerLayer), [stockMapX, tickerLayer]);
+
   const lookupHits = useMemo(() => {
     const q = lookupQ;
     if (!q) return null;
@@ -2743,6 +2775,7 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
   ];
 
   return (
+    <TierCtx.Provider value={tiers}>
     <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }} className="tp-lead-row">
       {/* Phone/tablet: stack the chart under the boards instead of squeezing
           it beside them (inline styles can't carry a media query). */}
@@ -2967,5 +3000,6 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
         </div>
       )}
     </div>
+    </TierCtx.Provider>
   );
 }
