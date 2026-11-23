@@ -1,0 +1,205 @@
+{
+  "id": "brief-2026-11-23-intraday-0930",
+  "date": "2026-11-23",
+  "session": "intraday",
+  "label": "Intraday Brief — Nov 23, 2026 (9:30 AM PT)",
+  "headline": "XERS Prints New $17.55 52W High & BIP Breaks Out of Morning Flag (+7.08%); VCEL & CBRL Test Pivots While CDNA, WWW, LTH & GEN Build Into Midday",
+  "regime": {
+    "posture": "Day 1 Rally Hold / Selective Stage 2 Breakouts (45%–55% Exposure)",
+    "spy": "$723.13 (+4.83%)",
+    "qqq": "$651.70 (+7.11%)",
+    "iwm": "$265.05 (+3.29%)",
+    "breadth": "20 Leading / 4 Emerging / 21 Breaking Down (133 Passing Intraday Scan)"
+  },
+  "macroTape": {
+    "vix": "27.57 (-23.18%)",
+    "us10y": "4.96%",
+    "wti": "$81.87 (-1.85%)",
+    "dxy": "103.81"
+  },
+  "intradayMovers": [
+    {
+      "ticker": "XERS",
+      "layer": "Specialty Pharma",
+      "price": 17.49,
+      "changePct": 3.06,
+      "fromOpenPct": 2.88,
+      "zvr": "1.92x+",
+      "rs": 99,
+      "eps": 74,
+      "progression": "Building (+2.53% -> +2.47% -> +2.71% -> +3.06%)",
+      "signal": "Broke out above $17.50 to a new 52-week high of $17.55 on 1.05M shares following 44% Q3 revenue growth",
+      "sourceUrl": "https://www.stocktitan.net/news/XERS/xeris-biopharma-reports-third-quarter-2026-financial-results-and-1864fi6uljqw.html"
+    },
+    {
+      "ticker": "BIP",
+      "layer": "Utilities / Infrastructure",
+      "price": 45.84,
+      "changePct": 7.08,
+      "fromOpenPct": 4.18,
+      "zvr": "3.92x",
+      "rs": 91,
+      "eps": 76,
+      "progression": "Building 2nd Wave (+4.88% -> +6.12% -> +6.18% -> +7.08%)",
+      "signal": "Cleared morning flag ($45.45) to $46.05 on Day 1 of 1-for-1 BIP/BIPC corporate simplification shares",
+      "sourceUrl": "https://www.stocktitan.net/sec-filings/BIP/6-k-brookfield-infrastructure-partners-l-p-current-report-foreign-iss-52f8d5fe7549.html"
+    },
+    {
+      "ticker": "KYMR",
+      "layer": "Biotech",
+      "price": 160.88,
+      "changePct": 39.52,
+      "fromOpenPct": 16.58,
+      "zvr": "89.92x",
+      "rs": 98,
+      "eps": 65,
+      "progression": "Building / Extended (+24.79% -> +24.44% -> +31.87% -> +39.52%)",
+      "signal": "Expanded from $152.06 to a new 52W high of $160.89 on 4.27M shares after Phase 2b KT-621 eczema data",
+      "sourceUrl": "https://www.stocktitan.net/sec-filings/KYMR/8-k-kymera-therapeutics-inc-reports-material-event-ede1dc49ed4a.html"
+    },
+    {
+      "ticker": "INSM",
+      "layer": "Biotech",
+      "price": 148.16,
+      "changePct": 4.83,
+      "fromOpenPct": 3.45,
+      "zvr": "1.6x",
+      "rs": 97,
+      "eps": 68,
+      "progression": "Fresh This Hour (+1.54% -> +3.89% -> +3.68% -> +4.83%)",
+      "signal": "Pushed to $148.74 intraday high on 1.48M shares following Sanofi buyout interest reports and 268% Q3 revenue growth",
+      "sourceUrl": "https://www.tradingview.com/news/zacks:063323b3c094b:0-insmed-s-stock-rises-21-on-reports-of-buyout-interest-from-sanofi/"
+    },
+    {
+      "ticker": "LFST",
+      "layer": "Healthcare Services",
+      "price": 14.4,
+      "changePct": 4.16,
+      "fromOpenPct": 2.13,
+      "zvr": "1.53x+",
+      "rs": 98,
+      "eps": 91,
+      "progression": "Holding Tight (+3.26% -> +5.07% -> +5.03% -> +4.16%)",
+      "signal": "Hit fresh $14.60 intraday high at 8:20 AM PT before quiet midday digestion on 1.03M shares",
+      "sourceUrl": "https://www.morningstar.com/news/globe-newswire/9870931/lifestance-reports-strong-third-quarter-2026-financial-results-and-raises-full-year-outlook"
+    },
+    {
+      "ticker": "PTRN",
+      "layer": "Strongest Stock 5",
+      "price": 20.1,
+      "changePct": 8.59,
+      "fromOpenPct": 1.72,
+      "zvr": "2.1x",
+      "rs": 96,
+      "eps": 84,
+      "progression": "Holding Above Breakout (+6.16% -> +9.56% -> +9.91% -> +8.59%)",
+      "signal": "Touched $20.47 high and consolidating calmly above the $20.00 breakout trigger",
+      "sourceUrl": "https://themepulse.vercel.app/?view=scanner&ticker=APPN"
+    },
+    {
+      "ticker": "TPL",
+      "layer": "Energy / Land",
+      "price": 259.75,
+      "changePct": -2.98,
+      "fromOpenPct": -7.34,
+      "zvr": "2.4x",
+      "rs": 78,
+      "eps": 85,
+      "progression": "Faded / Reversed (+5.48% -> -2.92% -> -3.85% -> -2.98%)",
+      "signal": "Reversed sharply from $282.39 opening spike following $3.0B all-stock EagleRock acquisition announcement",
+      "sourceUrl": "https://www.texaspacific.com/investors/news-events/press-releases/detail/191/texas-pacific-land-to-acquire-eaglerock-in-all-stock"
+    }
+  ],
+  "leadingPulse": [
+    {
+      "ticker": "CDNA",
+      "grade": "A",
+      "price": 74.99,
+      "changePct": 7.12,
+      "pivot": 72.5,
+      "buyZoneMax": 76.13,
+      "stop": 67.43,
+      "status": "Building in Buy Zone — Re-accelerated to $74.99 (+7.12%), holding 3.4% above $72.50 pivot"
+    },
+    {
+      "ticker": "WWW",
+      "grade": "B+",
+      "price": 25.7,
+      "changePct": 3.8,
+      "pivot": 25.1,
+      "buyZoneMax": 26.36,
+      "stop": 23.34,
+      "status": "Building in Buy Zone — Hit $25.78 intraday high, 1.1% off $25.99 52W high"
+    },
+    {
+      "ticker": "VCEL",
+      "grade": "B+",
+      "price": 58.88,
+      "changePct": 2.36,
+      "pivot": 58.8,
+      "buyZoneMax": 61.74,
+      "stop": 54.68,
+      "status": "Fresh Pivot Cross — Cleared $58.80 pivot (hit $59.14 high at 8:30 AM PT)"
+    },
+    {
+      "ticker": "ETON",
+      "grade": "A",
+      "price": 62.51,
+      "changePct": 2.73,
+      "pivot": 62.5,
+      "buyZoneMax": 65.63,
+      "stop": 58.13,
+      "status": "Retesting Pivot — Hit $63.53 (+4.40%) at 8:35 AM PT, now testing $62.50 pivot as support"
+    },
+    {
+      "ticker": "LTH",
+      "grade": "A-",
+      "price": 47.39,
+      "changePct": 2.25,
+      "pivot": 48.48,
+      "buyZoneMax": 50.9,
+      "stop": 45.09,
+      "status": "Building — Hit $47.45 high, climbing every hour toward $48.48 52W high pivot"
+    },
+    {
+      "ticker": "GEN",
+      "grade": "A-",
+      "price": 29.83,
+      "changePct": 2.19,
+      "pivot": 30.2,
+      "buyZoneMax": 31.71,
+      "stop": 28.09,
+      "status": "Fresh Midday Bid — Climbed from $28.88 low to $29.85 high on 2.36M shares toward $30.20 pivot"
+    },
+    {
+      "ticker": "CBRL",
+      "grade": "B+",
+      "price": 72.28,
+      "changePct": 2.16,
+      "pivot": 72.8,
+      "buyZoneMax": 76.44,
+      "stop": 67.7,
+      "status": "Tested Pivot — Crossed $72.80 pivot to $73.06 at 8:35 AM PT before midday pullback to $72.28"
+    },
+    {
+      "ticker": "AMRX",
+      "grade": "A+",
+      "price": 21.64,
+      "changePct": 2.46,
+      "pivot": 22.13,
+      "buyZoneMax": 23.24,
+      "stop": 20.58,
+      "status": "Tightening in Handle — Rebounded from $21.48 to $21.64, 2.2% below $22.13 52W high pivot"
+    },
+    {
+      "ticker": "OKTA",
+      "grade": "A-",
+      "price": 209.4,
+      "changePct": 9.37,
+      "pivot": 205,
+      "buyZoneMax": 215.25,
+      "stop": 190.65,
+      "status": "Bouncing Off Pivot — Rebounded +$3.54 from $205.86 low as CRWD/ZS stabilized; Dec 1 earnings risk"
+    }
+  ]
+}
