@@ -1,0 +1,82 @@
+name: ThemePulse Hourly Zanger Email
+
+on:
+  schedule:
+    # Hourly Mon-Fri 14:00-21:00 UTC covers 10:00 AM-4:00 PM America/New_York
+    # across both EDT and EST. The scan script enforces the exact ET window
+    # (09:55-16:25 ET) and skips NYSE holidays automatically.
+    - cron: "0 14-21 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      force_send:
+        description: "Send email even outside market hours or when 0 movers"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zanger-email
+  cancel-in-progress: false
+
+jobs:
+  scan-and-email:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Run Zanger & Leadership scan
+        id: scan
+        env:
+          TP_PIN: ${{ secrets.TP_PIN }}
+          TP_BASE_URL: https://themepulse.vercel.app
+        run: |
+          mkdir -p reports/email
+          ARGS="--no-write --email-out reports/email"
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            ARGS="$ARGS --market-hours-only"
+          elif [ "${{ inputs.force_send }}" = "true" ]; then
+            ARGS="$ARGS --force-send"
+          fi
+          node scripts/zanger-scan.mjs $ARGS > reports/email/stdout.md
+
+          node -e '
+            const fs = require("node:fs");
+            const meta = JSON.parse(fs.readFileSync("reports/email/meta.json", "utf8"));
+            const out = process.env.GITHUB_OUTPUT;
+            fs.appendFileSync(out, `should_send=${meta.shouldSend ? "true" : "false"}\n`);
+            fs.appendFileSync(out, `reason=${meta.reason || ""}\n`);
+            fs.appendFileSync(out, `subject<<__TP_EOF__\n${meta.subject || "ThemePulse Zanger Scan"}\n__TP_EOF__\n`);
+            console.log("Scan meta:", JSON.stringify(meta));
+          '
+
+      - name: Check Gmail secrets
+        if: steps.scan.outputs.should_send == 'true'
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+        run: |
+          if [ -z "$GMAIL_USER" ] || [ -z "$GMAIL_APP_PASSWORD" ]; then
+            echo "::error::Missing GMAIL_USER or GMAIL_APP_PASSWORD repository secret. Add them in GitHub -> Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+
+      - name: Send Zanger email via Gmail
+        if: steps.scan.outputs.should_send == 'true'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.GMAIL_USER }}
+          password: ${{ secrets.GMAIL_APP_PASSWORD }}
+          subject: ${{ steps.scan.outputs.subject }}
+          to: ${{ secrets.ALERT_EMAIL || secrets.GMAIL_USER }}
+          from: ThemePulse Zanger <${{ secrets.GMAIL_USER }}>
+          html_body: file://reports/email/email.html
+          body: file://reports/email/email.txt

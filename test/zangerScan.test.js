@@ -1,6 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { scoreZangerCandidate } from "../scripts/zanger-scan.mjs";
+import {
+  scoreZangerCandidate,
+  isUsMarketHoliday,
+  isMarketScanWindow,
+  buildEmailSubject,
+  buildEmailHtml,
+} from "../scripts/zanger-scan.mjs";
 
 const sat = new Date("2026-11-21T18:00:00Z");
 
@@ -107,4 +113,81 @@ test("scoreZangerCandidate rejects low-volume, weak-close, or buyout-pinned name
     now: sat,
   });
   assert.equal(pinned, null);
+});
+
+test("isUsMarketHoliday detects NYSE holidays including Good Friday and weekend observations", () => {
+  // 2026 NYSE holidays
+  assert.equal(isUsMarketHoliday("2026-01-01"), true);  // New Year's Day (Thu)
+  assert.equal(isUsMarketHoliday("2026-01-19"), true);  // MLK Day
+  assert.equal(isUsMarketHoliday("2026-02-16"), true);  // Presidents' Day
+  assert.equal(isUsMarketHoliday("2026-04-03"), true);  // Good Friday (Easter is Apr 5)
+  assert.equal(isUsMarketHoliday("2026-05-25"), true);  // Memorial Day
+  assert.equal(isUsMarketHoliday("2026-06-19"), true);  // Juneteenth
+  assert.equal(isUsMarketHoliday("2026-07-03"), true);  // Independence Day (Jul 4 is Sat -> Fri Jul 3)
+  assert.equal(isUsMarketHoliday("2026-09-07"), true);  // Labor Day
+  assert.equal(isUsMarketHoliday("2026-11-26"), true);  // Thanksgiving (4th Thu Nov)
+  assert.equal(isUsMarketHoliday("2026-12-25"), true);  // Christmas
+  // Normal trading days
+  assert.equal(isUsMarketHoliday("2026-11-23"), false);
+  assert.equal(isUsMarketHoliday("2026-07-06"), false);
+});
+
+test("isMarketScanWindow enforces 10am-4pm ET across EDT & EST and skips weekends/holidays", () => {
+  // EST (Nov 23, 2026 is Monday, UTC-5)
+  assert.equal(isMarketScanWindow(new Date("2026-11-23T14:00:00Z")).open, false); // 09:00 EST -> skip
+  assert.equal(isMarketScanWindow(new Date("2026-11-23T15:00:00Z")).open, true);  // 10:00 EST -> open
+  assert.equal(isMarketScanWindow(new Date("2026-11-23T21:10:00Z")).open, true);  // 16:10 EST (cron jitter) -> open
+  assert.equal(isMarketScanWindow(new Date("2026-11-23T22:00:00Z")).open, false); // 17:00 EST -> skip
+
+  // EDT (Jul 13, 2026 is Monday, UTC-4)
+  assert.equal(isMarketScanWindow(new Date("2026-07-13T14:00:00Z")).open, true);  // 10:00 EDT -> open
+  assert.equal(isMarketScanWindow(new Date("2026-07-13T20:05:00Z")).open, true);  // 16:05 EDT -> open
+  assert.equal(isMarketScanWindow(new Date("2026-07-13T21:00:00Z")).open, false); // 17:00 EDT -> skip
+
+  // Weekend & Thanksgiving
+  assert.equal(isMarketScanWindow(new Date("2026-11-22T17:00:00Z")).reason, "weekend");
+  assert.equal(isMarketScanWindow(new Date("2026-11-26T17:00:00Z")).reason, "us_market_holiday");
+});
+
+test("buildEmailSubject and buildEmailHtml format breakouts, ADR column, and deep links safely", () => {
+  const ctx = {
+    stamp: { pretty: "2026-11-23 11:00 ET" },
+    mode: "Live Intraday",
+    clock: { session: "2026-11-23", rth: true },
+    pipelineDate: "2026-11-22",
+    leadingLayers: [{ theme: "AI Infra", name: "Compute <Silicon>", st: "lead", now: 95, w1: 92, flags: [] }],
+    emergingLayers: [],
+    zangerMovers: [{
+      ticker: "NVDA",
+      company: "NVIDIA & Co",
+      theme: "AI Infra",
+      layer: "Compute <Silicon>",
+      tier: "lead",
+      isBreakout: true,
+      breakoutTypes: ["ZANGER", "SB4%"],
+      chg: 4.5,
+      dollarMove: 6.2,
+      zvr: 2.6,
+      cr: 88,
+      rs: 96,
+      eps: 92,
+      epsAccel: true,
+      off52: -2.1,
+      adr: 4.2,
+      score: 84.5,
+      pipelineNews: ["Earnings beat"],
+    }],
+    headlines: new Map(),
+  };
+
+  const subj = buildEmailSubject(ctx);
+  assert.ok(subj.includes("1 Breakout (NVDA)"));
+  assert.ok(subj.includes("11:00 ET"));
+
+  const html = buildEmailHtml(ctx, { baseUrl: "https://themepulse.vercel.app" });
+  assert.ok(html.includes("https://themepulse.vercel.app/?view=zanger&ticker=NVDA"));
+  assert.ok(html.includes(">ADR<"));
+  assert.ok(html.includes("4.2%"));
+  assert.ok(html.includes("Compute &lt;Silicon&gt;"));
+  assert.ok(html.includes("NVIDIA &amp; Co"));
 });
