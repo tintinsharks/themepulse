@@ -15,6 +15,7 @@
 // ──────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { AdrFilter, Card, ChangesPanel, Delta, ExtHoursMovers, FlaggedTab, IndexPanel, IntradayScan, LEAD, LEAD_INDEXES, LayerMembers, LayerTable, MarketGate, PEAK_LOOKBACK, PIN_ADR, SPARK_N, STATUS, StockTable, Tabs, ThemeBoard, TierCtx, WatchlistPortfolioTab, classify, computeTiers, layerConfirm, layerRanksFrom, layerStats, pinReason, rankHeld, rankTrend, rsLeads, statusColor, td, th, useIndexBars, useJson, useLiveRS, withEpsRating } from "./lead/core.jsx";
+import MarketBreadthCard from "./components/MarketBreadthCard.jsx";
 export { LEAD_INDEXES, zvrFor, useRvolProfiles, useJson, TierMark, computeTiers } from "./lead/core.jsx";
 function lazyWithReload(load) {
   return React.lazy(() =>
@@ -61,6 +62,7 @@ export default function LeadershipView({
   const hist = useJson("/data/rank_history.json");
   const seats = useJson("/data/ticker_seats.json");
   const breadth = useJson("/data/breadth.json");
+  const monitor = useJson("/market_monitor.json");
   const [theme, setTheme] = useState(null);
   const idxBars = useIndexBars(LEAD_INDEXES.map((x) => x.t));
   const epsMap = useMemo(() => withEpsRating(stockMapIn), [stockMapIn]);
@@ -377,6 +379,7 @@ export default function LeadershipView({
           )}
           {view === "brief"
             ? <BriefPanel A={A} themes={themes} layers={layers} stockMap={stockMapX} tickerLayer={tickerLayer} tiers={tiers} members={members}
+                breadth={breadth} monitor={monitor}
                 brk={stocks.brk} pipeline={pipeline} dates={dates} theme={theme} lb={layerBreadth}
                 onTicker={onTickerClick} chartTicker={chartTicker} onLayer={(l) => showLayer(l)} onTheme={showTheme} layerOfTicker={layerOfTicker} />
             : view === "zanger"
@@ -426,6 +429,7 @@ export default function LeadershipView({
           onTicker={onTickerClick} onLayer={(l) => { setTheme(l.themeId); setLayerTab(l.st); showLayer(l); }}
           onTheme={(id) => setTheme(id)} />
         <IndexPanel A={A} liveQuotes={indexQuotes} onTicker={onTickerClick} chartTicker={chartTicker} bars={idxBars} />
+        <MarketBreadthCard A={A} stockMap={stockMapX} breadth={breadth} monitor={monitor} />
 
         {loading ? (
           <div style={{ color: A.textMuted, fontSize: 12, padding: 20 }}>Loading leadership data…</div>

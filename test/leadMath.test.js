@@ -19,6 +19,8 @@ import {
   rsScore,
   layerRanksFrom,
   closingRange,
+  classifyWeinsteinStage,
+  computeStageDistribution,
 } from "../src/lead/math.js";
 
 test("rankHeld counts sessions at or above threshold in trailing window", () => {
@@ -219,4 +221,26 @@ test("closingRange uses rthPrice during ext hours, avoids cross-day mixing, and 
 
   // ETF without cr_pct (e.g. SPY/QQQ) -> falls back to prev_close_range
   assert.equal(closingRange(null, { close: 689.81, prev_close_range: 9.7 }), 10);
+});
+
+test("classifyWeinsteinStage and computeStageDistribution classify Stages 1-4 accurately", () => {
+  const s1 = { sma200_pct: -2.0, sma50_pct: 3.0, sma50_lvl: 95, sma200_lvl: 100, ma8w_rising: 1, tt_mask: 16 };
+  const s2 = { sma200_pct: 18.0, sma50_pct: 6.0, sma50_lvl: 112, sma200_lvl: 100, tt_mask: 127 };
+  const s3 = { sma200_pct: 4.0, sma50_pct: -3.5, sma50_lvl: 105, sma200_lvl: 100, tt_mask: 3 };
+  const s4 = { sma200_pct: -18.0, sma50_pct: -9.0, sma50_lvl: 88, sma200_lvl: 100, tt_mask: 0 };
+
+  assert.equal(classifyWeinsteinStage(s1), 1);
+  assert.equal(classifyWeinsteinStage(s2), 2);
+  assert.equal(classifyWeinsteinStage(s3), 3);
+  assert.equal(classifyWeinsteinStage(s4), 4);
+  assert.equal(classifyWeinsteinStage({}), null);
+
+  const dist = computeStageDistribution({ A: s1, B: s2, C: s3, D: s4, E: {} });
+  assert.equal(dist.total, 4);
+  assert.deepEqual(dist.stages.map((x) => [x.stage, x.count, x.pct]), [
+    [1, 1, 25],
+    [2, 1, 25],
+    [3, 1, 25],
+    [4, 1, 25],
+  ]);
 });

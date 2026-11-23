@@ -558,3 +558,46 @@ export function scoreZangerCandidate({ s, q, layer, tier, profiles, now = new Da
     pipelineNews: (s._newsPipe || []).slice(0, 2),
   };
 }
+
+// Stan Weinstein Stage Analysis (1 = Basing, 2 = Advancing, 3 = Topping, 4 = Declining)
+// Uses 200-day (~30-week) and 50-day (~10-week) MA position plus 200d slope (tt_mask bit 2).
+export function classifyWeinsteinStage(s) {
+  if (!s) return null;
+  const s200 = s.sma200_pct;
+  const s50 = s.sma50_pct;
+  if (s200 == null || s50 == null || !Number.isFinite(s200) || !Number.isFinite(s50)) return null;
+  const above200 = s200 > 0;
+  const above50 = s50 > 0;
+  const ma200Rising = Boolean((s.tt_mask || 0) & 4);
+  const ma50Above200 = (s.sma50_lvl && s.sma200_lvl)
+    ? s.sma50_lvl > s.sma200_lvl
+    : Boolean((s.tt_mask || 0) & 8);
+
+  if (above200 && above50 && (ma200Rising || ma50Above200)) return 2;
+  if (!above200 && !ma50Above200 && s200 >= -3.5 && above50 && s.ma8w_rising) return 1;
+  if (above200) return 3;
+  return 4;
+}
+
+export function computeStageDistribution(stockMap) {
+  const counts = { 1: 0, 2: 0, 3: 0, 4: 0 };
+  const list = Array.isArray(stockMap) ? stockMap : Object.values(stockMap || {});
+  let total = 0;
+  for (const s of list) {
+    const st = classifyWeinsteinStage(s);
+    if (st != null) {
+      counts[st]++;
+      total++;
+    }
+  }
+  const pctOf = (n) => (total > 0 ? Math.round((n / total) * 100) : 0);
+  return {
+    total,
+    stages: [
+      { stage: 1, label: "Stage 1", hint: "Basing", count: counts[1], pct: pctOf(counts[1]) },
+      { stage: 2, label: "Stage 2", hint: "Advancing", count: counts[2], pct: pctOf(counts[2]) },
+      { stage: 3, label: "Stage 3", hint: "Topping", count: counts[3], pct: pctOf(counts[3]) },
+      { stage: 4, label: "Stage 4", hint: "Declining", count: counts[4], pct: pctOf(counts[4]) },
+    ],
+  };
+}

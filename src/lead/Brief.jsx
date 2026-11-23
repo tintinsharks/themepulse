@@ -4,6 +4,7 @@ import { authFetch } from "../utils.js";
 import { collectBriefTickers, evalPivotStatus, matchMacroLive } from "./briefLive.js";
 import RotationView from "./Rotation.jsx";
 import ZangerBriefSection from "./ZangerBriefSection.jsx";
+import MarketBreadthCard from "../components/MarketBreadthCard.jsx";
 
 // ── Written briefs (BRIEF → Written) ─────────────────────────────────────
 // Dated snapshots in public/data/briefs/ (brief-index.json + <id>.json),
@@ -499,6 +500,7 @@ function BriefPanel(props) {
       {mode === "written"
         ? <WrittenBrief A={A} stockMap={props.stockMap} onTicker={props.onTicker} chartTicker={props.chartTicker} modeSwitch={modeSwitch} />
         : <LiveBrief {...props} modeSwitch={modeSwitch} />}
+      <MarketBreadthCard A={A} stockMap={props.stockMap} breadth={props.breadth} monitor={props.monitor} />
       <ZangerBriefSection
         A={A}
         stockMap={props.stockMap}
