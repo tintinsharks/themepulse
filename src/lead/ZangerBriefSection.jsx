@@ -17,6 +17,7 @@ import {
 } from "./core.jsx";
 import { authFetch } from "../utils.js";
 import { computeLivePortfolioPulse, filterRecentHeadlines } from "./briefLive.js";
+import BreakoutFollowThroughCard from "./BreakoutFollowThroughCard.jsx";
 
 const BRIEF_DIR = "/data/briefs/";
 const INDEX_TKS = ["SPY", "QQQ", "IWM", "DIA"];
@@ -1145,6 +1146,16 @@ export default function ZangerBriefSection({
           </div>
         )}
       </Card>
+
+      <BreakoutFollowThroughCard
+        A={A}
+        index={index}
+        quotes={quotes}
+        stockMap={stockMap}
+        liveOn={liveOn}
+        onTicker={onTicker}
+        chartTicker={chartTicker}
+      />
 
       {ph.id !== "premarket" && ph.id !== "open" && EpCard}
 
