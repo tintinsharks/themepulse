@@ -1,0 +1,200 @@
+{
+  "id": "brief-2026-11-23-pm",
+  "date": "2026-11-23",
+  "session": "postmarket",
+  "generatedAt": "2026-11-23T15:16:00-08:00",
+  "title": "ThemePulse Postmarket Brief — 2026-11-23",
+  "regime": {
+    "status": "Confirmed Follow-Through Day (FTD) — Constructive / Incremental Scaling",
+    "exposurePosture": "50%-65% Gross Exposure",
+    "breadth": {
+      "leadingLayers": 20,
+      "emergingLayers": 4,
+      "breakingDownLayers": 21,
+      "intradayScanPassers": 133
+    },
+    "indexes": [
+      {
+        "ticker": "SPY",
+        "close": 722.29,
+        "changePct": 4.71,
+        "afterHours": 722.95,
+        "closingRangePct": 64,
+        "ma21": 716.5,
+        "ma50": 718.2,
+        "above21d": true,
+        "above50d": true
+      },
+      {
+        "ticker": "QQQ",
+        "close": 651.03,
+        "changePct": 7,
+        "afterHours": 650.86,
+        "closingRangePct": 58,
+        "ma21": 644,
+        "ma50": 646.8,
+        "above21d": true,
+        "above50d": true
+      },
+      {
+        "ticker": "IWM",
+        "close": 265.74,
+        "changePct": 3.56,
+        "afterHours": 265.77,
+        "closingRangePct": 89,
+        "ma21": 266.2,
+        "ma50": 261.4,
+        "above21d": false,
+        "above50d": true
+      }
+    ],
+    "macroTape": {
+      "vix": {
+        "value": 26.81,
+        "changePct": -25.3
+      },
+      "us10yYieldPct": {
+        "value": 4.96,
+        "changeBps": 2
+      },
+      "wtiCrude": {
+        "value": 81.87,
+        "changePct": -1.85
+      },
+      "dxy": {
+        "value": 103.81,
+        "changePct": -0.3
+      }
+    }
+  },
+  "watchlistSymbols": "AMRX,ETON,CDNA,LFST,XERS,LTH,OKTA,GEN,TGTX,CBRL,WWW,BLMN,APPN,VCEL,COLM,A,KYMR,NVDA",
+  "newSetupsLoggedToday": [
+    {
+      "ticker": "LFST",
+      "grade": "A",
+      "theme": "Healthcare / Healthcare Services",
+      "rs": 98,
+      "eps": 91,
+      "close": 14.44,
+      "changePct": 4.49,
+      "rvol": 2.1,
+      "pivot": 14,
+      "maxBuy": 14.7,
+      "stop": 13.02,
+      "adrPct": 3.9,
+      "dollarVolM": 55.1,
+      "shortInterestPct": 3.4,
+      "dtc": 2.1,
+      "status": "Actionable in Buy Zone (+3.1%)"
+    },
+    {
+      "ticker": "XERS",
+      "grade": "A-",
+      "theme": "Healthcare / Specialty Pharma",
+      "rs": 99,
+      "eps": 74,
+      "close": 17.52,
+      "changePct": 3.24,
+      "rvol": 2.15,
+      "pivot": 17.04,
+      "maxBuy": 17.89,
+      "stop": 16.29,
+      "adrPct": 3.8,
+      "dollarVolM": 43.7,
+      "shortInterestPct": 5.6,
+      "dtc": 3.4,
+      "status": "Actionable in Buy Zone (+2.8%)"
+    },
+    {
+      "ticker": "LTH",
+      "grade": "A-",
+      "theme": "Consumer / Leisure & Fitness",
+      "rs": 95,
+      "eps": 83,
+      "close": 47.32,
+      "changePct": 2.1,
+      "rvol": 1.15,
+      "pivot": 48.48,
+      "maxBuy": 50.9,
+      "stop": 44.01,
+      "adrPct": 3.3,
+      "dollarVolM": 50,
+      "shortInterestPct": 4.8,
+      "dtc": 2.9,
+      "status": "Coiling 2.4% below 52W High Pivot"
+    },
+    {
+      "ticker": "BLMN",
+      "grade": "B+",
+      "theme": "Consumer / Restaurants + QSR",
+      "rs": 88,
+      "eps": 82,
+      "close": 10.35,
+      "changePct": 3.81,
+      "rvol": 1.65,
+      "pivot": 10.25,
+      "maxBuy": 10.76,
+      "stop": 9.63,
+      "adrPct": 3.7,
+      "dollarVolM": 18.6,
+      "shortInterestPct": 9.2,
+      "dtc": 4.3,
+      "status": "Actionable in Buy Zone (+1.0%)"
+    },
+    {
+      "ticker": "APPN",
+      "grade": "B+",
+      "theme": "Software / Enterprise AI & Low-Code",
+      "rs": 94,
+      "eps": 78,
+      "close": 54.78,
+      "changePct": 5.77,
+      "rvol": 1.4,
+      "pivot": 55,
+      "maxBuy": 57.75,
+      "stop": 50.95,
+      "adrPct": 4,
+      "dollarVolM": 24.5,
+      "shortInterestPct": 9.8,
+      "dtc": 6.1,
+      "status": "Coiling $0.22 below Handle Pivot (98% CR)"
+    }
+  ],
+  "afterHoursEarningsMovers": [
+    {
+      "ticker": "A",
+      "close": 176.04,
+      "afterHours": 189,
+      "ahChangePct": 7.36,
+      "note": "Q4 FY26 beat ($2.04B rev) & FY27 guide $8.00B-$8.15B; new 52W high breakout"
+    },
+    {
+      "ticker": "HPE",
+      "close": 48.02,
+      "afterHours": 44.71,
+      "ahChangePct": -6.89,
+      "note": "Spiked to $51.70 on $11.3B Q4 rev (+68.6% YoY), reversed on 38.2% gross margin compression"
+    },
+    {
+      "ticker": "SMTC",
+      "close": 104.13,
+      "afterHours": 99.69,
+      "ahChangePct": -4.26,
+      "note": "Record Q3 rev $423M & Q4 guide $480M; digesting +18.83% RTH run"
+    },
+    {
+      "ticker": "SYM",
+      "close": 34.97,
+      "afterHours": 34.9,
+      "ahChangePct": -0.2,
+      "note": "Q4 rev $778M & first GAAP-profitable fiscal year ($133M net income)"
+    },
+    {
+      "ticker": "ZM",
+      "close": 86.03,
+      "afterHours": 85.07,
+      "ahChangePct": -1.11,
+      "note": "Q3 rev $1,290.6M, GAAP EPS $1.05, initiated $0.25 quarterly dividend"
+    }
+  ]
+}
