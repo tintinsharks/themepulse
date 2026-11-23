@@ -24,7 +24,7 @@ import {
   IntradayChart as LegacyIntradayChart,
 } from "./LWChartLegacy.jsx";
 import SubthemeRotation, { SubthemeRotationAutoRefresh } from "./SubthemeRotation";
-import LeadershipView, { LEAD_INDEXES } from "./LeadershipView.jsx";
+import LeadershipView, { LEAD_INDEXES, zvrFor, useRvolProfiles } from "./LeadershipView.jsx";
 const LEAD_INDEX_TICKERS = LEAD_INDEXES.map((x) => x.t);
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -7022,6 +7022,9 @@ function ChartPanelInline({
   const chgAbs = liveQuote && c && chgPct != null ? c - c / (1 + chgPct / 100) : null;
   const liveVol = liveQuote?.volume || 0;
   const rvol = liveVol && avgVol > 0 ? Math.round((liveVol / avgVol) * 100) / 100 : null;
+  const rvolProfiles = useRvolProfiles();
+  const zvr = zvrFor(stockInfo.ticker ? stockInfo : { ...stockInfo, ticker }, liveQuote, rvolProfiles);
+  const fromOpenPct = o > 0 && c > 0 ? (c / o - 1) * 100 : null;
 
   const fmtVol = (v) => {
     if (!v) return "—";
@@ -7407,6 +7410,25 @@ function ChartPanelInline({
           <div style={{ fontSize: 9, color: "#9090a0", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 1 }}>
             {stockInfo.company || ticker}
           </div>
+          {liveQuote && (
+            <div style={{ display: "flex", gap: 12, fontSize: 9, fontFamily: "monospace", margin: "1px 0 3px", flexWrap: "wrap" }}>
+              {[
+                ["Day", chgPct, "Change vs yesterday's close"],
+                ["From open", fromOpenPct, "Change since today's open"],
+              ].map(([lbl, v, tip]) => (
+                <span key={lbl} title={tip}>
+                  <span style={{ color: ARIA.textMuted }}>{lbl} </span>
+                  <span style={{ color: v == null ? ARIA.textMuted : v >= 0 ? ARIA.green : ARIA.red, fontWeight: 700 }}>
+                    {v == null ? "\u2014" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`}</span>
+                </span>
+              ))}
+              <span title="ZVR — today's volume ÷ a normal day's volume by this time (the ticker's own intraday profile; 1.00× = normal pace). After the close: full-day volume ÷ 10-day average.">
+                <span style={{ color: ARIA.textMuted }}>ZVR </span>
+                <span style={{ color: zvr == null ? ARIA.textMuted : zvr >= 2 ? ARIA.purple : zvr >= 1.3 ? ARIA.green : zvr < 0.7 ? ARIA.textMuted : ARIA.textDim, fontWeight: 700 }}>
+                  {zvr == null ? "\u2014" : `${zvr.toFixed(2)}×`}</span>
+              </span>
+            </div>
+          )}
           {description
             ? <div style={{ fontSize: 8.5, color: "#6a6a7a", lineHeight: 1.4 }}>{description}</div>
             : <div style={{ fontSize: 8.5, color: "#4a4a5a", fontStyle: "italic" }}>No description available.</div>}

@@ -1148,6 +1148,24 @@ function expectedVolAt(p, m) {
   return v > 0 ? v : null;
 }
 
+// ZVR for one ticker (chart panel): today's volume ÷ the volume a normal day
+// has done by this minute — the ticker's own intraday volume profile when the
+// pipeline has one, else 10-session average × the market's elapsed-volume
+// share. Outside the session it's full-day volume ÷ the 10-session average.
+export function useRvolProfiles() { return useJson("/data/rvol_profiles.json"); }
+export function zvrFor(s, q, profiles) {
+  const vol = q?.volume;
+  if (!s || !vol) return null;
+  const clock = etClock();
+  const avg10 = (s.last_bar_date && s.last_bar_date === clock.session && s.avg_vol_10d_prior) || s.avg_vol_10d || s.avg_volume_raw;
+  if (clock.rth) {
+    const exp = expectedVolAt(profiles?.p?.[s.ticker], rthMinute());
+    if (exp) return vol / exp;
+    return avg10 ? vol / (avg10 * sessionElapsedFrac()) : null;
+  }
+  return avg10 ? vol / avg10 : null;
+}
+
 function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, allowed, onLayer }) {
   const profiles = useJson("/data/rvol_profiles.json");
   const base = useMemo(() => Object.values(stockMap || {}).map((x) => scanBase(x, etClock().session)).filter(Boolean)
