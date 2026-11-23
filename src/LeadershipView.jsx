@@ -475,6 +475,7 @@ const LAYER_SORT = {
   peak: (l) => l.peak,
   spark: (l) => (l.hist?.length ? l.hist[l.hist.length - 1] - l.hist[0] : null),
   trend: (l) => l.trend?.slope,
+  today: (l) => l.today,
   vol: (l) => (l.conf?.acc != null ? l.conf.acc - l.conf.dist : null),
   rs90: (l) => l.conf?.l90,
   held20: (l) => l.held?.held,
@@ -517,6 +518,7 @@ function LayerTable({ rows: rowsIn, A, onTicker, chartTicker, stockMap, showPeak
             {sh("mbr", "Mbr RS", "right", "Typical (median) member's own stock RS — a top-ranked layer can still be made of middling stocks")}
             {sh("w1", "1w", "right", "Rank change over a week")}
             {sh("m1", "1m", "right", "Rank change over a month")}
+            {sh("today", "Today", "right", "Median move of the layer's members today — live during the session (hourly), otherwise the last close")}
             {showPeak && sh("peak", "Peak", "right")}
             {!compact && sh("spark", `${SPARK_N}d`, "left", `Rank change over ${SPARK_N} sessions`, "tp-hide-sm")}
             {sh("trend", "Trend", "right", "Rank change per session, least-squares over the last 5 sessions · sessions out of the last 10 the rank rose", "tp-hide-sm")}
@@ -551,10 +553,14 @@ function LayerTable({ rows: rowsIn, A, onTicker, chartTicker, stockMap, showPeak
                     ))}
                   </div>
                 </td>
-                <td style={{ ...td(A, "right"), color: c, fontWeight: 700 }}>{l.now}</td>
+                <td title={l.rankLive ? `Live — ${l.now_close} at the close, ${l.now - l.now_close >= 0 ? "+" : ""}${l.now - l.now_close} today` : undefined}
+                  style={{ ...td(A, "right"), color: c, fontWeight: 700 }}>{l.now}{l.rankLive && l.now !== l.now_close
+                    ? <span style={{ fontSize: 9, color: l.now > l.now_close ? A.green : A.red }}>{l.now > l.now_close ? "▲" : "▼"}</span> : null}</td>
                 <td style={{ ...td(A, "right"), color: b?.rsMed == null ? A.textMuted : b.rsMed >= 80 ? A.green : b.rsMed >= 60 ? A.yellow : A.red }}>{b?.rsMed ?? "—"}</td>
                 <td style={td(A, "right")}><Delta v={l.now - l.w1} A={A} /></td>
                 <td style={td(A, "right")}><Delta v={l.now - l.m1} A={A} /></td>
+                <td style={{ ...td(A, "right"), color: l.today == null ? A.textMuted : l.today >= 0 ? A.green : A.red, fontVariantNumeric: "tabular-nums" }}>
+                  {l.today == null ? "—" : `${l.today > 0 ? "+" : ""}${l.today.toFixed(1)}%`}</td>
                 {showPeak && <td style={td(A, "right")}>{l.peak}</td>}
                 {!compact && <td className="tp-hide-sm" style={td(A)}><Spark vals={l.hist} color={c} A={A} /></td>}
                 <td className="tp-hide-sm" style={{ ...td(A, "right"), whiteSpace: "nowrap" }}>
@@ -2382,12 +2388,38 @@ function useLiveRS(stockMap) {
     for (const [t, v0, v] of sc) {
       const base = stockMap[t].rs_rank ?? Math.round(p0(v0) * 99);
       const rs = Math.max(0, Math.min(99, Math.round(base + (p1(v) - p0(v0)) * 99)));
-      out[t] = { ...stockMap[t], rs_rank_close: stockMap[t].rs_rank, rs_rank: rs, rs_live: true };
+      const px = quotes.get(t);
+      out[t] = { ...stockMap[t], rs_rank_close: stockMap[t].rs_rank, rs_rank: rs, rs_live: true,
+        rs_score_close: v0, rs_score_live: v, chg_live: px ? (px / stockMap[t].close - 1) * 100 : null };
     }
     // out-of-pool (stale history) names rank 0, matching the pipeline
     for (const t of Object.keys(stockMap)) if (!pool.has(t) && stockMap[t]?.ticker) out[t] = { ...stockMap[t], rs_rank_close: stockMap[t].rs_rank, rs_rank: 0 };
     return { map: out, at };
   }, [quotes, at, stockMap, meta]);
+}
+
+// Live layer rank. The pipeline (10c) ranks layers by the MEDIAN of members'
+// stock RS score, shrunk toward the cross-layer median by n/(n+3), then
+// percentile-ranked 0–100. During the session we run that exact calculation
+// twice — on the close scores and on the live-price scores — and apply the
+// difference to the pipeline's rank, so the open doesn't shift every layer
+// before any price has moved (same delta approach as live stock RS).
+function layerRanksFrom(keys, members, stockMap, field) {
+  const raw = {};
+  for (const k of keys) {
+    const v = (members[k] || []).map((t) => stockMap[t]?.[field]).filter((x) => x != null && isFinite(x)).sort((a, b) => a - b);
+    if (!v.length) continue;
+    const m = v.length % 2 ? v[(v.length - 1) / 2] : (v[v.length / 2 - 1] + v[v.length / 2]) / 2;
+    raw[k] = [m, v.length];
+  }
+  const ks = Object.keys(raw);
+  if (!ks.length) return {};
+  const ms = ks.map((k) => raw[k][0]).sort((a, b) => a - b);
+  const med = ms.length % 2 ? ms[(ms.length - 1) / 2] : (ms[ms.length / 2 - 1] + ms[ms.length / 2]) / 2;
+  const adj = ks.map((k) => [k, med + (raw[k][0] - med) * (raw[k][1] / (raw[k][1] + 3))]).sort((a, b) => a[1] - b[1]);
+  const denom = adj.length - 1 || 1, out = {};
+  adj.forEach(([k], i) => { out[k] = (i / denom) * 100; });
+  return out;
 }
 
 export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTickerClick, chartTicker, chartSlot, indexQuotes, pipeline, view = "lead" }) {
@@ -2450,19 +2482,50 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
 
   const dates = useMemo(() => (hist ? Object.keys(hist).sort() : []), [hist]);
 
+  const isLive = !!liveRs.at;
+  const liveRank = useMemo(() => {
+    if (!isLive || !rot?.layers) return null;
+    const keys = rot.layers.map((l) => `${l.themeId}|${l.name}`);
+    const c = layerRanksFrom(keys, members, stockMap, "rs_score_close"), v = layerRanksFrom(keys, members, stockMap, "rs_score_live");
+    const d = {};
+    for (const k of keys) if (c[k] != null && v[k] != null) d[k] = v[k] - c[k];
+    return d;
+  }, [isLive, rot, members, stockMap]);
+
   const layers = useMemo(() => {
     if (!rot?.layers) return [];
     const sparkDates = dates.slice(-SPARK_N);
     const peakDates = dates.slice(-PEAK_LOOKBACK);
-    return rot.layers.map((l) => {
-      const key = `${l.themeId}|${l.name}`;
-      const h = sparkDates.map((d) => hist?.[d]?.layers?.[key] ?? null);
-      const ph = peakDates.map((d) => hist?.[d]?.layers?.[key] ?? null);
+    const med = (a) => { const v = a.filter((x) => x != null && isFinite(x)).sort((x, y) => x - y); if (!v.length) return null; const m = v.length >> 1; return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2; };
+    return rot.layers.map((l0) => {
+      const key = `${l0.themeId}|${l0.name}`;
+      const tks = members[key] || (l0.holds || []).map((x) => x.t);
+      // live: rank moves by today's change in the layer's (shrunk) median RS
+      const dl = liveRank?.[key];
+      const l = dl == null ? l0 : { ...l0, now_close: l0.now, now: Math.max(0, Math.min(100, Math.round(l0.now + dl))) };
+      const hClose = sparkDates.map((d) => hist?.[d]?.layers?.[key] ?? null);
+      const h = dl == null ? hClose : [...hClose.slice(1), l.now];        // today's live rank as the newest point
+      const ph0 = peakDates.map((d) => hist?.[d]?.layers?.[key] ?? null);
+      const ph = dl == null ? ph0 : [...ph0, l.now];
       const { st, peak } = classify(l, ph.length ? ph : [l.now, l.w1, l.m1]);
-      const stats = layerStats(members[key] || (l.holds || []).map((x) => x.t), stockMap || {});
-      return { ...l, key, hist: h, st, peak, trend: rankTrend(h), held: rankHeld(h), stats, conf: layerConfirm(layerBreadth?.layers?.[key]) };
+      const stats = layerStats(tks, stockMap || {});
+      let conf = layerConfirm(layerBreadth?.layers?.[key]);
+      if (conf && isLive) {
+        // RS 90+ from live stock RS; "vs 5 sessions ago" is 4 closes back now
+        const lbRow = layerBreadth?.layers?.[key];
+        const arr = lbRow?.l90 || [];
+        let i = arr.length - 1; while (i >= 0 && arr[i] == null) i--;
+        const p = i - 4 >= 0 ? arr[i - 4] : null;
+        const l90 = tks.filter((t) => (stockMap[t]?.rs_rank ?? 0) >= 90).length;
+        const l90d = p != null ? l90 - p : null;
+        const passed = conf.passed.filter((k) => k !== "leaders").concat(l90d != null && l90d >= 2 ? ["leaders"] : []);
+        conf = { ...conf, l90, l90d, passed, l90Live: true };
+      }
+      // Today: median member move — live during the session, else the last close
+      const today = med(tks.map((t) => (isLive ? stockMap[t]?.chg_live : stockMap[t]?.change_pct)));
+      return { ...l, key, hist: h, st, peak, trend: rankTrend(h), held: rankHeld(hClose), stats, conf, today, rankLive: dl != null };
     });
-  }, [rot, hist, dates, members, stockMap, layerBreadth]);
+  }, [rot, hist, dates, members, stockMap, layerBreadth, liveRank, isLive]);
 
   const themes = useMemo(() => {
     const by = {};
@@ -2803,7 +2866,9 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
             </Card>
             </div>
             <div ref={layersBoxRef} style={{ flex: themeView === "rot" ? "1 1 100%" : "1 1 560px", minWidth: 0 }}>
-            <Card A={A} title="Layers" sub={STATUS[layerTab].hint}
+            <Card A={A} title="Layers" sub={<>{STATUS[layerTab].hint}{liveRs.at
+                ? <span style={{ color: A.cyan }}> · Rank, 1w/1m, Trend, RS 90+ and Today live as of {liveRs.at.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} (hourly)</span>
+                : null}</>}
               right={<Tabs A={A} value={layerTab} onChange={setLayerTab} items={[
                 ["lead", "Leading", layerBuckets.lead.length, A.green],
                 ["weak", "Weakening", layerBuckets.weak.length, A.yellow],

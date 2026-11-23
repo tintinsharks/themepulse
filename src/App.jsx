@@ -8813,7 +8813,7 @@ function AppMain() {
       <div
         style={{
           padding: "12px 16px",
-          maxWidth: 1600,
+          // full window width (was capped at 1600px, leaving empty margins on wide screens)
           margin: "0 auto",
           zoom: zoom,
         }}
