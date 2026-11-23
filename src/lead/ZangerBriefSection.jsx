@@ -1,7 +1,22 @@
-import { useEffect, useState } from "react";
-import { Card, CopyTickersBtn, EPS_TIP, FlagButton, TierMark, td, th } from "./core.jsx";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Card,
+  CopyTickersBtn,
+  EPS_TIP,
+  FlagButton,
+  TierMark,
+  closingRange,
+  pinReason,
+  scoreZangerCandidate,
+  td,
+  th,
+  useRvolProfiles,
+  useScanQuotes,
+} from "./core.jsx";
+import { authFetch } from "../utils.js";
 
 const BRIEF_DIR = "/data/briefs/";
+const INDEX_TKS = ["SPY", "QQQ", "IWM", "DIA"];
 
 const BO_COLORS = {
   ZANGER: "#fbbf24",
@@ -20,11 +35,14 @@ const fmtVol = (v) => {
   return String(Math.round(v));
 };
 
-export default function ZangerBriefSection({ A, onTicker, chartTicker }) {
+export default function ZangerBriefSection({ A, stockMap, tickerLayer, layers, tiers, onTicker, chartTicker }) {
   const [index, setIndex] = useState(null);
   const [sel, setSel] = useState(null);
   const [snap, setSnap] = useState(null);
   const [err, setErr] = useState(null);
+  const [liveOn, setLiveOn] = useState(true);
+  const [mq, setMq] = useState(null);
+  const profiles = useRvolProfiles();
 
   useEffect(() => {
     let live = true;
@@ -47,12 +65,133 @@ export default function ZangerBriefSection({ A, onTicker, chartTicker }) {
   useEffect(() => {
     if (!sel || !/^zanger-[a-z0-9_-]+\.json$/i.test(sel)) return;
     let live = true;
+    const isLatest = !index?.length || index[0]?.file === sel || sel === "zanger-latest.json";
+    setLiveOn(isLatest);
     fetch(`${BRIEF_DIR}${sel}?t=${Date.now()}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
       .then((d) => { if (live) { setSnap(d); setErr(null); } })
       .catch(() => { if (live) setErr("No Zanger briefing published yet."); });
     return () => { live = false; };
-  }, [sel]);
+  }, [sel, index]);
+
+  // Build liquid candidate pool matching Zanger.jsx so Breakouts & Movers update live every 60s
+  const poolTickers = useMemo(() => {
+    const out = [];
+    for (const [t, s] of Object.entries(stockMap || {})) {
+      if ((s.avg_dollar_vol_raw ?? 0) < 20e6 || !s.above_50ma || pinReason(s)) continue;
+      const l = tickerLayer?.[t];
+      if (tiers?.leaders?.has(t) || tiers?.emerging?.has(t) || (s.rs_rank ?? 0) >= 70 || l?.st === "lead" || l?.st === "emerg") {
+        out.push(t);
+      }
+    }
+    return out;
+  }, [stockMap, tickerLayer, tiers]);
+
+  const quoteTickers = useMemo(
+    () => (liveOn ? [...new Set([...INDEX_TKS, ...poolTickers])] : []),
+    [liveOn, poolTickers]
+  );
+  const { quotes, at } = useScanQuotes(quoteTickers, liveOn && quoteTickers.length > 0);
+
+  // Poll /api/market-quality every 60s when liveOn is active
+  useEffect(() => {
+    if (!liveOn) return;
+    let alive = true;
+    const pull = () => {
+      authFetch("/api/market-quality", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => { if (alive && d?.ok) setMq(d); })
+        .catch(() => {});
+    };
+    pull();
+    const id = setInterval(() => { if (!document.hidden) pull(); }, 60000);
+    return () => { alive = false; clearInterval(id); };
+  }, [liveOn]);
+
+  // Live recomputation of Breakouts & Movers, Theme Money Flow, Leader Damage, and On Deck RSL
+  const liveComputed = useMemo(() => {
+    if (!liveOn || !quotes || quotes.size === 0 || !poolTickers.length) return null;
+    const now = new Date();
+    const snapNewSet = new Set((snap?.zangerMovers || []).filter((m) => m.isNew).map((m) => m.ticker));
+    const scored = [];
+    for (const t of poolTickers) {
+      const s = stockMap?.[t];
+      if (!s) continue;
+      const q = quotes.get(t) || null;
+      const layer = tickerLayer?.[t] || null;
+      const tier = tiers?.leaders?.has(t) ? "lead" : tiers?.emerging?.has(t) ? "emerg" : null;
+      const res = scoreZangerCandidate({ s, q, layer, tier, profiles, now });
+      if (res) {
+        if (snapNewSet.has(t)) res.isNew = true;
+        scored.push(res);
+      }
+    }
+
+    const movers = scored
+      .filter((r) => r.qualifiesZanger)
+      .sort(
+        (a, b) =>
+          Number(Boolean(b.isNew)) - Number(Boolean(a.isNew)) ||
+          (b.breakoutTypes?.length || 0) - (a.breakoutTypes?.length || 0) ||
+          b.score - a.score
+      )
+      .slice(0, 25);
+
+    const boByTheme = new Map();
+    for (const m of movers) {
+      if (m.isBreakout && m.theme && m.theme !== "—") {
+        boByTheme.set(m.theme, (boByTheme.get(m.theme) || 0) + 1);
+      }
+    }
+    const buckets = new Map();
+    for (const [tk, s] of Object.entries(stockMap || {})) {
+      if ((s.avg_dollar_vol_raw ?? 0) < 20e6) continue;
+      const theme = tickerLayer?.[tk]?.theme;
+      if (!theme) continue;
+      const q = quotes.get(tk);
+      const chg = q?.change ?? s.change_pct;
+      if (chg == null || !Number.isFinite(chg)) continue;
+      let b = buckets.get(theme);
+      if (!b) { b = { theme, sum: 0, count: 0, green: 0 }; buckets.set(theme, b); }
+      b.sum += chg;
+      b.count++;
+      if (chg > 0) b.green++;
+    }
+    const flowRows = [...buckets.values()]
+      .filter((b) => b.count >= 4)
+      .map((b) => ({
+        theme: b.theme,
+        avgChg: Math.round((b.sum / b.count) * 100) / 100,
+        pctGreen: Math.round((b.green / b.count) * 100),
+        count: b.count,
+        breakouts: boByTheme.get(b.theme) || 0,
+      }))
+      .sort((a, b) => b.avgChg - a.avgChg);
+
+    const damagedLeaders = scored
+      .filter((r) => {
+        if (r.rs < 90 && r.tier !== "lead") return false;
+        if (r.chg == null || r.chg > -3.0) return false;
+        return (r.zvr != null && r.zvr >= 1.5) || (r.cr != null && r.cr <= 30) || r.chg <= -4.5;
+      })
+      .sort((a, b) => a.chg - b.chg || (b.zvr ?? 0) - (a.zvr ?? 0))
+      .slice(0, 8);
+
+    const onDeck = scored
+      .filter((r) => r.rsl && !r.isBreakout && r.rs >= 85)
+      .sort((a, b) => b.rs - a.rs || (b.off52 ?? -99) - (a.off52 ?? -99))
+      .slice(0, 8);
+
+    return {
+      movers,
+      themeFlow: {
+        hottest: flowRows.slice(0, 5),
+        coldest: flowRows.length > 5 ? flowRows.slice(-3).reverse() : [],
+      },
+      damagedLeaders,
+      onDeck,
+    };
+  }, [liveOn, quotes, poolTickers, stockMap, tickerLayer, tiers, profiles, snap]);
 
   const pc = (v) => (typeof v !== "number" ? A.textMuted : v >= 0 ? A.green : A.red);
   const rsC = (v) => (v >= 90 ? A.green : v >= 70 ? A.yellow : typeof v === "number" ? A.red : A.textMuted);
@@ -69,6 +208,27 @@ export default function ZangerBriefSection({ A, onTicker, chartTicker }) {
 
   const picker = (
     <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+      <button
+        onClick={() => setLiveOn((v) => !v)}
+        title={liveOn ? "Recomputing breakouts, indices & flow live every 60s — click for frozen snapshot" : "Showing frozen hourly snapshot — click for live intraday updates"}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 5,
+          background: liveOn ? "rgba(34,197,94,0.14)" : "transparent",
+          border: `1px solid ${liveOn ? A.green : A.border}`,
+          color: liveOn ? A.green : A.textMuted,
+          borderRadius: 4,
+          padding: "2px 8px",
+          fontSize: 10,
+          fontWeight: 700,
+          fontFamily: "monospace",
+          cursor: "pointer",
+        }}
+      >
+        <span className={liveOn && at ? "tp-livedot" : undefined} style={{ width: 6, height: 6, borderRadius: 3, background: liveOn ? A.green : A.textMuted, display: "inline-block" }} />
+        {liveOn ? (at ? `LIVE · ${at.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })}` : "LIVE") : "Snapshot"}
+      </button>
       {index && index.length > 0 && (
         <select
           value={sel || ""}
@@ -94,14 +254,14 @@ export default function ZangerBriefSection({ A, onTicker, chartTicker }) {
     </div>
   );
 
-  if (err && !snap) {
+  if (err && !snap && !liveComputed) {
     return (
-      <Card A={A} title="Zanger & Leadership Briefing" sub="Auto-updated hourly during market hours + 8:30 AM ET pre-market" right={picker}>
+      <Card A={A} title="Zanger & Leadership Briefing" sub="Auto-updated hourly during market hours + live intraday overlay" right={picker}>
         <div style={{ fontSize: 11, color: A.textMuted }}>{err}</div>
       </Card>
     );
   }
-  if (!snap) {
+  if (!snap && !liveComputed) {
     return (
       <Card A={A} title="Zanger & Leadership Briefing" right={picker}>
         <div style={{ fontSize: 11, color: A.textMuted }}>Loading latest Zanger briefing…</div>
@@ -109,22 +269,63 @@ export default function ZangerBriefSection({ A, onTicker, chartTicker }) {
     );
   }
 
-  const mkt = snap.market || {};
-  const movers = snap.zangerMovers || [];
-  const bos = movers.filter((m) => m.isBreakout);
-  const ph = snap.phase || { id: "midday", label: "INTRADAY UPDATE", subtitle: "", accent: A.green };
-  const dec = mkt.decision;
+  const baseMkt = snap?.market || {};
+  const tapeMap = new Map((mq?.tape || []).filter((x) => x?.ticker).map((x) => [x.ticker, x]));
+  const baseIndices = baseMkt.indices?.length
+    ? baseMkt.indices
+    : [["SPY", "S&P 500"], ["QQQ", "Nasdaq 100"], ["IWM", "Russell 2000"], ["DIA", "Dow 30"]].map(([ticker, name]) => ({ ticker, name }));
+  const liveIndices = baseIndices.map((idx) => {
+    if (!liveOn) return idx;
+    const q = quotes.get(idx.ticker);
+    const t = tapeMap.get(idx.ticker);
+    const price = q?.rthPrice ?? q?.price ?? (t?.price != null ? Number(t.price) : idx.price);
+    const change = q?.change ?? (t?.change != null ? Number(t.change) : idx.change);
+    const cr = q ? closingRange(q, null) : idx.cr;
+    return { ...idx, price, change, cr };
+  });
+
+  const liveVix = liveOn && tapeMap.get("VIX")?.price != null
+    ? { price: Number(tapeMap.get("VIX").price), change: Number(tapeMap.get("VIX").change) }
+    : baseMkt.vix;
+  const liveTnx = liveOn && tapeMap.get("TNX")?.price != null
+    ? { price: Number(tapeMap.get("TNX").price), change: Number(tapeMap.get("TNX").change) }
+    : baseMkt.tnx;
+  const liveSectors = liveOn && Array.isArray(mq?.sectors) && mq.sectors.length
+    ? {
+        positive: mq.sectors.filter((s) => (s.change ?? 0) > 0).length,
+        total: mq.sectors.length,
+        leaders: mq.sectors.slice(0, 3),
+        laggards: mq.sectors.slice(-3).reverse(),
+      }
+    : baseMkt.sectors;
+  const futures = liveOn && Array.isArray(mq?.futures) && mq.futures.length ? mq.futures : (baseMkt.futures || []);
+
+  const dec = (liveOn && mq?.decision) || baseMkt.decision;
+  const mktScore = (liveOn && mq?.total != null) ? mq.total : baseMkt.score;
+  const posSize = (liveOn && mq?.position_size) || baseMkt.positionSize;
   const decColor = dec === "YES" ? A.green : dec === "CAUTION" ? "#f59e0b" : A.red;
-  const futures = mkt.futures || [];
-  const portAlerts = snap.portfolioAlerts || {};
-  const portEarnings = snap.portfolioEarnings || [];
-  const epMovers = snap.epMovers || [];
-  const themeFlow = snap.themeFlow || {};
-  const dmg = snap.leaderDamage || {};
-  const onDeck = snap.onDeckRsl || [];
-  const faded = snap.delta?.fadedBreakouts || [];
-  const holdRate = snap.delta?.holdRate || null;
-  const headlines = snap.headlines || {};
+
+  const movers = liveComputed ? liveComputed.movers : (snap?.zangerMovers || []);
+  const bos = movers.filter((m) => m.isBreakout);
+  const ph = snap?.phase || { id: "midday", label: "INTRADAY UPDATE", subtitle: "", accent: A.green };
+  const portAlerts = snap?.portfolioAlerts || {};
+  const portEarnings = snap?.portfolioEarnings || [];
+  const epMovers = liveOn && Array.isArray(mq?.epCandidates) && mq.epCandidates.length
+    ? mq.epCandidates.filter((e) => (e.chg ?? 0) >= 3).slice(0, 6).map((e) => ({
+        ticker: e.ticker,
+        chg: e.chg,
+        volume: e.volume,
+        category: e.category || "SIP",
+        headline: (e.headlines || [])[0] || "",
+      }))
+    : (snap?.epMovers || []);
+  const themeFlow = liveComputed ? liveComputed.themeFlow : (snap?.themeFlow || {});
+  const damagedLeaders = liveComputed ? liveComputed.damagedLeaders : (snap?.leaderDamage?.damagedLeaders || []);
+  const onDeck = liveComputed ? liveComputed.onDeck : (snap?.onDeckRsl || []);
+  const faded = snap?.delta?.fadedBreakouts || [];
+  const holdRate = snap?.delta?.holdRate || null;
+  const headlines = snap?.headlines || {};
+  const warnLayers = (layers || []).filter((l) => l.st === "lead" && (l.flags || []).some(([k]) => k === "distrib" || k === "exiting"));
 
   const boTickers = bos.map((m) => m.ticker);
   const allMoverTickers = movers.map((m) => m.ticker);
@@ -157,22 +358,22 @@ export default function ZangerBriefSection({ A, onTicker, chartTicker }) {
           <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <span>Zanger &amp; Leadership Briefing</span>
             <span style={{ fontSize: 9, fontWeight: 800, fontFamily: "monospace", padding: "2px 6px", borderRadius: 4, border: `1px solid ${ph.accent || A.green}`, color: ph.accent || A.green }}>
-              {ph.label}
+              {liveComputed ? "LIVE INTRADAY" : ph.label}
             </span>
             {dec && (
               <span style={{ fontSize: 9, fontWeight: 800, fontFamily: "monospace", padding: "2px 7px", borderRadius: 999, background: `${decColor}22`, border: `1px solid ${decColor}`, color: decColor }}>
-                {dec}{mkt.score != null ? ` · ${mkt.score}/100` : ""}{mkt.positionSize ? ` · ${mkt.positionSize}` : ""}
+                {dec}{mktScore != null ? ` · ${mktScore}/100` : ""}{posSize ? ` · ${posSize}` : ""}
               </span>
             )}
           </span>
         }
-        sub={`${snap.stamp?.pretty || ""} · ${snap.mode || ""} · ${bos.length} breakouts · ${movers.length} movers${holdRate ? ` · Hold rate ${holdRate.holding}/${holdRate.totalToday} (${holdRate.pct}%)` : ""}`}
+        sub={`${liveComputed && at ? `Live as of ${at.toLocaleTimeString()} (60s refresh)` : (snap?.stamp?.pretty || "")} · ${bos.length} breakouts · ${movers.length} movers${holdRate ? ` · Hold rate ${holdRate.holding}/${holdRate.totalToday} (${holdRate.pct}%)` : ""}`}
         right={picker}
       >
         {/* 4-Index Strip */}
-        {Array.isArray(mkt.indices) && mkt.indices.length > 0 && (
+        {liveIndices.length > 0 && (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8, marginBottom: 10 }}>
-            {mkt.indices.map((idx) => (
+            {liveIndices.map((idx) => (
               <div
                 key={idx.ticker}
                 onClick={() => onTicker && onTicker(idx.ticker)}
@@ -208,26 +409,26 @@ export default function ZangerBriefSection({ A, onTicker, chartTicker }) {
 
         {/* Macro / Breadth / Sector Rotation Strip */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 10, fontSize: 11, color: A.textDim, fontFamily: "monospace", marginBottom: 6 }}>
-          {mkt.vix && <span>VIX <strong style={{ color: A.text }}>{mkt.vix.price.toFixed(2)}</strong> ({fmtPct(mkt.vix.change, 1)})</span>}
-          {mkt.tnx && <span>10Y <strong style={{ color: A.text }}>{mkt.tnx.price.toFixed(2)}%</strong></span>}
-          {mkt.breadth?.pctAbove50 != null && <span>&gt;50MA <strong style={{ color: A.text }}>{mkt.breadth.pctAbove50}%</strong></span>}
-          {mkt.breadth?.up4 != null && mkt.breadth?.down4 != null && (
-            <span>4% Movers <strong style={{ color: A.green }}>{mkt.breadth.up4}↑</strong> / <strong style={{ color: A.red }}>{mkt.breadth.down4}↓</strong></span>
+          {liveVix && <span>VIX <strong style={{ color: A.text }}>{liveVix.price.toFixed(2)}</strong> ({fmtPct(liveVix.change, 1)})</span>}
+          {liveTnx && <span>10Y <strong style={{ color: A.text }}>{liveTnx.price.toFixed(2)}%</strong></span>}
+          {baseMkt.breadth?.pctAbove50 != null && <span>&gt;50MA <strong style={{ color: A.text }}>{baseMkt.breadth.pctAbove50}%</strong></span>}
+          {baseMkt.breadth?.up4 != null && baseMkt.breadth?.down4 != null && (
+            <span>4% Movers <strong style={{ color: A.green }}>{baseMkt.breadth.up4}↑</strong> / <strong style={{ color: A.red }}>{baseMkt.breadth.down4}↓</strong></span>
           )}
-          {mkt.breadth?.t2108 != null && <span>T2108 <strong style={{ color: A.text }}>{mkt.breadth.t2108}%</strong></span>}
-          {mkt.sectors && (
+          {baseMkt.breadth?.t2108 != null && <span>T2108 <strong style={{ color: A.text }}>{baseMkt.breadth.t2108}%</strong></span>}
+          {liveSectors && (
             <span>
-              Sectors <strong style={{ color: A.text }}>{mkt.sectors.positive}/{mkt.sectors.total}</strong> green
-              {" · "}Top: <span style={{ color: A.green }}>{mkt.sectors.leaders.map((s) => `${s.ticker} ${fmtPct(s.change, 1)}`).join(", ")}</span>
-              {" · "}Lag: <span style={{ color: A.red }}>{mkt.sectors.laggards.map((s) => `${s.ticker} ${fmtPct(s.change, 1)}`).join(", ")}</span>
+              Sectors <strong style={{ color: A.text }}>{liveSectors.positive}/{liveSectors.total}</strong> green
+              {" · "}Top: <span style={{ color: A.green }}>{liveSectors.leaders.map((s) => `${s.ticker} ${fmtPct(s.change, 1)}`).join(", ")}</span>
+              {" · "}Lag: <span style={{ color: A.red }}>{liveSectors.laggards.map((s) => `${s.ticker} ${fmtPct(s.change, 1)}`).join(", ")}</span>
             </span>
           )}
         </div>
 
         {/* Market Commentary Bullets */}
-        {Array.isArray(mkt.commentary) && mkt.commentary.length > 0 && (
+        {Array.isArray(baseMkt.commentary) && baseMkt.commentary.length > 0 && (
           <ul style={{ margin: "6px 0 0", paddingLeft: 18, fontSize: 11, color: A.text, lineHeight: 1.5 }}>
-            {mkt.commentary.map((c, i) => <li key={i} style={{ marginBottom: 3 }}>{c}</li>)}
+            {baseMkt.commentary.map((c, i) => <li key={i} style={{ marginBottom: 3 }}>{c}</li>)}
           </ul>
         )}
       </Card>
@@ -283,18 +484,17 @@ export default function ZangerBriefSection({ A, onTicker, chartTicker }) {
         </div>
       )}
 
-      {/* Pre-market / Open elevates EP movers above table */}
       {(ph.id === "premarket" || ph.id === "open") && EpCard}
 
       {/* Breakouts & Volume Movers Table */}
       <Card
         A={A}
         title="Breakouts & Intraday Volume Movers"
-        sub="Zanger · Stockbee 4% / $ · Qullamaggie · click any row to chart"
+        sub={`${liveComputed ? "Live 60s scan · " : ""}Zanger · Stockbee 4% / $ · Qullamaggie · click any row to chart`}
         right={<CopyTickersBtn A={A} tickers={boTickers.length ? boTickers : allMoverTickers} label={boTickers.length ? "Copy BOs" : "Copy Movers"} />}
       >
         {movers.length === 0 ? (
-          <div style={{ fontSize: 11, color: A.textMuted }}>No stocks currently pass breakout or ZVR ≥ 1.5x criteria in this snapshot.</div>
+          <div style={{ fontSize: 11, color: A.textMuted }}>No stocks currently pass breakout or ZVR ≥ 1.5x criteria.</div>
         ) : (
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -440,11 +640,11 @@ export default function ZangerBriefSection({ A, onTicker, chartTicker }) {
         )}
 
         <Card A={A} title="Leader Damage Watch" sub="RS 90+ leaders hit hard on volume">
-          {!dmg.damagedLeaders?.length ? (
+          {!damagedLeaders.length ? (
             <div style={{ fontSize: 11, color: A.green }}>✅ 0 RS 90+ leaders down ≥3% on heavy volume.</div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              {dmg.damagedLeaders.map((d) => (
+              {damagedLeaders.map((d) => (
                 <div key={d.ticker} onClick={() => onTicker && onTicker(d.ticker)} style={{ cursor: "pointer", fontSize: 11, display: "flex", gap: 8, alignItems: "center", borderBottom: `1px solid ${A.border}`, paddingBottom: 4 }}>
                   <Tk t={d.ticker} />
                   <span style={{ color: A.textMuted, fontSize: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.theme}</span>
@@ -452,6 +652,11 @@ export default function ZangerBriefSection({ A, onTicker, chartTicker }) {
                   <span style={{ fontFamily: "monospace", fontSize: 10, color: A.textDim }}>{d.zvr != null ? `${d.zvr.toFixed(1)}x` : "—"}</span>
                 </div>
               ))}
+            </div>
+          )}
+          {warnLayers.length > 0 && (
+            <div style={{ marginTop: 6, fontSize: 10, color: "#f59e0b" }}>
+              Distrib/Exiting: {warnLayers.slice(0, 4).map((l) => l.name).join(" · ")}
             </div>
           )}
         </Card>

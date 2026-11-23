@@ -412,7 +412,15 @@ function BriefPanel(props) {
       {mode === "written"
         ? <WrittenBrief A={A} stockMap={props.stockMap} onTicker={props.onTicker} chartTicker={props.chartTicker} modeSwitch={modeSwitch} />
         : <LiveBrief {...props} modeSwitch={modeSwitch} />}
-      <ZangerBriefSection A={A} onTicker={props.onTicker} chartTicker={props.chartTicker} />
+      <ZangerBriefSection
+        A={A}
+        stockMap={props.stockMap}
+        tickerLayer={props.tickerLayer}
+        layers={props.layers}
+        tiers={props.tiers}
+        onTicker={props.onTicker}
+        chartTicker={props.chartTicker}
+      />
     </>
   );
 }

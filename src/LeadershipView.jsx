@@ -376,7 +376,7 @@ export default function LeadershipView({
             </Card>
           )}
           {view === "brief"
-            ? <BriefPanel A={A} themes={themes} layers={layers} stockMap={stockMapX} tickerLayer={tickerLayer} members={members}
+            ? <BriefPanel A={A} themes={themes} layers={layers} stockMap={stockMapX} tickerLayer={tickerLayer} tiers={tiers} members={members}
                 brk={stocks.brk} pipeline={pipeline} dates={dates} theme={theme} lb={layerBreadth}
                 onTicker={onTickerClick} chartTicker={chartTicker} onLayer={(l) => showLayer(l)} onTheme={showTheme} layerOfTicker={layerOfTicker} />
             : view === "zanger"
