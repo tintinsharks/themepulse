@@ -1,0 +1,195 @@
+{
+  "id": "brief-2026-11-23-intraday-0810",
+  "date": "2026-11-23",
+  "session": "intraday",
+  "label": "Intraday Brief — Nov 23, 2026 (8:10 AM PT)",
+  "headline": "ETON & CDNA Trigger Breakouts Inside 5% Buy Zone While LFST, PTRN, XERS, and BIIB Build Hour-Over-Hour Accumulation; CRWD Slides -12.3%",
+  "regime": {
+    "posture": "Day 1 Rally Hold / Selective Stage 2 Breakouts (45%–55% Exposure)",
+    "spy": "$724.11 (+4.97%)",
+    "qqq": "$652.85 (+7.30%)",
+    "iwm": "$264.86 (+3.21%)",
+    "breadth": "20 Leading / 4 Emerging / 21 Breaking Down (133 Passing Intraday Scan)"
+  },
+  "macroTape": {
+    "vix": "25.93 (-27.75%)",
+    "us10y": "4.96%",
+    "wti": "$81.87 (-1.85%)",
+    "dxy": "103.81"
+  },
+  "intradayMovers": [
+    {
+      "ticker": "LFST",
+      "layer": "Healthcare Services",
+      "price": 14.52,
+      "changePct": 5.03,
+      "fromOpenPct": 2.98,
+      "zvr": "1.53x+",
+      "rs": 98,
+      "eps": 91,
+      "progression": "Building (+3.26% -> +5.07% -> +5.03%)",
+      "signal": "Grade A Blue-Dot RS Line New High breakout following 25% Q3 revenue growth and guidance raise",
+      "sourceUrl": "https://www.morningstar.com/news/globe-newswire/9870931/lifestance-reports-strong-third-quarter-2026-financial-results-and-raises-full-year-outlook"
+    },
+    {
+      "ticker": "PTRN",
+      "layer": "Strongest Stock 5",
+      "price": 20.35,
+      "changePct": 9.91,
+      "fromOpenPct": 2.96,
+      "zvr": "2.1x",
+      "rs": 96,
+      "eps": 84,
+      "progression": "Building (+6.16% -> +9.56% -> +9.91%)",
+      "signal": "Top Strongest Stock 5 percentage expander, clearing $20.00 resistance",
+      "sourceUrl": "https://themepulse.vercel.app/?view=scanner&ticker=APPN"
+    },
+    {
+      "ticker": "XERS",
+      "layer": "Specialty Pharma",
+      "price": 17.43,
+      "changePct": 2.71,
+      "fromOpenPct": 2.53,
+      "zvr": "1.92x",
+      "rs": 99,
+      "eps": 74,
+      "progression": "Building at 52W High (+2.53% -> +2.47% -> +2.71%)",
+      "signal": "Pressing $17.50 52-week high on 1.92x ZVR after 44% Q3 revenue growth",
+      "sourceUrl": "https://www.stocktitan.net/news/XERS/xeris-biopharma-reports-third-quarter-2026-financial-results-and-1864fi6uljqw.html"
+    },
+    {
+      "ticker": "PRCH",
+      "layer": "Software / InsurTech",
+      "price": 21.37,
+      "changePct": 7.49,
+      "fromOpenPct": 3.09,
+      "zvr": "5.29x",
+      "rs": 98,
+      "eps": 79,
+      "progression": "Building / Holding High (+4.83% -> +8.25% -> +7.49%)",
+      "signal": "High-volume follow-through after Q3 GAAP profit swing and EBITDA guidance raise",
+      "sourceUrl": "https://www.stocktitan.net/sec-filings/PRCH/10-q-porch-group-inc-quarterly-earnings-report-a3aee6fed76d.html"
+    },
+    {
+      "ticker": "BIP",
+      "layer": "Utilities / Infrastructure",
+      "price": 45.46,
+      "changePct": 6.18,
+      "fromOpenPct": 3.31,
+      "zvr": "3.92x",
+      "rs": 91,
+      "eps": 76,
+      "progression": "Holding Tight (+4.88% -> +6.12% -> +6.18%)",
+      "signal": "Day 1 trading of 1-for-1 BIP/BIPC corporate simplification shares; flagging near $45.50",
+      "sourceUrl": "https://www.stocktitan.net/sec-filings/BIP/6-k-brookfield-infrastructure-partners-l-p-current-report-foreign-iss-52f8d5fe7549.html"
+    },
+    {
+      "ticker": "KYMR",
+      "layer": "Biotech",
+      "price": 152.06,
+      "changePct": 31.87,
+      "fromOpenPct": 10.19,
+      "zvr": "89.92x",
+      "rs": 98,
+      "eps": 65,
+      "progression": "Building / Extended Gap (+24.79% -> +24.44% -> +31.87%)",
+      "signal": "New 52W high ($152.39) on Phase 2b KT-621 eczema readout; extended beyond 5% buy zone",
+      "sourceUrl": "https://www.stocktitan.net/sec-filings/KYMR/8-k-kymera-therapeutics-inc-reports-material-event-ede1dc49ed4a.html"
+    },
+    {
+      "ticker": "BIIB",
+      "layer": "Biotech",
+      "price": 258.16,
+      "changePct": 3.43,
+      "fromOpenPct": 3.19,
+      "zvr": "4.03x",
+      "rs": 89,
+      "eps": 81,
+      "progression": "Building (+1.92% -> +3.08% -> +3.43%)",
+      "signal": "Steady institutional accumulation on 4.03x ZVR to within 1.1% of $261.00 52-week high",
+      "sourceUrl": "https://themepulse.vercel.app/?view=scanner&ticker=APPN"
+    }
+  ],
+  "leadingPulse": [
+    {
+      "ticker": "ETON",
+      "grade": "A",
+      "price": 62.98,
+      "changePct": 3.5,
+      "pivot": 62.5,
+      "buyZoneMax": 65.63,
+      "stop": 58.13,
+      "status": "Breakout Triggered — Cleared $62.50 pivot to session high $62.98"
+    },
+    {
+      "ticker": "CDNA",
+      "grade": "A",
+      "price": 74.76,
+      "changePct": 6.8,
+      "pivot": 72.5,
+      "buyZoneMax": 76.13,
+      "stop": 67.43,
+      "status": "In Buy Zone — Holding above $72.50 pivot after $75.68 high"
+    },
+    {
+      "ticker": "WWW",
+      "grade": "B+",
+      "price": 25.63,
+      "changePct": 3.51,
+      "pivot": 25.1,
+      "buyZoneMax": 26.36,
+      "stop": 23.34,
+      "status": "In Buy Zone — Cleared $25.10 pivot, testing $25.99 52W high"
+    },
+    {
+      "ticker": "LTH",
+      "grade": "A-",
+      "price": 47.19,
+      "changePct": 1.82,
+      "pivot": 48.48,
+      "buyZoneMax": 50.9,
+      "stop": 45.09,
+      "status": "Building in Handle — Travel + Leisure promoted to Leading 20"
+    },
+    {
+      "ticker": "AMRX",
+      "grade": "A+",
+      "price": 21.48,
+      "changePct": 1.68,
+      "pivot": 22.13,
+      "buyZoneMax": 23.24,
+      "stop": 20.58,
+      "status": "Holding Handle — Digesting 3% below $22.13 52W high pivot"
+    },
+    {
+      "ticker": "TGTX",
+      "grade": "A+",
+      "price": 64.45,
+      "changePct": 1.75,
+      "pivot": 65.5,
+      "buyZoneMax": 68.78,
+      "stop": 60.5,
+      "status": "Holding Handle — Tested $65.81 early, consolidating at $64.45"
+    },
+    {
+      "ticker": "OKTA",
+      "grade": "A-",
+      "price": 207.14,
+      "changePct": 8.19,
+      "pivot": 205,
+      "buyZoneMax": 215.25,
+      "stop": 190.65,
+      "status": "Pulling Back From High — Faded from $213.10 to $207.14; Dec 1 earnings risk"
+    },
+    {
+      "ticker": "ECO",
+      "grade": "B+",
+      "price": 78.65,
+      "changePct": 1.05,
+      "pivot": 81,
+      "buyZoneMax": 85.05,
+      "stop": 75.33,
+      "status": "Fading Intraday — Pulled back from $80.88 high as WTI crude slipped -1.85%"
+    }
+  ]
+}
