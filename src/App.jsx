@@ -8517,7 +8517,7 @@ function AppMain() {
     return localStorage.getItem("themepulse-chart-ticker") || "QQQ";
   });
   // Top-level view: dashboard or setup journal
-  const [mainView, setMainView] = useState(() => { const v = localStorage.getItem("themepulse-view"); return v === "dash" || v === "scanner" || v === "brief" ? v : "lead"; });
+  const [mainView, setMainView] = useState(() => { const v = localStorage.getItem("themepulse-view"); return v === "scanner" || v === "brief" ? v : "lead"; });
   const switchView = useCallback((v) => {
     setMainView(v);
     try { localStorage.setItem("themepulse-view", v); } catch {}
@@ -8738,7 +8738,7 @@ function AppMain() {
         </div>
         {/* View switcher */}
         <div style={{ display: "flex", gap: 2, marginLeft: 18 }}>
-          {[["lead", "LEADERS"], ["scanner", "SCANNER"], ["brief", "BRIEF"], ["dash", "DASH"]].map(([v, label]) => (
+          {[["lead", "LEADERS"], ["scanner", "SCANNER"], ["brief", "BRIEF"]].map(([v, label]) => (
             <button key={v} onClick={() => switchView(v)}
               style={{
                 background: mainView === v ? "rgba(13,145,99,0.14)" : "transparent",
@@ -8843,14 +8843,14 @@ function AppMain() {
         {mainView === "journal" ? (
           <SetupJournal
             stockMap={stockMap}
-            onTickerClick={(t) => { handleTickerClick(t); switchView("dash"); }}
+            onTickerClick={(t) => { handleTickerClick(t); switchView("lead"); }}
           />
         ) : mainView === "leaders" ? (
           <LeadersView
             stockMap={stockMap}
-            onTickerClick={(t) => { handleTickerClick(t); switchView("dash"); }}
+            onTickerClick={(t) => { handleTickerClick(t); switchView("lead"); }}
           />
-        ) : mainView === "lead" || mainView === "scanner" || mainView === "brief" ? (
+        ) : (
           <ErrorBoundary>
             <LeadershipView
               view={mainView}
@@ -8871,25 +8871,6 @@ function AppMain() {
               }
             />
           </ErrorBoundary>
-        ) : (
-          <>
-
-            {/* Two-box layout: ticker chart (left) · rotation board + Scan Watch stacked (right) */}
-            <ChartScanRow
-              chartTicker={chartTicker}
-              handleTickerClick={handleTickerClick}
-              stockMap={stockMap}
-              themeHealth={data.pipeline?.theme_health || []}
-              stocks={stocks}
-              tickerStrengthMap={tickerStrengthMap}
-              rotationBoard={
-                <ErrorBoundary>
-                  <ExtendedHoursBox pipeline={data.pipeline} onTickerClick={handleTickerClick} stockMap={stockMap} />
-                  <RsRotationBoard onTickerClick={handleTickerClick} chartTicker={chartTicker} stockMap={stockMap} pipelineMeta={data.pipeline?.pipeline_meta} movers={[...(data.pipeline?.earnings_movers || []).map((m) => ({ ...m, _src: "ER" })), ...(data.pipeline?.pm_sip_movers || []).map((m) => ({ ...m, _src: "PM" })), ...(data.pipeline?.ah_sip_movers || []).map((m) => ({ ...m, _src: "AH" }))]} />
-                </ErrorBoundary>
-              }
-            />
-          </>
         )}
       </div>
     </div>
