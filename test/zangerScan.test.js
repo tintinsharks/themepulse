@@ -7,6 +7,7 @@ import {
   getBriefingPhase,
   computeHourlyDelta,
   buildPortfolioAlerts,
+  buildPortfolioEarnings,
   buildEpList,
   buildThemeFlow,
   buildLeaderDamage,
@@ -14,6 +15,7 @@ import {
   buildMarketSummary,
   buildEmailSubject,
   buildEmailHtml,
+  buildMarkdown,
 } from "../scripts/zanger-scan.mjs";
 
 const sat = new Date("2026-11-21T18:00:00Z");
@@ -140,20 +142,37 @@ test("isUsMarketHoliday detects NYSE holidays including Good Friday and weekend 
   assert.equal(isUsMarketHoliday("2026-07-06"), false);
 });
 
-test("isMarketScanWindow enforces 10am-4pm ET across EDT & EST and skips weekends/holidays", () => {
+test("isMarketScanWindow enforces pre-market (08:20-09:10 ET) and RTH (09:55-16:25 ET) across EDT & EST and skips weekends/holidays", () => {
   // EST (Nov 23, 2026 is Monday, UTC-5)
-  assert.equal(isMarketScanWindow(new Date("2026-11-23T14:00:00Z")).open, false); // 09:00 EST -> skip
-  assert.equal(isMarketScanWindow(new Date("2026-11-23T15:00:00Z")).open, true);  // 10:00 EST -> open
-  assert.equal(isMarketScanWindow(new Date("2026-11-23T21:10:00Z")).open, true);  // 16:10 EST (cron jitter) -> open
+  assert.equal(isMarketScanWindow(new Date("2026-11-23T12:30:00Z")).open, false); // 07:30 EST -> skip (out-of-DST cron)
+  assert.equal(isMarketScanWindow(new Date("2026-11-23T13:15:00Z")).open, false); // 08:15 EST -> skip
+  const pmEst = isMarketScanWindow(new Date("2026-11-23T13:30:00Z"));             // 08:30 EST -> premarket open
+  assert.equal(pmEst.open, true);
+  assert.equal(pmEst.reason, "premarket_window");
+  assert.equal(isMarketScanWindow(new Date("2026-11-23T14:10:00Z")).reason, "premarket_window"); // 09:10 EST -> boundary open
+  assert.equal(isMarketScanWindow(new Date("2026-11-23T14:15:00Z")).open, false); // 09:15 EST -> skip gap
+  const rthEst = isMarketScanWindow(new Date("2026-11-23T15:00:00Z"));            // 10:00 EST -> rth open
+  assert.equal(rthEst.open, true);
+  assert.equal(rthEst.reason, "rth_window");
+  assert.equal(isMarketScanWindow(new Date("2026-11-23T21:10:00Z")).reason, "rth_window"); // 16:10 EST (cron jitter) -> open
   assert.equal(isMarketScanWindow(new Date("2026-11-23T22:00:00Z")).open, false); // 17:00 EST -> skip
 
   // EDT (Jul 13, 2026 is Monday, UTC-4)
-  assert.equal(isMarketScanWindow(new Date("2026-07-13T14:00:00Z")).open, true);  // 10:00 EDT -> open
-  assert.equal(isMarketScanWindow(new Date("2026-07-13T20:05:00Z")).open, true);  // 16:05 EDT -> open
+  assert.equal(isMarketScanWindow(new Date("2026-07-13T12:15:00Z")).open, false); // 08:15 EDT -> skip
+  const pmEdt = isMarketScanWindow(new Date("2026-07-13T12:30:00Z"));             // 08:30 EDT -> premarket open
+  assert.equal(pmEdt.open, true);
+  assert.equal(pmEdt.reason, "premarket_window");
+  assert.equal(isMarketScanWindow(new Date("2026-07-13T13:30:00Z")).open, false); // 09:30 EDT -> skip (out-of-DST cron)
+  const rthEdt = isMarketScanWindow(new Date("2026-07-13T14:00:00Z"));            // 10:00 EDT -> rth open
+  assert.equal(rthEdt.open, true);
+  assert.equal(rthEdt.reason, "rth_window");
+  assert.equal(isMarketScanWindow(new Date("2026-07-13T20:05:00Z")).reason, "rth_window"); // 16:05 EDT -> open
   assert.equal(isMarketScanWindow(new Date("2026-07-13T21:00:00Z")).open, false); // 17:00 EDT -> skip
 
-  // Weekend & Thanksgiving
+  // Weekend & Thanksgiving (both premarket and RTH)
+  assert.equal(isMarketScanWindow(new Date("2026-11-22T13:30:00Z")).reason, "weekend");
   assert.equal(isMarketScanWindow(new Date("2026-11-22T17:00:00Z")).reason, "weekend");
+  assert.equal(isMarketScanWindow(new Date("2026-11-26T13:30:00Z")).reason, "us_market_holiday");
   assert.equal(isMarketScanWindow(new Date("2026-11-26T17:00:00Z")).reason, "us_market_holiday");
 });
 
@@ -362,4 +381,205 @@ test("briefing intelligence modules handle phase, hourly deltas, portfolio alert
   assert.ok(closeHtml.includes("Today&apos;s Intraday Theme Money Flow"));
   assert.ok(closeHtml.includes("Leader Damage / Distribution Watch"));
   assert.ok(closeHtml.includes("On Deck — RS-Line New Highs Basing Near Highs"));
+});
+
+test("pre-market phase, overnight futures rendering, elevated focus sections, and subject prefix", () => {
+  // Phase boundaries
+  assert.equal(getBriefingPhase({ hours: 7, minutes: 59 }).id, "midday");
+  const pmPhase = getBriefingPhase({ hours: 8, minutes: 30 });
+  assert.equal(pmPhase.id, "premarket");
+  assert.equal(pmPhase.label, "PRE-MARKET BRIEF");
+  assert.equal(pmPhase.accent, "#fbbf24");
+  assert.equal(getBriefingPhase({ hours: 9, minutes: 29 }).id, "premarket");
+  assert.equal(getBriefingPhase({ hours: 9, minutes: 30 }).id, "open");
+
+  const market = buildMarketSummary({
+    mq: {
+      decision: "YES",
+      total: 80,
+      futures: [
+        { name: "BTC/USD", price: 96500, change: 1850, changePct: 1.95 },
+        { name: "Crude Oil", price: 70.45, change: -0.6, changePct: -0.84 },
+        { name: "Gold", price: 2642.3, change: 11.2, changePct: 0.43 },
+        { name: "Dow", price: 441.2, change: 1.1, changePct: 0.25 },
+        { name: "Russell 2000", price: 231.8, change: 1.9, changePct: 0.83 },
+        { name: "Nasdaq 100", price: 521.4, change: 3.4, changePct: 0.66 },
+        { name: "S&P 500", price: 602.1, change: 2.5, changePct: 0.42 },
+        { name: "Natural Gas", price: 3.1, change: 0.05, changePct: 1.6 },
+      ],
+    },
+  });
+
+  // Futures normalized in canonical order (7 core contracts)
+  assert.deepEqual(
+    market.futures.map((f) => f.name),
+    ["S&P 500", "Nasdaq 100", "Russell 2000", "Dow", "Crude Oil", "Gold", "BTC/USD"]
+  );
+
+  const epMovers = [{ ticker: "CRDO", category: "LAVA", chg: 14.2, volume: 11e6, headline: "Beat & raise" }];
+  const onDeckRsl = [{ ticker: "VRT", theme: "AI Infra", layer: "Power", adr: 4.8, chg: 1.2, rs: 96, off52: -2.1 }];
+
+  const ctx = {
+    stamp: { pretty: "2026-11-23 08:30 ET", hours: 8, minutes: 30 },
+    mode: "Live Intraday",
+    clock: { session: "2026-11-23", rth: false },
+    pipelineDate: "2026-11-22",
+    leadingLayers: [],
+    emergingLayers: [],
+    zangerMovers: [],
+    headlines: new Map(),
+    market,
+    phase: pmPhase,
+    epMovers,
+    onDeckRsl,
+  };
+
+  const subj = buildEmailSubject(ctx);
+  assert.ok(subj.startsWith("☀️ Pre-Market Brief:"));
+  assert.ok(subj.includes("1 Gapper"));
+  assert.ok(subj.includes("1 On Deck"));
+  assert.ok(subj.includes("S&P +0.4%"));
+  assert.ok(subj.includes("NQ +0.7%"));
+  assert.ok(subj.includes("08:30 ET"));
+
+  const html = buildEmailHtml(ctx);
+  assert.ok(html.includes("PRE-MARKET BRIEF"));
+  assert.ok(html.includes("☀️ Overnight Futures &amp; Macro"));
+  assert.ok(html.includes("S&amp;P 500"));
+  assert.ok(html.includes("Nasdaq 100"));
+  assert.ok(html.includes("BTC/USD"));
+  assert.ok(html.includes("96,500"));
+
+  // During premarket, Futures, EP Gappers, and On Deck RSL appear BEFORE Section 1 Breakouts
+  const futIdx = html.indexOf("Overnight Futures &amp; Macro");
+  const epIdx = html.indexOf("EP / Pre-Market Gappers");
+  const deckIdx = html.indexOf("On Deck — RS-Line New Highs");
+  const sec1Idx = html.indexOf("1. Breakouts &amp; Volume Movers");
+  assert.ok(futIdx > 0 && epIdx > futIdx && deckIdx > epIdx && sec1Idx > deckIdx);
+
+  // Markdown also renders Overnight Futures table and elevated EP + On Deck
+  const md = buildMarkdown(ctx);
+  assert.ok(md.includes("## Overnight Futures & Macro"));
+  assert.ok(md.includes("| **S&P 500** |"));
+  assert.ok(md.indexOf("## Overnight Futures & Macro") < md.indexOf("## 1. Breakouts"));
+  assert.ok(md.indexOf("## On Deck — RS-Line New Highs") < md.indexOf("## 1. Breakouts"));
+
+  // Non-premarket phase renders futures compactly when available
+  const rthHtml = buildEmailHtml({ ...ctx, phase: getBriefingPhase({ hours: 12, minutes: 0 }) });
+  assert.ok(rthHtml.includes("Overnight Futures &amp; Macro:"));
+  assert.ok(!rthHtml.includes("☀️ Overnight Futures &amp; Macro"));
+});
+
+test("buildPortfolioEarnings filters 0-10d window, parses BMO/AMC timing, deduplicates, sorts, and renders", () => {
+  const rows = buildPortfolioEarnings({
+    mq: {
+      portfolio: [{ ticker: "NVDA" }, { ticker: "CRWD" }, { ticker: "FAR" }, { ticker: "PAST" }],
+      watchlist: [{ ticker: "CRWD" }, { ticker: "AVGO" }, { ticker: "DELL" }, { ticker: "NONE" }],
+    },
+    stockMap: {
+      NVDA: { earnings_days: 5, earnings_display: "11/28/a" },
+      CRWD: { earnings_days: 2, earnings_display: "11/25/b" },
+      AVGO: { earnings_days: 2, earnings_display: "11/25/a" },
+      DELL: { earnings_days: 0, earnings_display: "11/23/2026", er_timing: "BMO" },
+      FAR: { earnings_days: 11, earnings_display: "12/04/a" },
+      PAST: { earnings_days: -1, earnings_display: "11/22/a" },
+      NONE: { earnings_days: null },
+    },
+  });
+
+  // Sorted by days asc, then PORT before WATCH; CRWD deduplicated to PORT; FAR/PAST/NONE excluded
+  assert.deepEqual(rows, [
+    { ticker: "DELL", list: "WATCH", days: 0, display: "11/23/2026", timing: "BMO" },
+    { ticker: "CRWD", list: "PORT", days: 2, display: "11/25", timing: "BMO" },
+    { ticker: "AVGO", list: "WATCH", days: 2, display: "11/25", timing: "AMC" },
+    { ticker: "NVDA", list: "PORT", days: 5, display: "11/28", timing: "AMC" },
+  ]);
+
+  const baseCtx = {
+    stamp: { pretty: "2026-11-23 11:00 ET", hours: 11, minutes: 0 },
+    mode: "Live Intraday",
+    clock: { session: "2026-11-23", rth: true },
+    pipelineDate: "2026-11-23",
+    leadingLayers: [],
+    emergingLayers: [],
+    zangerMovers: [],
+    headlines: new Map(),
+    portfolioEarnings: rows,
+  };
+
+  const html = buildEmailHtml(baseCtx);
+  assert.ok(html.includes("Upcoming Earnings (Portfolio &amp; Watchlist · Next 10d)"));
+  assert.ok(html.includes("DELL"));
+  assert.ok(html.includes("Today"));
+  assert.ok(html.includes("BMO"));
+  assert.ok(html.includes("AMC"));
+
+  const md = buildMarkdown(baseCtx);
+  assert.ok(md.includes("## Upcoming Earnings (Portfolio & Watchlist · Next 10d)"));
+  assert.ok(md.includes("**[PORT] CRWD** — in 2d (11/25 BMO)"));
+  assert.ok(md.includes("**[WATCH] DELL** — Today (11/23/2026 BMO)"));
+
+  // Omitted when empty
+  const emptyHtml = buildEmailHtml({ ...baseCtx, portfolioEarnings: [] });
+  assert.ok(!emptyHtml.includes("Upcoming Earnings (Portfolio &amp; Watchlist · Next 10d)"));
+});
+
+test("Quick Copy (TradingView) strip renders Breakouts, All Movers (only when distinct), and On Deck (RSL)", () => {
+  const mkMover = (ticker, isBreakout) => ({
+    ticker,
+    theme: "AI Infra",
+    layer: "Core",
+    isBreakout,
+    breakoutTypes: isBreakout ? ["ZANGER"] : [],
+    chg: 4.1,
+    zvr: 2.3,
+    cr: 85,
+    rs: 94,
+    adr: 4.0,
+    off52: -2.0,
+    score: 80,
+  });
+
+  const ctxDistinct = {
+    stamp: { pretty: "2026-11-23 11:00 ET", hours: 11, minutes: 0 },
+    mode: "Live Intraday",
+    clock: { session: "2026-11-23", rth: true },
+    pipelineDate: "2026-11-23",
+    leadingLayers: [],
+    emergingLayers: [],
+    zangerMovers: [mkMover("NVDA", true), mkMover("CLS", true), mkMover("VRT", false)],
+    onDeckRsl: [{ ticker: "MU", theme: "Memory", layer: "HBM", rs: 93, adr: 4.5, chg: 1.0, off52: -3.2 }, { ticker: "ANET", theme: "Net", layer: "Switch", rs: 91, adr: 3.8, chg: 0.5, off52: -4.0 }],
+    headlines: new Map(),
+  };
+
+  const html = buildEmailHtml(ctxDistinct);
+  assert.ok(html.includes("Quick Copy (TradingView)"));
+  assert.ok(html.includes(">Breakouts<"));
+  assert.ok(html.includes(">NVDA,CLS<"));
+  assert.ok(html.includes(">All Movers<"));
+  assert.ok(html.includes(">NVDA,CLS,VRT<"));
+  assert.ok(html.includes(">On Deck (RSL)<"));
+  assert.ok(html.includes(">MU,ANET<"));
+
+  const md = buildMarkdown(ctxDistinct);
+  assert.ok(md.includes("## Quick Copy (TradingView)"));
+  assert.ok(md.includes("- **Breakouts**: `NVDA,CLS`"));
+  assert.ok(md.includes("- **All Movers**: `NVDA,CLS,VRT`"));
+  assert.ok(md.includes("- **On Deck (RSL)**: `MU,ANET`"));
+
+  // When All Movers equals Breakouts, omit redundant All Movers row
+  const ctxSame = {
+    ...ctxDistinct,
+    zangerMovers: [mkMover("NVDA", true), mkMover("CLS", true)],
+    onDeckRsl: [],
+  };
+  const sameHtml = buildEmailHtml(ctxSame);
+  assert.ok(sameHtml.includes("Quick Copy (TradingView)"));
+  assert.ok(sameHtml.includes(">NVDA,CLS<"));
+  assert.ok(!sameHtml.includes(">All Movers<"));
+  assert.ok(!sameHtml.includes(">On Deck (RSL)<"));
+
+  // When no movers and no onDeck, omit the strip completely
+  const emptyHtml = buildEmailHtml({ ...ctxDistinct, zangerMovers: [], onDeckRsl: [] });
+  assert.ok(!emptyHtml.includes("Quick Copy (TradingView)"));
 });

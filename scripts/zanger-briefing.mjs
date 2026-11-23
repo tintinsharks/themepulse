@@ -43,11 +43,36 @@ function fmtVol(v) {
   return String(Math.round(v));
 }
 
-// 1. Session-aware briefing phase (Open vs Midday vs Closing Bell Wrap)
+export const FUTURES_ORDER = [
+  "S&P 500",
+  "Nasdaq 100",
+  "Russell 2000",
+  "Dow",
+  "Crude Oil",
+  "Gold",
+  "BTC/USD",
+];
+
+function fmtPrice(v) {
+  if (v == null || !Number.isFinite(v)) return "—";
+  if (Math.abs(v) >= 10000) return v.toLocaleString("en-US", { maximumFractionDigits: 0 });
+  if (Math.abs(v) >= 1000) return v.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  return v.toFixed(2);
+}
+
+// 1. Session-aware briefing phase (Pre-Market vs Open vs Midday vs Closing Bell Wrap)
 export function getBriefingPhase(stamp) {
   const h = stamp?.hours ?? 12;
   const m = stamp?.minutes ?? 0;
   const mins = h * 60 + m;
+  if (mins >= 8 * 60 && mins < 9 * 60 + 30) {
+    return {
+      id: "premarket",
+      label: "PRE-MARKET BRIEF",
+      subtitle: "Overnight futures, pre-market gappers & today's watchlist focus",
+      accent: "#fbbf24",
+    };
+  }
   if (mins >= 9 * 60 + 30 && mins < 11 * 60) {
     return {
       id: "open",
@@ -216,6 +241,49 @@ export function buildPortfolioAlerts({ mq = null, stockMap = {}, liveQuotes = ne
     watchlistCount: watch.length,
     alerts: alerts.slice(0, 12),
   };
+}
+
+// 3b. 10-Day Earnings Calendar for Portfolio & Watchlist
+export function buildPortfolioEarnings({ mq = null, stockMap = {} } = {}) {
+  const port = Array.isArray(mq?.portfolio) ? mq.portfolio : [];
+  const watch = Array.isArray(mq?.watchlist) ? mq.watchlist : [];
+  const seen = new Set();
+  const rows = [];
+
+  const checkRow = (row, list) => {
+    const tk = typeof row === "string" ? row : row?.ticker;
+    if (!tk || seen.has(tk)) return;
+    seen.add(tk);
+    const s = stockMap?.[tk];
+    if (!s) return;
+    const days = parseNum(s.earnings_days);
+    if (days == null || days < 0 || days > 10) return;
+    const rawDisp = String(s.earnings_display || "").trim();
+    let timing = "";
+    if (/\/b(?:\b|$)/i.test(rawDisp)) timing = "BMO";
+    else if (/\/a(?:\b|$)/i.test(rawDisp)) timing = "AMC";
+    else if (s.er_timing) timing = String(s.er_timing).trim().toUpperCase();
+    const display = rawDisp.replace(/\/[ab]$/i, "").trim();
+    rows.push({
+      ticker: tk,
+      list,
+      days,
+      display,
+      timing,
+    });
+  };
+
+  for (const r of port) checkRow(r, "PORT");
+  for (const r of watch) checkRow(r, "WATCH");
+
+  rows.sort(
+    (a, b) =>
+      a.days - b.days ||
+      (a.list === "PORT" ? 0 : 1) - (b.list === "PORT" ? 0 : 1) ||
+      a.ticker.localeCompare(b.ticker)
+  );
+
+  return rows;
 }
 
 // 4. EP / High-Volume Gap-and-Go Movers
@@ -518,12 +586,38 @@ export function buildMarketSummary({
   }
   if (mParts.length) commentary.push(`Tape & risk: ${mParts.join(" · ")}.`);
 
+  const rawFutures = Array.isArray(mq?.futures) ? mq.futures : [];
+  const futByName = new Map();
+  const validFutures = [];
+  for (const f of rawFutures) {
+    const name = String(f?.name || f?.label || "").trim();
+    if (!name) continue;
+    const price = parseNum(f.price ?? f.last);
+    const change = parseNum(f.change);
+    const changePct = parseNum(
+      typeof f.changePct === "string"
+        ? f.changePct.replace("%", "")
+        : typeof f.change_pct === "string"
+          ? f.change_pct.replace("%", "")
+          : (f.changePct ?? f.change_pct)
+    );
+    if (price == null && changePct == null) continue;
+    const norm = { name, price, change, changePct };
+    futByName.set(name.toLowerCase(), norm);
+    validFutures.push(norm);
+  }
+  const orderedFutures = FUTURES_ORDER
+    .map((label) => futByName.get(label.toLowerCase()))
+    .filter(Boolean);
+  const futures = orderedFutures.length ? orderedFutures : validFutures.slice(0, 7);
+
   return {
     decision,
     score,
     positionSize,
     regime,
     indices,
+    futures,
     vix,
     tnx,
     sectors,
@@ -533,7 +627,26 @@ export function buildMarketSummary({
   };
 }
 
-export function buildEmailSubject({ stamp, zangerMovers, market, phase, delta, leaderDamage }) {
+function buildTradingViewLists({ zangerMovers = [], onDeckRsl = [] } = {}) {
+  const movers = zangerMovers || [];
+  const boTickers = [...new Set(movers.filter((m) => m.isBreakout).map((m) => m.ticker).filter(Boolean))];
+  const allMoverTickers = [...new Set(movers.map((m) => m.ticker).filter(Boolean))];
+  const onDeckTickers = [...new Set((onDeckRsl || []).map((r) => r.ticker).filter(Boolean))];
+
+  const rows = [];
+  if (boTickers.length) {
+    rows.push({ label: "Breakouts", tickers: boTickers.join(",") });
+  }
+  if (allMoverTickers.length && allMoverTickers.join(",") !== boTickers.join(",")) {
+    rows.push({ label: "All Movers", tickers: allMoverTickers.join(",") });
+  }
+  if (onDeckTickers.length) {
+    rows.push({ label: "On Deck (RSL)", tickers: onDeckTickers.join(",") });
+  }
+  return rows;
+}
+
+export function buildEmailSubject({ stamp, zangerMovers, market, phase, delta, leaderDamage, epMovers, onDeckRsl }) {
   const bos = (zangerMovers || []).filter((m) => m.isBreakout);
   const timeShort = stamp?.pretty ? stamp.pretty.slice(11) : "";
   const spy = market?.indices?.find((i) => i.ticker === "SPY");
@@ -545,6 +658,23 @@ export function buildEmailSubject({ stamp, zangerMovers, market, phase, delta, l
   const idxTag = idxBits.length ? ` | ${idxBits.join(" ")}` : "";
   const newCount = delta?.newBreakouts?.length || 0;
   const newTag = newCount > 0 ? ` (${newCount} NEW)` : "";
+
+  if (phase?.id === "premarket") {
+    const futs = market?.futures || [];
+    const spFut = futs.find((f) => f.name.toLowerCase() === "s&p 500");
+    const nqFut = futs.find((f) => f.name.toLowerCase() === "nasdaq 100");
+    const futBits = [
+      spFut?.changePct != null ? `S&P ${fmtPct(spFut.changePct, 1)}` : null,
+      nqFut?.changePct != null ? `NQ ${fmtPct(nqFut.changePct, 1)}` : null,
+    ].filter(Boolean);
+    const mktTag = futBits.length ? ` | ${futBits.join(" ")}` : idxTag;
+    const focusBits = [];
+    if (epMovers?.length) focusBits.push(`${epMovers.length} Gapper${epMovers.length === 1 ? "" : "s"}`);
+    if (onDeckRsl?.length) focusBits.push(`${onDeckRsl.length} On Deck`);
+    if (!focusBits.length && bos.length > 0) focusBits.push(`${bos.length} BO`);
+    const focusText = focusBits.length ? focusBits.join(" · ") : "Morning Focus";
+    return `☀️ Pre-Market Brief: ${focusText}${mktTag} — ${timeShort}`;
+  }
 
   const prefix = phase?.id === "close"
     ? "🏁 EOD Zanger Wrap"
@@ -582,6 +712,7 @@ export function buildEmailHtml(
     phase,
     delta,
     portfolioAlerts,
+    portfolioEarnings,
     epMovers,
     themeFlow,
     leaderDamage,
@@ -595,7 +726,38 @@ export function buildEmailHtml(
   const leadCount = (leadingLayers || []).length;
   const emergCount = (emergingLayers || []).length;
   const ph = phase || getBriefingPhase(stamp);
+  const isPremarket = ph.id === "premarket";
   const tLink = (tk) => `${url}/?view=zanger&ticker=${encodeURIComponent(tk)}`;
+
+  // Overnight Futures & Macro strip
+  const futuresHtml = (() => {
+    const futures = Array.isArray(market?.futures) ? market.futures : [];
+    if (!futures.length) return "";
+    if (isPremarket) {
+      const cells = futures.map((f) => {
+        const chgColor = f.changePct == null ? "#64748b" : f.changePct >= 0 ? "#15803d" : "#dc2626";
+        return `<div style="flex:1 1 105px;min-width:100px;padding:7px 9px;background:#ffffff;border:1px solid #fde68a;border-radius:6px;">
+          <div style="font-size:10px;color:#64748b;font-weight:700;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">${escHtml(f.name)}</div>
+          <div style="margin-top:2px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">
+            <span style="font-size:13px;font-weight:800;color:${chgColor};">${f.changePct != null ? escHtml(fmtPct(f.changePct, 2)) : "—"}</span>
+            ${f.price != null ? `<span style="font-size:10px;color:#475569;margin-left:4px;">${escHtml(fmtPrice(f.price))}</span>` : ""}
+          </div>
+        </div>`;
+      }).join("");
+      return `<div style="margin-bottom:18px;padding:12px 14px;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;">
+        <div style="font-size:13px;font-weight:800;color:#92400e;margin-bottom:8px;">☀️ Overnight Futures &amp; Macro</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">${cells}</div>
+      </div>`;
+    }
+    const items = futures.map((f) => {
+      const chgColor = f.changePct == null ? "#64748b" : f.changePct >= 0 ? "#15803d" : "#dc2626";
+      const pct = f.changePct != null ? `<strong style="color:${chgColor};">${escHtml(fmtPct(f.changePct, 2))}</strong>` : "—";
+      return `${escHtml(f.name)} ${pct}`;
+    }).join(" &nbsp;·&nbsp; ");
+    return `<div style="margin-bottom:14px;padding:8px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;color:#334155;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">
+      <strong style="color:#0f172a;">Overnight Futures &amp; Macro:</strong> ${items}
+    </div>`;
+  })();
 
   const badgeHtml = (m) => {
     const parts = [];
@@ -716,9 +878,46 @@ export function buildEmailHtml(
     </div>`;
   })();
 
+  // Upcoming Earnings Calendar (Portfolio & Watchlist · Next 10d)
+  const portfolioEarningsHtml = (() => {
+    if (!portfolioEarnings?.length) return "";
+    const rows = portfolioEarnings.map((e) => {
+      const whenLabel = e.days === 0 ? "Today" : `${e.days}d`;
+      const whenStyle = e.days === 0
+        ? "background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;"
+        : e.days <= 3
+          ? "background:#fef3c7;color:#92400e;border:1px solid #f59e0b;"
+          : "background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;";
+      const timingPill = e.timing
+        ? `<span style="display:inline-block;padding:1px 5px;border-radius:3px;font-size:10px;font-weight:700;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:${e.timing === "BMO" ? "#e0f2fe" : "#f3e8ff"};color:${e.timing === "BMO" ? "#075985" : "#6b21a8"};">${escHtml(e.timing)}</span>`
+        : `<span style="color:#94a3b8;">—</span>`;
+      return `<tr style="border-bottom:1px solid #e2e8f0;">
+        <td style="padding:5px 6px;font-size:10px;font-weight:700;color:${e.list === "PORT" ? "#1d4ed8" : "#64748b"};font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">${escHtml(e.list)}</td>
+        <td style="padding:5px 6px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:800;"><a href="${tLink(e.ticker)}" style="color:#0f172a;text-decoration:none;">${escHtml(e.ticker)}</a></td>
+        <td style="padding:5px 6px;"><span style="display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:700;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;${whenStyle}">${escHtml(whenLabel)}</span></td>
+        <td style="padding:5px 6px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#334155;">${escHtml(e.display || "—")}</td>
+        <td style="padding:5px 6px;">${timingPill}</td>
+      </tr>`;
+    }).join("");
+    return `<div style="margin-bottom:18px;padding:12px 14px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;">
+      <div style="font-size:13px;font-weight:800;color:#92400e;margin-bottom:6px;">📅 Upcoming Earnings (Portfolio &amp; Watchlist · Next 10d)</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;background:#ffffff;border-radius:6px;overflow:hidden;">
+        <thead><tr style="background:#fef9c3;border-bottom:1px solid #fde68a;font-size:10px;color:#854d0e;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase;">
+          <th style="padding:5px 6px;text-align:left;">List</th>
+          <th style="padding:5px 6px;text-align:left;">Ticker</th>
+          <th style="padding:5px 6px;text-align:left;">In</th>
+          <th style="padding:5px 6px;text-align:left;">Date</th>
+          <th style="padding:5px 6px;text-align:left;">Timing</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  })();
+
   // EP / Gap-and-Go Movers card
   const epHtml = (() => {
     if (!epMovers?.length) return "";
+    const epTitle = isPremarket ? "⚡ EP / Pre-Market Gappers &amp; Gap-and-Go Movers" : "⚡ EP / Gap-and-Go Movers";
     const items = epMovers.map((e) => `
       <li style="margin-bottom:5px;line-height:1.4;">
         <span style="display:inline-block;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:800;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:${e.category === "LAVA" ? "#fee2e2" : "#fef3c7"};color:${e.category === "LAVA" ? "#991b1b" : "#92400e"};">${escHtml(e.category)}</span>
@@ -728,7 +927,7 @@ export function buildEmailHtml(
         ${e.headline ? `<span style="color:#475569;">— ${escHtml(e.headline)}</span>` : ""}
       </li>`).join("");
     return `<div style="margin-bottom:18px;padding:12px 14px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;">
-      <div style="font-size:13px;font-weight:800;color:#92400e;margin-bottom:6px;">⚡ EP / Gap-and-Go Movers <span style="font-weight:400;font-size:11px;color:#b45309;">(High-momentum catalyst gaps ≥ +3%)</span></div>
+      <div style="font-size:13px;font-weight:800;color:#92400e;margin-bottom:6px;">${epTitle} <span style="font-weight:400;font-size:11px;color:#b45309;">(High-momentum catalyst gaps ≥ +3%)</span></div>
       <ul style="margin:0;padding-left:18px;font-size:12px;">${items}</ul>
     </div>`;
   })();
@@ -874,7 +1073,8 @@ export function buildEmailHtml(
       <td style="padding:5px 6px;text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:700;color:#15803d;">${r.rs}</td>
       <td style="padding:5px 6px;text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#475569;">${escHtml(fmtPct(r.off52, 1))}</td>
     </tr>`).join("");
-    return `<div style="margin-top:18px;padding:12px 14px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;">
+    const marginStyle = isPremarket ? "margin-bottom:18px;" : "margin-top:18px;";
+    return `<div style="${marginStyle}padding:12px 14px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;">
       <div style="font-size:13px;font-weight:800;color:#075985;margin-bottom:6px;">🔵 On Deck — RS-Line New Highs Basing Near Highs <span style="font-weight:400;font-size:11px;color:#0284c7;">(Watch for next breakout)</span></div>
       <table style="width:100%;border-collapse:collapse;font-size:12px;background:#ffffff;border-radius:6px;overflow:hidden;">
         <thead><tr style="background:#e0f2fe;font-size:10px;color:#075985;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;text-transform:uppercase;">
@@ -887,6 +1087,21 @@ export function buildEmailHtml(
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
+    </div>`;
+  })();
+
+  // Quick Copy (TradingView) monospace strip
+  const quickCopyHtml = (() => {
+    const tvLists = buildTradingViewLists({ zangerMovers: movers, onDeckRsl });
+    if (!tvLists.length) return "";
+    const rows = tvLists.map((item) => `
+      <div style="margin-top:6px;">
+        <div style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">${escHtml(item.label)}</div>
+        <div style="margin-top:2px;padding:6px 8px;background:#ffffff;border:1px solid #e2e8f0;border-radius:5px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:#0f172a;word-break:break-all;user-select:all;">${escHtml(item.tickers)}</div>
+      </div>`).join("");
+    return `<div style="margin-top:18px;padding:12px 14px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;">
+      <div style="font-size:13px;font-weight:800;color:#0f172a;">📋 Quick Copy (TradingView)</div>
+      ${rows}
     </div>`;
   })();
 
@@ -931,8 +1146,12 @@ export function buildEmailHtml(
     </div>
 
     <div style="padding:18px 20px;">
+      ${futuresHtml}
+      ${isPremarket ? epHtml : ""}
+      ${isPremarket ? onDeckHtml : ""}
       ${marketSectionHtml}
       ${portfolioHtml}
+      ${portfolioEarningsHtml}
       ${closeWrapHtml}
       ${ph.id === "open" ? epHtml : ""}
 
@@ -965,7 +1184,7 @@ export function buildEmailHtml(
       <h2 style="margin:20px 0 8px;font-size:15px;color:#0f172a;">2. Catalyst Check <span style="font-weight:400;font-size:12px;color:#64748b;">(Top Movers)</span></h2>
       <ul style="margin:0;padding-left:18px;font-size:12px;color:#334155;">${catalystItems}</ul>` : ""}
 
-      ${ph.id !== "open" ? `<div style="margin-top:18px;">${epHtml}</div>` : ""}
+      ${ph.id !== "open" && !isPremarket && epHtml ? `<div style="margin-top:18px;">${epHtml}</div>` : ""}
       ${themeFlowHtml}
 
       ${layerRows ? `
@@ -987,7 +1206,8 @@ export function buildEmailHtml(
       </div>` : ""}
 
       ${damageHtml}
-      ${onDeckHtml}
+      ${!isPremarket ? onDeckHtml : ""}
+      ${quickCopyHtml}
     </div>
 
     <div style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:12px 20px;font-size:11px;color:#64748b;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">
@@ -1012,12 +1232,15 @@ export function buildMarkdown({
   phase,
   delta,
   portfolioAlerts,
+  portfolioEarnings,
   epMovers,
   themeFlow,
   leaderDamage,
   onDeckRsl,
 }) {
   const ph = phase || getBriefingPhase(stamp);
+  const isPremarket = ph.id === "premarket";
+  const futures = Array.isArray(market?.futures) ? market.futures : [];
   const lines = [];
   lines.push(`# ThemePulse ${ph.label} — ${stamp.pretty}`);
   lines.push("");
@@ -1026,9 +1249,49 @@ export function buildMarkdown({
   lines.push(`- **Summary**: ${leadingLayers.length} leading layers · ${emergingLayers.length} confirmed emerging layers · ${zangerMovers.length} movers${delta?.holdRate ? ` · Hold rate ${delta.holdRate.holding}/${delta.holdRate.totalToday} (${delta.holdRate.pct}%)` : ""}`);
   lines.push("");
 
+  if (isPremarket && futures.length) {
+    lines.push("## Overnight Futures & Macro");
+    lines.push("");
+    lines.push("| Contract | Price | Chg% |");
+    lines.push("|----------|------:|-----:|");
+    for (const f of futures) {
+      lines.push(`| **${f.name}** | ${fmtPrice(f.price)} | ${f.changePct != null ? fmtPct(f.changePct, 2) : "—"} |`);
+    }
+    lines.push("");
+  }
+
+  const appendEpMd = () => {
+    if (!epMovers?.length) return;
+    lines.push(isPremarket ? "## EP / Pre-Market Gappers & Gap-and-Go Movers" : "## EP / Gap-and-Go Movers");
+    lines.push("");
+    for (const e of epMovers) {
+      lines.push(`- **[${e.category}] ${e.ticker}** ${fmtPct(e.chg, 1)} (vol ${fmtVol(e.volume)})${e.headline ? ` — ${e.headline}` : ""}`);
+    }
+    lines.push("");
+  };
+
+  const appendOnDeckMd = (heading) => {
+    if (!onDeckRsl?.length) return;
+    lines.push(heading);
+    lines.push("");
+    for (const r of onDeckRsl) {
+      lines.push(`- **${r.ticker}** (${r.theme} · ${r.layer}): RS ${r.rs}, ADR ${r.adr != null ? `${r.adr.toFixed(1)}%` : "—"}, Chg ${fmtPct(r.chg, 1)}, Off 52wH ${fmtPct(r.off52, 1)}`);
+    }
+    lines.push("");
+  };
+
+  if (isPremarket) {
+    appendEpMd();
+    appendOnDeckMd("## On Deck — RS-Line New Highs Basing Near Highs");
+  }
+
   if (market) {
     lines.push("## 0. General Market & Commentary");
     lines.push("");
+    if (!isPremarket && futures.length) {
+      lines.push(`- **Overnight Futures & Macro**: ${futures.map((f) => `${f.name} ${f.changePct != null ? fmtPct(f.changePct, 2) : "—"}`).join(" · ")}`);
+      lines.push("");
+    }
     if (market.indices?.length) {
       lines.push("| Index | Price | Chg% | CR% | MA Posture |");
       lines.push("|-------|------:|-----:|----:|------------|");
@@ -1050,14 +1313,18 @@ export function buildMarkdown({
     lines.push("");
   }
 
-  if (epMovers?.length) {
-    lines.push("## EP / Gap-and-Go Movers");
+  if (portfolioEarnings?.length) {
+    lines.push("## Upcoming Earnings (Portfolio & Watchlist · Next 10d)");
     lines.push("");
-    for (const e of epMovers) {
-      lines.push(`- **[${e.category}] ${e.ticker}** ${fmtPct(e.chg, 1)} (vol ${fmtVol(e.volume)})${e.headline ? ` — ${e.headline}` : ""}`);
+    for (const e of portfolioEarnings) {
+      const when = e.days === 0 ? "Today" : `in ${e.days}d`;
+      const detail = [e.display, e.timing].filter(Boolean).join(" ");
+      lines.push(`- **[${e.list}] ${e.ticker}** — ${when}${detail ? ` (${detail})` : ""}`);
     }
     lines.push("");
   }
+
+  if (!isPremarket) appendEpMd();
 
   lines.push("## 1. Breakouts & Intraday Volume Movers (Zanger · Stockbee 4% / $ · Qullamaggie)");
   lines.push("");
@@ -1137,14 +1404,7 @@ export function buildMarkdown({
     lines.push("");
   }
 
-  if (onDeckRsl?.length) {
-    lines.push("## 5. On Deck — RS-Line New Highs Basing Near Highs");
-    lines.push("");
-    for (const r of onDeckRsl) {
-      lines.push(`- **${r.ticker}** (${r.theme} · ${r.layer}): RS ${r.rs}, ADR ${r.adr != null ? `${r.adr.toFixed(1)}%` : "—"}, Chg ${fmtPct(r.chg, 1)}, Off 52wH ${fmtPct(r.off52, 1)}`);
-    }
-    lines.push("");
-  }
+  if (!isPremarket) appendOnDeckMd("## 5. On Deck — RS-Line New Highs Basing Near Highs");
 
   if (themeLeaders?.length) {
     lines.push("## 6. Top Leading Stocks in Leading Themes (Core Focus List)");
@@ -1157,6 +1417,16 @@ export function buildMarkdown({
       lines.push(
         `| **${m.ticker}** ⭐ | ${m.theme} · ${m.layer} | ${m.adr != null ? m.adr.toFixed(1) + "%" : "—"} | ${fmtPct(m.chg)} | ${m.zvr != null ? m.zvr.toFixed(2) + "x" : "—"} | ${m.rs} | ${epsStr} | ${fmtPct(m.off52)} | ${notes} |`
       );
+    }
+    lines.push("");
+  }
+
+  const tvLists = buildTradingViewLists({ zangerMovers, onDeckRsl });
+  if (tvLists.length) {
+    lines.push("## Quick Copy (TradingView)");
+    lines.push("");
+    for (const item of tvLists) {
+      lines.push(`- **${item.label}**: \`${item.tickers}\``);
     }
     lines.push("");
   }

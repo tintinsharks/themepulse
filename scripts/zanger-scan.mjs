@@ -9,7 +9,7 @@
 //   node scripts/zanger-scan.mjs --offline             # skip network calls, use local pipeline JSON
 //   node scripts/zanger-scan.mjs --no-write            # print report to stdout without writing reports/
 //   node scripts/zanger-scan.mjs --json                # print structured JSON summary to stdout
-//   node scripts/zanger-scan.mjs --market-hours-only   # exit 0 quietly outside Mon-Fri 10:00-16:00 ET / NYSE holidays
+//   node scripts/zanger-scan.mjs --market-hours-only   # exit 0 quietly outside Mon-Fri pre-market (08:20-09:10 ET) & RTH (09:55-16:25 ET) / NYSE holidays
 //   node scripts/zanger-scan.mjs --email-out <dir>     # write email.html, email.txt, meta.json to <dir>
 //   node scripts/zanger-scan.mjs --state-file <path>   # track prior hourly breakouts for NEW / faded deltas
 //   node scripts/zanger-scan.mjs --force-send          # set shouldSend=true even when 0 movers
@@ -40,6 +40,7 @@ import {
   getBriefingPhase,
   computeHourlyDelta,
   buildPortfolioAlerts,
+  buildPortfolioEarnings,
   buildEpList,
   buildThemeFlow,
   buildLeaderDamage,
@@ -55,6 +56,7 @@ export {
   getBriefingPhase,
   computeHourlyDelta,
   buildPortfolioAlerts,
+  buildPortfolioEarnings,
   buildEpList,
   buildThemeFlow,
   buildLeaderDamage,
@@ -243,14 +245,16 @@ export function isUsMarketHoliday(etYmd) {
   return holidays.has(etYmd);
 }
 
-// Hourly RTH email window: Mon-Fri, non-holiday, 09:55-16:25 ET.
+// Trading-day email windows: Mon-Fri, non-holiday,
+// pre-market brief (08:20-09:10 ET) and hourly RTH scans (09:55-16:25 ET).
 export function isMarketScanWindow(now = new Date()) {
   const s = formatEtStamp(now);
   const mins = s.hours * 60 + s.minutes;
   if (s.day === 0 || s.day === 6) return { open: false, reason: "weekend", et: s.pretty, date: s.date };
   if (isUsMarketHoliday(s.date)) return { open: false, reason: "us_market_holiday", et: s.pretty, date: s.date };
-  if (mins < 595 || mins > 985) return { open: false, reason: "outside_market_hours", et: s.pretty, date: s.date };
-  return { open: true, reason: "rth_window", et: s.pretty, date: s.date };
+  if (mins >= 500 && mins <= 550) return { open: true, reason: "premarket_window", et: s.pretty, date: s.date };
+  if (mins >= 595 && mins <= 985) return { open: true, reason: "rth_window", et: s.pretty, date: s.date };
+  return { open: false, reason: "outside_market_hours", et: s.pretty, date: s.date };
 }
 
 export async function runZangerScan({ offline = false, write = true, now = new Date(), stateFile = null } = {}) {
@@ -393,6 +397,7 @@ export async function runZangerScan({ offline = false, write = true, now = new D
     .sort((a, b) => b.rs - a.rs || (b.eps ?? 0) - (a.eps ?? 0) || (b.zvr ?? 0) - (a.zvr ?? 0));
 
   const portfolioAlerts = buildPortfolioAlerts({ mq, stockMap, liveQuotes, scoredMap });
+  const portfolioEarnings = buildPortfolioEarnings({ mq, stockMap });
   const epMovers = buildEpList({ mq, dash });
   const themeFlow = buildThemeFlow({ stockMap, tickerLayer, liveQuotes, zangerMovers });
   const leaderDamage = buildLeaderDamage({ scored, layers });
@@ -425,6 +430,7 @@ export async function runZangerScan({ offline = false, write = true, now = new D
     phase,
     delta,
     portfolioAlerts,
+    portfolioEarnings,
     epMovers,
     themeFlow,
     leaderDamage,
@@ -462,6 +468,7 @@ export async function runZangerScan({ offline = false, write = true, now = new D
       holdRate: delta.holdRate,
     },
     portfolioAlerts,
+    portfolioEarnings,
     epMovers,
     themeFlow,
     leaderDamage,
@@ -524,19 +531,22 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     fs.mkdirSync(emailOut, { recursive: true });
     const hasPortAlerts = (res.portfolioAlerts?.alerts?.length || 0) > 0;
     const hasDamage = (res.leaderDamage?.damagedLeaders?.length || 0) > 0;
+    const isPremarket = res.phase?.id === "premarket";
     const isCloseWrap = res.phase?.id === "close";
-    const shouldSend = forceSend || res.moverCount > 0 || hasPortAlerts || hasDamage || isCloseWrap;
-    const reason = res.moverCount > 0
-      ? "movers_found"
-      : hasPortAlerts
-        ? "portfolio_alerts"
-        : hasDamage
-          ? "leader_damage"
-          : isCloseWrap
-            ? "closing_bell_wrap"
-            : forceSend
-              ? "forced"
-              : "quiet_hour";
+    const shouldSend = forceSend || isPremarket || res.moverCount > 0 || hasPortAlerts || hasDamage || isCloseWrap;
+    const reason = isPremarket
+      ? "premarket_brief"
+      : res.moverCount > 0
+        ? "movers_found"
+        : hasPortAlerts
+          ? "portfolio_alerts"
+          : hasDamage
+            ? "leader_damage"
+            : isCloseWrap
+              ? "closing_bell_wrap"
+              : forceSend
+                ? "forced"
+                : "quiet_hour";
 
     fs.writeFileSync(path.join(emailOut, "email.html"), res.emailHtml, "utf8");
     fs.writeFileSync(path.join(emailOut, "email.txt"), res.markdown, "utf8");
@@ -551,6 +561,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
         newBreakoutCount: res.delta?.newBreakoutCount || 0,
         moverCount: res.moverCount,
         portfolioAlerts: res.portfolioAlerts?.alerts?.length || 0,
+        portfolioEarnings: res.portfolioEarnings?.length || 0,
         damagedLeaders: res.leaderDamage?.damagedLeaders?.length || 0,
         et: res.stamp.pretty,
       }, null, 2),
