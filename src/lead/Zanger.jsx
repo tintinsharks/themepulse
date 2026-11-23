@@ -394,7 +394,7 @@ function ZangerPanel({ A, stockMap, layers, themes, tickerLayer, tiers, onTicker
                   <th style={th(A, "left")}>Sig</th>
                   {col("ticker", "Ticker", "left")}
                   {col("layer", "Theme · Layer", "left")}
-                  {col("price", "Price")}
+                  {col("adr", "ADR")}
                   {col("chg", "Chg%")}
                   {col("fromOpen", "Open%")}
                   {col("zvr", "ZVR", "right", "Zanger Volume Ratio vs 10-day intraday volume profile")}
@@ -402,7 +402,6 @@ function ZangerPanel({ A, stockMap, layers, themes, tickerLayer, tiers, onTicker
                   {col("rs", "RS")}
                   {col("eps", "EPS", "right", EPS_TIP)}
                   {col("off52", "Off 52wH")}
-                  {col("adr", "ADR")}
                   {col("score", "Score", "right", "Composite Zanger score: ZVR + RS + Layer + CR + EPS + 52w proximity")}
                 </tr>
               </thead>
@@ -462,8 +461,8 @@ function ZangerPanel({ A, stockMap, layers, themes, tickerLayer, tiers, onTicker
                           {warn && <span style={{ color: "#f59e0b", fontSize: 9 }}>⚠</span>}
                         </button>
                       </td>
-                      <td style={{ ...td(A, "right"), color: A.text, fontFamily: "monospace" }}>
-                        {r.price != null ? r.price.toFixed(2) : "—"}
+                      <td style={{ ...td(A, "right"), fontFamily: "monospace", color: r.adr != null && r.adr >= 4 ? A.cyan : A.textDim }}>
+                        {r.adr != null ? `${r.adr.toFixed(1)}%` : "—"}
                       </td>
                       <td style={{ ...td(A, "right"), color: chgColor, fontWeight: 700, fontFamily: "monospace" }}>
                         <div>{fmtPct(r.chg, 2)}</div>
@@ -484,9 +483,6 @@ function ZangerPanel({ A, stockMap, layers, themes, tickerLayer, tiers, onTicker
                       </td>
                       <td style={{ ...td(A, "right"), fontFamily: "monospace", color: r.off52 != null && r.off52 >= -5 ? A.green : A.textDim }}>
                         {fmtPct(r.off52, 1)}
-                      </td>
-                      <td style={{ ...td(A, "right"), fontFamily: "monospace", color: r.adr != null && r.adr >= 4 ? A.cyan : A.textDim }}>
-                        {r.adr != null ? `${r.adr.toFixed(1)}%` : "—"}
                       </td>
                       <td style={{ ...td(A, "right"), fontWeight: 800, fontFamily: "monospace", color: r.score >= 70 ? "#fbbf24" : r.score >= 55 ? A.green : A.textDim }}>
                         {r.score.toFixed(1)}
