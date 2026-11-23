@@ -19,6 +19,7 @@ export { LEAD_INDEXES, zvrFor, useRvolProfiles, useJson, TierMark, computeTiers 
 const BriefPanel = React.lazy(() => import("./lead/Brief.jsx"));
 const ScannerPanel = React.lazy(() => import("./lead/Scanner.jsx"));
 const RotationView = React.lazy(() => import("./lead/Rotation.jsx"));
+const ZangerPanel = React.lazy(() => import("./lead/Zanger.jsx"));
 
 export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTickerClick, chartTicker, chartSlot, indexQuotes, pipeline, view = "lead" }) {
   const rot = useJson("/data/rs_rotation.json");
@@ -330,7 +331,7 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
       @media (max-width: 520px) {
         .tp-hide-sm { display: none; }
       }`}</style>
-      {view === "scanner" || view === "brief" ? (
+      {view === "scanner" || view === "brief" || view === "zanger" ? (
         <div style={{ flex: "1 1 640px", minWidth: 0 }} ref={stocksRef}>
           {stockTab === "layer" && shownLayer && (
             <Card A={A} title={`${shownLayer.key.startsWith("t:") ? "Theme" : "Layer"}: ${shownLayer.name}`} right={<button onClick={closeLayer} title="Close this layer"
@@ -343,6 +344,9 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
             ? <BriefPanel A={A} themes={themes} layers={layers} stockMap={stockMapX} tickerLayer={tickerLayer} members={members}
                 brk={stocks.brk} pipeline={pipeline} dates={dates} theme={theme} lb={layerBreadth}
                 onTicker={onTickerClick} chartTicker={chartTicker} onLayer={(l) => showLayer(l)} onTheme={showTheme} layerOfTicker={layerOfTicker} />
+            : view === "zanger"
+            ? <ZangerPanel A={A} stockMap={stockMapX} layers={layers} themes={themes} tickerLayer={tickerLayer} tiers={tiers}
+                onTicker={onTickerClick} chartTicker={chartTicker} onLayer={layerOfTicker} />
             : <ScannerPanel A={A} stockMap={stockMapX} onTicker={onTickerClick} chartTicker={chartTicker} tickerLayer={tickerLayer} onLayer={layerOfTicker} />}
         </div>
       ) : (

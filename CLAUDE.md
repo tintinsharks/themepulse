@@ -9,9 +9,10 @@ Vite + React 18 single-page dashboard for CAN SLIM / momentum growth stock resea
 
 ## Architecture
 - **Root app**: `src/App.jsx` (~3,150 lines) — theme context (Aria dark/light + zoom), pipeline data loading, quote manager (`useLiveQuotes`), userdata sync (`useServerState`), `ChartPanelInline` + `DailyChartSVG` + `EarningsBox`, trade alerts, and topbar navigation.
-- **Primary views**: Three views switched via topbar (`LEADERS`, `SCANNER`, `BRIEF`), orchestrated by `src/LeadershipView.jsx`:
-  - `src/lead/math.js` — Pure JSX-free ranking, classification, ZVR, tier, EPS, and RS math (unit-tested in `test/leadMath.test.js`).
+- **Primary views**: Four views switched via topbar (`LEADERS`, `ZANGER`, `SCANNER`, `BRIEF`), orchestrated by `src/LeadershipView.jsx`:
+  - `src/lead/math.js` — Pure JSX-free ranking, classification, ZVR, tier, EPS, RS, and Dan Zanger scoring math (unit-tested in `test/leadMath.test.js` & `test/zangerScan.test.js`).
   - `src/lead/core.jsx` — Shared data hooks (`useJson` with in-memory/in-flight cache), market gate, index panel, themes/layers boards, stock tables, intraday scan, extended-hours movers, ticker flags.
+  - `src/lead/Zanger.jsx` (lazy-loaded) — Live Dan Zanger intraday volume movers & leading theme leaders tab (60s RTH updates via `quoteStore`).
   - `src/lead/Scanner.jsx` (lazy-loaded) — Live scanner view.
   - `src/lead/Brief.jsx` (lazy-loaded) — Daily PM/AM brief view.
   - `src/lead/Rotation.jsx` (lazy-loaded) — Subtheme/layer rotation view.

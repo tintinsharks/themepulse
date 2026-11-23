@@ -28,10 +28,11 @@ import {
   withEpsRating,
   computeTiers,
   pinReason,
-  rsLeads,
-  zvrFor,
   etClock,
+  scoreZangerCandidate,
 } from "../src/lead/math.js";
+
+export { scoreZangerCandidate };
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -116,16 +117,6 @@ async function fetchTickerHeadlines(tickers, token) {
   return out;
 }
 
-function closingRange(q, s) {
-  const px = q?.price ?? s?.price ?? s?.close ?? null;
-  const hi = q?.dayHigh ?? q?.high ?? null;
-  const lo = q?.dayLow ?? q?.low ?? null;
-  if (px != null && hi != null && lo != null && hi > lo) {
-    return Math.max(0, Math.min(100, Math.round(((px - lo) / (hi - lo)) * 100)));
-  }
-  return s?.cr_pct != null ? Math.round(s.cr_pct) : null;
-}
-
 function formatEtStamp(now = new Date()) {
   const et = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
   const p2 = (n) => String(n).padStart(2, "0");
@@ -133,84 +124,6 @@ function formatEtStamp(now = new Date()) {
   const hhmm = `${p2(et.getHours())}${p2(et.getMinutes())}`;
   const pretty = `${date} ${p2(et.getHours())}:${p2(et.getMinutes())} ET`;
   return { date, hhmm, pretty };
-}
-
-export function scoreZangerCandidate({ s, q, layer, tier, profiles, now = new Date() }) {
-  if (!s?.ticker) return null;
-  if (pinReason(s)) return null;
-  if ((s.avg_dollar_vol_raw ?? 0) < 20e6) return null;
-  if (!s.above_50ma) return null;
-
-  const px = q?.price ?? s.price ?? s.close ?? null;
-  const chg = q?.change ?? s.change_pct ?? null;
-  const cr = closingRange(q, s);
-  const adr = s.adr20 ?? s.adr_pct ?? null;
-  const off52 = s.off_52w_high ?? s.pct_from_high ?? null;
-  const rs = s.rs_rank ?? 0;
-  const eps = s.eps_rating ?? null;
-
-  // Zanger Volume Ratio (1.0 = normal pace, 2.0 = 200% pace)
-  let zvr = q ? zvrFor(s, q, profiles, now) : null;
-  if (zvr == null && s.rel_volume > 0) zvr = s.rel_volume;
-
-  const rsl = Boolean(rsLeads(s));
-  const fromOpen = q?.open > 0 && px > 0 ? ((px / q.open) - 1) * 100 : null;
-
-  // Dan Zanger intraday volume mover filter:
-  //   - In a leading or emerging layer (or RS 90+ leader)
-  //   - Volume surge: ZVR >= 1.5x normal pace
-  //   - Price expansion: green on the day (>= +1.5% or >= 0.75x ADR)
-  //   - Strong close/intraday location: CR >= 60% (if available)
-  //   - Breakout zone: within 20% of 52-week high & RS >= 75
-  const inStrongLayer = layer && (layer.st === "lead" || layer.st === "emerg");
-  const qualifiesZanger =
-    (inStrongLayer || rs >= 90) &&
-    zvr != null && zvr >= 1.5 &&
-    chg != null && chg >= Math.min(1.5, (adr ?? 3) * 0.6) &&
-    (cr == null || cr >= 60) &&
-    (off52 == null || off52 >= -20) &&
-    rs >= 75;
-
-  const isBreakout =
-    qualifiesZanger &&
-    zvr >= 2.0 &&
-    chg >= 3.0 &&
-    (cr == null || cr >= 70) &&
-    (off52 == null || off52 >= -10);
-
-  // Composite score: ZVR pace + RS + Layer strength + CR + EPS + 52w proximity
-  const zvrPts = Math.min(35, (Math.min(zvr ?? 0, 4.0) / 4.0) * 35);
-  const rsPts = (rs / 100) * 25;
-  const layerPts = layer?.st === "lead" ? 15 : layer?.st === "emerg" ? 9 : 0;
-  const crPts = cr != null ? (cr / 100) * 10 : 5;
-  const epsPts = eps != null ? (eps / 100) * 10 : 4;
-  const proxPts = off52 != null ? Math.max(0, 5 + off52 * 0.25) : 2;
-  const score = Math.round((zvrPts + rsPts + layerPts + crPts + epsPts + proxPts) * 10) / 10;
-
-  return {
-    ticker: s.ticker,
-    company: s.company || "",
-    theme: layer?.theme || s.sector || "—",
-    layer: layer?.name || s.industry || "—",
-    layerStatus: layer?.st || "lag",
-    layerRank: layer?.now ?? null,
-    tier,
-    price: px,
-    chg,
-    fromOpen,
-    zvr: zvr != null ? Math.round(zvr * 100) / 100 : null,
-    cr,
-    rs,
-    eps,
-    epsAccel: Boolean(s.eps_accel),
-    adr: adr != null ? Math.round(adr * 10) / 10 : null,
-    off52: off52 != null ? Math.round(off52 * 10) / 10 : null,
-    rsl,
-    qualifiesZanger,
-    isBreakout,
-    score,
-    pipelineNews: (s._newsPipe || []).slice(0, 2),
-  };
 }
 
 function fmtPct(v, digits = 1) {
