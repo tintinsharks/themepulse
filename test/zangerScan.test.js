@@ -4,6 +4,13 @@ import {
   scoreZangerCandidate,
   isUsMarketHoliday,
   isMarketScanWindow,
+  getBriefingPhase,
+  computeHourlyDelta,
+  buildPortfolioAlerts,
+  buildEpList,
+  buildThemeFlow,
+  buildLeaderDamage,
+  buildOnDeckRsl,
   buildMarketSummary,
   buildEmailSubject,
   buildEmailHtml,
@@ -240,4 +247,119 @@ test("buildEmailSubject and buildEmailHtml format breakouts, ADR column, and dee
   assert.ok(html.includes("4.2%"));
   assert.ok(html.includes("Compute &lt;Silicon&gt;"));
   assert.ok(html.includes("NVIDIA &amp; Co"));
+});
+
+test("briefing intelligence modules handle phase, hourly deltas, portfolio alerts, theme flow, leader damage, and on-deck RSL", () => {
+  // 1. Session phases
+  assert.equal(getBriefingPhase({ hours: 10, minutes: 5 }).id, "open");
+  assert.equal(getBriefingPhase({ hours: 13, minutes: 0 }).id, "midday");
+  assert.equal(getBriefingPhase({ hours: 16, minutes: 2 }).id, "close");
+
+  // 2. Hourly delta: NEW breakout + faded/squatted breakout + hold rate
+  const prevState = {
+    date: "2026-11-23",
+    seenBreakouts: ["OLD1", "FADE1"],
+    seenMovers: ["OLD1", "FADE1"],
+    priorBreakouts: {
+      OLD1: { chg: 4.0, cr: 85, theme: "AI Infra" },
+      FADE1: { chg: 5.0, cr: 80, theme: "Cyber" },
+    },
+  };
+  const movers = [
+    { ticker: "OLD1", theme: "AI Infra", isBreakout: true, breakoutTypes: ["ZANGER"], chg: 4.8, cr: 88, zvr: 2.4 },
+    { ticker: "NEW1", theme: "Optical", isBreakout: true, breakoutTypes: ["SB4%"], chg: 5.2, cr: 90, zvr: 2.1 },
+  ];
+  const scoredMap = new Map([
+    ["OLD1", movers[0]],
+    ["NEW1", movers[1]],
+    ["FADE1", { ticker: "FADE1", theme: "Cyber", isBreakout: false, chg: 0.4, cr: 18, zvr: 2.0 }],
+  ]);
+  const delta = computeHourlyDelta({ prevState, today: "2026-11-23", zangerMovers: movers, scoredMap, liveQuotes: new Map() });
+  assert.equal(delta.hasPriorState, true);
+  assert.deepEqual(delta.newBreakouts.map((m) => m.ticker), ["NEW1"]);
+  assert.deepEqual(delta.fadedBreakouts.map((f) => f.ticker), ["FADE1"]);
+  assert.equal(delta.holdRate.holding, 2);
+  assert.equal(delta.holdRate.totalToday, 3);
+  assert.equal(delta.holdRate.pct, 67);
+
+  // 3. Portfolio alerts
+  const port = buildPortfolioAlerts({
+    mq: {
+      portfolio: [{ ticker: "NEW1", chg: 5.2, rvol: 2.1 }, { ticker: "DUMP", chg: -4.1, rvol: 2.3 }],
+      watchlist: [{ ticker: "ERSTK", chg: 0.5, rvol: 0.9 }],
+    },
+    stockMap: { ERSTK: { earnings_days: 2 } },
+    scoredMap,
+    liveQuotes: new Map([["DUMP", { price: 96, dayHigh: 101, dayLow: 95.5, change: -4.1 }]]),
+  });
+  assert.equal(port.alerts.length, 3);
+  assert.equal(port.alerts[0].ticker, "DUMP"); // heavy sell severity > breakout in PORT
+  assert.ok(port.alerts.some((a) => a.ticker === "ERSTK" && a.tags.some((t) => t.label.includes("ER 2d"))));
+
+  // 4. EP movers
+  const eps = buildEpList({
+    mq: { epCandidates: [{ ticker: "EP1", chg: 12.5, volume: 12e6, category: "LAVA", headlines: ["Beat & raise"] }, { ticker: "LOW", chg: 1.5 }] },
+  });
+  assert.equal(eps.length, 1);
+  assert.equal(eps[0].ticker, "EP1");
+
+  // 5. Intraday theme money flow
+  const sm = {};
+  const tl = {};
+  for (let i = 1; i <= 4; i++) {
+    sm[`A${i}`] = { avg_dollar_vol_raw: 50e6, change_pct: 3.0 };
+    tl[`A${i}`] = { theme: "AI Infra" };
+    sm[`B${i}`] = { avg_dollar_vol_raw: 50e6, change_pct: -2.0 };
+    tl[`B${i}`] = { theme: "Retail" };
+  }
+  const flow = buildThemeFlow({ stockMap: sm, tickerLayer: tl, liveQuotes: new Map(), zangerMovers: movers });
+  assert.equal(flow.hottest[0].theme, "AI Infra");
+  assert.equal(flow.hottest[0].avgChg, 3);
+  assert.equal(flow.hottest[0].breakouts, 1);
+
+  // 6. Leader damage + 7. On-deck RSL
+  const dmg = buildLeaderDamage({
+    scored: [
+      { ticker: "HIT1", theme: "AI", layer: "GPU", rs: 95, tier: "lead", chg: -4.2, zvr: 2.1, cr: 15 },
+      { ticker: "OK1", theme: "AI", layer: "GPU", rs: 95, tier: "lead", chg: -1.0, zvr: 1.0, cr: 60 },
+    ],
+    layers: [{ theme: "AI", name: "GPU", st: "lead", now: 92, flags: [["distrib", "warn"]] }],
+  });
+  assert.deepEqual(dmg.damagedLeaders.map((d) => d.ticker), ["HIT1"]);
+  assert.equal(dmg.warnLayers.length, 1);
+
+  const deck = buildOnDeckRsl({
+    scored: [
+      { ticker: "BASE1", rsl: true, isBreakout: false, rs: 94, off52: -7 },
+      { ticker: "BO1", rsl: true, isBreakout: true, rs: 96, off52: -1 },
+    ],
+  });
+  assert.deepEqual(deck.map((d) => d.ticker), ["BASE1"]);
+
+  // Verify closing bell wrap HTML renders all 7 sections cleanly
+  const closeHtml = buildEmailHtml({
+    stamp: { pretty: "2026-11-23 16:00 ET", hours: 16, minutes: 0 },
+    mode: "Live Intraday",
+    clock: { session: "2026-11-23", rth: false },
+    pipelineDate: "2026-11-23",
+    leadingLayers: [],
+    emergingLayers: [],
+    zangerMovers: delta.enrichedMovers.map((m) => ({ ...m, layer: "Core", rs: 92, adr: 4.5, off52: -2, score: 80, earningsDays: 2 })),
+    headlines: new Map(),
+    phase: getBriefingPhase({ hours: 16, minutes: 0 }),
+    delta,
+    portfolioAlerts: port,
+    epMovers: eps,
+    themeFlow: flow,
+    leaderDamage: dmg,
+    onDeckRsl: deck,
+  });
+  assert.ok(closeHtml.includes("CLOSING BELL WRAP"));
+  assert.ok(closeHtml.includes("Portfolio &amp; Watchlist Pulse"));
+  assert.ok(closeHtml.includes("EP / Gap-and-Go Movers"));
+  assert.ok(closeHtml.includes("Faded / Squatted since last hour:"));
+  assert.ok(closeHtml.includes("ER 2d"));
+  assert.ok(closeHtml.includes("Today&apos;s Intraday Theme Money Flow"));
+  assert.ok(closeHtml.includes("Leader Damage / Distribution Watch"));
+  assert.ok(closeHtml.includes("On Deck — RS-Line New Highs Basing Near Highs"));
 });

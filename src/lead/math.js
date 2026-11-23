@@ -545,6 +545,8 @@ export function scoreZangerCandidate({ s, q, layer, tier, profiles, now = new Da
     eps,
     epsTip: s.eps_tip || "",
     epsAccel: Boolean(s.eps_accel),
+    earningsDays: s.earnings_days ?? null,
+    earningsDisplay: s.earnings_display || "",
     adr: adr != null ? Math.round(adr * 10) / 10 : null,
     off52: off52 != null ? Math.round(off52 * 10) / 10 : null,
     rsl,

@@ -2,15 +2,16 @@
 // ThemePulse — Leading Stocks in Leading Themes + Dan Zanger Intraday Volume Movers
 //
 // Uses ThemePulse's own pure scoring engine (src/lead/math.js) over public/ data
-// plus live intraday quotes/news from https://themepulse.vercel.app/api/live.
+// plus live intraday quotes/news/market-quality from https://themepulse.vercel.app.
 //
 // Usage:
-//   node scripts/zanger-scan.mjs                # live if TP_PIN set, else pipeline EOD fallback
-//   node scripts/zanger-scan.mjs --offline      # skip network calls, use local pipeline JSON
-//   node scripts/zanger-scan.mjs --no-write     # print report to stdout without writing reports/
-//   node scripts/zanger-scan.mjs --json         # print structured JSON summary to stdout
+//   node scripts/zanger-scan.mjs                       # live if TP_PIN set, else pipeline EOD fallback
+//   node scripts/zanger-scan.mjs --offline             # skip network calls, use local pipeline JSON
+//   node scripts/zanger-scan.mjs --no-write            # print report to stdout without writing reports/
+//   node scripts/zanger-scan.mjs --json                # print structured JSON summary to stdout
 //   node scripts/zanger-scan.mjs --market-hours-only   # exit 0 quietly outside Mon-Fri 10:00-16:00 ET / NYSE holidays
 //   node scripts/zanger-scan.mjs --email-out <dir>     # write email.html, email.txt, meta.json to <dir>
+//   node scripts/zanger-scan.mjs --state-file <path>   # track prior hourly breakouts for NEW / faded deltas
 //   node scripts/zanger-scan.mjs --force-send          # set shouldSend=true even when 0 movers
 //
 // Env (optional, for live intraday quotes & headlines):
@@ -32,11 +33,37 @@ import {
   computeTiers,
   pinReason,
   etClock,
-  closingRange,
   scoreZangerCandidate,
 } from "../src/lead/math.js";
+import {
+  INDEX_META,
+  getBriefingPhase,
+  computeHourlyDelta,
+  buildPortfolioAlerts,
+  buildEpList,
+  buildThemeFlow,
+  buildLeaderDamage,
+  buildOnDeckRsl,
+  buildMarketSummary,
+  buildEmailSubject,
+  buildEmailHtml,
+  buildMarkdown,
+} from "./zanger-briefing.mjs";
 
-export { scoreZangerCandidate };
+export {
+  scoreZangerCandidate,
+  getBriefingPhase,
+  computeHourlyDelta,
+  buildPortfolioAlerts,
+  buildEpList,
+  buildThemeFlow,
+  buildLeaderDamage,
+  buildOnDeckRsl,
+  buildMarketSummary,
+  buildEmailSubject,
+  buildEmailHtml,
+  buildMarkdown,
+};
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -53,9 +80,13 @@ function loadEnvLocal() {
 }
 
 function readJson(rel) {
-  const p = path.join(ROOT, rel);
+  const p = path.isAbsolute(rel) ? rel : path.join(ROOT, rel);
   if (!fs.existsSync(p)) return null;
-  return JSON.parse(fs.readFileSync(p, "utf8"));
+  try {
+    return JSON.parse(fs.readFileSync(p, "utf8"));
+  } catch {
+    return null;
+  }
 }
 
 async function getToken() {
@@ -153,8 +184,8 @@ function utcYmd(dt) {
 function observedFixedHoliday(year, month, day) {
   const dt = new Date(Date.UTC(year, month - 1, day));
   const dow = dt.getUTCDay();
-  if (dow === 6) dt.setUTCDate(dt.getUTCDate() - 1); // Saturday -> Friday
-  else if (dow === 0) dt.setUTCDate(dt.getUTCDate() + 1); // Sunday -> Monday
+  if (dow === 6) dt.setUTCDate(dt.getUTCDate() - 1);
+  else if (dow === 0) dt.setUTCDate(dt.getUTCDate() + 1);
   return utcYmd(dt);
 }
 
@@ -173,7 +204,6 @@ function lastWeekdayHoliday(year, month, weekday) {
 }
 
 function goodFridayHoliday(year) {
-  // Anonymous Gregorian Easter algorithm, minus 2 days
   const a = year % 19;
   const b = Math.floor(year / 100);
   const c = year % 100;
@@ -198,588 +228,32 @@ export function isUsMarketHoliday(etYmd) {
   const year = Number(etYmd.slice(0, 4));
   if (!Number.isFinite(year)) return false;
   const holidays = new Set([
-    observedFixedHoliday(year, 1, 1),      // New Year's Day
-    observedFixedHoliday(year + 1, 1, 1),  // Next New Year's observed on Dec 31 if Jan 1 is Saturday
-    nthWeekdayHoliday(year, 1, 1, 3),      // MLK Day (3rd Mon Jan)
-    nthWeekdayHoliday(year, 2, 1, 3),      // Presidents' Day (3rd Mon Feb)
-    goodFridayHoliday(year),               // Good Friday
-    lastWeekdayHoliday(year, 5, 1),        // Memorial Day (last Mon May)
-    observedFixedHoliday(year, 6, 19),     // Juneteenth
-    observedFixedHoliday(year, 7, 4),      // Independence Day
-    nthWeekdayHoliday(year, 9, 1, 1),      // Labor Day (1st Mon Sep)
-    nthWeekdayHoliday(year, 11, 4, 4),     // Thanksgiving (4th Thu Nov)
-    observedFixedHoliday(year, 12, 25),    // Christmas
+    observedFixedHoliday(year, 1, 1),
+    observedFixedHoliday(year + 1, 1, 1),
+    nthWeekdayHoliday(year, 1, 1, 3),
+    nthWeekdayHoliday(year, 2, 1, 3),
+    goodFridayHoliday(year),
+    lastWeekdayHoliday(year, 5, 1),
+    observedFixedHoliday(year, 6, 19),
+    observedFixedHoliday(year, 7, 4),
+    nthWeekdayHoliday(year, 9, 1, 1),
+    nthWeekdayHoliday(year, 11, 4, 4),
+    observedFixedHoliday(year, 12, 25),
   ]);
   return holidays.has(etYmd);
 }
 
 // Hourly RTH email window: Mon-Fri, non-holiday, 09:55-16:25 ET.
-// Covers 10:00 AM-4:00 PM ET across both EDT and EST when triggered by UTC cron
-// (0 14-21 * * 1-5), tolerating up to 25m GitHub Actions cron jitter at the 4:00 PM close
-// while cleanly skipping 9:00 AM EST and 5:00 PM EDT.
 export function isMarketScanWindow(now = new Date()) {
   const s = formatEtStamp(now);
   const mins = s.hours * 60 + s.minutes;
-  if (s.day === 0 || s.day === 6) return { open: false, reason: "weekend", et: s.pretty };
-  if (isUsMarketHoliday(s.date)) return { open: false, reason: "us_market_holiday", et: s.pretty };
-  if (mins < 595 || mins > 985) return { open: false, reason: "outside_market_hours", et: s.pretty };
-  return { open: true, reason: "rth_window", et: s.pretty };
+  if (s.day === 0 || s.day === 6) return { open: false, reason: "weekend", et: s.pretty, date: s.date };
+  if (isUsMarketHoliday(s.date)) return { open: false, reason: "us_market_holiday", et: s.pretty, date: s.date };
+  if (mins < 595 || mins > 985) return { open: false, reason: "outside_market_hours", et: s.pretty, date: s.date };
+  return { open: true, reason: "rth_window", et: s.pretty, date: s.date };
 }
 
-function fmtPct(v, digits = 1) {
-  if (v == null || !Number.isFinite(v)) return "—";
-  return `${v > 0 ? "+" : ""}${v.toFixed(digits)}%`;
-}
-
-function escHtml(v) {
-  return String(v ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-const BO_EMAIL_COLORS = {
-  ZANGER: { bg: "#fef3c7", fg: "#92400e", bd: "#f59e0b" },
-  "SB4%": { bg: "#dcfce7", fg: "#166534", bd: "#22c55e" },
-  "SB$":  { bg: "#cffafe", fg: "#155e75", bd: "#06b6d4" },
-  QMAG:   { bg: "#f3e8ff", fg: "#6b21a8", bd: "#a855f7" },
-};
-
-const INDEX_META = [
-  ["SPY", "S&P 500"],
-  ["QQQ", "Nasdaq 100"],
-  ["IWM", "Russell 2000"],
-  ["DIA", "Dow 30"],
-];
-
-function parseNum(v) {
-  if (v == null || v === "") return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
-
-function indexMaPosture(price, ma) {
-  if (!ma) return null;
-  const p = price ?? ma.price;
-  if (p == null) return null;
-  const a10 = ma.ema10 ? p >= ma.ema10 : ma.above_ema10;
-  const a21 = ma.ema21 ? p >= ma.ema21 : ma.above_ema21;
-  const a50 = ma.sma50 ? p >= ma.sma50 : ma.above_sma50;
-  const a200 = ma.sma200 ? p >= ma.sma200 : ma.above_sma200;
-  if (a10 && a21 && a50 && a200) return "Above all MAs";
-  if (!a10 && a21 && a50 && a200) return "<10EMA, >21/50/200";
-  if (!a21 && a50 && a200) return "<21EMA, >50/200";
-  if (!a50 && a200) return "<50SMA, >200";
-  if (!a50 && !a200) return "Below 50 & 200";
-  const parts = [];
-  if (a21) parts.push(">21");
-  if (a50) parts.push(">50");
-  if (a200) parts.push(">200");
-  return parts.length ? parts.join("/") : "Below key MAs";
-}
-
-export function buildMarketSummary({ mq = null, monitor = null, liveQuotes = null, dashStocks = [], zangerMovers = [] } = {}) {
-  const tapeMap = new Map();
-  for (const item of mq?.tape || []) {
-    if (item?.ticker) {
-      tapeMap.set(item.ticker, {
-        price: parseNum(item.price),
-        change: parseNum(item.change),
-      });
-    }
-  }
-
-  const getLive = (tk) => (liveQuotes instanceof Map ? liveQuotes.get(tk) : liveQuotes?.[tk]) || null;
-
-  const indices = INDEX_META.map(([ticker, name]) => {
-    const q = getLive(ticker);
-    const t = tapeMap.get(ticker);
-    const ma = monitor?.indices?.[ticker] || null;
-    const price = q?.rthPrice ?? q?.price ?? t?.price ?? ma?.price ?? null;
-    const change = q?.change ?? t?.change ?? null;
-    const cr = q ? closingRange(q, null) : null;
-    const maStatus = indexMaPosture(price, ma);
-    return { ticker, name, price, change, cr, maStatus };
-  });
-
-  const vixTape = tapeMap.get("VIX");
-  const vixLevel = vixTape?.price ?? parseNum(mq?.scores?.volatility?.details?.vix_level?.value);
-  const vixChange = vixTape?.change ?? parseNum(String(mq?.scores?.volatility?.details?.vix_trend?.value || "").replace("%", ""));
-  const vix = vixLevel != null ? {
-    price: vixLevel,
-    change: vixChange,
-    label: mq?.scores?.volatility?.details?.vix_level?.label || (vixLevel < 16 ? "Low" : vixLevel < 22 ? "Normal" : vixLevel < 28 ? "Elevated" : "Extreme"),
-  } : null;
-
-  const tnxTape = tapeMap.get("TNX");
-  const tnx = tnxTape?.price != null ? { price: tnxTape.price, change: tnxTape.change } : null;
-
-  // Breadth from live universe + dashboard/monitor
-  const totalStocks = dashStocks.length || 0;
-  const pctAbove50 = mq?.breadthStats?.sma50Above?.pct
-    ?? (totalStocks ? Math.round(dashStocks.filter((s) => s.above_50ma === 1 || s.sma50_above === 1).length / totalStocks * 100) : null);
-  const pctAbove200 = mq?.breadthStats?.sma200Above?.pct
-    ?? (totalStocks ? Math.round(dashStocks.filter((s) => s.above_200ma === 1 || s.sma200_above === 1).length / totalStocks * 100) : null);
-
-  let liveAdv = 0, liveDec = 0;
-  if (liveQuotes instanceof Map) {
-    for (const [tk, q] of liveQuotes.entries()) {
-      if (INDEX_META.some(([i]) => i === tk)) continue;
-      if (q?.change == null) continue;
-      if (q.change > 0) liveAdv++;
-      else if (q.change < 0) liveDec++;
-    }
-  }
-  const liveTotal = liveAdv + liveDec;
-  const livePctAdv = liveTotal >= 20 ? Math.round((liveAdv / liveTotal) * 100) : null;
-
-  const cur = monitor?.current || {};
-  const breadth = {
-    pctAbove50,
-    pctAbove200,
-    up4: cur.up_4pct ?? null,
-    down4: cur.down_4pct ?? null,
-    t2108: cur.t2108 ?? null,
-    ratio5d: cur.ratio_5d ?? null,
-    liveAdv,
-    liveDec,
-    livePctAdv,
-  };
-
-  // Sector rotation from /api/market-quality
-  const secList = Array.isArray(mq?.sectors) ? mq.sectors : [];
-  const sectors = secList.length ? {
-    positive: secList.filter((s) => (s.change ?? 0) > 0).length,
-    total: secList.length,
-    leaders: secList.slice(0, 3),
-    laggards: secList.slice(-3).reverse(),
-  } : null;
-
-  const decision = mq?.decision ?? null;
-  const score = mq?.total ?? null;
-  const positionSize = mq?.position_size ?? null;
-  const regime = mq?.scores?.trend?.details?.regime?.value ?? null;
-  const fomc = mq?.scores?.macro?.details?.fomc ?? null;
-
-  // Build crisp, trader-focused market commentary
-  const commentary = [];
-  const spy = indices.find((i) => i.ticker === "SPY");
-  const qqq = indices.find((i) => i.ticker === "QQQ");
-  const iwm = indices.find((i) => i.ticker === "IWM");
-
-  if (score != null && decision) {
-    const tone = decision === "YES"
-      ? "Constructive tape — favors active swing exposure with normal sizing."
-      : decision === "CAUTION"
-        ? "Mixed/selective tape — stick to A+ leaders and reduced sizing."
-        : "Defensive tape — capital preservation mode; avoid forcing breakouts.";
-    commentary.push(`Market Quality ${score}/100 (${decision}${positionSize ? ` · ${positionSize} size` : ""}${regime ? ` · ${regime}` : ""}). ${tone}`);
-  } else if (spy?.maStatus) {
-    commentary.push(`Index posture: SPY is ${spy.maStatus}${qqq?.maStatus ? `, QQQ is ${qqq.maStatus}` : ""}${iwm?.maStatus ? `, IWM is ${iwm.maStatus}` : ""}.`);
-  }
-
-  // Index action + leadership divergence + intraday closing range
-  const idxChgs = indices.filter((i) => i.change != null);
-  if (idxChgs.length) {
-    const sorted = [...idxChgs].sort((a, b) => b.change - a.change);
-    const best = sorted[0], worst = sorted[sorted.length - 1];
-    const parts = indices
-      .filter((i) => i.change != null)
-      .map((i) => `${i.ticker} ${fmtPct(i.change, 2)}${i.cr != null ? ` (CR ${i.cr}%)` : ""}`);
-    let tapeNote = `Index action: ${parts.join(" · ")}.`;
-    if (best.change - worst.change >= 0.4) {
-      tapeNote += ` ${best.ticker} leading vs ${worst.ticker} lagging.`;
-    }
-    const avgCr = idxChgs.filter((i) => i.cr != null);
-    if (avgCr.length >= 2) {
-      const meanCr = avgCr.reduce((a, b) => a + b.cr, 0) / avgCr.length;
-      if (meanCr >= 72) tapeNote += " Buyers are in control near session highs.";
-      else if (meanCr <= 32) tapeNote += " Indices are fading near session lows — watch for failed breakouts.";
-    }
-    commentary.push(tapeNote);
-  }
-
-  // Breadth & sector rotation
-  const bParts = [];
-  if (livePctAdv != null) bParts.push(`${livePctAdv}% of liquid leaders green intraday (${liveAdv}↑ / ${liveDec}↓)`);
-  if (sectors) {
-    const topStr = sectors.leaders.slice(0, 2).map((s) => `${s.ticker} ${fmtPct(s.change, 1)}`).join(", ");
-    const botStr = sectors.laggards.slice(0, 2).map((s) => `${s.ticker} ${fmtPct(s.change, 1)}`).join(", ");
-    bParts.push(`${sectors.positive}/${sectors.total} sectors positive (leaders: ${topStr}; laggards: ${botStr})`);
-  }
-  if (pctAbove50 != null) bParts.push(`${pctAbove50}% of stocks >50MA`);
-  if (breadth.up4 != null && breadth.down4 != null) {
-    bParts.push(`Stockbee 4% movers ${breadth.up4}↑ vs ${breadth.down4}↓${breadth.t2108 != null ? ` (T2108 ${breadth.t2108}%)` : ""}`);
-  }
-  if (bParts.length) commentary.push(`Breadth & rotation: ${bParts.join("; ")}.`);
-
-  // Volatility / Macro / FOMC + breakout tape alignment
-  const mParts = [];
-  if (vix) {
-    mParts.push(`VIX ${vix.price.toFixed(2)}${vix.change != null ? ` (${fmtPct(vix.change, 1)})` : ""} — ${vix.label.toLowerCase()} volatility`);
-  }
-  if (tnx) {
-    mParts.push(`10Y yield ${tnx.price.toFixed(2)}%${tnx.change != null ? ` (${fmtPct(tnx.change, 1)})` : ""}`);
-  }
-  if (fomc && (fomc.label === "Event risk!" || fomc.label === "Caution")) {
-    mParts.push(`FOMC ${fomc.value} (${fomc.label})`);
-  }
-  const boCount = (zangerMovers || []).filter((m) => m.isBreakout).length;
-  if (boCount > 0 && decision === "NO") {
-    mParts.push(`${boCount} breakout${boCount === 1 ? "" : "s"} firing against a weak tape — demand top RS/CR and tight risk`);
-  } else if (boCount >= 8 && decision === "YES") {
-    mParts.push(`${boCount} breakouts confirming healthy risk-on participation`);
-  }
-  if (mParts.length) commentary.push(`Risk & macro: ${mParts.join(" · ")}.`);
-
-  return {
-    decision,
-    score,
-    positionSize,
-    regime,
-    indices,
-    vix,
-    tnx,
-    sectors,
-    breadth,
-    fomc,
-    commentary,
-  };
-}
-
-export function buildEmailSubject({ stamp, zangerMovers, market }) {
-  const bos = (zangerMovers || []).filter((m) => m.isBreakout);
-  const timeShort = stamp?.pretty ? stamp.pretty.slice(11) : "";
-  const spy = market?.indices?.find((i) => i.ticker === "SPY");
-  const qqq = market?.indices?.find((i) => i.ticker === "QQQ");
-  const idxBits = [
-    spy?.change != null ? `SPY ${fmtPct(spy.change, 1)}` : null,
-    qqq?.change != null ? `QQQ ${fmtPct(qqq.change, 1)}` : null,
-  ].filter(Boolean);
-  const idxTag = idxBits.length ? ` | ${idxBits.join(" ")}` : "";
-
-  if (bos.length > 0) {
-    const top = bos.slice(0, 3).map((m) => m.ticker).join(", ");
-    const more = bos.length > 3 ? ` +${bos.length - 3}` : "";
-    return `🔥 Zanger: ${bos.length} BO (${top}${more}) · ${zangerMovers.length} Movers${idxTag} — ${timeShort}`;
-  }
-  if ((zangerMovers || []).length > 0) {
-    const top = zangerMovers.slice(0, 3).map((m) => m.ticker).join(", ");
-    return `⚡ Zanger: ${zangerMovers.length} Mover${zangerMovers.length === 1 ? "" : "s"} (${top})${idxTag} — ${timeShort}`;
-  }
-  return `ThemePulse Zanger Scan (0 Movers)${idxTag} — ${timeShort}`;
-}
-
-export function buildEmailHtml({ stamp, mode, clock, pipelineDate, leadingLayers, emergingLayers, zangerMovers, headlines, market }, { baseUrl = BASE_URL } = {}) {
-  const url = baseUrl.replace(/\/$/, "");
-  const movers = zangerMovers || [];
-  const bos = movers.filter((m) => m.isBreakout);
-  const leadCount = (leadingLayers || []).length;
-  const emergCount = (emergingLayers || []).length;
-
-  const marketSectionHtml = (() => {
-    if (!market) return "";
-    const dec = market.decision;
-    const decStyle = dec === "YES"
-      ? { bg: "#dcfce7", fg: "#166534", bd: "#22c55e" }
-      : dec === "CAUTION"
-        ? { bg: "#fef3c7", fg: "#92400e", bd: "#f59e0b" }
-        : { bg: "#fee2e2", fg: "#991b1b", bd: "#ef4444" };
-
-    const indexCells = (market.indices || []).map((idx) => {
-      const chgColor = idx.change == null ? "#64748b" : idx.change >= 0 ? "#15803d" : "#dc2626";
-      const crTxt = idx.cr != null ? `CR ${idx.cr}%` : "";
-      const subBits = [crTxt, idx.maStatus].filter(Boolean).join(" · ");
-      return `<td style="width:25%;padding:8px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;vertical-align:top;">
-        <div style="font-size:10px;color:#64748b;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:700;">${escHtml(idx.ticker)} <span style="font-weight:400;">${escHtml(idx.name)}</span></div>
-        <div style="margin-top:3px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">
-          <span style="font-size:15px;font-weight:800;color:${chgColor};">${idx.change != null ? escHtml(fmtPct(idx.change, 2)) : "—"}</span>
-          ${idx.price != null ? `<span style="font-size:11px;color:#475569;margin-left:4px;">${idx.price.toFixed(2)}</span>` : ""}
-        </div>
-        ${subBits ? `<div style="margin-top:2px;font-size:10px;color:#64748b;">${escHtml(subBits)}</div>` : ""}
-      </td>`;
-    }).join("");
-
-    const macroBits = [
-      market.vix ? `VIX <strong>${market.vix.price.toFixed(2)}</strong>${market.vix.change != null ? ` (${escHtml(fmtPct(market.vix.change, 1))})` : ""}` : null,
-      market.tnx ? `10Y <strong>${market.tnx.price.toFixed(2)}%</strong>` : null,
-      market.breadth?.pctAbove50 != null ? `&gt;50MA <strong>${market.breadth.pctAbove50}%</strong>` : null,
-      market.breadth?.up4 != null && market.breadth?.down4 != null ? `4% Movers <strong>${market.breadth.up4}↑ / ${market.breadth.down4}↓</strong>` : null,
-      market.breadth?.t2108 != null ? `T2108 <strong>${market.breadth.t2108}%</strong>` : null,
-      market.sectors ? `Sectors <strong>${market.sectors.positive}/${market.sectors.total}</strong> green` : null,
-    ].filter(Boolean);
-
-    const sectorStrip = market.sectors ? `
-      <div style="margin-top:8px;font-size:11px;color:#475569;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">
-        <span style="color:#15803d;font-weight:700;">Top Sectors:</span>
-        ${market.sectors.leaders.map((s) => `${escHtml(s.ticker)} ${escHtml(fmtPct(s.change, 1))}`).join(" · ")}
-        &nbsp;&nbsp;|&nbsp;&nbsp;
-        <span style="color:#dc2626;font-weight:700;">Laggards:</span>
-        ${market.sectors.laggards.map((s) => `${escHtml(s.ticker)} ${escHtml(fmtPct(s.change, 1))}`).join(" · ")}
-      </div>` : "";
-
-    const bullets = (market.commentary || []).map((c) =>
-      `<li style="margin-bottom:5px;line-height:1.45;color:#1e293b;">${escHtml(c)}</li>`
-    ).join("");
-
-    return `
-      <div style="margin-bottom:20px;padding:14px 16px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
-          <h2 style="margin:0;font-size:15px;color:#0f172a;">General Market &amp; Commentary</h2>
-          ${dec ? `<span style="display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:800;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:${decStyle.bg};color:${decStyle.fg};border:1px solid ${decStyle.bd};">
-            ${escHtml(dec)}${market.score != null ? ` · ${market.score}/100` : ""}${market.positionSize ? ` · ${escHtml(market.positionSize)}` : ""}
-          </span>` : ""}
-        </div>
-        ${indexCells ? `<table style="width:100%;border-collapse:separate;border-spacing:6px 0;margin:0 -6px 8px;"><tr>${indexCells}</tr></table>` : ""}
-        ${macroBits.length ? `<div style="font-size:11px;color:#334155;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;margin-top:4px;">${macroBits.join(" &nbsp;·&nbsp; ")}</div>` : ""}
-        ${sectorStrip}
-        ${bullets ? `<ul style="margin:10px 0 0;padding-left:18px;font-size:12px;">${bullets}</ul>` : ""}
-      </div>`;
-  })();
-
-  const badgeHtml = (m) => {
-    if (m.breakoutTypes?.length) {
-      return m.breakoutTypes.map((k) => {
-        const c = BO_EMAIL_COLORS[k] || { bg: "#fef3c7", fg: "#92400e", bd: "#f59e0b" };
-        return `<span style="display:inline-block;padding:2px 5px;margin:1px 2px 1px 0;border-radius:3px;font-size:10px;font-weight:700;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:${c.bg};color:${c.fg};border:1px solid ${c.bd};">${escHtml(k)}</span>`;
-      }).join("");
-    }
-    if (m.rsl) {
-      return `<span style="display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#e0f2fe;color:#075985;border:1px solid #38bdf8;">RSL</span>`;
-    }
-    return `<span style="display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#dcfce7;color:#166534;border:1px solid #4ade80;">VOL</span>`;
-  };
-
-  const moverRows = movers.slice(0, 25).map((m) => {
-    const tUrl = `${url}/?view=zanger&ticker=${encodeURIComponent(m.ticker)}`;
-    const tierBadge = m.tier === "lead" ? " ⭐" : m.tier === "emerg" ? " 🌱" : "";
-    const chgColor = m.chg == null ? "#64748b" : m.chg >= 0 ? "#15803d" : "#dc2626";
-    const zvrColor = (m.zvr ?? 0) >= 2.5 ? "#b45309" : (m.zvr ?? 0) >= 1.8 ? "#15803d" : "#334155";
-    const crColor = (m.cr ?? 0) >= 75 ? "#15803d" : (m.cr ?? 0) >= 50 ? "#b45309" : "#dc2626";
-    const dollarSub = m.dollarMove != null && m.dollarMove >= 0.9
-      ? `<div style="font-size:10px;color:#0e7490;font-weight:500;">+$${m.dollarMove.toFixed(2)}</div>`
-      : "";
-    const epsStr = m.eps != null ? `${m.eps}${m.epsAccel ? "▲" : ""}` : "—";
-    const rowBg = m.isBreakout ? "#fffbeb" : "#ffffff";
-    return `<tr style="background:${rowBg};border-bottom:1px solid #e2e8f0;">
-      <td style="padding:7px 6px;vertical-align:middle;">${badgeHtml(m)}</td>
-      <td style="padding:7px 6px;vertical-align:middle;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">
-        <a href="${tUrl}" style="color:#0f172a;font-weight:800;text-decoration:none;">${escHtml(m.ticker)}</a>${tierBadge}
-        ${m.company ? `<div style="font-size:10px;color:#64748b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(m.company)}</div>` : ""}
-      </td>
-      <td style="padding:7px 6px;vertical-align:middle;font-size:11px;color:#334155;">
-        <strong style="color:#0f172a;">${escHtml(m.theme)}</strong> <span style="color:#94a3b8;">·</span> ${escHtml(m.layer)}
-      </td>
-      <td style="padding:7px 6px;text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:${m.adr != null && m.adr >= 4 ? "#0e7490" : "#475569"};">${m.adr != null ? `${m.adr.toFixed(1)}%` : "—"}</td>
-      <td style="padding:7px 6px;text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:700;color:${chgColor};">${escHtml(fmtPct(m.chg, 2))}${dollarSub}</td>
-      <td style="padding:7px 6px;text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:700;color:${zvrColor};">${m.zvr != null ? `${m.zvr.toFixed(2)}x` : "—"}</td>
-      <td style="padding:7px 6px;text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:700;color:${crColor};">${m.cr != null ? `${m.cr}%` : "—"}</td>
-      <td style="padding:7px 6px;text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:700;color:${m.rs >= 90 ? "#15803d" : "#334155"};">${m.rs}</td>
-      <td style="padding:7px 6px;text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#475569;">${escHtml(epsStr)}</td>
-      <td style="padding:7px 6px;text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:${m.off52 != null && m.off52 >= -5 ? "#15803d" : "#64748b"};">${escHtml(fmtPct(m.off52))}</td>
-      <td style="padding:7px 6px;text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:800;color:${m.score >= 70 ? "#b45309" : "#0f172a"};">${m.score.toFixed(1)}</td>
-    </tr>`;
-  }).join("");
-
-  const catalystItems = movers.slice(0, 8).map((m) => {
-    const liveH = headlines instanceof Map ? headlines.get(m.ticker) : headlines?.[m.ticker];
-    const items = liveH?.length
-      ? liveH.map((h) => `${escHtml(h.title)}${h.source ? ` <span style="color:#64748b;">(${escHtml(h.source)})</span>` : ""}`)
-      : (m.pipelineNews || []).map((t) => escHtml(t));
-    const tUrl = `${url}/?view=zanger&ticker=${encodeURIComponent(m.ticker)}`;
-    return `<li style="margin-bottom:6px;line-height:1.45;">
-      <a href="${tUrl}" style="color:#0f172a;font-weight:700;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;text-decoration:none;">${escHtml(m.ticker)}</a>
-      <span style="color:#64748b;">(${escHtml(m.theme)} · ${escHtml(fmtPct(m.chg))}, ZVR ${m.zvr != null ? `${m.zvr.toFixed(2)}x` : "—"}, RS ${m.rs}):</span>
-      ${items.length ? items.join(" &nbsp;|&nbsp; ") : `<em style="color:#94a3b8;">No live headline returned</em>`}
-    </li>`;
-  }).join("");
-
-  const layerRows = [...(leadingLayers || []), ...(emergingLayers || [])].slice(0, 12).map((l) => {
-    const st = l.st === "lead" ? "🟢 Leading" : "🔵 Emerging";
-    const w1 = l.now - (l.w1 ?? l.now);
-    const fl = (l.flags || []).map((x) => (Array.isArray(x) ? x[0] : x)).join(", ") || "—";
-    return `<tr style="border-bottom:1px solid #e2e8f0;">
-      <td style="padding:5px 6px;font-weight:600;color:#0f172a;">${escHtml(l.theme)}</td>
-      <td style="padding:5px 6px;color:#334155;">${escHtml(l.name ?? l.layer)}</td>
-      <td style="padding:5px 6px;font-size:11px;">${st}</td>
-      <td style="padding:5px 6px;text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:700;">${l.now ?? l.rank}</td>
-      <td style="padding:5px 6px;text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:${w1 >= 0 ? "#15803d" : "#dc2626"};">${w1 >= 0 ? "+" : ""}${w1}</td>
-      <td style="padding:5px 6px;font-size:11px;color:#64748b;">${escHtml(fl)}</td>
-    </tr>`;
-  }).join("");
-
-  return `<!doctype html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:16px;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0f172a;">
-  <div style="max-width:860px;margin:0 auto;background:#ffffff;border-radius:10px;overflow:hidden;border:1px solid #cbd5e1;">
-    <div style="background:#0f172a;color:#f8fafc;padding:18px 20px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
-        <div>
-          <div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#38bdf8;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:700;">ThemePulse · Intraday Zanger Scan</div>
-          <h1 style="margin:4px 0 0;font-size:20px;font-weight:800;color:#ffffff;">${escHtml(stamp?.pretty || "")}</h1>
-        </div>
-        <a href="${url}/?view=zanger" style="display:inline-block;background:#22c55e;color:#052e16;font-weight:800;font-size:12px;padding:9px 14px;border-radius:6px;text-decoration:none;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">Open Live Zanger Tab →</a>
-      </div>
-      <div style="margin-top:12px;font-size:12px;color:#cbd5e1;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">
-        <strong style="color:#fbbf24;">${bos.length}</strong> Breakouts &nbsp;·&nbsp;
-        <strong style="color:#4ade80;">${movers.length}</strong> All Movers &nbsp;·&nbsp;
-        <strong style="color:#38bdf8;">${leadCount}</strong> Leading Layers &nbsp;·&nbsp;
-        <strong style="color:#a78bfa;">${emergCount}</strong> Emerging Layers
-      </div>
-    </div>
-
-    <div style="padding:18px 20px;">
-      ${marketSectionHtml}
-      <h2 style="margin:0 0 10px;font-size:15px;color:#0f172a;">1. Breakouts &amp; Volume Movers <span style="font-weight:400;font-size:12px;color:#64748b;">(Zanger · SB 4% · SB $ · QMAG)</span></h2>
-      ${movers.length === 0
-        ? `<p style="color:#64748b;font-size:13px;background:#f8fafc;padding:14px;border-radius:6px;border:1px solid #e2e8f0;">No stocks currently pass breakout or ZVR ≥ 1.5x volume surge criteria.</p>`
-        : `<div style="overflow-x:auto;">
-          <table style="width:100%;border-collapse:collapse;font-size:12px;">
-            <thead>
-              <tr style="background:#f8fafc;border-bottom:2px solid #cbd5e1;color:#475569;font-size:10px;text-transform:uppercase;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">
-                <th style="padding:7px 6px;text-align:left;">Sig</th>
-                <th style="padding:7px 6px;text-align:left;">Ticker</th>
-                <th style="padding:7px 6px;text-align:left;">Theme · Layer</th>
-                <th style="padding:7px 6px;text-align:right;">ADR</th>
-                <th style="padding:7px 6px;text-align:right;">Chg%</th>
-                <th style="padding:7px 6px;text-align:right;">ZVR</th>
-                <th style="padding:7px 6px;text-align:right;">CR%</th>
-                <th style="padding:7px 6px;text-align:right;">RS</th>
-                <th style="padding:7px 6px;text-align:right;">EPS</th>
-                <th style="padding:7px 6px;text-align:right;">Off 52wH</th>
-                <th style="padding:7px 6px;text-align:right;">Score</th>
-              </tr>
-            </thead>
-            <tbody>${moverRows}</tbody>
-          </table>
-        </div>`}
-
-      ${movers.length > 0 ? `
-      <h2 style="margin:20px 0 8px;font-size:15px;color:#0f172a;">2. Catalyst Check <span style="font-weight:400;font-size:12px;color:#64748b;">(Top Movers)</span></h2>
-      <ul style="margin:0;padding-left:18px;font-size:12px;color:#334155;">${catalystItems}</ul>` : ""}
-
-      ${layerRows ? `
-      <h2 style="margin:20px 0 8px;font-size:15px;color:#0f172a;">3. Leading Themes &amp; Layers</h2>
-      <div style="overflow-x:auto;">
-        <table style="width:100%;border-collapse:collapse;font-size:12px;">
-          <thead>
-            <tr style="background:#f8fafc;border-bottom:2px solid #cbd5e1;color:#475569;font-size:10px;text-transform:uppercase;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">
-              <th style="padding:6px;text-align:left;">Theme</th>
-              <th style="padding:6px;text-align:left;">Layer</th>
-              <th style="padding:6px;text-align:left;">Status</th>
-              <th style="padding:6px;text-align:right;">Rank</th>
-              <th style="padding:6px;text-align:right;">1W Δ</th>
-              <th style="padding:6px;text-align:left;">Flags</th>
-            </tr>
-          </thead>
-          <tbody>${layerRows}</tbody>
-        </table>
-      </div>` : ""}
-    </div>
-
-    <div style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:12px 20px;font-size:11px;color:#64748b;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">
-      ${escHtml(mode || "")} &nbsp;·&nbsp; Session ${escHtml(clock?.session || "")} &nbsp;·&nbsp; Pipeline ${escHtml(pipelineDate || "unknown")}
-    </div>
-  </div>
-</body>
-</html>`;
-}
-
-function buildMarkdown({ stamp, mode, clock, pipelineDate, leadingLayers, emergingLayers, zangerMovers, themeLeaders, headlines, market }) {
-  const lines = [];
-  lines.push(`# ThemePulse Zanger & Leadership Scan — ${stamp.pretty}`);
-  lines.push("");
-  lines.push(`- **Mode**: ${mode}`);
-  lines.push(`- **Session**: ${clock.session} (${clock.rth ? "RTH Live" : "Outside RTH"}) · **Pipeline**: ${pipelineDate || "unknown"}`);
-  lines.push(`- **Summary**: ${leadingLayers.length} leading layers · ${emergingLayers.length} confirmed emerging layers · ${zangerMovers.length} Dan Zanger volume movers`);
-  lines.push("");
-
-  if (market) {
-    lines.push("## 0. General Market & Commentary");
-    lines.push("");
-    if (market.indices?.length) {
-      lines.push("| Index | Price | Chg% | CR% | MA Posture |");
-      lines.push("|-------|------:|-----:|----:|------------|");
-      for (const i of market.indices) {
-        lines.push(`| **${i.ticker}** (${i.name}) | ${i.price != null ? i.price.toFixed(2) : "—"} | ${i.change != null ? fmtPct(i.change, 2) : "—"} | ${i.cr != null ? `${i.cr}%` : "—"} | ${i.maStatus || "—"} |`);
-      }
-      lines.push("");
-    }
-    for (const c of market.commentary || []) {
-      lines.push(`- ${c}`);
-    }
-    lines.push("");
-  }
-
-  lines.push("## 1. Breakouts & Intraday Volume Movers (Zanger · Stockbee 4% / $ · Qullamaggie)");
-  lines.push("");
-  if (!zangerMovers.length) {
-    lines.push("_No stocks currently pass Zanger, Stockbee 4%/$, Qullamaggie breakout, or ZVR ≥ 1.5x volume surge criteria._");
-  } else {
-    lines.push("| Signal | Ticker | Theme · Layer | ADR | Chg% | ZVR | CR% | RS | EPS | Off 52wH | Score |");
-    lines.push("|--------|--------|---------------|----:|-----:|----:|----:|---:|----:|---------:|------:|");
-    for (const m of zangerMovers.slice(0, 25)) {
-      const sig = m.breakoutTypes?.length ? `🔥 ${m.breakoutTypes.join("+")}` : m.rsl ? "🔵 RSL" : "⚡ VOL";
-      const tierBadge = m.tier === "lead" ? " ⭐" : m.tier === "emerg" ? " 🌱" : "";
-      const epsStr = m.eps != null ? `${m.eps}${m.epsAccel ? "▲" : ""}` : "—";
-      lines.push(
-        `| ${sig} | **${m.ticker}**${tierBadge} | ${m.theme} · ${m.layer} | ${m.adr != null ? m.adr.toFixed(1) + "%" : "—"} | ${fmtPct(m.chg)} | **${m.zvr != null ? m.zvr.toFixed(2) + "x" : "—"}** | ${m.cr != null ? m.cr + "%" : "—"} | ${m.rs} | ${epsStr} | ${fmtPct(m.off52)} | ${m.score.toFixed(1)} |`
-      );
-    }
-  }
-  lines.push("");
-
-  if (zangerMovers.length) {
-    lines.push("### Catalyst Check (Top Movers)");
-    lines.push("");
-    for (const m of zangerMovers.slice(0, 8)) {
-      const liveH = headlines.get(m.ticker);
-      const items = liveH?.length ? liveH.map((h) => `${h.title}${h.source ? ` _(${h.source})_` : ""}`) : m.pipelineNews;
-      lines.push(`- **${m.ticker}** (${m.theme} · ${m.layer}, ${fmtPct(m.chg)}, ZVR ${m.zvr?.toFixed(2)}x, RS ${m.rs}): ${items?.length ? items.join(" | ") : "_No live headline returned — check news/earnings_"}`);
-    }
-    lines.push("");
-  }
-
-  lines.push("## 2. Leading Themes & Layers");
-  lines.push("");
-  if (!leadingLayers.length) {
-    lines.push("_No layers currently meet the rank ≥ 88 leadership threshold._");
-  } else {
-    lines.push("| Theme | Layer | Status | Rank | 1W Δ | 1M Δ | Held (20d) | >50d | RS≥80 | Flags |");
-    lines.push("|-------|-------|--------|-----:|-----:|-----:|-----------:|-----:|------:|-------|");
-    for (const l of [...leadingLayers, ...emergingLayers].slice(0, 20)) {
-      const st = l.st === "lead" ? "🟢 Leading" : "🔵 Emerging";
-      const fl = l.flags.map(([k]) => k).join(", ") || "—";
-      lines.push(
-        `| ${l.theme} | ${l.name} | ${st} | ${l.now} | ${l.now - (l.w1 ?? l.now) >= 0 ? "+" : ""}${l.now - (l.w1 ?? l.now)} | ${l.now - (l.m1 ?? l.now) >= 0 ? "+" : ""}${l.now - (l.m1 ?? l.now)} | ${l.held.held}/${l.held.of} | ${l.stats?.a50 ?? "—"}% | ${l.stats?.rs80 ?? "—"}% | ${fl} |`
-      );
-    }
-  }
-  lines.push("");
-
-  lines.push("## 3. Top Leading Stocks in Leading Themes (Core Focus List)");
-  lines.push("");
-  if (!themeLeaders.length) {
-    lines.push("_No qualifying RS 90+ leaders found in leading layers._");
-  } else {
-    lines.push("| Ticker | Theme · Layer | ADR | Chg% | ZVR | RS | EPS | Off 52wH | Notes |");
-    lines.push("|--------|---------------|----:|-----:|----:|---:|----:|---------:|-------|");
-    for (const m of themeLeaders.slice(0, 25)) {
-      const epsStr = m.eps != null ? `${m.eps}${m.epsAccel ? "▲" : ""}` : "—";
-      const notes = [m.isBreakout && "Breakout", !m.isBreakout && m.qualifiesZanger && "ZVR Surge", m.rsl && "RS Line New High"].filter(Boolean).join(", ") || "—";
-      lines.push(
-        `| **${m.ticker}** ⭐ | ${m.theme} · ${m.layer} | ${m.adr != null ? m.adr.toFixed(1) + "%" : "—"} | ${fmtPct(m.chg)} | ${m.zvr != null ? m.zvr.toFixed(2) + "x" : "—"} | ${m.rs} | ${epsStr} | ${fmtPct(m.off52)} | ${notes} |`
-      );
-    }
-  }
-  lines.push("");
-
-  return lines.join("\n");
-}
-
-export async function runZangerScan({ offline = false, write = true, now = new Date() } = {}) {
+export async function runZangerScan({ offline = false, write = true, now = new Date(), stateFile = null } = {}) {
   loadEnvLocal();
   const dash = readJson("public/dashboard_data.json");
   const rot = readJson("public/data/rs_rotation.json");
@@ -788,6 +262,7 @@ export async function runZangerScan({ offline = false, write = true, now = new D
   const lb = readJson("public/data/layer_breadth.json") || {};
   const profiles = readJson("public/data/rvol_profiles.json") || null;
   const monitor = readJson("public/market_monitor.json") || null;
+  const prevState = stateFile ? readJson(stateFile) : null;
 
   if (!dash?.stocks || !rot?.layers) {
     throw new Error("Missing public/dashboard_data.json or public/data/rs_rotation.json");
@@ -824,7 +299,6 @@ export async function runZangerScan({ offline = false, write = true, now = new D
     return row;
   });
 
-  // Map each ticker to its strongest layer (highest rank, preferring lead/emerg)
   const tickerLayer = {};
   const stPri = { lead: 3, emerg: 2, weak: 1, lag: 0, brk: -1 };
   for (const l of layers) {
@@ -842,7 +316,7 @@ export async function runZangerScan({ offline = false, write = true, now = new D
     .filter((l) => l.st === "emerg" && (l.conf?.passed?.length ?? 0) >= 2)
     .sort((a, b) => b.now - a.now);
 
-  // Build candidate pool to quote live: liquid above-50d names in leading/emerging layers + all RS>=85 leaders
+  // Build candidate pool: liquid above-50d names in leading/emerging layers + RS>=70 + prior-hour breakouts
   const poolSet = new Set();
   for (const [t, s] of Object.entries(stockMap)) {
     if ((s.avg_dollar_vol_raw ?? 0) < 20e6 || !s.above_50ma || pinReason(s)) continue;
@@ -850,6 +324,9 @@ export async function runZangerScan({ offline = false, write = true, now = new D
     if (tiers.leaders.has(t) || tiers.emerging.has(t) || (s.rs_rank ?? 0) >= 70 || l?.st === "lead" || l?.st === "emerg") {
       poolSet.add(t);
     }
+  }
+  for (const t of prevState?.seenBreakouts || []) {
+    if (stockMap[t]) poolSet.add(t);
   }
 
   let liveQuotes = new Map();
@@ -873,37 +350,67 @@ export async function runZangerScan({ offline = false, write = true, now = new D
   }
 
   const scored = [];
+  const scoredMap = new Map();
   for (const t of poolSet) {
     const s = stockMap[t];
     const q = liveQuotes.get(t) || null;
     const layer = tickerLayer[t] || null;
     const tier = tiers.leaders.has(t) ? "lead" : tiers.emerging.has(t) ? "emerg" : null;
     const res = scoreZangerCandidate({ s, q, layer, tier, profiles, now });
-    if (res) scored.push(res);
+    if (res) {
+      scored.push(res);
+      scoredMap.set(t, res);
+    }
   }
 
-  const zangerMovers = scored
+  const rawMovers = scored
     .filter((r) => r.qualifiesZanger)
     .sort((a, b) => (b.breakoutTypes?.length || 0) - (a.breakoutTypes?.length || 0) || b.score - a.score);
+
+  const stamp = formatEtStamp(now);
+  const clock = etClock(now);
+  const phase = getBriefingPhase(stamp);
+
+  // Compute hourly delta (NEW breakouts, faded/squatted breakouts, hold rate)
+  const delta = computeHourlyDelta({
+    prevState,
+    today: stamp.date,
+    zangerMovers: rawMovers,
+    scoredMap,
+    liveQuotes,
+  });
+
+  // Sort NEW breakouts near the top while preserving confluence & score ranking
+  const zangerMovers = [...delta.enrichedMovers].sort(
+    (a, b) =>
+      Number(Boolean(b.isNew)) - Number(Boolean(a.isNew)) ||
+      (b.breakoutTypes?.length || 0) - (a.breakoutTypes?.length || 0) ||
+      b.score - a.score
+  );
 
   const themeLeaders = scored
     .filter((r) => r.tier === "lead" && r.layerStatus === "lead")
     .sort((a, b) => b.rs - a.rs || (b.eps ?? 0) - (a.eps ?? 0) || (b.zvr ?? 0) - (a.zvr ?? 0));
 
-  const headlines = token && zangerMovers.length
-    ? await fetchTickerHeadlines(zangerMovers.slice(0, 8).map((m) => m.ticker), token)
-    : new Map();
-
+  const portfolioAlerts = buildPortfolioAlerts({ mq, stockMap, liveQuotes, scoredMap });
+  const epMovers = buildEpList({ mq, dash });
+  const themeFlow = buildThemeFlow({ stockMap, tickerLayer, liveQuotes, zangerMovers });
+  const leaderDamage = buildLeaderDamage({ scored, layers });
+  const onDeckRsl = buildOnDeckRsl({ scored });
   const market = buildMarketSummary({
     mq,
     monitor,
     liveQuotes,
     dashStocks: dash.stocks,
     zangerMovers,
+    delta,
+    leaderDamage,
   });
 
-  const stamp = formatEtStamp(now);
-  const clock = etClock(now);
+  const headlines = token && zangerMovers.length
+    ? await fetchTickerHeadlines(zangerMovers.slice(0, 8).map((m) => m.ticker), token)
+    : new Map();
+
   const scanCtx = {
     stamp,
     mode,
@@ -915,10 +422,22 @@ export async function runZangerScan({ offline = false, write = true, now = new D
     themeLeaders,
     headlines,
     market,
+    phase,
+    delta,
+    portfolioAlerts,
+    epMovers,
+    themeFlow,
+    leaderDamage,
+    onDeckRsl,
   };
   const markdown = buildMarkdown(scanCtx);
   const emailSubject = buildEmailSubject(scanCtx);
-  const emailHtml = buildEmailHtml(scanCtx);
+  const emailHtml = buildEmailHtml(scanCtx, { baseUrl: BASE_URL });
+
+  if (stateFile) {
+    fs.mkdirSync(path.dirname(stateFile), { recursive: true });
+    fs.writeFileSync(stateFile, JSON.stringify(delta.nextState, null, 2), "utf8");
+  }
 
   let reportPath = null;
   if (write) {
@@ -932,9 +451,21 @@ export async function runZangerScan({ offline = false, write = true, now = new D
   return {
     stamp,
     mode,
+    phase,
     pipelineDate: dash.date,
     reportPath,
     market,
+    delta: {
+      hasPriorState: delta.hasPriorState,
+      newBreakoutCount: delta.newBreakouts.length,
+      fadedCount: delta.fadedBreakouts.length,
+      holdRate: delta.holdRate,
+    },
+    portfolioAlerts,
+    epMovers,
+    themeFlow,
+    leaderDamage,
+    onDeckRsl,
     leadingLayers: leadingLayers.map((l) => ({ theme: l.theme, layer: l.name, rank: l.now, w1: l.w1, m1: l.m1, flags: l.flags.map(([k]) => k) })),
     emergingLayers: emergingLayers.map((l) => ({ theme: l.theme, layer: l.name, rank: l.now, w1: l.w1, m1: l.m1 })),
     zangerMovers: zangerMovers.slice(0, 25),
@@ -950,22 +481,21 @@ export async function runZangerScan({ offline = false, write = true, now = new D
 function parseCliArgs(argv) {
   const flags = new Set();
   let emailOut = null;
+  let stateFile = null;
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === "--email-out" && argv[i + 1]) {
-      emailOut = argv[++i];
-    } else if (a.startsWith("--email-out=")) {
-      emailOut = a.slice("--email-out=".length);
-    } else {
-      flags.add(a);
-    }
+    if (a === "--email-out" && argv[i + 1]) emailOut = argv[++i];
+    else if (a.startsWith("--email-out=")) emailOut = a.slice("--email-out=".length);
+    else if (a === "--state-file" && argv[i + 1]) stateFile = argv[++i];
+    else if (a.startsWith("--state-file=")) stateFile = a.slice("--state-file=".length);
+    else flags.add(a);
   }
-  return { flags, emailOut };
+  return { flags, emailOut, stateFile };
 }
 
 // CLI entrypoint
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const { flags, emailOut } = parseCliArgs(process.argv.slice(2));
+  const { flags, emailOut, stateFile } = parseCliArgs(process.argv.slice(2));
   const forceSend = flags.has("--force-send");
 
   if (flags.has("--market-hours-only") && !forceSend) {
@@ -987,12 +517,27 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const res = await runZangerScan({
     offline: flags.has("--offline"),
     write: !flags.has("--no-write"),
+    stateFile,
   });
 
   if (emailOut) {
     fs.mkdirSync(emailOut, { recursive: true });
-    const shouldSend = forceSend || res.moverCount > 0;
-    const reason = res.moverCount > 0 ? "movers_found" : forceSend ? "forced" : "no_movers";
+    const hasPortAlerts = (res.portfolioAlerts?.alerts?.length || 0) > 0;
+    const hasDamage = (res.leaderDamage?.damagedLeaders?.length || 0) > 0;
+    const isCloseWrap = res.phase?.id === "close";
+    const shouldSend = forceSend || res.moverCount > 0 || hasPortAlerts || hasDamage || isCloseWrap;
+    const reason = res.moverCount > 0
+      ? "movers_found"
+      : hasPortAlerts
+        ? "portfolio_alerts"
+        : hasDamage
+          ? "leader_damage"
+          : isCloseWrap
+            ? "closing_bell_wrap"
+            : forceSend
+              ? "forced"
+              : "quiet_hour";
+
     fs.writeFileSync(path.join(emailOut, "email.html"), res.emailHtml, "utf8");
     fs.writeFileSync(path.join(emailOut, "email.txt"), res.markdown, "utf8");
     fs.writeFileSync(
@@ -1000,14 +545,20 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       JSON.stringify({
         shouldSend,
         reason,
+        phase: res.phase?.id,
         subject: res.emailSubject,
         breakoutCount: res.breakoutCount,
+        newBreakoutCount: res.delta?.newBreakoutCount || 0,
         moverCount: res.moverCount,
+        portfolioAlerts: res.portfolioAlerts?.alerts?.length || 0,
+        damagedLeaders: res.leaderDamage?.damagedLeaders?.length || 0,
         et: res.stamp.pretty,
       }, null, 2),
       "utf8"
     );
-    console.error(`Email bundle written to ${emailOut} (shouldSend=${shouldSend}, reason=${reason}, movers=${res.moverCount}, breakouts=${res.breakoutCount})`);
+    console.error(
+      `Email bundle written to ${emailOut} (shouldSend=${shouldSend}, reason=${reason}, phase=${res.phase?.id}, movers=${res.moverCount}, breakouts=${res.breakoutCount}, new=${res.delta?.newBreakoutCount || 0})`
+    );
   }
 
   if (flags.has("--json")) {
