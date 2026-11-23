@@ -1,0 +1,195 @@
+{
+  "id": "brief-2026-11-23-intraday-1100",
+  "date": "2026-11-23",
+  "session": "intraday",
+  "label": "Intraday Brief — Nov 23, 2026 (11:00 AM PT)",
+  "headline": "AMRX ($21.91), CBRL ($74.10), XERS ($17.68), WWW ($25.87) & GEN ($30.06) Print Fresh Session Highs; COLM Presses $76.00 Pivot While OKTA & CBOE Slip",
+  "regime": {
+    "posture": "Day 1 Rally Hold / Selective Stage 2 Breakouts (45%–55% Exposure)",
+    "spy": "$721.89 (+4.65%)",
+    "qqq": "$649.30 (+6.71%)",
+    "iwm": "$265.10 (+3.31%)",
+    "breadth": "20 Leading / 4 Emerging / 21 Breaking Down (133 Passing Intraday Scan)"
+  },
+  "macroTape": {
+    "vix": "26.92 (-24.99%)",
+    "us10y": "4.96%",
+    "wti": "$81.87 (-1.85%)",
+    "dxy": "103.81"
+  },
+  "intradayMovers": [
+    {
+      "ticker": "XERS",
+      "layer": "Specialty Pharma",
+      "price": 17.66,
+      "changePct": 4.07,
+      "fromOpenPct": 3.88,
+      "zvr": "1.92x+",
+      "rs": 99,
+      "eps": 74,
+      "progression": "Building (+2.53% -> +2.47% -> +2.71% -> +3.06% -> +3.42% -> +4.07%)",
+      "signal": "Stair-stepped to another fresh 52-week high of $17.68 on 1.40M shares post-44% Q3 revenue growth",
+      "sourceUrl": "https://www.stocktitan.net/news/XERS/xeris-biopharma-reports-third-quarter-2026-financial-results-and-1864fi6uljqw.html"
+    },
+    {
+      "ticker": "BLMN",
+      "layer": "Restaurants + QSR",
+      "price": 10.33,
+      "changePct": 3.56,
+      "fromOpenPct": 2.94,
+      "zvr": "1.47x+",
+      "rs": 88,
+      "eps": 82,
+      "progression": "Building (+2.01% -> +1.10% -> +2.01% -> +1.81% -> +3.06% -> +3.56%)",
+      "signal": "Printed a new session high of $10.37 on 1.22M shares, confirming CBRL (+4.28%) breakout in Restaurants + QSR",
+      "sourceUrl": "https://themepulse.vercel.app/?view=scanner&ticker=APPN"
+    },
+    {
+      "ticker": "LFST",
+      "layer": "Healthcare Services",
+      "price": 14.46,
+      "changePct": 4.59,
+      "fromOpenPct": 2.52,
+      "zvr": "1.53x+",
+      "rs": 98,
+      "eps": 91,
+      "progression": "Re-Accelerating (+3.26% -> +5.07% -> +5.03% -> +4.16% -> +3.98% -> +4.59%)",
+      "signal": "Bounced cleanly off $14.34 midday support back to $14.46 on 1.58M shares post-Q3 beat and guidance raise",
+      "sourceUrl": "https://www.morningstar.com/news/globe-newswire/9870931/lifestance-reports-strong-third-quarter-2026-financial-results-and-raises-full-year-outlook"
+    },
+    {
+      "ticker": "MRNA",
+      "layer": "Biotech",
+      "price": 211.78,
+      "changePct": 8.61,
+      "fromOpenPct": 3.16,
+      "zvr": "1.15x+",
+      "rs": 82,
+      "eps": 60,
+      "progression": "Fresh Afternoon High (+8.16% -> +7.17% -> +8.67% -> +7.84% -> +7.81% -> +8.61%)",
+      "signal": "Printed a new session high of $212.30 on 4.70M shares as Biotech leads afternoon breadth",
+      "sourceUrl": "https://themepulse.vercel.app/?view=scanner&ticker=APPN"
+    },
+    {
+      "ticker": "PTRN",
+      "layer": "Strongest Stock 5",
+      "price": 20.14,
+      "changePct": 8.81,
+      "fromOpenPct": 1.92,
+      "zvr": "2.1x",
+      "rs": 96,
+      "eps": 84,
+      "progression": "Holding Tight (+6.16% -> +9.56% -> +9.91% -> +8.59% -> +8.64% -> +8.81%)",
+      "signal": "Holding tight afternoon shelf above $20.00 breakout trigger on 623K shares",
+      "sourceUrl": "https://themepulse.vercel.app/?view=scanner&ticker=APPN"
+    },
+    {
+      "ticker": "HPE",
+      "layer": "Hardware / AI Servers",
+      "price": 47.73,
+      "changePct": 16.59,
+      "fromOpenPct": -6.41,
+      "zvr": "3.5x",
+      "rs": 84,
+      "eps": 81,
+      "progression": "Holding High (+13.26% -> +15.03% -> +12.48% -> +14.36% -> +16.78% -> +16.59%)",
+      "signal": "Touched $48.06 at 10:30 AM PT and holds $47.73 on 20.8M shares ahead of tonight's AMC Q4 earnings report",
+      "sourceUrl": "https://mlq.ai/news/week-ahead-pce-inflation-and-gdp-on-wednesday-thanksgiving-market-closures-and-earnings-from-dell-hpe-and-deere-nov-23-27/"
+    },
+    {
+      "ticker": "KYMR",
+      "layer": "Biotech",
+      "price": 152.57,
+      "changePct": 32.31,
+      "fromOpenPct": 10.56,
+      "zvr": "89.92x",
+      "rs": 98,
+      "eps": 65,
+      "progression": "Pulling Back (+24.79% -> +24.44% -> +31.87% -> +39.52% -> +35.34% -> +32.31%)",
+      "signal": "Retraced $8.92 from $161.49 midday peak to $152.57 on 6.06M shares after KT-621 Phase 2b readout",
+      "sourceUrl": "https://www.stocktitan.net/sec-filings/KYMR/8-k-kymera-therapeutics-inc-reports-material-event-ede1dc49ed4a.html"
+    }
+  ],
+  "leadingPulse": [
+    {
+      "ticker": "AMRX",
+      "grade": "A+",
+      "price": 21.89,
+      "changePct": 3.65,
+      "pivot": 22.13,
+      "buyZoneMax": 23.24,
+      "stop": 20.58,
+      "status": "New Session High — Surged to $21.91 on 861K shares, sitting just 1.0% below $22.13 52W high pivot"
+    },
+    {
+      "ticker": "CBRL",
+      "grade": "B+",
+      "price": 73.78,
+      "changePct": 4.28,
+      "pivot": 72.8,
+      "buyZoneMax": 76.44,
+      "stop": 67.7,
+      "status": "Expanding in Buy Zone — Hit new session high $74.10 (-1.2% off 52W high) with BLMN (+3.56%) confirming"
+    },
+    {
+      "ticker": "WWW",
+      "grade": "B+",
+      "price": 25.77,
+      "changePct": 4.08,
+      "pivot": 25.1,
+      "buyZoneMax": 26.36,
+      "stop": 23.34,
+      "status": "Expanding in Buy Zone — Printed new session high $25.87 at 10:25 AM PT, 0.5% off $25.99 52W high"
+    },
+    {
+      "ticker": "COLM",
+      "grade": "B+",
+      "price": 75.92,
+      "changePct": 1.24,
+      "pivot": 76,
+      "buyZoneMax": 79.8,
+      "stop": 70.68,
+      "status": "Pressing Pivot — Climbed +0.56% this hour to $75.92, sitting 8 cents below $76.00 handle pivot"
+    },
+    {
+      "ticker": "GEN",
+      "grade": "A-",
+      "price": 29.97,
+      "changePct": 2.66,
+      "pivot": 30.2,
+      "buyZoneMax": 31.71,
+      "stop": 28.09,
+      "status": "New Session High — Crossed $30.00 to hit $30.06 at 10:30 AM PT on 3.21M shares, 0.8% below $30.20 pivot"
+    },
+    {
+      "ticker": "CDNA",
+      "grade": "A",
+      "price": 75.13,
+      "changePct": 7.33,
+      "pivot": 72.5,
+      "buyZoneMax": 76.13,
+      "stop": 67.43,
+      "status": "Holding Buy Zone — Steady at $75.13 (+3.6% above $72.50 pivot) on 415K shares"
+    },
+    {
+      "ticker": "OKTA",
+      "grade": "A-",
+      "price": 204.63,
+      "changePct": 6.88,
+      "pivot": 205,
+      "buyZoneMax": 215.25,
+      "stop": 190.65,
+      "status": "Slipped Below Pivot — Eased to $204.63 (below $205.00 pivot) as CRWD (-11.48%) weakened"
+    },
+    {
+      "ticker": "CBOE",
+      "grade": "B",
+      "price": 351.56,
+      "changePct": -1.72,
+      "pivot": 365,
+      "buyZoneMax": 383.25,
+      "stop": 339.45,
+      "status": "Afternoon Pullback — Rolled over to $351.56 (-1.72%) as VIX dropped -25% to 26.92"
+    }
+  ]
+}
