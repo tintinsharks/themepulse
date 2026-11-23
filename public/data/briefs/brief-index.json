@@ -1,6 +1,14 @@
 {
-  "latest": "brief-2026-11-23-intraday-1205.json",
+  "latest": "brief-2026-11-23-intraday-1305.json",
   "briefs": [
+    {
+      "id": "brief-2026-11-23-intraday-1305",
+      "date": "2026-11-23",
+      "session": "intraday",
+      "label": "1:05 PM PT Closing-Bell Intraday Brief",
+      "file": "brief-2026-11-23-intraday-1305.json",
+      "regime": "Confirmed Follow-Through Day Expansion — Broad Institutional Accumulation Into the Closing Bell"
+    },
     {
       "id": "brief-2026-11-23-intraday-1205",
       "date": "2026-11-23",
