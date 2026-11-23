@@ -601,3 +601,43 @@ export function computeStageDistribution(stockMap) {
     ],
   };
 }
+
+// Reconstruct daily Stage 1-4 % history from breadth.json's daily MA breadth
+// ({ date, p20, p50, p200 }), anchoring the latest date to exact stock-level counts.
+export function estimateStageHistory(breadthHistory, currentDist = null, currentDate = null) {
+  const rows = [];
+  for (const d of Array.isArray(breadthHistory) ? breadthHistory : []) {
+    if (!d?.date || d.p200 == null || d.p50 == null) continue;
+    const p200 = Math.max(0, Math.min(100, d.p200));
+    const p50 = Math.max(0, Math.min(100, d.p50));
+    const p20 = Math.max(0, Math.min(100, d.p20 ?? p50));
+    const below200 = 100 - p200;
+    const lo = Math.max(0, p200 + p50 - 100);
+    const hi = Math.min(p200, p50);
+    const s2 = Math.round(lo + (hi - lo) * 0.72);
+    const s3 = Math.max(0, Math.round(p200 - s2));
+    const above50Below200 = Math.max(0, p50 - s2);
+    const s1 = Math.max(0, Math.min(Math.round(below200), Math.round(above50Below200 * 0.45 + Math.max(0, p20 - p50) * 0.15)));
+    const s4 = Math.max(0, 100 - s1 - s2 - s3);
+    rows.push({ date: d.date, s1, s2, s3, s4, exact: false });
+  }
+
+  if (currentDist?.total > 0 && Array.isArray(currentDist.stages) && currentDist.stages.length === 4) {
+    const [st1, st2, st3, st4] = currentDist.stages;
+    const exactRow = {
+      date: currentDate || (rows.length ? rows[rows.length - 1].date : "Today"),
+      s1: st1.pct,
+      s2: st2.pct,
+      s3: st3.pct,
+      s4: st4.pct,
+      counts: { 1: st1.count, 2: st2.count, 3: st3.count, 4: st4.count },
+      exact: true,
+    };
+    if (rows.length && rows[rows.length - 1].date === exactRow.date) {
+      rows[rows.length - 1] = exactRow;
+    } else {
+      rows.push(exactRow);
+    }
+  }
+  return rows;
+}

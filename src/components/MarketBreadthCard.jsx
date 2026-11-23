@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { computeStageDistribution, etClock } from "../lead/math.js";
+import { computeStageDistribution, estimateStageHistory, etClock } from "../lead/math.js";
 import { authFetch } from "../utils.js";
 
 // Shared 60s cache for Finviz homepage market_stats (Adv/Dec, New High/Low, >50/200 SMA)
@@ -254,6 +254,129 @@ function BreadthHistoryChart({ A, series, posLabel, negLabel, range, onRange }) 
   );
 }
 
+// 100% stacked daily bar chart for Stan Weinstein Stages 1-4 (bottom->top: Stage 2, Stage 1, Stage 3, Stage 4)
+function StageHistoryChart({ A, series, range, onRange }) {
+  const [hoverIdx, setHoverIdx] = useState(null);
+  if (!series || series.length === 0) {
+    return (
+      <div style={{ fontSize: 11, color: A.textMuted, padding: "8px 10px", marginTop: 10, background: A.bg, border: `1px solid ${A.border}`, borderRadius: 8 }}>
+        No historical stage series available yet.
+      </div>
+    );
+  }
+
+  const W = 600, H = 152;
+  const padL = 34, padR = 10, padT = 10, padB = 22;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+  const n = series.length;
+  const step = plotW / n;
+  const barW = Math.max(2, Math.min(18, step * 0.72));
+  const activeIdx = hoverIdx != null && hoverIdx < n ? hoverIdx : n - 1;
+  const cur = series[activeIdx];
+  const midIdx = Math.floor((n - 1) / 2);
+  const fmtShortDate = (d) => String(d || "").slice(5);
+
+  return (
+    <div
+      style={{
+        marginTop: 10,
+        padding: "10px 12px 8px",
+        background: A.bg,
+        border: `1px solid ${A.border}`,
+        borderRadius: 8,
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 6, fontSize: 11, fontFamily: "monospace" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <strong style={{ color: A.text }}>{cur.date}</strong>
+          <span style={{ color: STAGE_COLOR[2], fontWeight: 700 }}>S2 {cur.s2}%</span>
+          <span style={{ color: STAGE_COLOR[1], fontWeight: 700 }}>S1 {cur.s1}%</span>
+          <span style={{ color: STAGE_COLOR[3], fontWeight: 700 }}>S3 {cur.s3}%</span>
+          <span style={{ color: STAGE_COLOR[4], fontWeight: 700 }}>S4 {cur.s4}%</span>
+        </div>
+        <div style={{ display: "inline-flex", gap: 4 }}>
+          {[[22, "1M"], [63, "3M"]].map(([days, lbl]) => (
+            <button
+              key={lbl}
+              onClick={() => { setHoverIdx(null); onRange(days); }}
+              style={{
+                background: range === days ? A.bgHover : "transparent",
+                border: `1px solid ${range === days ? COLORS.blue : A.border}`,
+                color: range === days ? COLORS.blue : A.textMuted,
+                borderRadius: 4,
+                padding: "1px 6px",
+                fontSize: 10,
+                fontWeight: 700,
+                fontFamily: "monospace",
+                cursor: "pointer",
+              }}
+            >
+              {lbl}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        style={{ width: "100%", height: "auto", display: "block" }}
+        onMouseLeave={() => setHoverIdx(null)}
+      >
+        {/* 100%, 50%, 0% guide lines */}
+        <line x1={padL} y1={padT} x2={W - padR} y2={padT} stroke={A.border} strokeDasharray="2 3" strokeOpacity="0.6" />
+        <line x1={padL} y1={padT + plotH / 2} x2={W - padR} y2={padT + plotH / 2} stroke={A.textMuted} strokeDasharray="3 3" strokeOpacity="0.45" />
+        <line x1={padL} y1={padT + plotH} x2={W - padR} y2={padT + plotH} stroke={A.border} strokeOpacity="0.7" />
+
+        <text x={padL - 5} y={padT + 8} textAnchor="end" fontSize="9" fill={A.textMuted} fontFamily="monospace">100%</text>
+        <text x={padL - 5} y={padT + plotH / 2 + 3} textAnchor="end" fontSize="9" fill={A.textMuted} fontFamily="monospace">50%</text>
+        <text x={padL - 5} y={padT + plotH} textAnchor="end" fontSize="9" fill={A.textMuted} fontFamily="monospace">0%</text>
+
+        {series.map((d, i) => {
+          const cx = padL + i * step + step / 2;
+          const x = cx - barW / 2;
+          const isActive = i === activeIdx;
+          const op = isActive ? 1 : 0.78;
+          // Stack bottom -> top: Stage 2 (blue), Stage 1 (slate), Stage 3 (gold), Stage 4 (pink)
+          const h2 = (d.s2 / 100) * plotH;
+          const h1 = (d.s1 / 100) * plotH;
+          const h3 = (d.s3 / 100) * plotH;
+          const h4 = Math.max(0, plotH - h2 - h1 - h3);
+          const y2 = padT + plotH - h2;
+          const y1 = y2 - h1;
+          const y3 = y1 - h3;
+          const y4 = padT;
+          return (
+            <g key={d.date} onMouseEnter={() => setHoverIdx(i)} style={{ cursor: "crosshair" }}>
+              <rect x={padL + i * step} y={padT} width={step} height={plotH} fill={isActive ? A.text : "transparent"} fillOpacity={isActive ? 0.08 : 0} />
+              <rect x={x} y={y4} width={barW} height={h4} fill={STAGE_COLOR[4]} fillOpacity={op} />
+              <rect x={x} y={y3} width={barW} height={h3} fill={STAGE_COLOR[3]} fillOpacity={op} />
+              <rect x={x} y={y1} width={barW} height={h1} fill={STAGE_COLOR[1]} fillOpacity={op} />
+              <rect x={x} y={y2} width={barW} height={h2} fill={STAGE_COLOR[2]} fillOpacity={op} />
+            </g>
+          );
+        })}
+
+        <text x={padL} y={H - 5} textAnchor="start" fontSize="9" fill={A.textMuted} fontFamily="monospace">{fmtShortDate(series[0].date)}</text>
+        {n > 4 && (
+          <text x={padL + midIdx * step + step / 2} y={H - 5} textAnchor="middle" fontSize="9" fill={A.textMuted} fontFamily="monospace">{fmtShortDate(series[midIdx].date)}</text>
+        )}
+        <text x={W - padR} y={H - 5} textAnchor="end" fontSize="9" fill={cur.exact ? A.green : A.textMuted} fontFamily="monospace">{fmtShortDate(series[n - 1].date)}</text>
+      </svg>
+
+      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginTop: 4, fontSize: 10, color: A.textMuted, fontFamily: "monospace" }}>
+        <span>
+          <span style={{ color: STAGE_COLOR[2] }}>■</span> S2 Up &nbsp;
+          <span style={{ color: STAGE_COLOR[1] }}>■</span> S1 Base &nbsp;
+          <span style={{ color: STAGE_COLOR[3] }}>■</span> S3 Top &nbsp;
+          <span style={{ color: STAGE_COLOR[4] }}>■</span> S4 Down
+        </span>
+        <span>{cur.exact ? "Exact stock-level count" : "Derived from daily MA breadth"}</span>
+      </div>
+    </div>
+  );
+}
+
 export default function MarketBreadthCard({ A, stockMap, breadth, monitor }) {
   const [slide, setSlide] = useState(0); // 0 = Breadth + Stage Analysis (Deepvue view), 1 = MA Breadth + 4% Movers
   const [openChart, setOpenChart] = useState(null); // null | "nhnl" | "ad"
@@ -336,8 +459,12 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor }) {
     return { nhnlSeries: nhRows, adSeries: adRows };
   }, [breadth, histRange, nhNl, advDec]);
 
-  // 3. Stan Weinstein Stage Analysis (Stages 1-4 across stockMap universe)
+  // 3. Stan Weinstein Stage Analysis (Stages 1-4 across stockMap universe) + daily lookback
   const stageDist = useMemo(() => computeStageDistribution(stockMap), [stockMap]);
+  const stageSeries = useMemo(
+    () => estimateStageHistory(breadth?.history, stageDist, breadth?.date).slice(-histRange),
+    [breadth, stageDist, histRange]
+  );
 
   // Contextual tape read (e.g. Ted Zhang's "Junk rally" tell: big Adv% while Stage 4 >= 50% and NH/NL weak)
   const tapeTag = useMemo(() => {
@@ -497,45 +624,67 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor }) {
 
             {/* Stan Weinstein Stage Analysis */}
             <div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: A.text, letterSpacing: -0.1 }}>Stage Analysis</span>
-                <span style={{ fontSize: 10, color: A.textMuted, fontFamily: "monospace" }}>
-                  {stageDist.total.toLocaleString()} stocks · Weinstein 1–4
-                </span>
-              </div>
-              <div style={{ display: "flex", height: 8, width: "100%", borderRadius: 999, background: trackBg, overflow: "hidden" }}>
-                {stageDist.stages.map((st) => (
-                  <div
-                    key={st.stage}
-                    title={`${st.label} (${st.hint}): ${st.count.toLocaleString()} (${st.pct}%)`}
-                    style={{
-                      width: `${stageDist.total > 0 ? (st.count / stageDist.total) * 100 : 0}%`,
-                      background: STAGE_COLOR[st.stage],
-                      transition: "width 0.35s ease",
-                    }}
-                  />
-                ))}
-              </div>
               <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-                  gap: 8,
-                  marginTop: 10,
-                }}
+                onClick={() => setOpenChart((cur) => (cur === "stage" ? null : "stage"))}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpenChart((cur) => (cur === "stage" ? null : "stage")); } }}
+                title={openChart === "stage" ? "Hide Stage Analysis history chart" : "Click to view 1-month daily Stage Analysis lookback"}
+                style={{ cursor: "pointer", userSelect: "none" }}
               >
-                {stageDist.stages.map((st) => (
-                  <div key={st.stage} title={`${st.label} — ${st.hint}`}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: A.text }}>
-                      <span style={{ width: 7, height: 7, borderRadius: "50%", background: STAGE_COLOR[st.stage], flexShrink: 0 }} />
-                      <span>{st.label}</span>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, color: A.text, letterSpacing: -0.1 }}>
+                    <span>Stage Analysis</span>
+                    <span style={{ fontSize: 10, fontWeight: 500, color: A.textMuted, fontFamily: "monospace" }}>
+                      {openChart === "stage" ? "▾ hide" : "▸ 1M"}
+                    </span>
+                  </span>
+                  <span style={{ fontSize: 10, color: A.textMuted, fontFamily: "monospace" }}>
+                    {stageDist.total.toLocaleString()} stocks · Weinstein 1–4
+                  </span>
+                </div>
+                <div style={{ display: "flex", height: 8, width: "100%", borderRadius: 999, background: trackBg, overflow: "hidden" }}>
+                  {stageDist.stages.map((st) => (
+                    <div
+                      key={st.stage}
+                      title={`${st.label} (${st.hint}): ${st.count.toLocaleString()} (${st.pct}%)`}
+                      style={{
+                        width: `${stageDist.total > 0 ? (st.count / stageDist.total) * 100 : 0}%`,
+                        background: STAGE_COLOR[st.stage],
+                        transition: "width 0.35s ease",
+                      }}
+                    />
+                  ))}
+                </div>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                    gap: 8,
+                    marginTop: 10,
+                  }}
+                >
+                  {stageDist.stages.map((st) => (
+                    <div key={st.stage} title={`${st.label} — ${st.hint}`}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: A.text }}>
+                        <span style={{ width: 7, height: 7, borderRadius: "50%", background: STAGE_COLOR[st.stage], flexShrink: 0 }} />
+                        <span>{st.label}</span>
+                      </div>
+                      <div style={{ fontSize: 11, color: A.textMuted, marginTop: 2, fontVariantNumeric: "tabular-nums" }}>
+                        {st.count.toLocaleString()} · <strong style={{ color: A.textDim }}>{st.pct}%</strong>
+                      </div>
                     </div>
-                    <div style={{ fontSize: 11, color: A.textMuted, marginTop: 2, fontVariantNumeric: "tabular-nums" }}>
-                      {st.count.toLocaleString()} · <strong style={{ color: A.textDim }}>{st.pct}%</strong>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
+              {openChart === "stage" && (
+                <StageHistoryChart
+                  A={A}
+                  series={stageSeries}
+                  range={histRange}
+                  onRange={setHistRange}
+                />
+              )}
             </div>
           </>
         ) : (

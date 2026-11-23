@@ -21,6 +21,7 @@ import {
   closingRange,
   classifyWeinsteinStage,
   computeStageDistribution,
+  estimateStageHistory,
 } from "../src/lead/math.js";
 
 test("rankHeld counts sessions at or above threshold in trailing window", () => {
@@ -243,4 +244,18 @@ test("classifyWeinsteinStage and computeStageDistribution classify Stages 1-4 ac
     [3, 1, 25],
     [4, 1, 25],
   ]);
+
+  const hist = estimateStageHistory(
+    [
+      { date: "2026-11-18", p20: 72, p50: 71, p200: 70 },
+      { date: "2026-11-20", p20: 17, p50: 28.7, p200: 37.5 },
+    ],
+    dist,
+    "2026-11-20"
+  );
+  assert.equal(hist.length, 2);
+  assert.equal(hist[0].s1 + hist[0].s2 + hist[0].s3 + hist[0].s4, 100);
+  assert.ok(hist[0].s2 > 55); // strong bull day
+  assert.equal(hist[1].exact, true);
+  assert.equal(hist[1].s2, 25); // anchored to exact currentDist
 });
