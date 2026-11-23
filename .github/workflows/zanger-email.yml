@@ -1,4 +1,4 @@
-name: ThemePulse Hourly Zanger Email
+name: ThemePulse Hourly Zanger Brief
 
 on:
   schedule:
@@ -12,23 +12,29 @@ on:
     - cron: "0 14-21 * * 1-5"
   workflow_dispatch:
     inputs:
-      force_send:
-        description: "Send email even outside market hours or when 0 movers"
+      force_publish:
+        description: "Publish to Brief page even outside market hours"
         type: boolean
         default: true
+      send_email:
+        description: "Also send via Gmail (optional; off by default)"
+        type: boolean
+        default: false
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
-  group: zanger-email
+  group: zanger-brief
   cancel-in-progress: false
 
 jobs:
-  scan-and-email:
+  publish-zanger-brief:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -53,17 +59,17 @@ jobs:
           restore-keys: |
             zanger-state-${{ steps.etdate.outputs.date }}-
 
-      - name: Run Zanger & Leadership scan
+      - name: Run Zanger & Leadership scan and write Brief snapshot
         id: scan
         env:
           TP_PIN: ${{ secrets.TP_PIN }}
           TP_BASE_URL: https://themepulse.vercel.app
         run: |
-          mkdir -p reports/email reports/state
-          ARGS="--no-write --email-out reports/email --state-file reports/state/zanger-state.json"
+          mkdir -p reports/email reports/state public/data/briefs
+          ARGS="--no-write --brief-out public/data/briefs --email-out reports/email --state-file reports/state/zanger-state.json"
           if [ "${{ github.event_name }}" = "schedule" ]; then
             ARGS="$ARGS --market-hours-only"
-          elif [ "${{ inputs.force_send }}" = "true" ]; then
+          elif [ "${{ inputs.force_publish }}" = "true" ]; then
             ARGS="$ARGS --force-send"
           fi
           node scripts/zanger-scan.mjs $ARGS > reports/email/stdout.md
@@ -72,25 +78,31 @@ jobs:
             const fs = require("node:fs");
             const meta = JSON.parse(fs.readFileSync("reports/email/meta.json", "utf8"));
             const out = process.env.GITHUB_OUTPUT;
+            const skipped = meta.reason === "weekend" || meta.reason === "us_market_holiday" || meta.reason === "outside_market_hours";
+            fs.appendFileSync(out, `published=${skipped ? "false" : "true"}\n`);
             fs.appendFileSync(out, `should_send=${meta.shouldSend ? "true" : "false"}\n`);
             fs.appendFileSync(out, `reason=${meta.reason || ""}\n`);
+            fs.appendFileSync(out, `et=${meta.et || ""}\n`);
             fs.appendFileSync(out, `subject<<__TP_EOF__\n${meta.subject || "ThemePulse Zanger Scan"}\n__TP_EOF__\n`);
             console.log("Scan meta:", JSON.stringify(meta));
           '
 
-      - name: Check Gmail secrets
-        if: steps.scan.outputs.should_send == 'true'
-        env:
-          GMAIL_USER: ${{ secrets.GMAIL_USER }}
-          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+      - name: Commit & push Zanger brief snapshot to Brief page
+        if: steps.scan.outputs.published == 'true'
         run: |
-          if [ -z "$GMAIL_USER" ] || [ -z "$GMAIL_APP_PASSWORD" ]; then
-            echo "::error::Missing GMAIL_USER or GMAIL_APP_PASSWORD repository secret. Add them in GitHub -> Settings -> Secrets and variables -> Actions."
-            exit 1
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A -- 'public/data/briefs/zanger-*.json'
+          if git diff --cached --quiet; then
+            echo "No changes to public/data/briefs/zanger-*.json"
+            exit 0
           fi
+          git commit -m "Zanger brief — ${{ steps.scan.outputs.et }}"
+          git pull --rebase --autostash origin main
+          git push origin main
 
-      - name: Send Zanger email via Gmail
-        if: steps.scan.outputs.should_send == 'true'
+      - name: Optional manual email via Gmail
+        if: github.event_name == 'workflow_dispatch' && inputs.send_email == true && steps.scan.outputs.should_send == 'true'
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp.gmail.com

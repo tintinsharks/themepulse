@@ -1,0 +1,1249 @@
+{
+  "id": "zanger-2026-11-23-1035",
+  "generatedAt": "2026-11-23T15:35:24.858Z",
+  "stamp": {
+    "date": "2026-11-23",
+    "hhmm": "1035",
+    "pretty": "2026-11-23 10:35 ET",
+    "hours": 10,
+    "minutes": 35,
+    "day": 1
+  },
+  "clock": {
+    "rth": true,
+    "today": "2026-11-23",
+    "session": "2026-11-23"
+  },
+  "mode": "Pipeline EOD (offline)",
+  "phase": {
+    "id": "open",
+    "label": "OPENING RANGE SCAN",
+    "subtitle": "First-hour volume leaders & EP gap-and-go movers",
+    "accent": "#38bdf8"
+  },
+  "pipelineDate": "2026-11-23",
+  "subject": "🔔 Open Zanger: 5 BO (IPAR, BIPC, BIP +2) · 5 Movers — 10:35 ET",
+  "breakoutCount": 5,
+  "moverCount": 5,
+  "market": {
+    "decision": null,
+    "score": null,
+    "positionSize": null,
+    "regime": null,
+    "indices": [
+      {
+        "ticker": "SPY",
+        "name": "S&P 500",
+        "price": 689.81,
+        "change": null,
+        "cr": null,
+        "maStatus": "Below 50 & 200"
+      },
+      {
+        "ticker": "QQQ",
+        "name": "Nasdaq 100",
+        "price": 608.45,
+        "change": null,
+        "cr": null,
+        "maStatus": "Below 50 & 200"
+      },
+      {
+        "ticker": "IWM",
+        "name": "Russell 2000",
+        "price": 256.61,
+        "change": null,
+        "cr": null,
+        "maStatus": "Below 50 & 200"
+      },
+      {
+        "ticker": "DIA",
+        "name": "Dow 30",
+        "price": 481.08,
+        "change": null,
+        "cr": null,
+        "maStatus": "Below 50 & 200"
+      }
+    ],
+    "futures": [],
+    "vix": null,
+    "tnx": null,
+    "sectors": null,
+    "breadth": {
+      "pctAbove50": 28,
+      "pctAbove200": 0,
+      "up4": 35,
+      "down4": 905,
+      "t2108": 26.8,
+      "ratio5d": 0,
+      "liveAdv": 0,
+      "liveDec": 0,
+      "livePctAdv": null
+    },
+    "fomc": null,
+    "commentary": [
+      "Index posture: SPY is Below 50 & 200, QQQ is Below 50 & 200, IWM is Below 50 & 200.",
+      "Breadth & rotation: 28% of stocks >50MA; Stockbee 4% movers 35↑ vs 905↓ (T2108 26.8%).",
+      "Tape & risk: ⚠️ 8 RS 90+ leaders hit hard on volume."
+    ]
+  },
+  "delta": {
+    "hasPriorState": false,
+    "newBreakoutCount": 0,
+    "fadedCount": 0,
+    "fadedBreakouts": [],
+    "holdRate": {
+      "holding": 5,
+      "active": 5,
+      "totalToday": 5,
+      "pct": 100
+    }
+  },
+  "portfolioAlerts": {
+    "portfolioCount": 0,
+    "watchlistCount": 0,
+    "alerts": []
+  },
+  "portfolioEarnings": [],
+  "epMovers": [],
+  "themeFlow": {
+    "hottest": [
+      {
+        "theme": "Real Estate",
+        "avgChg": -0.33,
+        "pctGreen": 36,
+        "count": 45,
+        "breakouts": 0,
+        "topMover": {
+          "ticker": "IVR",
+          "chg": 3.26
+        }
+      },
+      {
+        "theme": "Utilities",
+        "avgChg": -0.36,
+        "pctGreen": 48,
+        "count": 58,
+        "breakouts": 3,
+        "topMover": {
+          "ticker": "BIP",
+          "chg": 4.24
+        }
+      },
+      {
+        "theme": "Shipping",
+        "avgChg": -0.44,
+        "pctGreen": 36,
+        "count": 14,
+        "breakouts": 0,
+        "topMover": {
+          "ticker": "ECO",
+          "chg": 2.18
+        }
+      },
+      {
+        "theme": "Consumer",
+        "avgChg": -1.3,
+        "pctGreen": 29,
+        "count": 228,
+        "breakouts": 1,
+        "topMover": {
+          "ticker": "GAP",
+          "chg": 11.44
+        }
+      },
+      {
+        "theme": "Financials",
+        "avgChg": -1.74,
+        "pctGreen": 19,
+        "count": 227,
+        "breakouts": 0,
+        "topMover": {
+          "ticker": "HDB",
+          "chg": 4.5
+        }
+      }
+    ],
+    "coldest": [
+      {
+        "theme": "Semiconductors",
+        "avgChg": -9.66,
+        "pctGreen": 0,
+        "count": 51,
+        "breakouts": 0,
+        "topMover": {
+          "ticker": "SLAB",
+          "chg": -0.6
+        }
+      },
+      {
+        "theme": "AI Infra",
+        "avgChg": -9.33,
+        "pctGreen": 1,
+        "count": 79,
+        "breakouts": 0,
+        "topMover": {
+          "ticker": "HPQ",
+          "chg": 0.5
+        }
+      },
+      {
+        "theme": "Quantum",
+        "avgChg": -9.24,
+        "pctGreen": 8,
+        "count": 12,
+        "breakouts": 0,
+        "topMover": {
+          "ticker": "IBM",
+          "chg": 0.25
+        }
+      }
+    ]
+  },
+  "leaderDamage": {
+    "damagedLeaders": [
+      {
+        "ticker": "SLS",
+        "company": "SELLAS Life Sciences Group, Inc.",
+        "theme": "Healthcare",
+        "themeId": "health",
+        "layer": "Biotech",
+        "layerStatus": "lag",
+        "layerRank": 67,
+        "layerFlags": [
+          [
+            "exiting",
+            "19 leaders cracked this week (were RS 90+, now below the 50-day or under RS 80): ABCL, ABSI, AMLX, ANRO, BHVN, CLYM, DNTH, ERAS, EWTX, IOVA, KYMR, LBRX, MBX, MRVI, OMER, PRME, RLAY, SEPN, TNGX"
+          ]
+        ],
+        "tier": null,
+        "price": 13.66,
+        "chg": -8.08,
+        "dollarMove": -1.2,
+        "fromOpen": null,
+        "zvr": 2.71,
+        "cr": 16,
+        "rs": 99,
+        "eps": 16,
+        "epsTip": "EPS Rating 16 — last qtr -100% · prior qtr -100% · 3-yr median -100%/yr",
+        "epsAccel": false,
+        "earningsDays": 75,
+        "earningsDisplay": "~2/7/2027",
+        "adr": 14.7,
+        "off52": -28.7,
+        "rsl": false,
+        "rslTip": null,
+        "breakoutTypes": [],
+        "isBreakout": false,
+        "qualifiesZanger": false,
+        "score": 51.7,
+        "pipelineNews": [
+          "SELLAS Life Sciences GAAP EPS of -$0.05 beats by $0.01 [5/12/2026 4:07 PM]",
+          "Leukemia drug study nears key data as SELLAS tracks 78 of 80 events - Stock Titan [5/12/2026 8:05 PM]"
+        ]
+      },
+      {
+        "ticker": "FROG",
+        "company": "JFrog Ltd.",
+        "theme": "Software",
+        "themeId": "software",
+        "layer": "DevOps + Observability",
+        "layerStatus": "weak",
+        "layerRank": 64,
+        "layerFlags": [
+          [
+            "distrib",
+            "Distribution: 5 heavy-volume down days vs 1 accumulation days across members over 10 sessions"
+          ]
+        ],
+        "tier": "lead",
+        "price": 100.97,
+        "chg": -7.6,
+        "dollarMove": -8.3,
+        "fromOpen": null,
+        "zvr": 2.57,
+        "cr": 10,
+        "rs": 94,
+        "eps": 12,
+        "epsTip": "EPS Rating 12 — last qtr -100% · prior qtr -100% · 3-yr median -110%/yr (incl. −10 for 1 down yr)",
+        "epsAccel": false,
+        "earningsDays": 71,
+        "earningsDisplay": "~2/3/2027",
+        "adr": 8.2,
+        "off52": -11.7,
+        "rsl": false,
+        "rslTip": null,
+        "breakoutTypes": [],
+        "isBreakout": false,
+        "qualifiesZanger": false,
+        "score": 50.3,
+        "pipelineNews": [
+          "JFrog Non-GAAP EPS of $0.27 beats by $0.06, revenue of $154M beats by $6.53M [5/7/2026 4:13 PM]",
+          "JFrog Q1 2026 Earnings Preview [5/6/2026 5:35 PM]"
+        ]
+      },
+      {
+        "ticker": "XMTR",
+        "company": "Xometry, Inc.",
+        "theme": "Industrials",
+        "themeId": "industrials",
+        "layer": "Machinery",
+        "layerStatus": "lag",
+        "layerRank": 74,
+        "layerFlags": [
+          [
+            "unconfirmed",
+            "Rank rising without volume/participation confirmation"
+          ]
+        ],
+        "tier": "lead",
+        "price": 103.74,
+        "chg": -6.87,
+        "dollarMove": -7.65,
+        "fromOpen": null,
+        "zvr": 0.4,
+        "cr": 21,
+        "rs": 95,
+        "eps": 12,
+        "epsTip": "EPS Rating 12 — last qtr -100% · prior qtr -100% · 3-yr median -110%/yr (incl. −10 for 1 down yr)",
+        "epsAccel": false,
+        "earningsDays": 68,
+        "earningsDisplay": "~1/31/2027",
+        "adr": 8.8,
+        "off52": -15.3,
+        "rsl": false,
+        "rslTip": null,
+        "breakoutTypes": [],
+        "isBreakout": false,
+        "qualifiesZanger": false,
+        "score": 31.7,
+        "pipelineNews": [
+          "Xometry beats top-line and bottom-line estimates; gives Q2 and updates FY outlook [5/7/2026 7:28 AM] $XMTR ($XMTR) Releases Q1 2026 Earnings - Quiver Quantitative [5/7/2026 11:32 AM]",
+          "Siemens buys $50M Xometry stake as manufacturer lifts 2026 outlook - Stock Titan [5/7/2026 11:07 AM]"
+        ]
+      },
+      {
+        "ticker": "RPD",
+        "company": "Rapid7, Inc.",
+        "theme": "Cyber",
+        "themeId": "cyber",
+        "layer": "Threat Operations",
+        "layerStatus": "lead",
+        "layerRank": 100,
+        "layerFlags": [],
+        "tier": "lead",
+        "price": 14.3,
+        "chg": -6.72,
+        "dollarMove": -1.03,
+        "fromOpen": null,
+        "zvr": 3.26,
+        "cr": 8,
+        "rs": 93,
+        "eps": 27,
+        "epsTip": "EPS Rating 27 — last qtr -31% · prior qtr -33% · 3-yr median -32%/yr (incl. −20 for 2 down yr)",
+        "epsAccel": false,
+        "earningsDays": 74,
+        "earningsDisplay": "~2/6/2027",
+        "adr": 9.5,
+        "off52": -20.2,
+        "rsl": false,
+        "rslTip": null,
+        "breakoutTypes": [],
+        "isBreakout": false,
+        "qualifiesZanger": false,
+        "score": 70.3,
+        "pipelineNews": [
+          "Rapid7 Non-GAAP EPS of $0.44 beats by $0.09, revenue of $210.88M beats by $2.63M [8/10/2026 4:19 PM]",
+          "Rapid7 Q2 2026 Earnings Preview [8/9/2026 5:35 PM]"
+        ]
+      },
+      {
+        "ticker": "ATEN",
+        "company": "A10 Networks, Inc.",
+        "theme": "Software",
+        "themeId": "software",
+        "layer": "Infrastructure Software",
+        "layerStatus": "lag",
+        "layerRank": 46,
+        "layerFlags": [
+          [
+            "exiting",
+            "2 leaders cracked this week (were RS 90+, now below the 50-day or under RS 80): BAND, BB"
+          ]
+        ],
+        "tier": "lead",
+        "price": 30.36,
+        "chg": -6.7,
+        "dollarMove": -2.18,
+        "fromOpen": null,
+        "zvr": 1.01,
+        "cr": 2,
+        "rs": 95,
+        "eps": 37,
+        "epsTip": "EPS Rating 37 — last qtr -20% · prior qtr +31% · 3-yr median -33%/yr (incl. −20 for 2 down yr)",
+        "epsAccel": false,
+        "earningsDays": 70,
+        "earningsDisplay": "~2/2/2027",
+        "adr": 5.9,
+        "off52": -20,
+        "rsl": false,
+        "rslTip": null,
+        "breakoutTypes": [],
+        "isBreakout": false,
+        "qualifiesZanger": false,
+        "score": 36.5,
+        "pipelineNews": [
+          "A10 Networks Non-GAAP EPS of $0.24 beats by $0.01, revenue of $75M beats by $2.39M [4/28/2026 4:45 PM]",
+          "A10 Networks Q1 2026 Earnings Preview [4/27/2026 5:35 PM]"
+        ]
+      },
+      {
+        "ticker": "SEZL",
+        "company": "Sezzle Inc.",
+        "theme": "Fintech",
+        "themeId": "fintech",
+        "layer": "Credit + Lending",
+        "layerStatus": "lag",
+        "layerRank": 40,
+        "layerFlags": [
+          [
+            "unconfirmed",
+            "Rank rising without volume/participation confirmation"
+          ]
+        ],
+        "tier": null,
+        "price": 137.42,
+        "chg": -6.09,
+        "dollarMove": -8.91,
+        "fromOpen": null,
+        "zvr": 0.75,
+        "cr": 16,
+        "rs": 97,
+        "eps": 88,
+        "epsTip": "EPS Rating 88 — last qtr +59% · prior qtr +42% · 3-yr median +100%/yr",
+        "epsAccel": false,
+        "earningsDays": 70,
+        "earningsDisplay": "~2/2/2027",
+        "adr": 8,
+        "off52": -27.1,
+        "rsl": false,
+        "rslTip": null,
+        "breakoutTypes": [],
+        "isBreakout": false,
+        "qualifiesZanger": false,
+        "score": 41.2,
+        "pipelineNews": [
+          "Sezzle Non-GAAP EPS of $1.43 beats by $0.19, revenue of $135.5M beats by $6.34M [5/6/2026 4:37 PM]",
+          "Sezzle Q1 2026 Earnings Preview [5/5/2026 5:35 PM]"
+        ]
+      },
+      {
+        "ticker": "ALGT",
+        "company": "Allegiant Travel Company",
+        "theme": "Transport",
+        "themeId": "transport",
+        "layer": "Airlines",
+        "layerStatus": "lag",
+        "layerRank": 73,
+        "layerFlags": [],
+        "tier": "lead",
+        "price": 91.21,
+        "chg": -6.04,
+        "dollarMove": -5.86,
+        "fromOpen": null,
+        "zvr": 0.89,
+        "cr": 10,
+        "rs": 94,
+        "eps": 19,
+        "epsTip": "EPS Rating 19 — last qtr -100% · prior qtr +32% · 3-yr median -110%/yr (incl. −10 for 1 down yr)",
+        "epsAccel": false,
+        "earningsDays": 74,
+        "earningsDisplay": "~2/6/2027",
+        "adr": 5.9,
+        "off52": -23.5,
+        "rsl": false,
+        "rslTip": null,
+        "breakoutTypes": [],
+        "isBreakout": false,
+        "qualifiesZanger": false,
+        "score": 34.2,
+        "pipelineNews": []
+      },
+      {
+        "ticker": "AZTA",
+        "company": "Azenta, Inc.",
+        "theme": "Healthcare",
+        "themeId": "health",
+        "layer": "Devices",
+        "layerStatus": "lead",
+        "layerRank": 89,
+        "layerFlags": [
+          [
+            "exiting",
+            "6 leaders cracked this week (were RS 90+, now below the 50-day or under RS 80): ATRC, AVTR, BFLY, PACB, PLSE, VREX"
+          ]
+        ],
+        "tier": "lead",
+        "price": 44.8,
+        "chg": -4.86,
+        "dollarMove": -2.29,
+        "fromOpen": null,
+        "zvr": 1.45,
+        "cr": 25,
+        "rs": 98,
+        "eps": 26,
+        "epsTip": "EPS Rating 26 — last qtr +104% · prior qtr -100% · 3-yr median -120%/yr (incl. −20 for 2 down yr)",
+        "epsAccel": false,
+        "earningsDays": 70,
+        "earningsDisplay": "~2/2/2027",
+        "adr": 6.5,
+        "off52": -8.4,
+        "rsl": false,
+        "rslTip": null,
+        "breakoutTypes": [],
+        "isBreakout": false,
+        "qualifiesZanger": false,
+        "score": 60.2,
+        "pipelineNews": [
+          "Azenta misses top-line and bottom-line estimates; updates FY26 outlook [5/6/2026 12:40 AM]",
+          "Azenta Q2 2026 Earnings Preview [5/5/2026 11:38 AM]"
+        ]
+      }
+    ],
+    "warnLayers": [
+      {
+        "theme": "Healthcare",
+        "layer": "Diagnostics",
+        "rank": 99,
+        "flags": [
+          "exiting"
+        ]
+      },
+      {
+        "theme": "Healthcare",
+        "layer": "Pharma Majors",
+        "rank": 96,
+        "flags": [
+          "exiting"
+        ]
+      },
+      {
+        "theme": "Healthcare",
+        "layer": "Providers + Facilities",
+        "rank": 96,
+        "flags": [
+          "exiting",
+          "distrib"
+        ]
+      },
+      {
+        "theme": "Energy",
+        "layer": "Refining",
+        "rank": 94,
+        "flags": [
+          "exiting"
+        ]
+      },
+      {
+        "theme": "Industrials",
+        "layer": "Staffing + HR",
+        "rank": 92,
+        "flags": [
+          "exiting",
+          "distrib"
+        ]
+      },
+      {
+        "theme": "Healthcare",
+        "layer": "Telemedicine / Health IT",
+        "rank": 91,
+        "flags": [
+          "exiting",
+          "distrib"
+        ]
+      }
+    ]
+  },
+  "onDeckRsl": [
+    {
+      "ticker": "LFST",
+      "company": "LifeStance Health Group, Inc.",
+      "theme": "Healthcare",
+      "themeId": "health",
+      "layer": "Providers + Facilities",
+      "layerStatus": "lead",
+      "layerRank": 96,
+      "layerFlags": [
+        [
+          "exiting",
+          "2 leaders cracked this week (were RS 90+, now below the 50-day or under RS 80): AMN, PACS"
+        ],
+        [
+          "distrib",
+          "Distribution: 22 heavy-volume down days vs 10 accumulation days across members over 10 sessions"
+        ]
+      ],
+      "tier": "lead",
+      "price": 13.82,
+      "chg": 3.6,
+      "dollarMove": 0.48,
+      "fromOpen": null,
+      "zvr": 0.56,
+      "cr": 98,
+      "rs": 98,
+      "eps": 91,
+      "epsTip": "EPS Rating 91 — last qtr +200% · prior qtr +200% · 3-yr median -100%/yr",
+      "epsAccel": false,
+      "earningsDays": 70,
+      "earningsDisplay": "~2/2/2027",
+      "adr": 5.3,
+      "off52": -5.3,
+      "rsl": true,
+      "rslTip": "RS line at a new 52-week high on a +3.6% close while price is -5.3% off its high — RS leading price",
+      "breakoutTypes": [],
+      "isBreakout": false,
+      "qualifiesZanger": false,
+      "score": 67,
+      "pipelineNews": [
+        "LifeStance Health Group beats top-line and bottom-line estimates; raises FY26 outlook [8/6/2026 6:14 AM]",
+        "LifeStance: A Rare Outperformer In The Tricky Virtual Mental Healthcare Space (LFST) - Seeking Alpha [8/24/2026 1:52 PM]"
+      ]
+    },
+    {
+      "ticker": "ECO",
+      "company": "Okeanis Eco Tankers Corp.",
+      "theme": "Shipping",
+      "themeId": "shipping",
+      "layer": "Containers + Mixed",
+      "layerStatus": "weak",
+      "layerRank": 76,
+      "layerFlags": [],
+      "tier": "lead",
+      "price": 84.83,
+      "chg": 2.18,
+      "dollarMove": 1.81,
+      "fromOpen": null,
+      "zvr": 0.58,
+      "cr": 46,
+      "rs": 98,
+      "eps": 97,
+      "epsTip": "EPS Rating 97 — last qtr +200% · prior qtr +200% · 3-yr median +2%/yr (incl. −10 for 1 down yr)",
+      "epsAccel": false,
+      "earningsDays": 68,
+      "earningsDisplay": "~1/31/2027",
+      "adr": 4.7,
+      "off52": -8.8,
+      "rsl": true,
+      "rslTip": "RS line at a new 52-week high on a +2.2% close while price is -8.8% off its high — RS leading price",
+      "breakoutTypes": [],
+      "isBreakout": false,
+      "qualifiesZanger": false,
+      "score": 46.7,
+      "pipelineNews": [
+        "Here's Why Investors Should Bet on ECO Stock Right Now - Yahoo Finance [9/14/2026 4:22 PM]",
+        "ReTo Eco-Solutions stock skyrockets on heavy speculative trading with no clear fresh catalyst - Quiver Quantitative [9/15/2026 5:37 PM]"
+      ]
+    },
+    {
+      "ticker": "EVER",
+      "company": "EverQuote, Inc.",
+      "theme": "Internet",
+      "themeId": "internet",
+      "layer": "Internet Content",
+      "layerStatus": "lag",
+      "layerRank": 18,
+      "layerFlags": [],
+      "tier": "lead",
+      "price": 29,
+      "chg": 1.15,
+      "dollarMove": 0.33,
+      "fromOpen": null,
+      "zvr": 1.21,
+      "cr": 24,
+      "rs": 94,
+      "eps": 92,
+      "epsTip": "EPS Rating 92 — last qtr +35% · prior qtr +136% · 3-yr median +90%/yr (incl. −10 for 1 down yr)",
+      "epsAccel": false,
+      "earningsDays": 68,
+      "earningsDisplay": "~1/31/2027",
+      "adr": 5.4,
+      "off52": -5.2,
+      "rsl": true,
+      "rslTip": "RS line at a new 52-week high on a +1.1% close while price is -5.2% off its high — RS leading price",
+      "breakoutTypes": [],
+      "isBreakout": false,
+      "qualifiesZanger": false,
+      "score": 49.4,
+      "pipelineNews": [
+        "EverQuote GAAP EPS of $0.51 beats by $0.07, revenue of $190.85M beats by $10.72M [5/4/2026 4:38 PM]",
+        "EverQuote Q1 2026 Earnings Preview [5/1/2026 5:35 PM]"
+      ]
+    },
+    {
+      "ticker": "MD",
+      "company": "Pediatrix Medical Group, Inc.",
+      "theme": "Healthcare",
+      "themeId": "health",
+      "layer": "Providers + Facilities",
+      "layerStatus": "lead",
+      "layerRank": 96,
+      "layerFlags": [
+        [
+          "exiting",
+          "2 leaders cracked this week (were RS 90+, now below the 50-day or under RS 80): AMN, PACS"
+        ],
+        [
+          "distrib",
+          "Distribution: 22 heavy-volume down days vs 10 accumulation days across members over 10 sessions"
+        ]
+      ],
+      "tier": "lead",
+      "price": 30.22,
+      "chg": 0.94,
+      "dollarMove": 0.28,
+      "fromOpen": null,
+      "zvr": 0.94,
+      "cr": 62,
+      "rs": 90,
+      "eps": 28,
+      "epsTip": "EPS Rating 28 — last qtr +11% · prior qtr +50% · 3-yr median -120%/yr (incl. −20 for 2 down yr)",
+      "epsAccel": false,
+      "earningsDays": 68,
+      "earningsDisplay": "~1/31/2027",
+      "adr": 3.6,
+      "off52": -7.9,
+      "rsl": true,
+      "rslTip": "RS line at a new 52-week high on a +0.9% close while price is -7.9% off its high — RS leading price",
+      "breakoutTypes": [],
+      "isBreakout": false,
+      "qualifiesZanger": false,
+      "score": 57.8,
+      "pipelineNews": [
+        "Pediatrix Medical Group Non-GAAP EPS of $0.63 beats by $0.04, revenue of $488M beats by $10M [8/4/2026 6:10 AM]",
+        "Pediatrix Medical Group, Inc. (MD) Stock Analysis: Understanding the Healthcare Stock’s Growth Potential and Analyst Ratings - DirectorsTalk Interviews [8/11/2026 9:25 AM] 5 Must-Read Analyst Questions From Pediatrix Medical Group’s Q2 Earnings Call - StockStory [8/11/2026 10:52 AM]"
+      ]
+    },
+    {
+      "ticker": "PCTY",
+      "company": "Paylocity Holding Corporation",
+      "theme": "Software",
+      "themeId": "software",
+      "layer": "Vertical SaaS",
+      "layerStatus": "lead",
+      "layerRank": 97,
+      "layerFlags": [],
+      "tier": "emerg",
+      "price": 173.43,
+      "chg": 0.2,
+      "dollarMove": 0.35,
+      "fromOpen": null,
+      "zvr": 1.1,
+      "cr": 9,
+      "rs": 89,
+      "eps": 68,
+      "epsTip": "EPS Rating 68 — last qtr +28% · prior qtr +26% · 3-yr median +22%/yr",
+      "epsAccel": false,
+      "earningsDays": 69,
+      "earningsDisplay": "~2/1/2027",
+      "adr": 3.7,
+      "off52": -6,
+      "rsl": true,
+      "rslTip": "RS line at a new 52-week high on a +0.2% close while price is -6.0% off its high — RS leading price",
+      "breakoutTypes": [],
+      "isBreakout": false,
+      "qualifiesZanger": false,
+      "score": 58.1,
+      "pipelineNews": []
+    },
+    {
+      "ticker": "CBOE",
+      "company": "Cboe Global Markets, Inc.",
+      "theme": "Financials",
+      "themeId": "financials",
+      "layer": "Capital Markets + Exchanges",
+      "layerStatus": "lag",
+      "layerRank": 77,
+      "layerFlags": [],
+      "tier": null,
+      "price": 357.71,
+      "chg": 0.01,
+      "dollarMove": 0.04,
+      "fromOpen": null,
+      "zvr": 0.97,
+      "cr": 20,
+      "rs": 88,
+      "eps": 80,
+      "epsTip": "EPS Rating 80 — last qtr +51% · prior qtr +54% · 3-yr median +44%/yr",
+      "epsAccel": false,
+      "earningsDays": 64,
+      "earningsDisplay": "~1/27/2027",
+      "adr": 3.5,
+      "off52": -5.2,
+      "rsl": true,
+      "rslTip": "RS line at a new 52-week high on a +0.0% close while price is -5.2% off its high — RS leading price",
+      "breakoutTypes": [],
+      "isBreakout": false,
+      "qualifiesZanger": false,
+      "score": 44.2,
+      "pipelineNews": []
+    },
+    {
+      "ticker": "EHC",
+      "company": "Encompass Health Corporation",
+      "theme": "Healthcare",
+      "themeId": "health",
+      "layer": "Providers + Facilities",
+      "layerStatus": "lead",
+      "layerRank": 96,
+      "layerFlags": [
+        [
+          "exiting",
+          "2 leaders cracked this week (were RS 90+, now below the 50-day or under RS 80): AMN, PACS"
+        ],
+        [
+          "distrib",
+          "Distribution: 22 heavy-volume down days vs 10 accumulation days across members over 10 sessions"
+        ]
+      ],
+      "tier": "emerg",
+      "price": 133.65,
+      "chg": 1.04,
+      "dollarMove": 1.38,
+      "fromOpen": null,
+      "zvr": 0.6,
+      "cr": 49,
+      "rs": 86,
+      "eps": 67,
+      "epsTip": "EPS Rating 67 — last qtr +10% · prior qtr +31% · 3-yr median +28%/yr",
+      "epsAccel": false,
+      "earningsDays": 71,
+      "earningsDisplay": "~2/3/2027",
+      "adr": 2.7,
+      "off52": -6.2,
+      "rsl": true,
+      "rslTip": "RS line at a new 52-week high on a +1.0% close while price is -6.2% off its high — RS leading price",
+      "breakoutTypes": [],
+      "isBreakout": false,
+      "qualifiesZanger": false,
+      "score": 56.8,
+      "pipelineNews": [
+        "Live May 12: Encompass Health CFO joins BofA health care webcast - Stock Titan [4/23/2026 8:30 PM]",
+        "Encompass Health (EHC) Earnings Expected to Grow: What to Know Ahead of Next Week's Release - Yahoo Finance [4/23/2026 2:00 PM]"
+      ]
+    }
+  ],
+  "headlines": {},
+  "leadingLayers": [
+    {
+      "theme": "Cyber",
+      "layer": "Threat Operations",
+      "st": "lead",
+      "rank": 100,
+      "w1": 100,
+      "m1": 98,
+      "flags": []
+    },
+    {
+      "theme": "Healthcare",
+      "layer": "Diagnostics",
+      "st": "lead",
+      "rank": 99,
+      "w1": 98,
+      "m1": 96,
+      "flags": [
+        "exiting"
+      ]
+    },
+    {
+      "theme": "Healthcare",
+      "layer": "Oncology",
+      "st": "lead",
+      "rank": 99,
+      "w1": 99,
+      "m1": 93,
+      "flags": []
+    },
+    {
+      "theme": "Cyber",
+      "layer": "Platform + Endpoint",
+      "st": "lead",
+      "rank": 98,
+      "w1": 86,
+      "m1": 97,
+      "flags": []
+    },
+    {
+      "theme": "Healthcare",
+      "layer": "Specialty Pharma",
+      "st": "lead",
+      "rank": 98,
+      "w1": 96,
+      "m1": 89,
+      "flags": []
+    },
+    {
+      "theme": "Software",
+      "layer": "Vertical SaaS",
+      "st": "lead",
+      "rank": 97,
+      "w1": 98,
+      "m1": 95,
+      "flags": []
+    },
+    {
+      "theme": "Healthcare",
+      "layer": "Pharma Majors",
+      "st": "lead",
+      "rank": 96,
+      "w1": 97,
+      "m1": 86,
+      "flags": [
+        "exiting"
+      ]
+    },
+    {
+      "theme": "Healthcare",
+      "layer": "Providers + Facilities",
+      "st": "lead",
+      "rank": 96,
+      "w1": 90,
+      "m1": 83,
+      "flags": [
+        "exiting",
+        "distrib"
+      ]
+    },
+    {
+      "theme": "Healthcare",
+      "layer": "Distribution + Supplies",
+      "st": "lead",
+      "rank": 95,
+      "w1": 94,
+      "m1": 72,
+      "flags": []
+    },
+    {
+      "theme": "Energy",
+      "layer": "Refining",
+      "st": "lead",
+      "rank": 94,
+      "w1": 95,
+      "m1": 100,
+      "flags": [
+        "exiting"
+      ]
+    },
+    {
+      "theme": "Internet",
+      "layer": "Adtech",
+      "st": "lead",
+      "rank": 94,
+      "w1": 93,
+      "m1": 88,
+      "flags": []
+    },
+    {
+      "theme": "Industrials",
+      "layer": "Staffing + HR",
+      "st": "lead",
+      "rank": 92,
+      "w1": 94,
+      "m1": 82,
+      "flags": [
+        "exiting",
+        "distrib"
+      ]
+    },
+    {
+      "theme": "Internet",
+      "layer": "Streaming / Media",
+      "st": "lead",
+      "rank": 92,
+      "w1": 82,
+      "m1": 81,
+      "flags": []
+    },
+    {
+      "theme": "Financials",
+      "layer": "Insurance",
+      "st": "lead",
+      "rank": 91,
+      "w1": 83,
+      "m1": 78,
+      "flags": []
+    },
+    {
+      "theme": "Healthcare",
+      "layer": "Telemedicine / Health IT",
+      "st": "lead",
+      "rank": 91,
+      "w1": 99,
+      "m1": 96,
+      "flags": [
+        "exiting",
+        "distrib"
+      ]
+    },
+    {
+      "theme": "Industrials",
+      "layer": "Business Products + Services",
+      "st": "lead",
+      "rank": 90,
+      "w1": 88,
+      "m1": 78,
+      "flags": []
+    },
+    {
+      "theme": "Consumer",
+      "layer": "Retail",
+      "st": "lead",
+      "rank": 89,
+      "w1": 89,
+      "m1": 80,
+      "flags": []
+    },
+    {
+      "theme": "Healthcare",
+      "layer": "Devices",
+      "st": "lead",
+      "rank": 89,
+      "w1": 92,
+      "m1": 79,
+      "flags": [
+        "exiting"
+      ]
+    },
+    {
+      "theme": "Consumer",
+      "layer": "Food + Beverages",
+      "st": "lead",
+      "rank": 88,
+      "w1": 81,
+      "m1": 72,
+      "flags": []
+    },
+    {
+      "theme": "Cyber",
+      "layer": "Cloud + Network Sec",
+      "st": "lead",
+      "rank": 88,
+      "w1": 75,
+      "m1": 75,
+      "flags": []
+    }
+  ],
+  "emergingLayers": [],
+  "zangerMovers": [
+    {
+      "ticker": "IPAR",
+      "company": "Inter Parfums, Inc.",
+      "theme": "Consumer",
+      "themeId": "consumer",
+      "layer": "Staples + Personal Care",
+      "layerStatus": "weak",
+      "layerRank": 82,
+      "layerFlags": [
+        [
+          "exiting",
+          "2 leaders cracked this week (were RS 90+, now below the 50-day or under RS 80): ELF, NWL"
+        ]
+      ],
+      "tier": "lead",
+      "price": 137.42,
+      "chg": 3.37,
+      "dollarMove": 4.48,
+      "fromOpen": null,
+      "zvr": 2.44,
+      "cr": 79,
+      "rs": 96,
+      "eps": 47,
+      "epsTip": "EPS Rating 47 — last qtr -5% · prior qtr +2% · 3-yr median +8%/yr",
+      "epsAccel": false,
+      "earningsDays": 68,
+      "earningsDisplay": "~1/31/2027",
+      "adr": 3,
+      "off52": 0,
+      "rsl": false,
+      "rslTip": null,
+      "breakoutTypes": [
+        "ZANGER",
+        "SB$",
+        "QMAG"
+      ],
+      "isBreakout": true,
+      "qualifiesZanger": true,
+      "score": 68.9,
+      "pipelineNews": [],
+      "isNew": false,
+      "isNewMover": false
+    },
+    {
+      "ticker": "BIPC",
+      "company": "Brookfield Infrastructure Corporation",
+      "theme": "Utilities",
+      "themeId": "utilities",
+      "layer": "Gas",
+      "layerStatus": "emerg",
+      "layerRank": 80,
+      "layerFlags": [
+        [
+          "spiky",
+          "Only 1 of the last 20 sessions at 80+ — a fresh spike, not established"
+        ],
+        [
+          "unconfirmed",
+          "Rank rising without volume/participation confirmation (only money flowing in)"
+        ]
+      ],
+      "tier": null,
+      "price": 42.82,
+      "chg": 4.24,
+      "dollarMove": 1.74,
+      "fromOpen": null,
+      "zvr": 1.43,
+      "cr": 77,
+      "rs": 80,
+      "eps": 6,
+      "epsTip": "EPS Rating 6 — last qtr -100% · prior qtr -100% · 3-yr median -120%/yr (incl. −20 for 2 down yr)",
+      "epsAccel": false,
+      "earningsDays": 63,
+      "earningsDisplay": "~1/26/2027",
+      "adr": 3,
+      "off52": -13.3,
+      "rsl": false,
+      "rslTip": null,
+      "breakoutTypes": [
+        "SB4%",
+        "SB$"
+      ],
+      "isBreakout": true,
+      "qualifiesZanger": true,
+      "score": 54.5,
+      "pipelineNews": [
+        "Stay updated with the stocks that are on the move in today's after-hours session. - ChartMill [5/18/2026 9:00 PM]"
+      ],
+      "isNew": false,
+      "isNewMover": false
+    },
+    {
+      "ticker": "BIP",
+      "company": "Brookfield Infrastructure Partners L.P.",
+      "theme": "Utilities",
+      "themeId": "utilities",
+      "layer": "Diversified Utilities",
+      "layerStatus": "lag",
+      "layerRank": 32,
+      "layerFlags": [],
+      "tier": null,
+      "price": 42.81,
+      "chg": 4.24,
+      "dollarMove": 1.74,
+      "fromOpen": null,
+      "zvr": 1.32,
+      "cr": 75,
+      "rs": 88,
+      "eps": 52,
+      "epsTip": "EPS Rating 52 — last qtr -100% · prior qtr -100% · 3-yr median +165%/yr (incl. −10 for 1 down yr)",
+      "epsAccel": false,
+      "earningsDays": 63,
+      "earningsDisplay": "~1/26/2027",
+      "adr": 2.9,
+      "off52": 0,
+      "rsl": false,
+      "rslTip": null,
+      "breakoutTypes": [
+        "SB4%",
+        "SB$"
+      ],
+      "isBreakout": true,
+      "qualifiesZanger": true,
+      "score": 54.3,
+      "pipelineNews": [],
+      "isNew": false,
+      "isNewMover": false
+    },
+    {
+      "ticker": "GPN",
+      "company": "Global Payments Inc.",
+      "theme": "Fintech",
+      "themeId": "fintech",
+      "layer": "Payments",
+      "layerStatus": "weak",
+      "layerRank": 78,
+      "layerFlags": [],
+      "tier": null,
+      "price": 91.83,
+      "chg": 9.95,
+      "dollarMove": 8.31,
+      "fromOpen": null,
+      "zvr": 1.3,
+      "cr": 70,
+      "rs": 86,
+      "eps": 26,
+      "epsTip": "EPS Rating 26 — last qtr -95% · prior qtr -100% · 3-yr median +53%/yr (incl. −10 for 1 down yr)",
+      "epsAccel": false,
+      "earningsDays": 69,
+      "earningsDisplay": "~2/1/2027",
+      "adr": 5.7,
+      "off52": -9.6,
+      "rsl": false,
+      "rslTip": null,
+      "breakoutTypes": [
+        "SB4%",
+        "SB$"
+      ],
+      "isBreakout": true,
+      "qualifiesZanger": true,
+      "score": 48.1,
+      "pipelineNews": [],
+      "isNew": false,
+      "isNewMover": false
+    },
+    {
+      "ticker": "NJR",
+      "company": "New Jersey Resources Corporation",
+      "theme": "Utilities",
+      "themeId": "utilities",
+      "layer": "Gas",
+      "layerStatus": "emerg",
+      "layerRank": 80,
+      "layerFlags": [
+        [
+          "spiky",
+          "Only 1 of the last 20 sessions at 80+ — a fresh spike, not established"
+        ],
+        [
+          "unconfirmed",
+          "Rank rising without volume/participation confirmation (only money flowing in)"
+        ]
+      ],
+      "tier": null,
+      "price": 55.54,
+      "chg": 2.51,
+      "dollarMove": 1.36,
+      "fromOpen": null,
+      "zvr": 1.34,
+      "cr": 88,
+      "rs": 75,
+      "eps": 84,
+      "epsTip": "EPS Rating 84 — last qtr +167% · prior qtr +6% · 3-yr median -2%/yr (incl. −10 for 1 down yr) · accelerating",
+      "epsAccel": true,
+      "earningsDays": 68,
+      "earningsDisplay": "~1/31/2027",
+      "adr": 2.1,
+      "off52": -7.5,
+      "rsl": false,
+      "rslTip": null,
+      "breakoutTypes": [
+        "SB$"
+      ],
+      "isBreakout": true,
+      "qualifiesZanger": true,
+      "score": 59.8,
+      "pipelineNews": [
+        "New Jersey Resources Non-GAAP EPS of $2.20 beats by $0.30, revenue of $939.4M beats by $89.45M [5/4/2026 4:35 PM]"
+      ],
+      "isNew": false,
+      "isNewMover": false
+    }
+  ]
+}

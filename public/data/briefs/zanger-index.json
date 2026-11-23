@@ -1,0 +1,18 @@
+{
+  "latest": "zanger-2026-11-23-1035.json",
+  "briefs": [
+    {
+      "id": "zanger-2026-11-23-1035",
+      "file": "zanger-2026-11-23-1035.json",
+      "date": "2026-11-23",
+      "et": "2026-11-23 10:35 ET",
+      "phase": "open",
+      "label": "2026-11-23 10:35 ET · OPENING RANGE SCAN",
+      "subject": "🔔 Open Zanger: 5 BO (IPAR, BIPC, BIP +2) · 5 Movers — 10:35 ET",
+      "breakoutCount": 5,
+      "moverCount": 5,
+      "decision": null,
+      "score": null
+    }
+  ]
+}

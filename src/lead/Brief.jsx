@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { CONF_LABEL, Card, Delta, EPS_TIP, ExtHoursMovers, FlagButton, LayerLink, StockTable, TierMark, statusColor, td, th } from "./core.jsx";
 import RotationView from "./Rotation.jsx";
+import ZangerBriefSection from "./ZangerBriefSection.jsx";
 
 // ── Written briefs (BRIEF → Written) ─────────────────────────────────────
 // Dated snapshots in public/data/briefs/ (brief-index.json + <id>.json),
@@ -203,9 +204,14 @@ function BriefPanel(props) {
       ))}
     </div>
   );
-  return mode === "written"
-    ? <WrittenBrief A={A} onTicker={props.onTicker} chartTicker={props.chartTicker} modeSwitch={modeSwitch} />
-    : <LiveBrief {...props} modeSwitch={modeSwitch} />;
+  return (
+    <>
+      {mode === "written"
+        ? <WrittenBrief A={A} onTicker={props.onTicker} chartTicker={props.chartTicker} modeSwitch={modeSwitch} />
+        : <LiveBrief {...props} modeSwitch={modeSwitch} />}
+      <ZangerBriefSection A={A} onTicker={props.onTicker} chartTicker={props.chartTicker} />
+    </>
+  );
 }
 
 // ── Brief (BRIEF view) ────────────────────────────────────────────────────

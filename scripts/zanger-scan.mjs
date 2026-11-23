@@ -11,6 +11,7 @@
 //   node scripts/zanger-scan.mjs --json                # print structured JSON summary to stdout
 //   node scripts/zanger-scan.mjs --market-hours-only   # exit 0 quietly outside Mon-Fri pre-market (08:20-09:10 ET) & RTH (09:55-16:25 ET) / NYSE holidays
 //   node scripts/zanger-scan.mjs --email-out <dir>     # write email.html, email.txt, meta.json to <dir>
+//   node scripts/zanger-scan.mjs --brief-out <dir>     # publish zanger-latest.json + zanger-index.json to <dir> (for Brief page)
 //   node scripts/zanger-scan.mjs --state-file <path>   # track prior hourly breakouts for NEW / faded deltas
 //   node scripts/zanger-scan.mjs --force-send          # set shouldSend=true even when 0 movers
 //
@@ -456,6 +457,7 @@ export async function runZangerScan({ offline = false, write = true, now = new D
 
   return {
     stamp,
+    clock,
     mode,
     phase,
     pipelineDate: dash.date,
@@ -465,6 +467,7 @@ export async function runZangerScan({ offline = false, write = true, now = new D
       hasPriorState: delta.hasPriorState,
       newBreakoutCount: delta.newBreakouts.length,
       fadedCount: delta.fadedBreakouts.length,
+      fadedBreakouts: delta.fadedBreakouts,
       holdRate: delta.holdRate,
     },
     portfolioAlerts,
@@ -473,8 +476,9 @@ export async function runZangerScan({ offline = false, write = true, now = new D
     themeFlow,
     leaderDamage,
     onDeckRsl,
-    leadingLayers: leadingLayers.map((l) => ({ theme: l.theme, layer: l.name, rank: l.now, w1: l.w1, m1: l.m1, flags: l.flags.map(([k]) => k) })),
-    emergingLayers: emergingLayers.map((l) => ({ theme: l.theme, layer: l.name, rank: l.now, w1: l.w1, m1: l.m1 })),
+    headlines: Object.fromEntries(headlines),
+    leadingLayers: leadingLayers.map((l) => ({ theme: l.theme, layer: l.name, st: l.st, rank: l.now, w1: l.w1, m1: l.m1, flags: l.flags.map(([k]) => k) })),
+    emergingLayers: emergingLayers.map((l) => ({ theme: l.theme, layer: l.name, st: l.st, rank: l.now, w1: l.w1, m1: l.m1, flags: l.flags.map(([k]) => k) })),
     zangerMovers: zangerMovers.slice(0, 25),
     themeLeaders: themeLeaders.slice(0, 25),
     breakoutCount: zangerMovers.filter((m) => m.isBreakout).length,
@@ -485,24 +489,93 @@ export async function runZangerScan({ offline = false, write = true, now = new D
   };
 }
 
+const MAX_ZANGER_BRIEFS = 16;
+
+export function buildZangerBriefSnapshot(res) {
+  const id = `zanger-${res.stamp.date}-${res.stamp.hhmm}`;
+  return {
+    id,
+    generatedAt: new Date().toISOString(),
+    stamp: res.stamp,
+    clock: res.clock,
+    mode: res.mode,
+    phase: res.phase,
+    pipelineDate: res.pipelineDate,
+    subject: res.emailSubject,
+    breakoutCount: res.breakoutCount,
+    moverCount: res.moverCount,
+    market: res.market,
+    delta: res.delta,
+    portfolioAlerts: res.portfolioAlerts,
+    portfolioEarnings: res.portfolioEarnings,
+    epMovers: res.epMovers,
+    themeFlow: res.themeFlow,
+    leaderDamage: res.leaderDamage,
+    onDeckRsl: res.onDeckRsl,
+    headlines: res.headlines || {},
+    leadingLayers: res.leadingLayers,
+    emergingLayers: res.emergingLayers,
+    zangerMovers: res.zangerMovers,
+  };
+}
+
+function writeZangerBriefOut(dir, res) {
+  fs.mkdirSync(dir, { recursive: true });
+  const snap = buildZangerBriefSnapshot(res);
+  const file = `${snap.id}.json`;
+  const idxPath = path.join(dir, "zanger-index.json");
+  const prevIdx = readJson(idxPath) || { latest: null, briefs: [] };
+  const entry = {
+    id: snap.id,
+    file,
+    date: snap.stamp.date,
+    et: snap.stamp.pretty,
+    phase: snap.phase?.id || "midday",
+    label: `${snap.stamp.pretty} · ${snap.phase?.label || "UPDATE"}`,
+    subject: snap.subject,
+    breakoutCount: snap.breakoutCount,
+    moverCount: snap.moverCount,
+    decision: snap.market?.decision || null,
+    score: snap.market?.score ?? null,
+  };
+
+  const merged = [entry, ...(prevIdx.briefs || []).filter((b) => b?.id !== snap.id)];
+  const kept = merged.slice(0, MAX_ZANGER_BRIEFS);
+  const dropped = merged.slice(MAX_ZANGER_BRIEFS);
+
+  fs.writeFileSync(path.join(dir, file), JSON.stringify(snap, null, 2), "utf8");
+  fs.writeFileSync(path.join(dir, "zanger-latest.json"), JSON.stringify(snap, null, 2), "utf8");
+  fs.writeFileSync(idxPath, JSON.stringify({ latest: file, briefs: kept }, null, 2), "utf8");
+
+  for (const old of dropped) {
+    if (old?.file && /^zanger-\d{4}-\d{2}-\d{2}-\d{4}\.json$/.test(old.file)) {
+      try { fs.unlinkSync(path.join(dir, old.file)); } catch { /* ignore */ }
+    }
+  }
+  return { file, count: kept.length };
+}
+
 function parseCliArgs(argv) {
   const flags = new Set();
   let emailOut = null;
+  let briefOut = null;
   let stateFile = null;
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--email-out" && argv[i + 1]) emailOut = argv[++i];
     else if (a.startsWith("--email-out=")) emailOut = a.slice("--email-out=".length);
+    else if (a === "--brief-out" && argv[i + 1]) briefOut = argv[++i];
+    else if (a.startsWith("--brief-out=")) briefOut = a.slice("--brief-out=".length);
     else if (a === "--state-file" && argv[i + 1]) stateFile = argv[++i];
     else if (a.startsWith("--state-file=")) stateFile = a.slice("--state-file=".length);
     else flags.add(a);
   }
-  return { flags, emailOut, stateFile };
+  return { flags, emailOut, briefOut, stateFile };
 }
 
 // CLI entrypoint
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const { flags, emailOut, stateFile } = parseCliArgs(process.argv.slice(2));
+  const { flags, emailOut, briefOut, stateFile } = parseCliArgs(process.argv.slice(2));
   const forceSend = flags.has("--force-send");
 
   if (flags.has("--market-hours-only") && !forceSend) {
@@ -526,6 +599,11 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     write: !flags.has("--no-write"),
     stateFile,
   });
+
+  if (briefOut) {
+    const info = writeZangerBriefOut(briefOut, res);
+    console.error(`Published Zanger brief to ${briefOut}/${info.file} (${info.count} snapshots indexed)`);
+  }
 
   if (emailOut) {
     fs.mkdirSync(emailOut, { recursive: true });
