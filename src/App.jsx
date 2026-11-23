@@ -16,7 +16,7 @@
 
 import React, { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { ARIA_DARK, ARIA_LIGHT, ARIA } from "./styles.js";
-import { isPipelineStale, getAuthToken, setAuthToken, authHeaders, notifyAuthRequired } from "./utils.js";
+import { isPipelineStale, getAuthToken, setAuthToken, authHeaders, authFetch } from "./utils.js";
 import { mergeTrades, applyClearTombstone, newestStamp } from "./wheelTrades.js";
 import LeadershipView, { LEAD_INDEXES, zvrFor, useRvolProfiles, useJson, TierMark } from "./LeadershipView.jsx";
 
@@ -346,7 +346,7 @@ const _quoteManager = {
         batches.push(tickers.slice(i, i + 500).join(","));
       }
       for (const batch of batches) {
-        const r = await fetch(`/api/live?universe=${encodeURIComponent(batch)}`);
+        const r = await authFetch(`/api/live?universe=${encodeURIComponent(batch)}`);
         if (!r.ok) continue;
         const d = await r.json();
         const arr = d.theme_universe || d.universe || [];
@@ -425,7 +425,7 @@ const _ohlcCache = new Map();
 async function fetchOhlcBars(ticker) {
   if (_ohlcCache.has(ticker)) return _ohlcCache.get(ticker);
   try {
-    const r = await fetch(`/api/ohlc?ticker=${encodeURIComponent(ticker)}`);
+    const r = await authFetch(`/api/ohlc?ticker=${encodeURIComponent(ticker)}`);
     const d = r.ok ? await r.json() : null;
     const bars = (d?.ohlc || []).filter((x) => x.close != null);
     _ohlcCache.set(ticker, bars);
@@ -627,9 +627,9 @@ async function _pushToServer() {
   const s = _getState();
   const tickAtStart = _localTick;
   try {
-    const r = await fetch("/api/userdata", {
+    const r = await authFetch("/api/userdata", {
       method: "POST",
-      headers: authHeaders({ "Content-Type": "application/json" }),
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         analyzedPicks: s.analyzedPicks,
         watchlist: s.watchlist,
@@ -643,8 +643,6 @@ async function _pushToServer() {
     });
     if (r.status === 401) {
       _pendingAuthRetry = true;
-      setAuthToken("");
-      notifyAuthRequired();
       return;
     }
     if (!r.ok) return;
@@ -677,7 +675,7 @@ function _pullFromServer() {
   const tickAtStart = _localTick;
   _pullPromise = (async () => {
     try {
-      const r = await fetch("/api/userdata", { cache: "no-store" });
+      const r = await authFetch("/api/userdata", { cache: "no-store" });
       if (!r.ok) return;
       const d = await r.json();
       if (!d.ok) return;
@@ -1872,7 +1870,7 @@ function ChartPanelInline({
     setLiveEarningsDate(null);
     const ac = new AbortController();
     const tid = setTimeout(() => {
-      fetch(`/api/live?news=${encodeURIComponent(ticker)}`, { signal: ac.signal })
+      authFetch(`/api/live?news=${encodeURIComponent(ticker)}`, { signal: ac.signal })
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => {
           if (ac.signal.aborted) return;
@@ -1900,7 +1898,7 @@ function ChartPanelInline({
     if (cached) { setOhlcBars(cached); return; }
     const ac = new AbortController();
     const tid = setTimeout(() => {
-      fetch(`/api/ohlc?ticker=${encodeURIComponent(ticker)}&interval=${interval}`, { signal: ac.signal })
+      authFetch(`/api/ohlc?ticker=${encodeURIComponent(ticker)}&interval=${interval}`, { signal: ac.signal })
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => {
           if (ac.signal.aborted || !d?.ohlc) return;
@@ -2022,7 +2020,7 @@ function ChartPanelInline({
     if (cached) { setErHist(cached); return; }
     const ac = new AbortController();
     const tid = setTimeout(() => {
-      fetch(`/api/earnings?ticker=${encodeURIComponent(ticker)}`, { signal: ac.signal })
+      authFetch(`/api/earnings?ticker=${encodeURIComponent(ticker)}`, { signal: ac.signal })
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => {
           if (ac.signal.aborted || !d || !Array.isArray(d.history)) return;
@@ -2650,7 +2648,7 @@ function useTradeAlerts(stockMap) {
       const names = [...new Set([...portfolio, ...focus])].filter((t) => stockMap?.[t]);
       if (!names.length) return;
       try {
-        const r = await fetch(`/api/live?universe=${encodeURIComponent(names.join(","))}`);
+        const r = await authFetch(`/api/live?universe=${encodeURIComponent(names.join(","))}`);
         if (!r.ok) return;
         const d = await r.json();
         const qs = d.theme_universe || d.universe || [];
@@ -2777,27 +2775,44 @@ if (typeof document !== "undefined" && !document.getElementById("tp-visual-css")
 
 
 
-function AuthControl({ ARIA }) {
-  const [unlocked, setUnlocked] = useState(() => Boolean(getAuthToken()));
-  const [open, setOpen] = useState(false);
+function AuthGate({ children }) {
+  const ARIA = useAriaTheme();
+  const [status, setStatus] = useState(() => (getAuthToken() ? "checking" : "locked"));
   const [pin, setPin] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
-  const [prompted, setPrompted] = useState(false);
   const inputRef = useRef(null);
 
   useEffect(() => {
     let live = true;
+    const hasTok = Boolean(getAuthToken());
     fetch("/api/auth", { headers: authHeaders(), cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        if (!live || !d) return;
-        if (!d.authenticated && getAuthToken()) setAuthToken("");
-        setUnlocked(Boolean(d.authenticated));
+        if (!live || !d) {
+          if (live && hasTok) setStatus("locked");
+          return;
+        }
+        if (d.authenticated) {
+          setStatus("unlocked");
+        } else {
+          if (hasTok) setAuthToken("");
+          setStatus("locked");
+          if (d.configured === false) setErr("Server auth not configured (set TP_PIN and TP_SESSION_SECRET in Vercel).");
+        }
       })
-      .catch(() => {});
-    const onChanged = (e) => setUnlocked(Boolean(e?.detail?.unlocked));
-    const onReq = () => { setUnlocked(false); setPrompted(true); setErr(""); setOpen(true); };
+      .catch(() => {
+        if (live) setStatus("locked");
+      });
+
+    const onChanged = (e) => {
+      if (e?.detail?.unlocked) { setErr(""); setStatus("unlocked"); }
+      else setStatus("locked");
+    };
+    const onReq = () => {
+      setErr("Session expired — enter PIN to unlock.");
+      setStatus("locked");
+    };
     window.addEventListener("tp-auth-changed", onChanged);
     window.addEventListener("tp-auth-required", onReq);
     return () => {
@@ -2808,8 +2823,10 @@ function AuthControl({ ARIA }) {
   }, []);
 
   useEffect(() => {
-    if (open && !unlocked) setTimeout(() => inputRef.current?.focus(), 20);
-  }, [open, unlocked]);
+    if (status === "locked") setTimeout(() => inputRef.current?.focus(), 20);
+  }, [status]);
+
+  if (status === "unlocked") return children;
 
   const submit = async (e) => {
     e.preventDefault();
@@ -2829,124 +2846,128 @@ function AuthControl({ ARIA }) {
       }
       setAuthToken(d.token);
       setPin("");
-      setPrompted(false);
-      setOpen(false);
+      setStatus("unlocked");
     } catch {
-      setErr("Network error");
+      setErr("Network error — try again.");
     } finally {
       setBusy(false);
     }
   };
 
-  const lock = () => {
-    setAuthToken("");
-    setOpen(false);
-  };
-
   return (
-    <div style={{ position: "relative" }}>
-      <button
-        onClick={() => { setPrompted(false); setErr(""); setOpen((v) => !v); }}
-        title={unlocked ? "Writes unlocked — click to lock" : "Read-only — click to unlock saving lists & flags with PIN"}
+    <div
+      style={{
+        minHeight: "100vh",
+        background: ARIA.vignette || ARIA.bg,
+        color: ARIA.text,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
+        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
+      }}
+    >
+      <div
         style={{
-          background: unlocked ? "rgba(13,145,99,0.12)" : "transparent",
-          border: `1px solid ${unlocked ? ARIA.green : ARIA.border}`,
-          color: unlocked ? ARIA.green : ARIA.textDim,
-          padding: "4px 8px",
-          borderRadius: 4,
-          cursor: "pointer",
-          fontFamily: "monospace",
-          fontSize: 10,
-          letterSpacing: 0.4,
+          width: "100%",
+          maxWidth: 340,
+          background: ARIA.bgCard,
+          border: `1px solid ${ARIA.border}`,
+          borderRadius: 12,
+          padding: "28px 24px",
+          boxShadow: ARIA.shadow || "0 16px 40px rgba(0,0,0,0.45)",
+          textAlign: "center",
         }}
       >
-        {unlocked ? "🔓" : "🔒 Unlock"}
-      </button>
-      {open && (
         <div
+          className="tp-wordmark"
           style={{
-            position: "absolute",
-            right: 0,
-            top: "calc(100% + 6px)",
-            width: 220,
-            background: ARIA.bgCard,
-            border: `1px solid ${ARIA.borderLight || ARIA.border}`,
-            borderRadius: 8,
-            boxShadow: ARIA.shadow || "0 8px 24px rgba(0,0,0,0.45)",
-            padding: 10,
-            zIndex: 200,
-            fontFamily: "monospace",
+            fontSize: 20,
+            fontWeight: 800,
+            backgroundImage: `linear-gradient(135deg, ${ARIA.brand1 || ARIA.green}, ${ARIA.brand2 || ARIA.cyan})`,
+            letterSpacing: 0.4,
+            marginBottom: 4,
           }}
         >
-          {unlocked ? (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-              <span style={{ fontSize: 10, color: ARIA.green }}>Saves unlocked</span>
-              <button
-                onClick={lock}
-                style={{
-                  background: "transparent",
-                  border: `1px solid ${ARIA.border}`,
-                  color: ARIA.textDim,
-                  padding: "3px 8px",
-                  borderRadius: 4,
-                  cursor: "pointer",
-                  fontFamily: "monospace",
-                  fontSize: 10,
-                }}
-              >
-                Lock
-              </button>
-            </div>
-          ) : (
-            <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <div style={{ fontSize: 10, color: prompted ? "#f59e0b" : ARIA.textDim }}>
-                {prompted ? "Enter PIN to save changes" : "Enter PIN to unlock writes"}
-              </div>
-              <div style={{ display: "flex", gap: 4 }}>
-                <input
-                  ref={inputRef}
-                  type="password"
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Escape") setOpen(false); }}
-                  placeholder="PIN"
-                  style={{
-                    flex: 1,
-                    minWidth: 0,
-                    fontSize: 11,
-                    padding: "4px 6px",
-                    background: ARIA.bg,
-                    border: `1px solid ${ARIA.border}`,
-                    borderRadius: 4,
-                    color: ARIA.text,
-                    fontFamily: "monospace",
-                    outline: "none",
-                  }}
-                />
-                <button
-                  type="submit"
-                  disabled={busy}
-                  style={{
-                    background: "rgba(13,145,99,0.16)",
-                    border: `1px solid ${ARIA.green}`,
-                    color: ARIA.green,
-                    padding: "4px 8px",
-                    borderRadius: 4,
-                    cursor: "pointer",
-                    fontFamily: "monospace",
-                    fontSize: 10,
-                    fontWeight: 700,
-                  }}
-                >
-                  {busy ? "…" : "Go"}
-                </button>
-              </div>
-              {err && <div style={{ fontSize: 9, color: ARIA.red }}>{err}</div>}
-            </form>
-          )}
+          THEMEPULSE
         </div>
-      )}
+        <div style={{ fontSize: 11, color: ARIA.textMuted, fontFamily: "monospace", marginBottom: 20 }}>
+          {status === "checking" ? "Verifying session…" : "Enter PIN to access dashboard"}
+        </div>
+        {status === "locked" && (
+          <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <input
+              ref={inputRef}
+              type="password"
+              autoComplete="current-password"
+              value={pin}
+              onChange={(e) => setPin(e.target.value)}
+              placeholder="PIN"
+              style={{
+                width: "100%",
+                fontSize: 14,
+                padding: "9px 12px",
+                background: ARIA.bg,
+                border: `1px solid ${ARIA.border}`,
+                borderRadius: 6,
+                color: ARIA.text,
+                fontFamily: "monospace",
+                textAlign: "center",
+                letterSpacing: 3,
+                outline: "none",
+              }}
+            />
+            <button
+              type="submit"
+              disabled={busy}
+              style={{
+                width: "100%",
+                padding: "9px 12px",
+                background: "rgba(13,145,99,0.16)",
+                border: `1px solid ${ARIA.green}`,
+                color: ARIA.green,
+                borderRadius: 6,
+                cursor: busy ? "default" : "pointer",
+                fontFamily: "monospace",
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: 0.8,
+                textTransform: "uppercase",
+              }}
+            >
+              {busy ? "Unlocking…" : "🔒 Unlock"}
+            </button>
+            {err && (
+              <div style={{ fontSize: 10, color: ARIA.red, fontFamily: "monospace", lineHeight: 1.4 }}>
+                {err}
+              </div>
+            )}
+          </form>
+        )}
+      </div>
     </div>
+  );
+}
+
+function LockButton({ ARIA }) {
+  return (
+    <button
+      onClick={() => setAuthToken("")}
+      title="Lock dashboard and clear session token"
+      style={{
+        background: "transparent",
+        border: `1px solid ${ARIA.border}`,
+        color: ARIA.textDim,
+        padding: "4px 8px",
+        borderRadius: 4,
+        cursor: "pointer",
+        fontFamily: "monospace",
+        fontSize: 10,
+        letterSpacing: 0.4,
+      }}
+    >
+      🔒 Lock
+    </button>
   );
 }
 
@@ -3225,7 +3246,7 @@ function AppMain() {
               </span>
             )}
           </span>
-          <AuthControl ARIA={ARIA} />
+          <LockButton ARIA={ARIA} />
           <button
             onClick={toggleTheme}
             title={`Switch to ${themeMode === "dark" ? "light" : "dark"} mode`}
@@ -3371,7 +3392,9 @@ export default function App() {
   return (
     <AriaThemeContext.Provider value={ctxValue}>
       <ErrorBoundary>
-        <AppMain />
+        <AuthGate>
+          <AppMain />
+        </AuthGate>
       </ErrorBoundary>
     </AriaThemeContext.Provider>
   );

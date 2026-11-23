@@ -12,29 +12,17 @@
 //     updated_at:    "ISO8601"
 //   }
 //
-// GET   /api/userdata        → returns the full state (public read, filtered for stale picks)
+// GET   /api/userdata        → returns the full state (requires Bearer token from /api/auth)
 // POST  /api/userdata {...}  → merges/persists state (requires Bearer token from /api/auth)
 //
 // Env vars: UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN, TP_PIN, TP_SESSION_SECRET
 // ════════════════════════════════════════════════════════════════════════════
 
-import { verifyToken, extractBearer } from "./auth.js";
+import { requireAuth } from "./auth.js";
 
 const DATA_KEY = "tp_user_state";
 const ANALYZED_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 1 week
 const ANALYZED_MAX = 50;
-
-function requireWriteAuth(req, res) {
-  if (!process.env.TP_PIN || !process.env.TP_SESSION_SECRET) {
-    res.status(503).json({ ok: false, error: "Auth not configured (set TP_PIN and TP_SESSION_SECRET)" });
-    return false;
-  }
-  if (!verifyToken(extractBearer(req))) {
-    res.status(401).json({ ok: false, error: "PIN unlock required" });
-    return false;
-  }
-  return true;
-}
 
 async function redisCmd(...args) {
   const resp = await fetch(process.env.UPSTASH_REDIS_REST_URL, {
@@ -168,7 +156,7 @@ export default async function handler(req, res) {
   if (req.query && req.query.scope === "flags") {
     const kvKey = "themepulse:flags";
     const COLORS = new Set(["red", "blue", "gold"]);
-    if (req.method === "POST" && !requireWriteAuth(req, res)) return;
+    if (!requireAuth(req, res)) return;
     try {
       const cur = await redisCmd("GET", kvKey);
       let flags = {};
@@ -203,7 +191,8 @@ export default async function handler(req, res) {
     const kvKey = `themepulse:${req.query.scope}`;
     try {
       if (req.method === "GET") {
-        res.setHeader("Cache-Control", "private, s-maxage=60, stale-while-revalidate=300");
+        if (!requireAuth(req, res)) return;
+        res.setHeader("Cache-Control", "private, max-age=60");
         if (req.query.history) {
           const hr = await redisCmd("GET", `${kvKey}:history`);
           return res.status(200).json({ ok: true, history: hr.result ? JSON.parse(hr.result) : [] });
@@ -250,13 +239,11 @@ export default async function handler(req, res) {
     }
   }
 
+  if (!requireAuth(req, res)) return;
+
   try {
     if (req.method === "GET") {
-      // Short cache so multiple browser tabs don't hammer KV
-      res.setHeader(
-        "Cache-Control",
-        "private, s-maxage=10, stale-while-revalidate=60"
-      );
+      res.setHeader("Cache-Control", "private, no-store");
       const result = await redisCmd("GET", DATA_KEY);
       const stored = result.result ? JSON.parse(result.result) : null;
       // Merge over defaults so newer fields (e.g. focus) always appear even for
@@ -274,7 +261,6 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST") {
-      if (!requireWriteAuth(req, res)) return;
       const body = req.body || {};
       // Pull current state so we can merge instead of clobber if caller
       // sends a partial blob (e.g., just a watchlist update)

@@ -3,6 +3,8 @@
 // Routes by query params:
 //   GET /api/earnings?ticker=NVDA          → single-ticker earnings detail
 //   GET /api/earnings?from=YYYY-MM-DD&to=YYYY-MM-DD  → earnings calendar for date range
+
+import { requireAuth } from "./auth.js";
 //
 // Single-ticker response:
 //   { ticker, next: { date, timing, days_until, eps_estimate, revenue_estimate },
@@ -45,7 +47,9 @@ const WEEK_CACHE_MS = 60 * 60 * 1000;
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") return res.status(200).end();
+  if (!requireAuth(req, res)) return;
 
   const fmpKey = process.env.FMP_API_KEY;
   if (!fmpKey) return res.status(500).json({ error: "FMP_API_KEY not configured" });
@@ -54,7 +58,7 @@ export default async function handler(req, res) {
 
   // ── Route: date range calendar ──────────────────────────────────────────────
   if (from || to) {
-    res.setHeader("Cache-Control", "s-maxage=600, stale-while-revalidate=1800");
+    res.setHeader("Cache-Control", "private, max-age=600");
     if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
       return res.status(400).json({ error: "from + to required, YYYY-MM-DD" });
     }
@@ -95,7 +99,7 @@ export default async function handler(req, res) {
   }
 
   // ── Route: single ticker ────────────────────────────────────────────────────
-  res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=900");
+  res.setHeader("Cache-Control", "private, max-age=300");
 
   const ticker = (tickerRaw || "").trim().toUpperCase();
   if (!ticker || ticker.length > 10) {

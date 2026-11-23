@@ -30,12 +30,12 @@ stock-pipeline (GitHub Actions)
   → Frontend fetches static JSON with { cache: "no-cache" } (ETag/304 revalidation)
 
 Vercel Serverless Functions (api/) — 6 functions (6 free slots under Vercel Hobby's 12-function cap):
-  - api/live.js           — Real-time quotes + news/fundamentals (Finviz Elite / FMP)
-  - api/ohlc.js           — Historical daily/weekly OHLC bars (FMP)
-  - api/earnings.js       — Per-ticker earnings history/estimates
-  - api/userdata.js       — Upstash Redis persistence (public GET; PIN-Bearer gated POST for lists & ?scope=flags; RVOL_SCANNER_TOKEN for pm-movers/ah-movers)
-  - api/auth.js           — GET status check + POST PIN → HMAC Bearer token (requires TP_PIN + TP_SESSION_SECRET)
-  - api/market-quality.js — Market Quality Terminal scoring (used by public/terminal.html)
+  - api/auth.js           — GET status check + POST PIN → 30-day HMAC Bearer token (requires TP_PIN + TP_SESSION_SECRET)
+  - api/live.js           — Real-time quotes + news/fundamentals (Finviz Elite / FMP, Bearer-gated)
+  - api/ohlc.js           — Historical daily/weekly OHLC bars (FMP, Bearer-gated)
+  - api/earnings.js       — Per-ticker earnings history/estimates (Bearer-gated)
+  - api/userdata.js       — Upstash Redis persistence (Bearer-gated GET/POST; RVOL_SCANNER_TOKEN for pm-movers/ah-movers POST)
+  - api/market-quality.js — Market Quality Terminal scoring (used by public/terminal.html, Bearer-gated)
 ```
 
 ## Commands

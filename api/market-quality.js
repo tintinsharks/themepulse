@@ -2,6 +2,8 @@
 // Computes Volatility, Trend, Breadth, Momentum, Macro scores → total 0-100
 // Data: FMP live quotes + market_monitor.json + dashboard_data.json
 
+import { requireAuth } from "./auth.js";
+
 export const config = { maxDuration: 15 };
 
 // ── FOMC 2026 dates (hardcoded) ──
@@ -390,9 +392,12 @@ function generateAnalysis(total, scores, decision) {
 // ── Main handler ──
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Cache-Control", "s-maxage=30, stale-while-revalidate=60");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
   if (req.method === "OPTIONS") return res.status(200).end();
+  if (!requireAuth(req, res)) return;
+  res.setHeader("Cache-Control", "private, max-age=30");
 
   try {
     const fmpKey = process.env.FMP_API_KEY;

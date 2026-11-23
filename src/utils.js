@@ -136,3 +136,11 @@ export function notifyAuthRequired() {
     if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("tp-auth-required"));
   } catch {}
 }
+export async function authFetch(url, opts = {}) {
+  const r = await fetch(url, { ...opts, headers: authHeaders(opts.headers || {}) });
+  if (r.status === 401) {
+    setAuthToken("");
+    notifyAuthRequired();
+  }
+  return r;
+}

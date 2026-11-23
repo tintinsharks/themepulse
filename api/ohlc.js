@@ -3,6 +3,8 @@
 // datacenter egress, so this routes through FMP instead.
 // Supported intervals: 1d (1-year EOD), 1m/5m/15m (~1 day), 30m (~5 days).
 
+import { requireAuth } from "./auth.js";
+
 const FMP_BASE = "https://financialmodelingprep.com/stable";
 
 // lookback = calendar days requested from FMP. Without from/to FMP returns its
@@ -36,6 +38,11 @@ function round2(v) {
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (!requireAuth(req, res)) return;
+
   const { ticker, interval } = req.query;
   if (!ticker) return res.status(400).json({ ok: false, error: "Missing ticker" });
 
@@ -126,7 +133,7 @@ export default async function handler(req, res) {
 
     const cacheMaxAge = isIntraday ? 30 : 300;
     const cacheStale = isIntraday ? 60 : 600;
-    res.setHeader("Cache-Control", `s-maxage=${cacheMaxAge}, stale-while-revalidate=${cacheStale}`);
+    res.setHeader("Cache-Control", `private, max-age=${cacheMaxAge}`);
     return res.json({ ok: true, ticker: ticker.toUpperCase(), ohlc, interval: ival });
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message });

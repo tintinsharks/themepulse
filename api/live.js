@@ -7,6 +7,8 @@
 //   FINVIZ_EMAIL
 //   FINVIZ_PASSWORD
 
+import { requireAuth } from "./auth.js";
+
 export const config = { maxDuration: 30 };
 
 const FINVIZ_LOGIN_URL = "https://finviz.com/login_submit.ashx";
@@ -1438,12 +1440,14 @@ function scanMomentumBursts(rawQuotes) {
 export default async function handler(req, res) {
   // CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET");
-  res.setHeader("Cache-Control", "s-maxage=30, stale-while-revalidate=60");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
+  if (!requireAuth(req, res)) return;
+  res.setHeader("Cache-Control", "private, max-age=30");
 
   try {
     // ETF holdings — short-circuit before Finviz login
@@ -1462,7 +1466,7 @@ export default async function handler(req, res) {
           .sort((a, b) => b.weightPercentage - a.weightPercentage)
           .slice(0, 15)
           .map(h => ({ ticker: h.asset, name: h.name || h.asset, weight: Math.round(h.weightPercentage * 10) / 10 }));
-        res.setHeader("Cache-Control", "public, max-age=86400, stale-while-revalidate=43200");
+        res.setHeader("Cache-Control", "private, max-age=86400");
         return res.status(200).json({ holdings });
       } catch (e) {
         return res.status(200).json({ holdings: [], error: e.message });
@@ -1484,7 +1488,7 @@ export default async function handler(req, res) {
           ...(Array.isArray(senate) ? senate : []).map(t => ({ ...t, chamber: "S" })),
           ...(Array.isArray(house) ? house : []).map(t => ({ ...t, chamber: "H" })),
         ].sort((a, b) => (b.transactionDate || "").localeCompare(a.transactionDate || "")).slice(0, 30);
-        res.setHeader("Cache-Control", "public, max-age=86400, stale-while-revalidate=43200");
+        res.setHeader("Cache-Control", "private, max-age=86400");
         return res.status(200).json({ trades: all });
       } catch (e) {
         return res.status(200).json({ trades: [], error: e.message });

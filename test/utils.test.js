@@ -3,6 +3,10 @@ import assert from "node:assert/strict";
 import { _cumVolFrac, getQuad, pipelineAgeWeekdays, isPipelineStale } from "../src/utils.js";
 import authHandler, { createToken, verifyToken } from "../api/auth.js";
 import userdataHandler from "../api/userdata.js";
+import liveHandler from "../api/live.js";
+import ohlcHandler from "../api/ohlc.js";
+import earningsHandler from "../api/earnings.js";
+import marketQualityHandler from "../api/market-quality.js";
 
 test("_cumVolFrac is monotonic from 0 to 1 across RTH", () => {
   assert.equal(_cumVolFrac(-5), 0);
@@ -91,7 +95,7 @@ test("GET /api/auth reports configured/authenticated status accurately", async (
   }
 });
 
-test("POST /api/userdata rejects unauthenticated writes on default and flags scopes", async () => {
+test("All gated /api/* endpoints reject unauthenticated requests with 401", async () => {
   const prevPin = process.env.TP_PIN;
   const prevSecret = process.env.TP_SESSION_SECRET;
   const prevUrl = process.env.UPSTASH_REDIS_REST_URL;
@@ -102,13 +106,22 @@ test("POST /api/userdata rejects unauthenticated writes on default and flags sco
     process.env.UPSTASH_REDIS_REST_URL = "https://example.invalid";
     process.env.UPSTASH_REDIS_REST_TOKEN = "dummy";
 
-    const r1 = mockRes();
-    await userdataHandler({ method: "POST", query: {}, headers: {}, body: {} }, r1);
-    assert.equal(r1.statusCode, 401);
-
-    const r2 = mockRes();
-    await userdataHandler({ method: "POST", query: { scope: "flags" }, headers: {}, body: { flags: {} } }, r2);
-    assert.equal(r2.statusCode, 401);
+    const checks = [
+      [userdataHandler, { method: "GET", query: {}, headers: {} }],
+      [userdataHandler, { method: "POST", query: {}, headers: {}, body: {} }],
+      [userdataHandler, { method: "GET", query: { scope: "flags" }, headers: {} }],
+      [userdataHandler, { method: "POST", query: { scope: "flags" }, headers: {}, body: { flags: {} } }],
+      [liveHandler, { method: "GET", query: { universe: "NVDA" }, headers: {} }],
+      [ohlcHandler, { method: "GET", query: { ticker: "NVDA" }, headers: {} }],
+      [earningsHandler, { method: "GET", query: { ticker: "NVDA" }, headers: {} }],
+      [marketQualityHandler, { method: "GET", query: {}, headers: {} }],
+    ];
+    for (const [fn, req] of checks) {
+      const res = mockRes();
+      await fn(req, res);
+      assert.equal(res.statusCode, 401);
+      assert.equal(res.headers["Cache-Control"], "private, no-store");
+    }
   } finally {
     if (prevPin === undefined) delete process.env.TP_PIN; else process.env.TP_PIN = prevPin;
     if (prevSecret === undefined) delete process.env.TP_SESSION_SECRET; else process.env.TP_SESSION_SECRET = prevSecret;

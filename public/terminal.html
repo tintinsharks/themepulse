@@ -1308,7 +1308,8 @@ function updateAgo() {
 
 function refresh() {
   document.body.classList.add('loading');
-  fetch('/api/market-quality')
+  const _tok = (() => { try { return localStorage.getItem('tp-auth-token') || ''; } catch { return ''; } })();
+  fetch('/api/market-quality', { headers: _tok ? { Authorization: 'Bearer ' + _tok } : {} })
     .then(function(r) { return r.json(); })
     .then(function(d) {
       if (d.ok) {

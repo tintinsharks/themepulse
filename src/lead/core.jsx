@@ -1,7 +1,7 @@
 // Shared helpers, data hooks and small components for the Leaders / Scanner /
 // Brief views. Split out of LeadershipView.jsx.
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { authHeaders, notifyAuthRequired, setAuthToken } from "../utils.js";
+import { authFetch } from "../utils.js";
 
 import {
   LEAD,
@@ -386,7 +386,7 @@ export function useIndexBars(tickers) {
     let live = true;
     key.split(",").forEach((t) => {
       if (_ohlcCache[t]) return;
-      fetch(`/api/ohlc?ticker=${encodeURIComponent(t)}`)
+      authFetch(`/api/ohlc?ticker=${encodeURIComponent(t)}`)
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => {
           if (!d?.ohlc?.length) return;
@@ -647,7 +647,7 @@ export function useScanQuotes(tickers, active) {
       const m = new Map();
       for (let i = 0; i < list.length; i += 500) {
         try {
-          const r = await fetch(`/api/live?universe=${encodeURIComponent(list.slice(i, i + 500).join(","))}`);
+          const r = await authFetch(`/api/live?universe=${encodeURIComponent(list.slice(i, i + 500).join(","))}`);
           const d = r.ok ? await r.json() : null;
           (d?.theme_universe || d?.universe || []).forEach((q) => { if (q?.ticker) m.set(q.ticker, q); });
         } catch { /* keep last */ }
@@ -951,17 +951,13 @@ export function _flagsMerge(remote) {
 }
 export const _flagsPending = {};
 export function _flagsPost(entries) {
-  return fetch("/api/userdata?scope=flags", {
+  return authFetch("/api/userdata?scope=flags", {
     method: "POST",
-    headers: authHeaders({ "Content-Type": "application/json" }),
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ flags: entries }),
   })
     .then((r) => {
-      if (r.status === 401) {
-        Object.assign(_flagsPending, entries);
-        setAuthToken("");
-        notifyAuthRequired();
-      }
+      if (r.status === 401) Object.assign(_flagsPending, entries);
       return r;
     })
     .catch(() => {});
@@ -977,7 +973,7 @@ if (typeof window !== "undefined") {
 }
 export function _flagsPull() {
   if (_flags.loading) return _flags.loading;
-  _flags.loading = fetch("/api/userdata?scope=flags", { cache: "no-store" })
+  _flags.loading = authFetch("/api/userdata?scope=flags", { cache: "no-store" })
     .then((r) => (r.ok ? r.json() : null))
     .then((d) => {
       if (!d?.flags) return;
@@ -1280,7 +1276,7 @@ export function useLiveRS(stockMap) {
       for (let i = 0; i < list.length; i += 500) chunks.push(list.slice(i, i + 500));
       await Promise.all(chunks.map(async (c) => {
         try {
-          const r = await fetch(`/api/live?universe=${encodeURIComponent(c.join(","))}`);
+          const r = await authFetch(`/api/live?universe=${encodeURIComponent(c.join(","))}`);
           const d = r.ok ? await r.json() : null;
           (d?.theme_universe || d?.universe || []).forEach((q) => { if (q?.ticker && q.price > 0) m.set(q.ticker, q.price); });
         } catch { /* keep last */ }

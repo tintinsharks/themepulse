@@ -41,6 +41,20 @@ function extractBearer(req) {
   return auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
 }
 
+function requireAuth(req, res) {
+  if (!process.env.TP_PIN || !getSecret()) {
+    res.setHeader("Cache-Control", "private, no-store");
+    res.status(503).json({ ok: false, error: "Auth not configured (set TP_PIN and TP_SESSION_SECRET)" });
+    return false;
+  }
+  if (!verifyToken(extractBearer(req))) {
+    res.setHeader("Cache-Control", "private, no-store");
+    res.status(401).json({ ok: false, error: "PIN unlock required" });
+    return false;
+  }
+  return true;
+}
+
 const ALLOWED_ORIGINS = new Set([
   "https://themepulse.vercel.app",
   "http://localhost:5173",
@@ -78,4 +92,4 @@ export default async function handler(req, res) {
   return res.status(200).json({ ok: true, token: createToken(pin) });
 }
 
-export { verifyToken, createToken, extractBearer };
+export { verifyToken, createToken, extractBearer, requireAuth };
