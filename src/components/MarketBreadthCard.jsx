@@ -6,6 +6,80 @@ import { authFetch } from "../utils.js";
 const HP_TTL_MS = 60 * 1000;
 let _hpCache = { ts: 0, stats: null, inflight: null };
 
+// Shared 10m cache for daily SPX (^GSPC, fallback SPY) closing prices for chart overlays
+const SPX_TTL_MS = 10 * 60 * 1000;
+let _spxCache = { ts: 0, data: null, inflight: null };
+
+function fetchSpxHistory() {
+  const now = Date.now();
+  if (_spxCache.data && now - _spxCache.ts < SPX_TTL_MS) {
+    return Promise.resolve(_spxCache.data);
+  }
+  if (_spxCache.inflight) return _spxCache.inflight;
+  const pullTicker = (ticker, label) =>
+    authFetch(`/api/ohlc?ticker=${encodeURIComponent(ticker)}&interval=1d`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const rows = Array.isArray(d?.ohlc) ? d.ohlc : [];
+        if (rows.length < 5) return null;
+        const map = new Map();
+        for (const c of rows) {
+          if (c?.date && typeof c.close === "number" && Number.isFinite(c.close)) {
+            map.set(c.date, c.close);
+          }
+        }
+        return map.size >= 5 ? { label, map } : null;
+      })
+      .catch(() => null);
+
+  _spxCache.inflight = pullTicker("^GSPC", "SPX")
+    .then((res) => res || pullTicker("SPY", "SPY"))
+    .then((res) => {
+      if (res) _spxCache = { ts: Date.now(), data: res, inflight: null };
+      else _spxCache.inflight = null;
+      return res || _spxCache.data;
+    });
+  return _spxCache.inflight;
+}
+
+function fmtSpx(v) {
+  if (v == null || !Number.isFinite(v)) return "—";
+  return v >= 1000 ? Math.round(v).toLocaleString() : v.toFixed(1);
+}
+
+function buildSpxOverlay(series, spxData, todayStr, padL, step, padT, plotH) {
+  if (!spxData?.map || !series?.length) return null;
+  const values = series.map((d) => {
+    const key = d.isLive ? todayStr : d.date;
+    const p = spxData.map.get(key);
+    return typeof p === "number" && Number.isFinite(p) ? p : null;
+  });
+  const valid = values.filter((v) => v != null);
+  if (valid.length < 2) return null;
+  const min = Math.min(...valid);
+  const max = Math.max(...valid);
+  const span = Math.max(max - min, 0.01);
+  const lo = min - span * 0.06;
+  const hi = max + span * 0.06;
+  const xOf = (i) => padL + i * step + step / 2;
+  const yOf = (p) => padT + plotH - ((p - lo) / (hi - lo)) * plotH;
+  const segs = [];
+  for (let i = 0; i < values.length; i++) {
+    if (values[i] == null) continue;
+    segs.push(`${segs.length === 0 ? "M" : "L"}${xOf(i).toFixed(1)},${yOf(values[i]).toFixed(1)}`);
+  }
+  return {
+    label: spxData.label || "SPX",
+    values,
+    pathD: segs.join(" "),
+    min,
+    max,
+    mid: (min + max) / 2,
+    xOf,
+    yOf,
+  };
+}
+
 function fetchHomepageStats() {
   const now = Date.now();
   if (_hpCache.stats && now - _hpCache.ts < HP_TTL_MS) {
@@ -88,8 +162,8 @@ function RatioBar({ title, pct, leftLabel, rightLabel, accentColor, trackBg, tex
   );
 }
 
-// Mirrored daily bar chart (Up = Highs/Advance in blue, Down = Lows/Decline in pink, + Net curve in gold)
-function BreadthHistoryChart({ A, series, posLabel, negLabel, range, onRange }) {
+// Mirrored daily bar chart (Up = Highs/Advance in blue, Down = Lows/Decline in pink, + Net curve in gold + optional SPX overlay)
+function BreadthHistoryChart({ A, series, posLabel, negLabel, range, onRange, spxData, showSpx, onToggleSpx, todayStr }) {
   const [hoverIdx, setHoverIdx] = useState(null);
   if (!series || series.length === 0) {
     return (
@@ -100,25 +174,31 @@ function BreadthHistoryChart({ A, series, posLabel, negLabel, range, onRange }) 
   }
 
   const W = 600, H = 152;
-  const padL = 36, padR = 10, padT = 10, padB = 22;
+  const n = series.length;
+  const padL = 36, padT = 10, padB = 22;
+  const hasSpx = Boolean(showSpx && spxData?.map && series.filter((d) => spxData.map.has(d.isLive ? todayStr : d.date)).length >= 2);
+  const padR = hasSpx ? 44 : 10;
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
   const midY = padT + plotH / 2;
   const halfH = plotH / 2;
+  const step = plotW / n;
+  const spx = hasSpx ? buildSpxOverlay(series, spxData, todayStr, padL, step, padT, plotH) : null;
 
   const peaks = series.map((d) => Math.max(d.pos || 0, d.neg || 0)).sort((a, b) => a - b);
   const rawMax = peaks[peaks.length - 1] || 10;
   const p97 = peaks[Math.max(0, Math.floor((peaks.length - 1) * 0.97))] || rawMax;
-  // Prevent a single pipeline glitch spike (e.g. 6x normal) from squashing 6M bars
+  // Prevent a single pipeline glitch spike (e.g. 6x normal) from squashing 6M/1Y bars
   const maxVal = rawMax > p97 * 2.2 ? Math.max(10, Math.ceil(p97 * 1.15)) : Math.max(10, rawMax);
-  const n = series.length;
-  const step = plotW / n;
   const barW = Math.max(1.5, Math.min(16, step * 0.7));
   const activeIdx = hoverIdx != null && hoverIdx < n ? hoverIdx : n - 1;
   const cur = series[activeIdx];
   const curTot = (cur.pos || 0) + (cur.neg || 0);
   const curPct = curTot > 0 ? Math.round((cur.pos / curTot) * 100) : 0;
   const curNet = (cur.pos || 0) - (cur.neg || 0);
+  const curSpx = spx ? spx.values[activeIdx] : null;
+  const spxStroke = A.text || "#f8fafc";
+  const spxHalo = A.bg || "#0d1117";
 
   const netPts = series.map((d, i) => {
     const x = padL + i * step + step / 2;
@@ -150,8 +230,30 @@ function BreadthHistoryChart({ A, series, posLabel, negLabel, range, onRange }) 
           <span style={{ color: curNet >= 0 ? COLORS.blue : COLORS.pink }}>
             Net {curNet > 0 ? `+${curNet.toLocaleString()}` : curNet.toLocaleString()} ({curPct}%)
           </span>
+          {curSpx != null && (
+            <span style={{ color: A.text, fontWeight: 700 }}>
+              {spx.label} {fmtSpx(curSpx)}
+            </span>
+          )}
         </div>
         <div style={{ display: "inline-flex", gap: 4 }}>
+          <button
+            onClick={onToggleSpx}
+            title={`Toggle ${spxData?.label || "SPX"} price line overlay`}
+            style={{
+              background: showSpx ? A.bgHover : "transparent",
+              border: `1px solid ${showSpx ? A.text : A.border}`,
+              color: showSpx ? A.text : A.textMuted,
+              borderRadius: 4,
+              padding: "1px 6px",
+              fontSize: 10,
+              fontWeight: 700,
+              fontFamily: "monospace",
+              cursor: "pointer",
+            }}
+          >
+            {spxData?.label || "SPX"}
+          </button>
           {[[22, "1M"], [63, "3M"], [126, "6M"], [252, "1Y"]].map(([days, lbl]) => (
             <button
               key={lbl}
@@ -184,10 +286,19 @@ function BreadthHistoryChart({ A, series, posLabel, negLabel, range, onRange }) 
         <line x1={padL} y1={midY} x2={W - padR} y2={midY} stroke={A.textMuted} strokeOpacity="0.45" />
         <line x1={padL} y1={padT + plotH} x2={W - padR} y2={padT + plotH} stroke={A.border} strokeDasharray="2 3" strokeOpacity="0.6" />
 
-        {/* Y-axis scale labels */}
+        {/* Left Y-axis scale labels */}
         <text x={padL - 5} y={padT + 8} textAnchor="end" fontSize="9" fill={COLORS.blue} fontFamily="monospace">+{maxVal}</text>
         <text x={padL - 5} y={midY + 3} textAnchor="end" fontSize="9" fill={A.textMuted} fontFamily="monospace">0</text>
         <text x={padL - 5} y={padT + plotH} textAnchor="end" fontSize="9" fill={COLORS.pink} fontFamily="monospace">-{maxVal}</text>
+
+        {/* Right Y-axis scale labels (SPX) */}
+        {spx && (
+          <>
+            <text x={W - padR + 5} y={padT + 8} textAnchor="start" fontSize="9" fill={A.textDim} fontFamily="monospace">{fmtSpx(spx.max)}</text>
+            <text x={W - padR + 5} y={midY + 3} textAnchor="start" fontSize="9" fill={A.textMuted} fontFamily="monospace">{fmtSpx(spx.mid)}</text>
+            <text x={W - padR + 5} y={padT + plotH} textAnchor="start" fontSize="9" fill={A.textDim} fontFamily="monospace">{fmtSpx(spx.min)}</text>
+          </>
+        )}
 
         {/* Mirrored bars per day */}
         {series.map((d, i) => {
@@ -229,12 +340,23 @@ function BreadthHistoryChart({ A, series, posLabel, negLabel, range, onRange }) 
           <polyline
             fill="none"
             stroke={COLORS.gold}
-            strokeWidth="1.6"
+            strokeWidth="1.5"
             strokeLinejoin="round"
             strokeLinecap="round"
             points={netPts}
             style={{ pointerEvents: "none" }}
           />
+        )}
+
+        {/* SPX price line overlay */}
+        {spx && (
+          <g style={{ pointerEvents: "none" }}>
+            <path d={spx.pathD} fill="none" stroke={spxHalo} strokeWidth="3.2" strokeOpacity="0.65" strokeLinejoin="round" strokeLinecap="round" />
+            <path d={spx.pathD} fill="none" stroke={spxStroke} strokeWidth="1.7" strokeLinejoin="round" strokeLinecap="round" />
+            {curSpx != null && (
+              <circle cx={spx.xOf(activeIdx)} cy={spx.yOf(curSpx)} r="3.2" fill={spxStroke} stroke={spxHalo} strokeWidth="1.2" />
+            )}
+          </g>
         )}
 
         {/* X-axis date ticks */}
@@ -256,6 +378,7 @@ function BreadthHistoryChart({ A, series, posLabel, negLabel, range, onRange }) 
           <span><span style={{ color: COLORS.blue }}>■</span> {posLabel} (up)</span>
           <span><span style={{ color: COLORS.pink }}>■</span> {negLabel} (down)</span>
           <span><span style={{ color: COLORS.gold }}>━</span> Net ({posLabel} − {negLabel})</span>
+          {spx && <span><span style={{ color: A.text }}>━</span> {spx.label} (right)</span>}
         </div>
         {partialNote && <span>{partialNote}</span>}
       </div>
@@ -263,8 +386,8 @@ function BreadthHistoryChart({ A, series, posLabel, negLabel, range, onRange }) 
   );
 }
 
-// 100% stacked daily bar chart for Stan Weinstein Stages 1-4 (bottom->top: Stage 2, Stage 1, Stage 3, Stage 4)
-function StageHistoryChart({ A, series, range, onRange }) {
+// 100% stacked daily bar chart for Stan Weinstein Stages 1-4 (bottom->top: Stage 2, Stage 1, Stage 3, Stage 4) + optional SPX overlay
+function StageHistoryChart({ A, series, range, onRange, spxData, showSpx, onToggleSpx, todayStr }) {
   const [hoverIdx, setHoverIdx] = useState(null);
   if (!series || series.length === 0) {
     return (
@@ -275,14 +398,18 @@ function StageHistoryChart({ A, series, range, onRange }) {
   }
 
   const W = 600, H = 152;
-  const padL = 34, padR = 10, padT = 10, padB = 22;
+  const n = series.length;
+  const padL = 34, padT = 10, padB = 22;
+  const hasSpx = Boolean(showSpx && spxData?.map && series.filter((d) => spxData.map.has(d.isLive ? todayStr : d.date)).length >= 2);
+  const padR = hasSpx ? 44 : 10;
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
-  const n = series.length;
   const step = plotW / n;
+  const spx = hasSpx ? buildSpxOverlay(series, spxData, todayStr, padL, step, padT, plotH) : null;
   const barW = Math.max(1.5, Math.min(18, step * 0.76));
   const activeIdx = hoverIdx != null && hoverIdx < n ? hoverIdx : n - 1;
   const cur = series[activeIdx];
+  const curSpx = spx ? spx.values[activeIdx] : null;
   const midIdx = Math.floor((n - 1) / 2);
   const spansYear = series[0]?.date && series[n - 1]?.date && String(series[0].date).slice(0, 4) !== String(series[n - 1].date).slice(0, 4);
   const fmtShortDate = (d) => (spansYear ? String(d || "").slice(2) : String(d || "").slice(5));
@@ -305,8 +432,30 @@ function StageHistoryChart({ A, series, range, onRange }) {
           <span style={{ color: STAGE_COLOR[1], fontWeight: 700 }}>S1 {cur.s1}%</span>
           <span style={{ color: STAGE_COLOR[3], fontWeight: 700 }}>S3 {cur.s3}%</span>
           <span style={{ color: STAGE_COLOR[4], fontWeight: 700 }}>S4 {cur.s4}%</span>
+          {curSpx != null && (
+            <span style={{ color: A.text, fontWeight: 700 }}>
+              {spx.label} {fmtSpx(curSpx)}
+            </span>
+          )}
         </div>
         <div style={{ display: "inline-flex", gap: 4 }}>
+          <button
+            onClick={onToggleSpx}
+            title={`Toggle ${spxData?.label || "SPX"} price line overlay`}
+            style={{
+              background: showSpx ? A.bgHover : "transparent",
+              border: `1px solid ${showSpx ? A.text : A.border}`,
+              color: showSpx ? A.text : A.textMuted,
+              borderRadius: 4,
+              padding: "1px 6px",
+              fontSize: 10,
+              fontWeight: 700,
+              fontFamily: "monospace",
+              cursor: "pointer",
+            }}
+          >
+            {spxData?.label || "SPX"}
+          </button>
           {[[22, "1M"], [63, "3M"], [126, "6M"], [252, "1Y"]].map(([days, lbl]) => (
             <button
               key={lbl}
@@ -343,6 +492,15 @@ function StageHistoryChart({ A, series, range, onRange }) {
         <text x={padL - 5} y={padT + plotH / 2 + 3} textAnchor="end" fontSize="9" fill={A.textMuted} fontFamily="monospace">50%</text>
         <text x={padL - 5} y={padT + plotH} textAnchor="end" fontSize="9" fill={A.textMuted} fontFamily="monospace">0%</text>
 
+        {/* Right Y-axis scale labels (SPX) */}
+        {spx && (
+          <>
+            <text x={W - padR + 5} y={padT + 8} textAnchor="start" fontSize="9" fill={A.textDim} fontFamily="monospace">{fmtSpx(spx.max)}</text>
+            <text x={W - padR + 5} y={padT + plotH / 2 + 3} textAnchor="start" fontSize="9" fill={A.textMuted} fontFamily="monospace">{fmtSpx(spx.mid)}</text>
+            <text x={W - padR + 5} y={padT + plotH} textAnchor="start" fontSize="9" fill={A.textDim} fontFamily="monospace">{fmtSpx(spx.min)}</text>
+          </>
+        )}
+
         {series.map((d, i) => {
           const cx = padL + i * step + step / 2;
           const x = cx - barW / 2;
@@ -368,6 +526,17 @@ function StageHistoryChart({ A, series, range, onRange }) {
           );
         })}
 
+        {/* SPX price line overlay (white with dark casing so it pops over every stage color) */}
+        {spx && (
+          <g style={{ pointerEvents: "none" }}>
+            <path d={spx.pathD} fill="none" stroke="rgba(0,0,0,0.72)" strokeWidth="3.4" strokeLinejoin="round" strokeLinecap="round" />
+            <path d={spx.pathD} fill="none" stroke="#ffffff" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" />
+            {curSpx != null && (
+              <circle cx={spx.xOf(activeIdx)} cy={spx.yOf(curSpx)} r="3.4" fill="#ffffff" stroke="rgba(0,0,0,0.85)" strokeWidth="1.3" />
+            )}
+          </g>
+        )}
+
         <text x={padL} y={H - 5} textAnchor="start" fontSize="9" fill={A.textMuted} fontFamily="monospace">{fmtShortDate(series[0].date)}</text>
         {n > 4 && (
           <text x={padL + midIdx * step + step / 2} y={H - 5} textAnchor="middle" fontSize="9" fill={A.textMuted} fontFamily="monospace">{fmtShortDate(series[midIdx].date)}</text>
@@ -381,6 +550,7 @@ function StageHistoryChart({ A, series, range, onRange }) {
           <span style={{ color: STAGE_COLOR[1] }}>■</span> S1 Base &nbsp;
           <span style={{ color: STAGE_COLOR[3] }}>■</span> S3 Top &nbsp;
           <span style={{ color: STAGE_COLOR[4] }}>■</span> S4 Down
+          {spx && <> &nbsp;<span style={{ color: A.text }}>━</span> {spx.label} (right)</>}
         </span>
         <span>
           {cur.exact ? "Exact stock-level count" : "Derived from daily MA breadth"}
@@ -393,10 +563,23 @@ function StageHistoryChart({ A, series, range, onRange }) {
 
 export default function MarketBreadthCard({ A, stockMap, breadth, monitor }) {
   const [slide, setSlide] = useState(0); // 0 = Breadth + Stage Analysis (Deepvue view), 1 = MA Breadth + 4% Movers
-  const [openChart, setOpenChart] = useState(null); // null | "nhnl" | "ad"
-  const [histRange, setHistRange] = useState(22); // 22 trading days (~1M) | 63 (~3M)
+  const [openChart, setOpenChart] = useState(null); // null | "nhnl" | "ad" | "stage"
+  const [histRange, setHistRange] = useState(22); // 22 (~1M) | 63 (~3M) | 126 (~6M) | 252 (~1Y)
+  const [showSpx, setShowSpx] = useState(true);
+  const [spxData, setSpxData] = useState(() => _spxCache.data);
   const [liveStats, setLiveStats] = useState(() => _hpCache.stats);
   const [liveAt, setLiveAt] = useState(() => (_hpCache.ts ? new Date(_hpCache.ts) : null));
+  const todayStr = etClock().today;
+
+  // Lazily load daily SPX (^GSPC, fallback SPY) closes once any history chart is opened
+  useEffect(() => {
+    if (!openChart || spxData) return;
+    let alive = true;
+    fetchSpxHistory().then((res) => {
+      if (alive && res) setSpxData(res);
+    });
+    return () => { alive = false; };
+  }, [openChart, spxData]);
 
   useEffect(() => {
     let alive = true;
@@ -610,6 +793,10 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor }) {
                 negLabel="Lows"
                 range={histRange}
                 onRange={setHistRange}
+                spxData={spxData}
+                showSpx={showSpx}
+                onToggleSpx={() => setShowSpx((v) => !v)}
+                todayStr={todayStr}
               />
             )}
 
@@ -633,6 +820,10 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor }) {
                 negLabel="Decline"
                 range={histRange}
                 onRange={setHistRange}
+                spxData={spxData}
+                showSpx={showSpx}
+                onToggleSpx={() => setShowSpx((v) => !v)}
+                todayStr={todayStr}
               />
             )}
 
@@ -643,7 +834,7 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor }) {
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpenChart((cur) => (cur === "stage" ? null : "stage")); } }}
-                title={openChart === "stage" ? "Hide Stage Analysis history chart" : "Click to view 1-month daily Stage Analysis lookback"}
+                title={openChart === "stage" ? "Hide Stage Analysis history chart" : "Click to view daily Stage Analysis lookback (1M / 3M / 6M / 1Y)"}
                 style={{ cursor: "pointer", userSelect: "none" }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
@@ -697,6 +888,10 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor }) {
                   series={stageSeries}
                   range={histRange}
                   onRange={setHistRange}
+                  spxData={spxData}
+                  showSpx={showSpx}
+                  onToggleSpx={() => setShowSpx((v) => !v)}
+                  todayStr={todayStr}
                 />
               )}
             </div>
