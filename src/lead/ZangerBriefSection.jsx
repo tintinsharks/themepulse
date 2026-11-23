@@ -42,6 +42,9 @@ export default function ZangerBriefSection({ A, stockMap, tickerLayer, layers, t
   const [err, setErr] = useState(null);
   const [liveOn, setLiveOn] = useState(true);
   const [mq, setMq] = useState(null);
+  const [moverSort, setMoverSort] = useState({ k: "score", d: -1 });
+  const [flowSort, setFlowSort] = useState({ k: "avgChg", d: -1 });
+  const [portSort, setPortSort] = useState({ k: "list", d: 1 });
   const profiles = useRvolProfiles();
 
   useEffect(() => {
@@ -331,6 +334,59 @@ export default function ZangerBriefSection({ A, stockMap, tickerLayer, layers, t
   const allMoverTickers = movers.map((m) => m.ticker);
   const onDeckTickers = onDeck.map((r) => r.ticker);
 
+  const cmpSort = (a, b, { k, d }, getVal, tie = (x) => x.ticker || x.theme || "") => {
+    const va = getVal(a, k), vb = getVal(b, k);
+    if (va == null && vb == null) return String(tie(a)).localeCompare(String(tie(b)));
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    if (typeof va === "string" || typeof vb === "string") {
+      return String(va).localeCompare(String(vb)) * d || String(tie(a)).localeCompare(String(tie(b)));
+    }
+    return (va - vb) * d || String(tie(a)).localeCompare(String(tie(b)));
+  };
+
+  const makeSortTh = (sortState, setSortState) => (k, label, align = "right", title, textDefault = false) => (
+    <th
+      key={k}
+      title={title}
+      onClick={() => setSortState((p) => ({ k, d: p.k === k ? -p.d : (textDefault ? 1 : -1) }))}
+      style={{
+        ...th(A, align),
+        cursor: "pointer",
+        userSelect: "none",
+        color: sortState.k === k ? A.text : A.textMuted,
+      }}
+    >
+      {label}{sortState.k === k ? (sortState.d < 0 ? " ▼" : " ▲") : ""}
+    </th>
+  );
+
+  const moverTh = makeSortTh(moverSort, setMoverSort);
+  const flowTh = makeSortTh(flowSort, setFlowSort);
+  const portTh = makeSortTh(portSort, setPortSort);
+
+  const sortedMovers = [...movers].sort((a, b) => {
+    if (moverSort.k === "score" && moverSort.d < 0) {
+      const diffNew = Number(Boolean(b.isNew)) - Number(Boolean(a.isNew));
+      if (diffNew) return diffNew;
+      const diffBo = (b.breakoutTypes?.length || 0) - (a.breakoutTypes?.length || 0);
+      if (diffBo) return diffBo;
+    }
+    return cmpSort(a, b, moverSort, (r, k) => {
+      if (k === "sig") return (r.breakoutTypes?.length || 0) * 10 + (r.isNew ? 5 : 0) + (r.rsl ? 1 : 0);
+      if (k === "theme") return `${r.theme || ""} ${r.layer || ""}`;
+      return r[k];
+    });
+  });
+
+  const sortedPortAlerts = [...(portAlerts.alerts || [])].sort((a, b) =>
+    cmpSort(a, b, portSort, (r, k) => (k === "list" ? (r.list === "PORT" ? 0 : 1) : r[k]))
+  );
+
+  const sortedFlow = [...(themeFlow.hottest || []), ...(themeFlow.coldest || [])].sort((a, b) =>
+    cmpSort(a, b, flowSort, (r, k) => r[k], (r) => r.theme)
+  );
+
   const EpCard = epMovers.length > 0 ? (
     <Card A={A} title="EP / Gap-and-Go Movers" sub="High-momentum catalyst gaps ≥ +3%">
       <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
@@ -441,12 +497,16 @@ export default function ZangerBriefSection({ A, stockMap, tickerLayer, layers, t
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr>
-                    <th style={th(A)}>List</th><th style={th(A)}>Ticker</th>
-                    <th style={th(A, "right")}>Chg</th><th style={th(A, "right")}>ZVR</th><th style={th(A, "right")}>CR%</th><th style={th(A)}>Alert</th>
+                    {portTh("list", "List", "left", undefined, true)}
+                    {portTh("ticker", "Ticker", "left", undefined, true)}
+                    {portTh("chg", "Chg")}
+                    {portTh("zvr", "ZVR")}
+                    {portTh("cr", "CR%")}
+                    <th style={th(A)}>Alert</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {portAlerts.alerts.map((a) => (
+                  {sortedPortAlerts.map((a) => (
                     <tr key={a.ticker} onClick={() => onTicker && onTicker(a.ticker)} style={{ cursor: "pointer" }}>
                       <td style={{ ...td(A), fontSize: 10, fontFamily: "monospace", fontWeight: 700, color: a.list === "PORT" ? A.green : A.cyan }}>{a.list}</td>
                       <td style={td(A)}><Tk t={a.ticker} /></td>
@@ -500,21 +560,21 @@ export default function ZangerBriefSection({ A, stockMap, tickerLayer, layers, t
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
-                  <th style={th(A)}>Sig</th>
-                  <th style={th(A)}>Ticker</th>
-                  <th style={th(A)}>Theme · Layer</th>
-                  <th style={th(A, "right")}>ADR</th>
-                  <th style={th(A, "right")}>Chg%</th>
-                  <th style={th(A, "right")}>ZVR</th>
-                  <th style={th(A, "right")}>CR%</th>
-                  <th style={th(A, "right")}>RS</th>
-                  <th style={th(A, "right")} title={EPS_TIP}>EPS</th>
-                  <th style={th(A, "right")}>Off 52wH</th>
-                  <th style={th(A, "right")}>Score</th>
+                  {moverTh("sig", "Sig", "left")}
+                  {moverTh("ticker", "Ticker", "left", undefined, true)}
+                  {moverTh("theme", "Theme · Layer", "left", undefined, true)}
+                  {moverTh("adr", "ADR")}
+                  {moverTh("chg", "Chg%")}
+                  {moverTh("zvr", "ZVR")}
+                  {moverTh("cr", "CR%")}
+                  {moverTh("rs", "RS")}
+                  {moverTh("eps", "EPS", "right", EPS_TIP)}
+                  {moverTh("off52", "Off 52wH")}
+                  {moverTh("score", "Score")}
                 </tr>
               </thead>
               <tbody>
-                {movers.map((m) => (
+                {sortedMovers.map((m) => (
                   <tr
                     key={m.ticker}
                     data-nav={m.ticker}
@@ -609,31 +669,29 @@ export default function ZangerBriefSection({ A, stockMap, tickerLayer, layers, t
 
       {/* Intraday Theme Money Flow + Leader Damage + On Deck */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 10 }}>
-        {themeFlow.hottest?.length > 0 && (
+        {sortedFlow.length > 0 && (
           <Card A={A} title="Today's Theme Money Flow">
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
-                  <th style={th(A)}>Theme</th><th style={th(A, "right")}>Avg</th><th style={th(A, "right")}>% Grn</th><th style={th(A, "right")}>BO</th>
+                  {flowTh("theme", "Theme", "left", undefined, true)}
+                  {flowTh("avgChg", "Avg")}
+                  {flowTh("pctGreen", "% Grn")}
+                  {flowTh("breakouts", "BO")}
                 </tr>
               </thead>
               <tbody>
-                {themeFlow.hottest.map((t) => (
-                  <tr key={t.theme}>
-                    <td style={{ ...td(A), fontWeight: 600 }}>{t.theme}</td>
-                    <td style={{ ...td(A, "right"), fontFamily: "monospace", fontWeight: 700, color: pc(t.avgChg) }}>{fmtPct(t.avgChg, 2)}</td>
-                    <td style={{ ...td(A, "right"), fontFamily: "monospace", color: A.textDim }}>{t.pctGreen}%</td>
-                    <td style={{ ...td(A, "right"), fontFamily: "monospace", color: t.breakouts ? "#fbbf24" : A.textMuted }}>{t.breakouts || "—"}</td>
-                  </tr>
-                ))}
-                {(themeFlow.coldest || []).map((t) => (
-                  <tr key={`cold-${t.theme}`}>
-                    <td style={{ ...td(A), color: A.textDim }}>❄️ {t.theme}</td>
-                    <td style={{ ...td(A, "right"), fontFamily: "monospace", fontWeight: 700, color: pc(t.avgChg) }}>{fmtPct(t.avgChg, 2)}</td>
-                    <td style={{ ...td(A, "right"), fontFamily: "monospace", color: A.textMuted }}>{t.pctGreen}%</td>
-                    <td style={{ ...td(A, "right"), fontFamily: "monospace", color: A.textMuted }}>{t.breakouts || "—"}</td>
-                  </tr>
-                ))}
+                {sortedFlow.map((t) => {
+                  const isCold = (themeFlow.coldest || []).some((c) => c.theme === t.theme);
+                  return (
+                    <tr key={t.theme}>
+                      <td style={{ ...td(A), fontWeight: isCold ? 400 : 600, color: isCold ? A.textDim : A.text }}>{isCold ? `❄️ ${t.theme}` : t.theme}</td>
+                      <td style={{ ...td(A, "right"), fontFamily: "monospace", fontWeight: 700, color: pc(t.avgChg) }}>{fmtPct(t.avgChg, 2)}</td>
+                      <td style={{ ...td(A, "right"), fontFamily: "monospace", color: isCold ? A.textMuted : A.textDim }}>{t.pctGreen}%</td>
+                      <td style={{ ...td(A, "right"), fontFamily: "monospace", color: t.breakouts ? "#fbbf24" : A.textMuted }}>{t.breakouts || "—"}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </Card>

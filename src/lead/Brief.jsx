@@ -22,6 +22,9 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
   const [err, setErr] = useState(null);
   const [liveOn, setLiveOn] = useState(true);
   const [mq, setMq] = useState(null);
+  const [focusSort, setFocusSort] = useState({ k: null, d: -1 });
+  const [extSort, setExtSort] = useState({ k: null, d: -1 });
+  const [brkSort, setBrkSort] = useState({ k: null, d: -1 });
   const profiles = useRvolProfiles();
 
   useEffect(() => {
@@ -91,6 +94,39 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
           : tone === "cyan" ? A.cyan
             : A.textMuted
   );
+
+  const STATUS_PRI = { buy_zone: 4, near_pivot: 3, extended: 2, below_pivot: 1, stopped: 0 };
+  const makeSortTh = (sortState, setSortState) => (k, label, align = "right", textDefault = false) => (
+    <th
+      key={k}
+      onClick={() => setSortState((p) => ({ k, d: p.k === k ? -p.d : (textDefault ? 1 : -1) }))}
+      style={{
+        ...th(A, align),
+        cursor: "pointer",
+        userSelect: "none",
+        color: sortState.k === k ? A.text : A.textMuted,
+      }}
+    >
+      {label}{sortState.k === k ? (sortState.d < 0 ? " ▼" : " ▲") : ""}
+    </th>
+  );
+  const sortWith = (list, sortState, getVal) => {
+    if (!sortState.k) return list;
+    const { k, d } = sortState;
+    return [...list].sort((a, b) => {
+      const va = getVal(a, k), vb = getVal(b, k);
+      if (va == null && vb == null) return String(a.ticker || "").localeCompare(String(b.ticker || ""));
+      if (va == null) return 1;
+      if (vb == null) return -1;
+      if (typeof va === "string" || typeof vb === "string") {
+        return String(va).localeCompare(String(vb)) * d || String(a.ticker || "").localeCompare(String(b.ticker || ""));
+      }
+      return (va - vb) * d || String(a.ticker || "").localeCompare(String(b.ticker || ""));
+    });
+  };
+  const focusTh = makeSortTh(focusSort, setFocusSort);
+  const extTh = makeSortTh(extSort, setExtSort);
+  const brkTh = makeSortTh(brkSort, setBrkSort);
 
   const picker = (
     <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
@@ -225,19 +261,42 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead><tr>
-                <th style={th(A)}>Ticker</th><th style={th(A)}>Layer</th><th style={th(A, "right")}>RS</th><th style={th(A, "right")}>EPS</th>
-                <th style={th(A, "right")}>{liveOn ? "Live" : "Price"}</th>
-                {liveOn && <th style={th(A, "right")}>Chg%</th>}
-                {liveOn && <th style={th(A, "right")}>ZVR</th>}
-                {liveOn && <th style={th(A, "right")}>CR%</th>}
-                <th style={th(A, "right")}>Pivot</th><th style={th(A, "right")}>Buy ≤</th><th style={th(A, "right")}>Stop</th>
-                {liveOn && <th style={th(A)}>Status</th>}
-                <th style={th(A)}>Stage</th><th style={th(A)}>Size</th><th style={th(A)}>Catalyst</th>
+                {focusTh("ticker", "Ticker", "left", true)}
+                {focusTh("layer", "Layer", "left", true)}
+                {focusTh("rs", "RS")}
+                {focusTh("eps", "EPS")}
+                {focusTh("px", liveOn ? "Live" : "Price")}
+                {liveOn && focusTh("chg", "Chg%")}
+                {liveOn && focusTh("zvr", "ZVR")}
+                {liveOn && focusTh("cr", "CR%")}
+                {focusTh("pivot", "Pivot")}
+                {focusTh("buyZoneMax", "Buy ≤")}
+                {focusTh("stop", "Stop")}
+                {liveOn && focusTh("status", "Status", "left")}
+                {focusTh("baseStage", "Stage", "left", true)}
+                {focusTh("sizing", "Size", "left", true)}
+                <th style={th(A)}>Catalyst</th>
               </tr></thead>
-              <tbody>{arr(brief.focusSetups).map((f, i) => {
-                const li = liveInfo(f.ticker);
-                const px = li?.px ?? f.price;
-                const status = liveOn ? evalPivotStatus(px, f) : null;
+              <tbody>{sortWith(
+                arr(brief.focusSetups).map((f) => {
+                  const li = liveInfo(f.ticker);
+                  const px = li?.px ?? f.price;
+                  const status = liveOn ? evalPivotStatus(px, f) : null;
+                  return { ...f, _li: li, _px: px, _status: status };
+                }),
+                focusSort,
+                (r, k) => {
+                  if (k === "px") return r._px;
+                  if (k === "chg") return r._li?.chg ?? null;
+                  if (k === "zvr") return r._li?.zvr ?? null;
+                  if (k === "cr") return r._li?.cr ?? null;
+                  if (k === "status") return r._status ? (STATUS_PRI[r._status.state] ?? -1) : null;
+                  return r[k] ?? null;
+                }
+              ).map((f, i) => {
+                const li = f._li;
+                const px = f._px;
+                const status = f._status;
                 const stColor = status ? toneColor(status.tone) : A.textMuted;
                 const rowBg = status?.state === "buy_zone"
                   ? "rgba(34,197,94,0.08)"
@@ -298,16 +357,30 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead><tr>
-                <th style={th(A)}>Ticker</th><th style={th(A)}>Session</th>
-                <th style={th(A, "right")}>{liveOn ? "Live Chg" : "Chg"}</th>
-                <th style={th(A, "right")}>{liveOn ? "Live Px" : "Price"}</th>
-                <th style={th(A, "right")}>{liveOn ? "ZVR / Vol" : "Vol"}</th>
-                <th style={th(A, "right")}>RS</th><th style={th(A)}>Catalyst</th><th style={th(A)}>Protocol</th>
+                {extTh("ticker", "Ticker", "left", true)}
+                {extTh("session", "Session", "left", true)}
+                {extTh("chg", liveOn ? "Live Chg" : "Chg")}
+                {extTh("px", liveOn ? "Live Px" : "Price")}
+                {extTh("zvr", liveOn ? "ZVR / Vol" : "Vol")}
+                {extTh("rs", "RS")}
+                <th style={th(A)}>Catalyst</th><th style={th(A)}>Protocol</th>
               </tr></thead>
-              <tbody>{arr(brief.extendedMovers).map((m, i) => {
-                const li = liveInfo(m.ticker);
-                const chg = li?.chg ?? m.chgPct;
-                const px = li?.px ?? m.price;
+              <tbody>{sortWith(
+                arr(brief.extendedMovers).map((m) => {
+                  const li = liveInfo(m.ticker);
+                  return { ...m, _li: li, _chg: li?.chg ?? m.chgPct, _px: li?.px ?? m.price };
+                }),
+                extSort,
+                (r, k) => {
+                  if (k === "chg") return r._chg ?? null;
+                  if (k === "px") return r._px ?? null;
+                  if (k === "zvr") return r._li?.zvr ?? null;
+                  return r[k] ?? null;
+                }
+              ).map((m, i) => {
+                const li = m._li;
+                const chg = m._chg;
+                const px = m._px;
                 return (
                   <tr key={`${m.ticker}-${i}`} onClick={() => onTicker(m.ticker)} style={{ cursor: "pointer", background: chartTicker === m.ticker ? A.bgHover : "transparent" }}>
                     <td style={td()}><FlagButton t={m.ticker} A={A} /><Tk t={m.ticker} /></td>
@@ -338,13 +411,27 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead><tr>
-                <th style={th(A)}>Ticker</th><th style={th(A)}>Layer</th>
-                {liveOn && <th style={th(A, "right")}>Live Chg</th>}
-                <th style={th(A, "right")}>vs 50d</th><th style={th(A, "right")}>1M</th><th style={th(A)}>Catalyst</th>
+                {brkTh("ticker", "Ticker", "left", true)}
+                {brkTh("layer", "Layer", "left", true)}
+                {liveOn && brkTh("chg", "Live Chg")}
+                {brkTh("vs50", "vs 50d")}
+                {brkTh("chg1mPct", "1M")}
+                <th style={th(A)}>Catalyst</th>
               </tr></thead>
-              <tbody>{arr(brief.breakdowns).map((b, i) => {
-                const li = liveInfo(b.ticker);
-                const vs50 = li?.vs50 ?? b.vs50dPct;
+              <tbody>{sortWith(
+                arr(brief.breakdowns).map((b) => {
+                  const li = liveInfo(b.ticker);
+                  return { ...b, _li: li, _vs50: li?.vs50 ?? b.vs50dPct };
+                }),
+                brkSort,
+                (r, k) => {
+                  if (k === "chg") return r._li?.chg ?? null;
+                  if (k === "vs50") return r._vs50 ?? null;
+                  return r[k] ?? null;
+                }
+              ).map((b, i) => {
+                const li = b._li;
+                const vs50 = b._vs50;
                 return (
                   <tr key={`${b.ticker}-${i}`} onClick={() => onTicker(b.ticker)} style={{ cursor: "pointer", background: chartTicker === b.ticker ? A.bgHover : "transparent" }}>
                     <td style={td()}><FlagButton t={b.ticker} A={A} /><Tk t={b.ticker} /></td>
