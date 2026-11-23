@@ -16,6 +16,7 @@ Vite + React 18 single-page dashboard for CAN SLIM / momentum growth stock resea
   - `src/lead/Brief.jsx` (lazy-loaded) — Daily PM/AM brief view.
   - `src/lead/Rotation.jsx` (lazy-loaded) — Subtheme/layer rotation view.
 - **Shared modules**:
+  - `src/liveQuotes.js` — Centralized freshness-aware live quote store (`quoteStore`) shared across `useLiveQuotes`, `useTradeAlerts`, `useScanQuotes`, and `useLiveRS` (coalesces overlapping tickers and concurrent `/api/live?universe=` requests).
   - `src/styles.js` — `ARIA_DARK` / `ARIA_LIGHT` palettes and shared style primitives.
   - `src/utils.js` — ET clock helper, `GRADE_COLORS`, U-shaped volume curve (`_cumVolFrac`, `projectedRVol`), quadrant helpers.
   - `src/wheelTrades.js` — Pure Schwab Realized Gain/Loss CSV parser, trade merge/tombstone logic, and wheel cost-basis math.

@@ -2,6 +2,7 @@
 // Brief views. Split out of LeadershipView.jsx.
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { authFetch } from "../utils.js";
+import { quoteStore } from "../liveQuotes.js";
 
 import {
   LEAD,
@@ -635,40 +636,24 @@ export function ChangesPanel({ A, layers, themes, bars, liveQuotes, date, onTick
 //               price > SMA200 · price > EMA50
 //   column:     change from open % (default sort)
 export function useScanQuotes(tickers, active) {
-  const [quotes, setQuotes] = useState(() => new Map());
-  const [at, setAt] = useState(null);
+  const [tick, setTick] = useState(0);
   const key = tickers.join(",");
   useEffect(() => {
     if (!active || !key) return;
-    let live = true;
-    const pull = async () => {
-      if (document.hidden) return;
-      const list = key.split(",");
-      const m = new Map();
-      for (let i = 0; i < list.length; i += 500) {
-        try {
-          const r = await authFetch(`/api/live?universe=${encodeURIComponent(list.slice(i, i + 500).join(","))}`);
-          const d = r.ok ? await r.json() : null;
-          (d?.theme_universe || d?.universe || []).forEach((q) => { if (q?.ticker) m.set(q.ticker, q); });
-        } catch { /* keep last */ }
-      }
-      if (live && m.size) { setQuotes(m); setAt(new Date()); }
+    const list = key.split(",");
+    // 60s polls during RTH, slow 15-min refresh outside — coalesced through shared quoteStore
+    const id = quoteStore.register(list, { rthMs: 60000, extMs: 15 * 60000, offMs: 15 * 60000 });
+    const unsub = quoteStore.subscribe(() => setTick((n) => n + 1));
+    return () => {
+      unsub();
+      quoteStore.unregister(id);
     };
-    // FMP budget: 60s polls only during regular hours. Outside them the scan
-    // shows the saved closing ZVR, so a slow 15-min refresh is plenty.
-    pull();
-    let id;
-    const schedule = () => {
-      id = setTimeout(async () => { await pull(); if (live) schedule(); }, etClock().rth ? 60000 : 15 * 60000);
-    };
-    schedule();
-    // fetch as soon as a background tab is brought forward, instead of
-    // waiting for the next tick
-    const onVis = () => { if (!document.hidden) pull(); };
-    document.addEventListener("visibilitychange", onVis);
-    return () => { live = false; clearTimeout(id); document.removeEventListener("visibilitychange", onVis); };
   }, [key, active]);
-  return { quotes, at };
+  const quotes = useMemo(() => {
+    void tick;
+    return active && key ? quoteStore.getMap(key.split(",")) : new Map();
+  }, [key, active, tick]);
+  return { quotes, at: quotes.size ? quoteStore.getUpdated() : null };
 }
 
 export const ZVR_SNAP_KEY = "tp-zvr-close-v2"; // v2: ratio vs 10-session avg (v1 was % vs 50d)
@@ -1271,16 +1256,10 @@ export function useLiveRS(stockMap) {
       // doesn't pull early
       if (Date.now() - last < 3600000) return;
       last = Date.now();
-      const list = key.split(","), m = new Map();
-      const chunks = [];
-      for (let i = 0; i < list.length; i += 500) chunks.push(list.slice(i, i + 500));
-      await Promise.all(chunks.map(async (c) => {
-        try {
-          const r = await authFetch(`/api/live?universe=${encodeURIComponent(c.join(","))}`);
-          const d = r.ok ? await r.json() : null;
-          (d?.theme_universe || d?.universe || []).forEach((q) => { if (q?.ticker && q.price > 0) m.set(q.ticker, q.price); });
-        } catch { /* keep last */ }
-      }));
+      const list = key.split(",");
+      const qMap = await quoteStore.fetchQuotes(list, { maxAgeMs: 55 * 60000 });
+      const m = new Map();
+      qMap.forEach((q, t) => { if (q?.price > 0) m.set(t, q.price); });
       if (live && m.size > list.length * 0.5) { setQuotes(m); setAt(new Date()); }
     };
     // Hourly during the session (Nitin's call: intraday RS should move on

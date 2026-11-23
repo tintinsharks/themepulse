@@ -17,6 +17,7 @@
 import React, { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { ARIA_DARK, ARIA_LIGHT, ARIA } from "./styles.js";
 import { isPipelineStale, getAuthToken, setAuthToken, authHeaders, authFetch } from "./utils.js";
+import { quoteStore } from "./liveQuotes.js";
 import { mergeTrades, applyClearTombstone, newestStamp } from "./wheelTrades.js";
 import LeadershipView, { LEAD_INDEXES, zvrFor, useRvolProfiles, useJson, TierMark } from "./LeadershipView.jsx";
 
@@ -268,119 +269,8 @@ function computeCR(q, s) {
   return null;
 }
 
-// ── Centralized live-quote manager ──
-// All useLiveQuotes() calls register their tickers here. One batched fetch
-// runs every 30s during market hours (9:30-4 ET weekdays), 120s in extended
-// hours (4AM-9:30 + 4-8PM ET), and pauses entirely on weekends and overnight.
-// This replaces 13 independent polling loops with a single API call.
-const _quoteManager = {
-  subscribers: new Map(),   // id → Set<ticker>
-  cache: new Map(),         // ticker → quoteObj
-  updated: null,
-  listeners: new Set(),     // () => void callbacks
-  timer: null,
-  nextId: 0,
-  fetching: false,
-
-  register(tickers) {
-    const id = ++this.nextId;
-    this.subscribers.set(id, new Set(tickers));
-    this._ensurePolling();
-    // If any newly registered tickers aren't cached yet, schedule a
-    // one-time fetch so weekend/overnight pages still get data.
-    if (tickers.some((t) => !this.cache.has(t))) {
-      setTimeout(() => this._fetch(), 300);
-    }
-    return id;
-  },
-
-  update(id, tickers) {
-    this.subscribers.set(id, new Set(tickers));
-    if (tickers.some((t) => !this.cache.has(t))) {
-      setTimeout(() => this._fetch(), 300);
-    }
-  },
-
-  unregister(id) {
-    this.subscribers.delete(id);
-    if (this.subscribers.size === 0) this._stopPolling();
-  },
-
-  subscribe(fn) {
-    this.listeners.add(fn);
-    return () => this.listeners.delete(fn);
-  },
-
-  _notify() {
-    this.listeners.forEach((fn) => fn());
-  },
-
-  _getAllTickers() {
-    const all = new Set();
-    this.subscribers.forEach((set) => set.forEach((t) => all.add(t)));
-    return [...all];
-  },
-
-  _getInterval() {
-    const now = new Date();
-    const et = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
-    const day = et.getDay();
-    if (day === 0 || day === 6) return 0; // weekend — don't poll
-    const mins = et.getHours() * 60 + et.getMinutes();
-    if (mins >= 570 && mins <= 960) return 30000;  // 9:30 AM - 4:00 PM ET → 30s
-    if (mins >= 240 && mins < 570) return 120000;   // 4:00 AM - 9:30 AM ET (pre-market) → 2min
-    if (mins > 960 && mins <= 1200) return 120000;   // 4:00 PM - 8:00 PM ET (after-hours) → 2min
-    return 0; // overnight — don't poll
-  },
-
-  async _fetch() {
-    if (this.fetching) return;
-    if (typeof document !== "undefined" && document.hidden) return; // hidden tab — save FMP data
-    const tickers = this._getAllTickers();
-    if (tickers.length === 0) return;
-    this.fetching = true;
-    try {
-      // FMP batch-quote caps at 500; split if needed
-      const batches = [];
-      for (let i = 0; i < tickers.length; i += 500) {
-        batches.push(tickers.slice(i, i + 500).join(","));
-      }
-      for (const batch of batches) {
-        const r = await authFetch(`/api/live?universe=${encodeURIComponent(batch)}`);
-        if (!r.ok) continue;
-        const d = await r.json();
-        const arr = d.theme_universe || d.universe || [];
-        arr.forEach((q) => { if (q?.ticker) this.cache.set(q.ticker, q); });
-      }
-      this.updated = new Date();
-      this._notify();
-    } catch { /* ignore */ }
-    this.fetching = false;
-  },
-
-  _ensurePolling() {
-    if (this.timer) return;
-    const tick = () => {
-      const interval = this._getInterval();
-      if (interval === 0) {
-        this.timer = setTimeout(tick, 60000); // re-check in 1 min
-        return;
-      }
-      this._fetch();
-      this.timer = setTimeout(tick, interval);
-    };
-    this._fetch(); // immediate first fetch
-    const interval = this._getInterval();
-    this.timer = setTimeout(tick, interval || 60000);
-  },
-
-  _stopPolling() {
-    if (this.timer) { clearTimeout(this.timer); this.timer = null; }
-  },
-};
-
+// ── Centralized live-quote hook (backed by shared src/liveQuotes.js store) ──
 function useLiveQuotes(tickers, _intervalMs) {
-  // _intervalMs is ignored — the central manager controls timing
   const [tick, forceUpdate] = useState(0);
   const idRef = useRef(null);
 
@@ -392,16 +282,12 @@ function useLiveQuotes(tickers, _intervalMs) {
 
   useEffect(() => {
     if (tickerList.length === 0) return;
-    if (idRef.current == null) {
-      idRef.current = _quoteManager.register(tickerList);
-    } else {
-      _quoteManager.update(idRef.current, tickerList);
-    }
-    const unsub = _quoteManager.subscribe(() => forceUpdate((n) => n + 1));
+    idRef.current = quoteStore.register(tickerList, { rthMs: 30000, extMs: 120000, offMs: 0 });
+    const unsub = quoteStore.subscribe(() => forceUpdate((n) => n + 1));
     return () => {
       unsub();
       if (idRef.current != null) {
-        _quoteManager.unregister(idRef.current);
+        quoteStore.unregister(idRef.current);
         idRef.current = null;
       }
     };
@@ -409,15 +295,10 @@ function useLiveQuotes(tickers, _intervalMs) {
 
   const quotes = useMemo(() => {
     void tick;
-    const m = new Map();
-    tickerList.forEach((t) => {
-      const q = _quoteManager.cache.get(t);
-      if (q) m.set(t, q);
-    });
-    return m;
+    return quoteStore.getMap(tickerList);
   }, [tickerList, tick]);
 
-  return { quotes, updated: _quoteManager.updated };
+  return { quotes, updated: quoteStore.getUpdated() };
 }
 
 // Cached daily OHLC fetch (shared across chart selections).
@@ -2648,10 +2529,8 @@ function useTradeAlerts(stockMap) {
       const names = [...new Set([...portfolio, ...focus])].filter((t) => stockMap?.[t]);
       if (!names.length) return;
       try {
-        const r = await authFetch(`/api/live?universe=${encodeURIComponent(names.join(","))}`);
-        if (!r.ok) return;
-        const d = await r.json();
-        const qs = d.theme_universe || d.universe || [];
+        const qMap = await quoteStore.fetchQuotes(names, { maxAgeMs: 50000 });
+        const qs = [...qMap.values()];
         const frac = Math.max(0.02, sessionVolFraction(mins - 570));
         let seen; try { seen = new Set(JSON.parse(localStorage.getItem(seenKey()) || "[]")); } catch { seen = new Set(); }
         const fresh = [];
