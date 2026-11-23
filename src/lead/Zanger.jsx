@@ -16,11 +16,19 @@ import {
 } from "./core.jsx";
 
 const MODES = [
-  ["zanger", "⚡ Zanger Movers", "ZVR ≥ 1.5x · green thrust · CR ≥ 60% · RS ≥ 75 · within 20% of 52w high · in leading/emerging theme or RS 90+"],
-  ["bo", "🔥 Breakouts", "Strict Dan Zanger breakout: ZVR ≥ 2.0x · up ≥ +3% · CR ≥ 70% · within 10% of 52w high"],
+  ["zanger", "⚡ All Movers", "Any of the 4 breakouts (Zanger, Stockbee 4%, Stockbee $, Qullamaggie) OR ZVR ≥ 1.5x volume surge in a leading/emerging theme"],
+  ["bo", "🔥 Breakouts", "Zanger Breakout (ZVR ≥ 2x, +3%, CR ≥ 70%, ≤10% off 52wH) · Stockbee 4% (+4% on vol) · Stockbee $ (+$0.90 & +1.5% on vol) · Qullamaggie (momentum + tight structure + ADR thrust)"],
   ["rsl", "🔵 RS Leading", "RS line at a new 52-week high on a green close while price bases 5–15% off highs"],
-  ["leaders", "⭐ Core Leaders", "RS 90+ Tier Leaders in Leading theme layers (sorted by ZVR / RS / EPS)"],
+  ["leaders", "⭐ Core Leaders", "RS 90+ Tier Leaders in Leading theme layers (sorted by RS / EPS / ZVR)"],
 ];
+
+const BO_META = {
+  ZANGER: { label: "🔥 ZNG", full: "Zanger BO", color: "#fbbf24", tip: "Dan Zanger Breakout: ZVR ≥ 2.0x, up ≥ +3%, CR ≥ 70%, within 10% of 52wH" },
+  "SB4%": { label: "⚡ 4%",  full: "Stockbee 4%", color: "#34d399", tip: "Stockbee 4% Momentum Burst: up ≥ +4% on ≥ 1.0x volume, CR ≥ 60%" },
+  "SB$":  { label: "💵 $BO", full: "Stockbee $", color: "#22d3ee", tip: "Stockbee $ Breakout: up ≥ $0.90 (and ≥ +1.5%) on ≥ 1.2x volume, CR ≥ 60%" },
+  QMAG:   { label: "🚀 QMAG", full: "Qullamaggie", color: "#a855f7", tip: "Qullamaggie Breakout: prior momentum leader + tight/EMA structure + ≥0.7x ADR thrust on ≥ 1.3x vol" },
+};
+const BO_KEYS = ["ZANGER", "SB4%", "SB$", "QMAG"];
 
 const fmtPct = (v, d = 1) => (v == null || !Number.isFinite(v) ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(d)}%`);
 
@@ -52,12 +60,32 @@ function CrMeter({ cr, A }) {
 }
 
 function SignalPill({ r, A }) {
-  if (r.isBreakout) {
+  if (r.breakoutTypes?.length) {
     return (
-      <span title="Dan Zanger Breakout: ZVR ≥ 2.0x, up ≥ +3%, CR ≥ 70%, within 10% of 52w high"
-        style={{ fontSize: 9, fontWeight: 800, fontFamily: "monospace", padding: "2px 6px", borderRadius: 4, color: "#fbbf24", background: "rgba(251,191,36,0.14)", border: "1px solid rgba(251,191,36,0.45)", whiteSpace: "nowrap" }}>
-        🔥 BO
-      </span>
+      <div style={{ display: "inline-flex", flexWrap: "wrap", gap: 3 }}>
+        {r.breakoutTypes.map((k) => {
+          const m = BO_META[k] || { label: k, color: A.green, tip: k };
+          return (
+            <span
+              key={k}
+              title={m.tip}
+              style={{
+                fontSize: 9,
+                fontWeight: 800,
+                fontFamily: "monospace",
+                padding: "1px 5px",
+                borderRadius: 4,
+                color: m.color,
+                background: `${m.color}1f`,
+                border: `1px solid ${m.color}66`,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {m.label}
+            </span>
+          );
+        })}
+      </div>
     );
   }
   if (r.rsl) {
@@ -88,15 +116,17 @@ function ZangerPanel({ A, stockMap, layers, themes, tickerLayer, tiers, onTicker
   const [mode, setMode] = useState(() => {
     try { return localStorage.getItem("tp-zanger-mode") || "zanger"; } catch { return "zanger"; }
   });
+  const [boFilter, setBoFilter] = useState(null); // null = all | "ZANGER" | "SB4%" | "SB$" | "QMAG"
   const [themeId, setThemeId] = useState(null);
-  const [minZvr, setMinZvr] = useState(1.5);
-  const [minRs, setMinRs] = useState(75);
+  const [minZvr, setMinZvr] = useState(1.0);
+  const [minRs, setMinRs] = useState(70);
   const [cleanOnly, setCleanOnly] = useState(false);
   const [epsOnly, setEpsOnly] = useState(false);
   const [sort, setSort] = useState({ k: "score", d: -1 });
 
   const pickMode = (m) => {
     setMode(m);
+    if (m !== "bo" && m !== "zanger") setBoFilter(null);
     try { localStorage.setItem("tp-zanger-mode", m); } catch {}
     if (m === "leaders") setSort({ k: "rs", d: -1 });
     else setSort({ k: "score", d: -1 });
@@ -108,7 +138,7 @@ function ZangerPanel({ A, stockMap, layers, themes, tickerLayer, tiers, onTicker
     for (const [t, s] of Object.entries(stockMap || {})) {
       if (!s?.ticker || (s.avg_dollar_vol_raw ?? 0) < 20e6 || !s.above_50ma || pinReason(s)) continue;
       const l = tickerLayer[t];
-      if (tiers?.leaders?.has(t) || tiers?.emerging?.has(t) || (s.rs_rank ?? 0) >= 80 || l?.st === "lead" || l?.st === "emerg") {
+      if (tiers?.leaders?.has(t) || tiers?.emerging?.has(t) || (s.rs_rank ?? 0) >= 70 || l?.st === "lead" || l?.st === "emerg") {
         out.push(t);
       }
     }
@@ -135,12 +165,19 @@ function ZangerPanel({ A, stockMap, layers, themes, tickerLayer, tiers, onTicker
   }, [poolTickers, stockMap, quotes, tickerLayer, tiers, profiles]);
 
   // Top-level KPI counts (unfiltered by theme/extra toggles so counts stay honest)
-  const counts = useMemo(() => ({
-    bo: allScored.filter((r) => r.isBreakout).length,
-    zanger: allScored.filter((r) => r.qualifiesZanger).length,
-    rsl: allScored.filter((r) => r.rsl).length,
-    leaders: allScored.filter((r) => r.tier === "lead" && r.layerStatus === "lead").length,
-  }), [allScored]);
+  const counts = useMemo(() => {
+    const byBo = { ZANGER: 0, "SB4%": 0, "SB$": 0, QMAG: 0 };
+    for (const r of allScored) {
+      for (const k of r.breakoutTypes || []) if (byBo[k] != null) byBo[k]++;
+    }
+    return {
+      bo: allScored.filter((r) => r.isBreakout).length,
+      zanger: allScored.filter((r) => r.qualifiesZanger).length,
+      rsl: allScored.filter((r) => r.rsl).length,
+      leaders: allScored.filter((r) => r.tier === "lead" && r.layerStatus === "lead").length,
+      byBo,
+    };
+  }, [allScored]);
 
   // Leading & confirmed-emerging themes for the quick filter strip
   const topThemes = useMemo(() => {
@@ -165,15 +202,19 @@ function ZangerPanel({ A, stockMap, layers, themes, tickerLayer, tiers, onTicker
       if (mode === "leaders") return r.tier === "lead" && r.layerStatus === "lead";
       return r.qualifiesZanger;
     });
+    if (boFilter) list = list.filter((r) => (r.breakoutTypes || []).includes(boFilter));
     if (themeId) list = list.filter((r) => r.themeId === themeId);
-    if (mode === "zanger" && minZvr > 1.5) list = list.filter((r) => (r.zvr ?? 0) >= minZvr);
-    if (minRs > 75) list = list.filter((r) => r.rs >= minRs);
+    if ((mode === "zanger" || mode === "bo") && minZvr > 1.0) list = list.filter((r) => (r.zvr ?? 0) >= minZvr);
+    if (minRs > 70) list = list.filter((r) => r.rs >= minRs);
     if (epsOnly) list = list.filter((r) => (r.eps ?? 0) >= 50);
     if (cleanOnly) list = list.filter((r) => !(r.layerFlags || []).some(([k]) => k === "distrib" || k === "exiting"));
 
     const { k, d } = sort;
     return [...list].sort((a, b) => {
-      if (k === "score" && d < 0 && a.isBreakout !== b.isBreakout) return Number(b.isBreakout) - Number(a.isBreakout);
+      if (k === "score" && d < 0) {
+        const diffBo = (b.breakoutTypes?.length || 0) - (a.breakoutTypes?.length || 0);
+        if (diffBo) return diffBo;
+      }
       const va = a[k], vb = b[k];
       if (va == null && vb == null) return a.ticker.localeCompare(b.ticker);
       if (va == null) return 1;
@@ -181,7 +222,7 @@ function ZangerPanel({ A, stockMap, layers, themes, tickerLayer, tiers, onTicker
       if (typeof va === "string") return va.localeCompare(vb) * d;
       return (va - vb) * d || a.ticker.localeCompare(b.ticker);
     });
-  }, [allScored, mode, themeId, minZvr, minRs, epsOnly, cleanOnly, sort]);
+  }, [allScored, mode, boFilter, themeId, minZvr, minRs, epsOnly, cleanOnly, sort]);
 
   const col = (k, label, align = "right", title) => (
     <th
@@ -220,8 +261,8 @@ function ZangerPanel({ A, stockMap, layers, themes, tickerLayer, tiers, onTicker
       {/* Top KPI & Live Status Strip */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8, marginBottom: 10 }}>
         {[
-          ["bo", "🔥 Breakouts", counts.bo, "#fbbf24", "ZVR ≥ 2x · +3% · CR ≥ 70%"],
-          ["zanger", "⚡ Zanger Movers", counts.zanger, A.green, "ZVR ≥ 1.5x · green · CR ≥ 60%"],
+          ["bo", "🔥 Breakouts", counts.bo, "#fbbf24", "Zanger · SB 4% · SB $ · QMAG"],
+          ["zanger", "⚡ All Movers", counts.zanger, A.green, "Any breakout or ZVR ≥ 1.5x"],
           ["rsl", "🔵 RS Leading", counts.rsl, A.cyan, "RS line 52w high · basing"],
           ["leaders", "⭐ Core Leaders", counts.leaders, "#f59e0b", `RS 90+ in ${leadLayerCount} lead layers`],
         ].map(([k, label, n, color, sub]) => {
@@ -291,17 +332,31 @@ function ZangerPanel({ A, stockMap, layers, themes, tickerLayer, tiers, onTicker
       >
         {/* Filter controls row */}
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 8, paddingBottom: 8, borderBottom: `1px solid ${A.border}` }}>
-          {mode === "zanger" && (
+          {(mode === "bo" || mode === "zanger") && (
+            <div style={{ display: "inline-flex", flexWrap: "wrap", alignItems: "center", gap: 4 }}>
+              <span style={{ fontSize: 9, color: A.textMuted, fontFamily: "monospace" }}>TYPE</span>
+              <button onClick={() => setBoFilter(null)} style={chipStyle(!boFilter, A.green)}>All</button>
+              {BO_KEYS.map((k) => {
+                const m = BO_META[k];
+                return (
+                  <button key={k} onClick={() => setBoFilter(boFilter === k ? null : k)} title={m.tip} style={chipStyle(boFilter === k, m.color)}>
+                    {m.label} <span style={{ opacity: 0.75, marginLeft: 2 }}>{counts.byBo[k]}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {(mode === "zanger" || mode === "bo") && (
             <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
               <span style={{ fontSize: 9, color: A.textMuted, fontFamily: "monospace" }}>ZVR</span>
-              {[1.5, 2.0, 2.5].map((v) => (
-                <button key={v} onClick={() => setMinZvr(v)} style={chipStyle(minZvr === v, "#fbbf24")}>≥{v.toFixed(1)}x</button>
+              {[1.0, 1.5, 2.0, 2.5].map((v) => (
+                <button key={v} onClick={() => setMinZvr(v)} style={chipStyle(minZvr === v, "#fbbf24")}>{v === 1.0 ? "Any" : `≥${v.toFixed(1)}x`}</button>
               ))}
             </div>
           )}
           <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
             <span style={{ fontSize: 9, color: A.textMuted, fontFamily: "monospace" }}>RS</span>
-            {[75, 85, 90].map((v) => (
+            {[70, 80, 90].map((v) => (
               <button key={v} onClick={() => setMinRs(v)} style={chipStyle(minRs === v, A.cyan)}>≥{v}</button>
             ))}
           </div>
@@ -411,7 +466,10 @@ function ZangerPanel({ A, stockMap, layers, themes, tickerLayer, tiers, onTicker
                         {r.price != null ? r.price.toFixed(2) : "—"}
                       </td>
                       <td style={{ ...td(A, "right"), color: chgColor, fontWeight: 700, fontFamily: "monospace" }}>
-                        {fmtPct(r.chg, 2)}
+                        <div>{fmtPct(r.chg, 2)}</div>
+                        {r.dollarMove != null && r.dollarMove >= 0.9 && (
+                          <div style={{ fontSize: 9, fontWeight: 500, color: A.cyan }}>+${r.dollarMove.toFixed(2)}</div>
+                        )}
                       </td>
                       <td style={{ ...td(A, "right"), color: openColor, fontFamily: "monospace" }}>
                         {fmtPct(r.fromOpen, 1)}

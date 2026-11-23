@@ -401,8 +401,9 @@ export function closingRange(q, s) {
 }
 
 /**
- * Score a liquid above-50d stock on Dan Zanger intraday volume mover & theme
- * leadership criteria. Shared by the live ZANGER tab and scripts/zanger-scan.mjs.
+ * Score a liquid above-50d stock on Dan Zanger intraday volume mover, Stockbee
+ * 4% / $ breakout, Qullamaggie breakout, and theme leadership criteria.
+ * Shared by the live ZANGER tab and scripts/zanger-scan.mjs.
  */
 export function scoreZangerCandidate({ s, q, layer, tier, profiles, now = new Date() }) {
   if (!s?.ticker) return null;
@@ -423,9 +424,70 @@ export function scoreZangerCandidate({ s, q, layer, tier, profiles, now = new Da
 
   const rsl = Boolean(rsLeads(s));
   const fromOpen = q?.open > 0 && px > 0 ? ((px / q.open) - 1) * 100 : null;
+  const dollarMove =
+    q?.price != null && q?.previousClose > 0
+      ? q.price - q.previousClose
+      : px != null && chg != null && chg > -99
+      ? px - px / (1 + chg / 100)
+      : null;
 
   const inStrongLayer = Boolean(layer && (layer.st === "lead" || layer.st === "emerg"));
-  const qualifiesZanger =
+
+  // 1. Dan Zanger Breakout: heavy volume surge + strong thrust + closing near highs within 10% of 52wH
+  const isZangerBO =
+    (inStrongLayer || rs >= 90) &&
+    zvr != null && zvr >= 2.0 &&
+    chg != null && chg >= 3.0 &&
+    (cr == null || cr >= 70) &&
+    (off52 == null || off52 >= -10) &&
+    rs >= 75;
+
+  // 2. Stockbee 4% Breakout (Momentum Burst): up >= 4% on >= 1x volume with strong close
+  const isStockbee4 =
+    px != null && px >= 3 &&
+    chg != null && chg >= 4.0 &&
+    (zvr == null || zvr >= 1.0) &&
+    (cr == null || cr >= 60) &&
+    rs >= 70;
+
+  // 3. Stockbee $ Breakout: >= $0.90 dollar expansion (>= +1.5% to filter $500+ noise) on >= 1.2x vol
+  const isStockbeeDollar =
+    dollarMove != null && dollarMove >= 0.9 &&
+    chg != null && chg >= 1.5 &&
+    zvr != null && zvr >= 1.2 &&
+    (cr == null || cr >= 60) &&
+    rs >= 75;
+
+  // 4. Qullamaggie Breakout: prior momentum leader + high ADR / tight structure breaking out on volume
+  const qmagPriorMom =
+    (s.return_1m ?? 0) >= 15 ||
+    (s.return_3m ?? 0) >= 30 ||
+    (s.return_6m ?? 0) >= 50 ||
+    (s.qmag_score ?? 0) >= 5;
+  const qmagStructure =
+    Boolean(s.ema_stack || s.consol_valid || s.two_day_tight || (s.qmag_score ?? 0) >= 5) ||
+    ((s.ema20_pct == null || (s.ema20_pct >= 0 && s.ema20_pct <= 12)) && (off52 == null || off52 >= -15));
+  const notExtended = s.dist_20dma_atrx == null || s.dist_20dma_atrx <= 3.5;
+  const isQmagBO =
+    rs >= 80 &&
+    qmagPriorMom &&
+    qmagStructure &&
+    notExtended &&
+    ((adr ?? 0) >= 3.5 || (s.qmag_score ?? 0) >= 5) &&
+    chg != null && chg >= Math.max(2.0, (adr ?? 4) * 0.7) &&
+    zvr != null && zvr >= 1.3 &&
+    (cr == null || cr >= 65);
+
+  const breakoutTypes = [];
+  if (isZangerBO) breakoutTypes.push("ZANGER");
+  if (isStockbee4) breakoutTypes.push("SB4%");
+  if (isStockbeeDollar) breakoutTypes.push("SB$");
+  if (isQmagBO) breakoutTypes.push("QMAG");
+
+  const isBreakout = breakoutTypes.length > 0;
+
+  // Broader intraday volume mover (Dan Zanger volume surge OR any of the 4 breakouts)
+  const qualifiesVolSurge =
     (inStrongLayer || rs >= 90) &&
     zvr != null && zvr >= 1.5 &&
     chg != null && chg >= Math.min(1.5, (adr ?? 3) * 0.6) &&
@@ -433,12 +495,7 @@ export function scoreZangerCandidate({ s, q, layer, tier, profiles, now = new Da
     (off52 == null || off52 >= -20) &&
     rs >= 75;
 
-  const isBreakout =
-    qualifiesZanger &&
-    zvr >= 2.0 &&
-    chg >= 3.0 &&
-    (cr == null || cr >= 70) &&
-    (off52 == null || off52 >= -10);
+  const qualifiesZanger = isBreakout || qualifiesVolSurge;
 
   const zvrPts = Math.min(35, (Math.min(zvr ?? 0, 4.0) / 4.0) * 35);
   const rsPts = (rs / 100) * 25;
@@ -446,7 +503,8 @@ export function scoreZangerCandidate({ s, q, layer, tier, profiles, now = new Da
   const crPts = cr != null ? (cr / 100) * 10 : 5;
   const epsPts = eps != null ? (eps / 100) * 10 : 4;
   const proxPts = off52 != null ? Math.max(0, 5 + off52 * 0.25) : 2;
-  const score = Math.round((zvrPts + rsPts + layerPts + crPts + epsPts + proxPts) * 10) / 10;
+  const confluencePts = Math.min(6, Math.max(0, breakoutTypes.length - 1) * 3);
+  const score = Math.round((zvrPts + rsPts + layerPts + crPts + epsPts + proxPts + confluencePts) * 10) / 10;
 
   return {
     ticker: s.ticker,
@@ -460,6 +518,7 @@ export function scoreZangerCandidate({ s, q, layer, tier, profiles, now = new Da
     tier,
     price: px,
     chg,
+    dollarMove: dollarMove != null ? Math.round(dollarMove * 100) / 100 : null,
     fromOpen,
     zvr: zvr != null ? Math.round(zvr * 100) / 100 : null,
     cr,
@@ -471,8 +530,9 @@ export function scoreZangerCandidate({ s, q, layer, tier, profiles, now = new Da
     off52: off52 != null ? Math.round(off52 * 10) / 10 : null,
     rsl,
     rslTip: rsLeads(s),
-    qualifiesZanger,
+    breakoutTypes,
     isBreakout,
+    qualifiesZanger,
     score,
     pipelineNews: (s._newsPipe || []).slice(0, 2),
   };

@@ -140,15 +140,15 @@ function buildMarkdown({ stamp, mode, clock, pipelineDate, leadingLayers, emergi
   lines.push(`- **Summary**: ${leadingLayers.length} leading layers · ${emergingLayers.length} confirmed emerging layers · ${zangerMovers.length} Dan Zanger volume movers`);
   lines.push("");
 
-  lines.push("## 1. Dan Zanger Intraday Volume Movers (ZVR ≥ 1.5x)");
+  lines.push("## 1. Breakouts & Intraday Volume Movers (Zanger · Stockbee 4% / $ · Qullamaggie)");
   lines.push("");
   if (!zangerMovers.length) {
-    lines.push("_No stocks currently pass all Dan Zanger breakout/volume criteria (ZVR ≥ 1.5x, green, CR ≥ 60%, RS ≥ 75, within 20% of 52w high, above 50d MA, $20M+ adv)._");
+    lines.push("_No stocks currently pass Zanger, Stockbee 4%/$, Qullamaggie breakout, or ZVR ≥ 1.5x volume surge criteria._");
   } else {
     lines.push("| Signal | Ticker | Theme · Layer | Price | Chg% | ZVR | CR% | RS | EPS | Off 52wH | ADR | Score |");
     lines.push("|--------|--------|---------------|------:|-----:|----:|----:|---:|----:|---------:|----:|------:|");
     for (const m of zangerMovers.slice(0, 25)) {
-      const sig = m.isBreakout ? "🔥 BO" : m.rsl ? "🔵 RSL" : "⚡ VOL";
+      const sig = m.breakoutTypes?.length ? `🔥 ${m.breakoutTypes.join("+")}` : m.rsl ? "🔵 RSL" : "⚡ VOL";
       const tierBadge = m.tier === "lead" ? " ⭐" : m.tier === "emerg" ? " 🌱" : "";
       const epsStr = m.eps != null ? `${m.eps}${m.epsAccel ? "▲" : ""}` : "—";
       lines.push(
@@ -273,7 +273,7 @@ export async function runZangerScan({ offline = false, write = true, now = new D
   for (const [t, s] of Object.entries(stockMap)) {
     if ((s.avg_dollar_vol_raw ?? 0) < 20e6 || !s.above_50ma || pinReason(s)) continue;
     const l = tickerLayer[t];
-    if (tiers.leaders.has(t) || tiers.emerging.has(t) || (s.rs_rank ?? 0) >= 80 || l?.st === "lead" || l?.st === "emerg") {
+    if (tiers.leaders.has(t) || tiers.emerging.has(t) || (s.rs_rank ?? 0) >= 70 || l?.st === "lead" || l?.st === "emerg") {
       poolSet.add(t);
     }
   }
@@ -305,7 +305,7 @@ export async function runZangerScan({ offline = false, write = true, now = new D
 
   const zangerMovers = scored
     .filter((r) => r.qualifiesZanger)
-    .sort((a, b) => Number(b.isBreakout) - Number(a.isBreakout) || b.score - a.score);
+    .sort((a, b) => (b.breakoutTypes?.length || 0) - (a.breakoutTypes?.length || 0) || b.score - a.score);
 
   const themeLeaders = scored
     .filter((r) => r.tier === "lead" && r.layerStatus === "lead")
