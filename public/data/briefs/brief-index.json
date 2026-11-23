@@ -1,6 +1,14 @@
 {
-  "latest": "brief-2026-11-23-intraday-0930.json",
+  "latest": "brief-2026-11-23-intraday-1010.json",
   "briefs": [
+    {
+      "id": "brief-2026-11-23-intraday-1010",
+      "date": "2026-11-23",
+      "session": "intraday",
+      "label": "Intraday Brief — Nov 23, 2026 (10:10 AM PT)",
+      "file": "brief-2026-11-23-intraday-1010.json",
+      "regime": "Day 1 Rally Hold / Selective Stage 2 Breakouts (45%–55% Exposure)"
+    },
     {
       "id": "brief-2026-11-23-intraday-0930",
       "date": "2026-11-23",
