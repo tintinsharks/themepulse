@@ -1,6 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { evalPivotStatus, matchMacroLive, collectBriefTickers, filterRecentHeadlines } from "../src/lead/briefLive.js";
+import {
+  evalPivotStatus,
+  matchMacroLive,
+  collectBriefTickers,
+  filterRecentHeadlines,
+  computeLivePortfolioPulse,
+} from "../src/lead/briefLive.js";
 
 test("evalPivotStatus classifies buy zone, extended, near pivot, below pivot, and stopped", () => {
   const setup = { pivot: 100, buyZoneMax: 105, stop: 92 };
@@ -58,4 +64,197 @@ test("filterRecentHeadlines drops stale pipeline/Finviz headlines and inherits b
   ];
   const kept = filterRecentHeadlines(finviz, now, 14);
   assert.deepEqual(kept.map((x) => x.title), ["Raises FY guidance", "Beats Q3 revenue"]);
+});
+
+test("computeLivePortfolioPulse detects breakout, vol surge, squat, heavy sell, pullback, and earnings with severity sort", () => {
+  // Post-close ET timestamp so zvrFor uses full-day avg_vol_10d deterministically
+  const afterClose = new Date("2026-11-23T22:00:00Z"); // 5:00 PM ET
+
+  const stockMap = {
+    // 1. Breakout (ZANGER + SB4% + SB$)
+    NVDA: {
+      ticker: "NVDA",
+      close: 140,
+      avg_dollar_vol_raw: 5e9,
+      avg_vol_10d: 10e6,
+      above_50ma: true,
+      rs_rank: 95,
+      off_52w_high: -2,
+      adr20: 4.0,
+    },
+    // 2. Volume surge (non-breakout: chg +2.5% < 4%, zvr 1.8x < 2.0, dollarMove $0.50 < $0.90)
+    VRT: {
+      ticker: "VRT",
+      close: 20,
+      avg_dollar_vol_raw: 200e6,
+      avg_vol_10d: 5e6,
+      above_50ma: true,
+      rs_rank: 78,
+      off_52w_high: -8,
+      adr20: 4.5,
+    },
+    // 3. Squatting (green, heavy volume, closing near lows CR <= 30)
+    CLS: {
+      ticker: "CLS",
+      close: 80,
+      avg_dollar_vol_raw: 150e6,
+      avg_vol_10d: 2e6,
+      above_50ma: true,
+      rs_rank: 88,
+      off_52w_high: -5,
+      adr20: 3.5,
+    },
+    // 4. Heavy selling on a stock BELOW 50MA (scoreZangerCandidate returns null, must still alert!)
+    SMCI: {
+      ticker: "SMCI",
+      close: 40,
+      avg_dollar_vol_raw: 500e6,
+      avg_vol_10d: 10e6,
+      above_50ma: false,
+      rs_rank: 30,
+      earnings_days: 0,
+    },
+    // 5. Sharp pullback (-3.5%, moderate vol 1.1x, CR 50% -> DOWN >=3% warn, not HEAVY SELL)
+    META: {
+      ticker: "META",
+      close: 500,
+      avg_dollar_vol_raw: 4e9,
+      avg_vol_10d: 10e6,
+      above_50ma: true,
+      rs_rank: 82,
+      earnings_days: 2,
+    },
+    // 6. Quiet holding (no alert, earnings 5d > 3d threshold)
+    MSFT: {
+      ticker: "MSFT",
+      close: 420,
+      avg_dollar_vol_raw: 8e9,
+      avg_vol_10d: 15e6,
+      above_50ma: true,
+      rs_rank: 75,
+      earnings_days: 5,
+    },
+  };
+
+  const quotes = new Map([
+    ["NVDA", { price: 147, previousClose: 140, change: 5.0, dayHigh: 148, dayLow: 141, volume: 25e6 }],
+    ["VRT", { price: 20.5, previousClose: 20, change: 2.5, dayHigh: 20.6, dayLow: 20.0, volume: 9e6 }],
+    ["CLS", { price: 81.2, previousClose: 80, change: 1.5, dayHigh: 85.0, dayLow: 80.5, volume: 3.6e6 }],
+    ["SMCI", { price: 38.4, previousClose: 40, change: -4.0, dayHigh: 40.2, dayLow: 38.0, volume: 18e6 }],
+    ["META", { price: 482.5, previousClose: 500, change: -3.5, dayHigh: 492.5, dayLow: 472.5, volume: 11e6 }],
+    ["MSFT", { price: 422.1, previousClose: 420, change: 0.5, dayHigh: 423, dayLow: 419, volume: 14e6 }],
+    // Quote-only ticker not in stockMap (down -5.2% -> HEAVY SELL)
+    ["QONLY", { price: 47.4, previousClose: 50, dayHigh: 50.0, dayLow: 47.0, volume: 1e6 }],
+  ]);
+
+  const tickerLayer = {
+    NVDA: { theme: "AI Infra", name: "GPUs", st: "lead", now: 95 },
+    VRT: { theme: "AI Power", name: "Cooling", st: "lead", now: 91 },
+    CLS: { theme: "AI Infra", name: "EMS", st: "lead", now: 90 },
+  };
+
+  const res = computeLivePortfolioPulse({
+    portfolio: ["NVDA", "SMCI", "MSFT", "VRT"],
+    watchlist: ["CLS", "META", "QONLY"],
+    stockMap,
+    quotes,
+    tickerLayer,
+    now: afterClose,
+  });
+
+  assert.equal(res.isLive, true);
+  assert.equal(res.portfolioCount, 4);
+  assert.equal(res.watchlistCount, 3);
+
+  // MSFT should be quiet (omitted from alerts)
+  const byTk = new Map(res.alerts.map((a) => [a.ticker, a]));
+  assert.equal(byTk.has("MSFT"), false);
+
+  // Breakout (NVDA)
+  const nvda = byTk.get("NVDA");
+  assert.equal(nvda.list, "PORT");
+  assert.equal(nvda.tags.length, 1);
+  assert.equal(nvda.tags[0].tone, "good");
+  assert.match(nvda.tags[0].label, /^BO \(.*ZANGER.*SB4%.*\)$/);
+
+  // Volume surge (VRT)
+  const vrt = byTk.get("VRT");
+  assert.equal(vrt.list, "PORT");
+  assert.deepEqual(vrt.tags, [{ label: "VOL SURGE", tone: "good" }]);
+
+  // Squatting (CLS)
+  const cls = byTk.get("CLS");
+  assert.equal(cls.list, "WATCH");
+  assert.deepEqual(cls.tags, [{ label: "SQUATTING", tone: "warn" }]);
+
+  // Heavy sell + ER TODAY (SMCI below 50MA)
+  const smci = byTk.get("SMCI");
+  assert.equal(smci.list, "PORT");
+  assert.deepEqual(smci.tags, [
+    { label: "HEAVY SELL", tone: "bad" },
+    { label: "ER TODAY", tone: "warn" },
+  ]);
+
+  // Sharp pullback + ER 2d (META)
+  const meta = byTk.get("META");
+  assert.equal(meta.list, "WATCH");
+  assert.deepEqual(meta.tags, [
+    { label: "DOWN ≥3%", tone: "warn" },
+    { label: "ER 2d", tone: "warn" },
+  ]);
+
+  // Quote-only heavy sell (QONLY)
+  const qonly = byTk.get("QONLY");
+  assert.equal(qonly.list, "WATCH");
+  assert.equal(qonly.chg, -5.2);
+  assert.deepEqual(qonly.tags, [{ label: "HEAVY SELL", tone: "bad" }]);
+
+  // Severity order: bad (QONLY -5.2%, SMCI -4.0%) > good BO (NVDA) > warn (META -3.5%, CLS +1.5%) > rest (VRT +2.5%)
+  assert.deepEqual(
+    res.alerts.map((a) => a.ticker),
+    ["QONLY", "SMCI", "NVDA", "META", "CLS", "VRT"]
+  );
+});
+
+test("computeLivePortfolioPulse deduplicates PORT over WATCH and handles empty or quiet lists", () => {
+  const afterClose = new Date("2026-11-23T22:00:00Z");
+  const quotes = new Map([
+    ["PLTR", { price: 47, previousClose: 50, change: -6.0, dayHigh: 50, dayLow: 46.8, volume: 20e6 }],
+    ["AAPL", { price: 221, previousClose: 220, change: 0.45, dayHigh: 222, dayLow: 219.5, volume: 10e6 }],
+  ]);
+
+  const dedup = computeLivePortfolioPulse({
+    portfolio: ["pltr", "PLTR"],
+    watchlist: ["PLTR", "AAPL"],
+    quotes,
+    now: afterClose,
+  });
+  assert.equal(dedup.portfolioCount, 1);
+  assert.equal(dedup.watchlistCount, 2);
+  assert.equal(dedup.alerts.length, 1);
+  assert.equal(dedup.alerts[0].ticker, "PLTR");
+  assert.equal(dedup.alerts[0].list, "PORT");
+
+  // Quiet non-empty lists
+  const quiet = computeLivePortfolioPulse({
+    portfolio: ["AAPL"],
+    watchlist: ["MSFT"],
+    quotes,
+    now: afterClose,
+  });
+  assert.deepEqual(quiet, {
+    alerts: [],
+    portfolioCount: 1,
+    watchlistCount: 1,
+    isLive: true,
+  });
+
+  // Completely empty lists
+  const empty = computeLivePortfolioPulse();
+  assert.deepEqual(empty, {
+    alerts: [],
+    portfolioCount: 0,
+    watchlistCount: 0,
+    isLive: true,
+  });
 });
