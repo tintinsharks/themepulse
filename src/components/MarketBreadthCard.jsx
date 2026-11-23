@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { computeStageDistribution, estimateStageHistory, etClock } from "../lead/math.js";
 import { authFetch } from "../utils.js";
+import {
+  buildCumulativeAdSeries,
+  buildMaBreadthSeries,
+  buildMcClellanSeries,
+  filterStageStocks,
+} from "./breadthChartMath.js";
 
 // Shared 60s cache for Finviz homepage market_stats (Adv/Dec, New High/Low, >50/200 SMA)
 const HP_TTL_MS = 60 * 1000;
@@ -45,6 +51,26 @@ function fetchSpxHistory() {
 function fmtSpx(v) {
   if (v == null || !Number.isFinite(v)) return "—";
   return v >= 1000 ? Math.round(v).toLocaleString() : v.toFixed(1);
+}
+
+function fmtCompactSigned(v) {
+  if (v == null || !Number.isFinite(v)) return "—";
+  const sign = v > 0 ? "+" : v < 0 ? "-" : "";
+  const abs = Math.abs(v);
+  if (abs >= 10000) return `${sign}${(abs / 1000).toFixed(0)}k`;
+  if (abs >= 1000) return `${sign}${(abs / 1000).toFixed(1)}k`;
+  return `${sign}${Math.round(abs)}`;
+}
+
+function fmtSigned(v, decimals = 0) {
+  if (v == null || !Number.isFinite(v)) return "—";
+  const sign = v > 0 ? "+" : "";
+  return decimals > 0 ? `${sign}${v.toFixed(decimals)}` : `${sign}${Math.round(v).toLocaleString()}`;
+}
+
+function fmtPct(v) {
+  if (v == null || !Number.isFinite(v)) return "—";
+  return `${v > 0 ? "+" : ""}${v.toFixed(1)}%`;
 }
 
 function buildSpxOverlay(series, spxData, todayStr, padL, step, padT, plotH) {
@@ -107,6 +133,7 @@ function fetchHomepageStats() {
 // Deepvue-inspired color tokens (vivid on dark, crisp on light)
 const COLORS = {
   blue: "#3b82f6",
+  cyan: "#06b6d4",
   pink: "#ec4899",
   gold: "#eab308",
   slate: "#64748b",
@@ -118,6 +145,95 @@ const STAGE_COLOR = {
   3: COLORS.gold,
   4: COLORS.pink,
 };
+
+const STAGE_META = {
+  1: { label: "Stage 1", hint: "Basing" },
+  2: { label: "Stage 2", hint: "Uptrend" },
+  3: { label: "Stage 3", hint: "Topping" },
+  4: { label: "Stage 4", hint: "Downtrend" },
+};
+
+const RANGE_OPTIONS = [
+  [22, "1M"],
+  [63, "3M"],
+  [126, "6M"],
+  [252, "1Y"],
+];
+
+function ChartControls({ A, range, onRange, onResetHover, spxData, showSpx, onToggleSpx, mode, onMode }) {
+  return (
+    <div style={{ display: "inline-flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+      {mode && onMode && (
+        <div style={{ display: "inline-flex", gap: 2, marginRight: 2 }}>
+          {[
+            ["daily", "Daily"],
+            ["cum", "Cum A/D"],
+          ].map(([val, lbl]) => {
+            const active = mode === val;
+            return (
+              <button
+                key={val}
+                type="button"
+                onClick={() => { onResetHover?.(); onMode(val); }}
+                style={{
+                  background: active ? A.bgHover : "transparent",
+                  border: `1px solid ${active ? COLORS.cyan : A.border}`,
+                  color: active ? COLORS.cyan : A.textMuted,
+                  borderRadius: 4,
+                  padding: "1px 6px",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  fontFamily: "monospace",
+                  cursor: "pointer",
+                }}
+              >
+                {lbl}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={onToggleSpx}
+        title={`Toggle ${spxData?.label || "SPX"} price line overlay`}
+        style={{
+          background: showSpx ? A.bgHover : "transparent",
+          border: `1px solid ${showSpx ? A.text : A.border}`,
+          color: showSpx ? A.text : A.textMuted,
+          borderRadius: 4,
+          padding: "1px 6px",
+          fontSize: 10,
+          fontWeight: 700,
+          fontFamily: "monospace",
+          cursor: "pointer",
+        }}
+      >
+        {spxData?.label || "SPX"}
+      </button>
+      {RANGE_OPTIONS.map(([days, lbl]) => (
+        <button
+          key={lbl}
+          type="button"
+          onClick={() => { onResetHover?.(); onRange(days); }}
+          style={{
+            background: range === days ? A.bgHover : "transparent",
+            border: `1px solid ${range === days ? COLORS.blue : A.border}`,
+            color: range === days ? COLORS.blue : A.textMuted,
+            borderRadius: 4,
+            padding: "1px 6px",
+            fontSize: 10,
+            fontWeight: 700,
+            fontFamily: "monospace",
+            cursor: "pointer",
+          }}
+        >
+          {lbl}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 function RatioBar({ title, pct, leftLabel, rightLabel, accentColor, trackBg, textColor, mutedColor, onClick, expanded }) {
   const safePct = Number.isFinite(pct) ? Math.max(0, Math.min(100, pct)) : 0;
@@ -163,7 +279,7 @@ function RatioBar({ title, pct, leftLabel, rightLabel, accentColor, trackBg, tex
 }
 
 // Mirrored daily bar chart (Up = Highs/Advance in blue, Down = Lows/Decline in pink, + Net curve in gold + optional SPX overlay)
-function BreadthHistoryChart({ A, series, posLabel, negLabel, range, onRange, spxData, showSpx, onToggleSpx, todayStr }) {
+function BreadthHistoryChart({ A, series, posLabel, negLabel, range, onRange, spxData, showSpx, onToggleSpx, todayStr, mode, onMode }) {
   const [hoverIdx, setHoverIdx] = useState(null);
   if (!series || series.length === 0) {
     return (
@@ -236,44 +352,17 @@ function BreadthHistoryChart({ A, series, posLabel, negLabel, range, onRange, sp
             </span>
           )}
         </div>
-        <div style={{ display: "inline-flex", gap: 4 }}>
-          <button
-            onClick={onToggleSpx}
-            title={`Toggle ${spxData?.label || "SPX"} price line overlay`}
-            style={{
-              background: showSpx ? A.bgHover : "transparent",
-              border: `1px solid ${showSpx ? A.text : A.border}`,
-              color: showSpx ? A.text : A.textMuted,
-              borderRadius: 4,
-              padding: "1px 6px",
-              fontSize: 10,
-              fontWeight: 700,
-              fontFamily: "monospace",
-              cursor: "pointer",
-            }}
-          >
-            {spxData?.label || "SPX"}
-          </button>
-          {[[22, "1M"], [63, "3M"], [126, "6M"], [252, "1Y"]].map(([days, lbl]) => (
-            <button
-              key={lbl}
-              onClick={() => { setHoverIdx(null); onRange(days); }}
-              style={{
-                background: range === days ? A.bgHover : "transparent",
-                border: `1px solid ${range === days ? COLORS.blue : A.border}`,
-                color: range === days ? COLORS.blue : A.textMuted,
-                borderRadius: 4,
-                padding: "1px 6px",
-                fontSize: 10,
-                fontWeight: 700,
-                fontFamily: "monospace",
-                cursor: "pointer",
-              }}
-            >
-              {lbl}
-            </button>
-          ))}
-        </div>
+        <ChartControls
+          A={A}
+          range={range}
+          onRange={onRange}
+          onResetHover={() => setHoverIdx(null)}
+          spxData={spxData}
+          showSpx={showSpx}
+          onToggleSpx={onToggleSpx}
+          mode={mode}
+          onMode={onMode}
+        />
       </div>
 
       <svg
@@ -386,6 +475,565 @@ function BreadthHistoryChart({ A, series, posLabel, negLabel, range, onRange, sp
   );
 }
 
+// Cumulative Advance-Decline Line chart with subtle area fill + SPX right-axis overlay for divergence reads
+function CumAdHistoryChart({ A, series, range, onRange, spxData, showSpx, onToggleSpx, todayStr, mode, onMode }) {
+  const [hoverIdx, setHoverIdx] = useState(null);
+  if (!series || series.length === 0) {
+    return (
+      <div style={{ fontSize: 11, color: A.textMuted, padding: "8px 10px", marginBottom: 14, background: A.bg, border: `1px solid ${A.border}`, borderRadius: 8 }}>
+        No cumulative A/D series available yet.
+      </div>
+    );
+  }
+
+  const W = 600, H = 152;
+  const n = series.length;
+  const padL = 46, padT = 10, padB = 22;
+  const hasSpx = Boolean(showSpx && spxData?.map && series.filter((d) => spxData.map.has(d.isLive ? todayStr : d.date)).length >= 2);
+  const padR = hasSpx ? 44 : 10;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+  const step = plotW / n;
+  const spx = hasSpx ? buildSpxOverlay(series, spxData, todayStr, padL, step, padT, plotH) : null;
+
+  const vals = series.map((d) => d.cumAd);
+  const minVal = Math.min(...vals);
+  const maxVal = Math.max(...vals);
+  const span = Math.max(maxVal - minVal, 1);
+  const lo = minVal - span * 0.08;
+  const hi = maxVal + span * 0.08;
+  const midVal = (minVal + maxVal) / 2;
+
+  const xOf = (i) => padL + i * step + step / 2;
+  const yOf = (v) => padT + plotH - ((v - lo) / (hi - lo)) * plotH;
+  const hasZero = lo < 0 && hi > 0;
+  const zeroY = hasZero ? yOf(0) : null;
+
+  const activeIdx = hoverIdx != null && hoverIdx < n ? hoverIdx : n - 1;
+  const cur = series[activeIdx];
+  const curSpx = spx ? spx.values[activeIdx] : null;
+  const spxStroke = A.text || "#f8fafc";
+  const spxHalo = A.bg || "#0d1117";
+
+  const linePts = series.map((d, i) => `${xOf(i).toFixed(1)},${yOf(d.cumAd).toFixed(1)}`);
+  const lineD = linePts.map((pt, i) => `${i === 0 ? "M" : "L"}${pt}`).join(" ");
+  const baseY = padT + plotH;
+  const areaD = n >= 2
+    ? `${lineD} L${xOf(n - 1).toFixed(1)},${baseY.toFixed(1)} L${xOf(0).toFixed(1)},${baseY.toFixed(1)} Z`
+    : "";
+
+  const spansYear = series[0]?.date && series[n - 1]?.date && String(series[0].date).slice(0, 4) !== String(series[n - 1].date).slice(0, 4);
+  const fmtShortDate = (d) => (d === "Today (Live)" ? "Live" : spansYear ? String(d || "").slice(2) : String(d || "").slice(5));
+  const midIdx = Math.floor((n - 1) / 2);
+  const partialNote = n < range ? `${n}d shown (earliest ${series[0].date})` : null;
+  const midY = padT + plotH / 2;
+  const showZeroLabel = hasZero && Math.abs(zeroY - (padT + 8)) > 11 && Math.abs(zeroY - midY) > 11 && Math.abs(zeroY - (padT + plotH)) > 11;
+
+  return (
+    <div
+      style={{
+        marginBottom: 14,
+        padding: "10px 12px 8px",
+        background: A.bg,
+        border: `1px solid ${A.border}`,
+        borderRadius: 8,
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 6, fontSize: 11, fontFamily: "monospace" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <strong style={{ color: A.text }}>{cur.date}</strong>
+          <span style={{ color: COLORS.cyan, fontWeight: 700 }}>Cum A/D {fmtSigned(cur.cumAd)}</span>
+          <span style={{ color: cur.net >= 0 ? COLORS.blue : COLORS.pink }}>
+            Net {fmtSigned(cur.net)}
+          </span>
+          {curSpx != null && (
+            <span style={{ color: A.text, fontWeight: 700 }}>
+              {spx.label} {fmtSpx(curSpx)}
+            </span>
+          )}
+        </div>
+        <ChartControls
+          A={A}
+          range={range}
+          onRange={onRange}
+          onResetHover={() => setHoverIdx(null)}
+          spxData={spxData}
+          showSpx={showSpx}
+          onToggleSpx={onToggleSpx}
+          mode={mode}
+          onMode={onMode}
+        />
+      </div>
+
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        style={{ width: "100%", height: "auto", display: "block" }}
+        onMouseLeave={() => setHoverIdx(null)}
+      >
+        <line x1={padL} y1={padT} x2={W - padR} y2={padT} stroke={A.border} strokeDasharray="2 3" strokeOpacity="0.6" />
+        <line x1={padL} y1={midY} x2={W - padR} y2={midY} stroke={A.border} strokeDasharray="2 3" strokeOpacity="0.45" />
+        <line x1={padL} y1={padT + plotH} x2={W - padR} y2={padT + plotH} stroke={A.border} strokeDasharray="2 3" strokeOpacity="0.6" />
+        {hasZero && (
+          <line x1={padL} y1={zeroY} x2={W - padR} y2={zeroY} stroke={A.textMuted} strokeDasharray="3 3" strokeOpacity="0.65" />
+        )}
+
+        {/* Left Y-axis labels */}
+        <text x={padL - 5} y={padT + 8} textAnchor="end" fontSize="9" fill={COLORS.cyan} fontFamily="monospace">{fmtCompactSigned(maxVal)}</text>
+        <text x={padL - 5} y={midY + 3} textAnchor="end" fontSize="9" fill={A.textMuted} fontFamily="monospace">{fmtCompactSigned(midVal)}</text>
+        <text x={padL - 5} y={padT + plotH} textAnchor="end" fontSize="9" fill={A.textDim} fontFamily="monospace">{fmtCompactSigned(minVal)}</text>
+        {showZeroLabel && (
+          <text x={padL - 5} y={zeroY + 3} textAnchor="end" fontSize="9" fill={A.textMuted} fontFamily="monospace">0</text>
+        )}
+
+        {/* Right Y-axis scale labels (SPX) */}
+        {spx && (
+          <>
+            <text x={W - padR + 5} y={padT + 8} textAnchor="start" fontSize="9" fill={A.textDim} fontFamily="monospace">{fmtSpx(spx.max)}</text>
+            <text x={W - padR + 5} y={midY + 3} textAnchor="start" fontSize="9" fill={A.textMuted} fontFamily="monospace">{fmtSpx(spx.mid)}</text>
+            <text x={W - padR + 5} y={padT + plotH} textAnchor="start" fontSize="9" fill={A.textDim} fontFamily="monospace">{fmtSpx(spx.min)}</text>
+          </>
+        )}
+
+        {/* Subtle area fill */}
+        {areaD && <path d={areaD} fill={COLORS.cyan} fillOpacity="0.13" style={{ pointerEvents: "none" }} />}
+
+        {/* Hover hit zones */}
+        {series.map((d, i) => {
+          const isActive = i === activeIdx;
+          return (
+            <g key={d.date} onMouseEnter={() => setHoverIdx(i)} style={{ cursor: "crosshair" }}>
+              <rect x={padL + i * step} y={padT} width={step} height={plotH} fill={isActive ? A.text : "transparent"} fillOpacity={isActive ? 0.06 : 0} />
+              {isActive && (
+                <line x1={xOf(i)} y1={padT} x2={xOf(i)} y2={padT + plotH} stroke={A.textMuted} strokeDasharray="2 2" strokeOpacity="0.45" />
+              )}
+            </g>
+          );
+        })}
+
+        {/* Cumulative A/D curve */}
+        {n >= 2 && (
+          <path
+            d={lineD}
+            fill="none"
+            stroke={COLORS.cyan}
+            strokeWidth="1.9"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            style={{ pointerEvents: "none" }}
+          />
+        )}
+        <circle
+          cx={xOf(activeIdx)}
+          cy={yOf(cur.cumAd)}
+          r="3.4"
+          fill={COLORS.cyan}
+          stroke={spxHalo}
+          strokeWidth="1.3"
+          style={{ pointerEvents: "none" }}
+        />
+
+        {/* SPX price line overlay */}
+        {spx && (
+          <g style={{ pointerEvents: "none" }}>
+            <path d={spx.pathD} fill="none" stroke={spxHalo} strokeWidth="3.2" strokeOpacity="0.65" strokeLinejoin="round" strokeLinecap="round" />
+            <path d={spx.pathD} fill="none" stroke={spxStroke} strokeWidth="1.7" strokeLinejoin="round" strokeLinecap="round" />
+            {curSpx != null && (
+              <circle cx={spx.xOf(activeIdx)} cy={spx.yOf(curSpx)} r="3.2" fill={spxStroke} stroke={spxHalo} strokeWidth="1.2" />
+            )}
+          </g>
+        )}
+
+        {/* X-axis date ticks */}
+        <text x={padL} y={H - 5} textAnchor="start" fontSize="9" fill={A.textMuted} fontFamily="monospace">{fmtShortDate(series[0].date)}</text>
+        {n > 4 && (
+          <text x={padL + midIdx * step + step / 2} y={H - 5} textAnchor="middle" fontSize="9" fill={A.textMuted} fontFamily="monospace">{fmtShortDate(series[midIdx].date)}</text>
+        )}
+        <text x={W - padR} y={H - 5} textAnchor="end" fontSize="9" fill={series[n - 1].isLive ? A.green : A.textMuted} fontFamily="monospace">{fmtShortDate(series[n - 1].date)}</text>
+      </svg>
+
+      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginTop: 4, fontSize: 10, color: A.textMuted, fontFamily: "monospace" }}>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <span><span style={{ color: COLORS.cyan }}>━</span> Cum A/D Line (left)</span>
+          {spx && <span><span style={{ color: A.text }}>━</span> {spx.label} (right)</span>}
+        </div>
+        {partialNote && <span>{partialNote}</span>}
+      </div>
+    </div>
+  );
+}
+
+// 0%-100% MA Breadth history chart with >80% overbought band, <20% oversold washout band, + SPX overlay
+function MaBreadthHistoryChart({ A, title, series, range, onRange, spxData, showSpx, onToggleSpx, todayStr }) {
+  const [hoverIdx, setHoverIdx] = useState(null);
+  if (!series || series.length === 0) {
+    return (
+      <div style={{ fontSize: 11, color: A.textMuted, padding: "8px 10px", marginBottom: 14, background: A.bg, border: `1px solid ${A.border}`, borderRadius: 8 }}>
+        No historical {title} series available yet.
+      </div>
+    );
+  }
+
+  const W = 600, H = 152;
+  const n = series.length;
+  const padL = 36, padT = 10, padB = 22;
+  const hasSpx = Boolean(showSpx && spxData?.map && series.filter((d) => spxData.map.has(d.isLive ? todayStr : d.date)).length >= 2);
+  const padR = hasSpx ? 44 : 10;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+  const step = plotW / n;
+  const spx = hasSpx ? buildSpxOverlay(series, spxData, todayStr, padL, step, padT, plotH) : null;
+
+  const xOf = (i) => padL + i * step + step / 2;
+  const yOf = (pct) => padT + plotH - (Math.max(0, Math.min(100, pct)) / 100) * plotH;
+  const y80 = yOf(80);
+  const y50 = yOf(50);
+  const y20 = yOf(20);
+  const baseY = padT + plotH;
+
+  const activeIdx = hoverIdx != null && hoverIdx < n ? hoverIdx : n - 1;
+  const cur = series[activeIdx];
+  const curSpx = spx ? spx.values[activeIdx] : null;
+  const spxStroke = A.text || "#f8fafc";
+  const spxHalo = A.bg || "#0d1117";
+  const curColor = cur.pct < 20 ? COLORS.pink : cur.pct > 80 ? COLORS.blue : COLORS.cyan;
+  const zoneTag = cur.pct < 20 ? { label: "Oversold", color: COLORS.pink } : cur.pct > 80 ? { label: "Overbought", color: COLORS.blue } : null;
+
+  const linePts = series.map((d, i) => `${xOf(i).toFixed(1)},${yOf(d.pct).toFixed(1)}`);
+  const lineD = linePts.map((pt, i) => `${i === 0 ? "M" : "L"}${pt}`).join(" ");
+  const areaD = n >= 2
+    ? `${lineD} L${xOf(n - 1).toFixed(1)},${baseY.toFixed(1)} L${xOf(0).toFixed(1)},${baseY.toFixed(1)} Z`
+    : "";
+
+  const spansYear = series[0]?.date && series[n - 1]?.date && String(series[0].date).slice(0, 4) !== String(series[n - 1].date).slice(0, 4);
+  const fmtShortDate = (d) => (d === "Today (Live)" ? "Live" : spansYear ? String(d || "").slice(2) : String(d || "").slice(5));
+  const midIdx = Math.floor((n - 1) / 2);
+  const partialNote = n < range ? `${n}d shown (earliest ${series[0].date})` : null;
+
+  return (
+    <div
+      style={{
+        marginBottom: 14,
+        padding: "10px 12px 8px",
+        background: A.bg,
+        border: `1px solid ${A.border}`,
+        borderRadius: 8,
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 6, fontSize: 11, fontFamily: "monospace" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <strong style={{ color: A.text }}>{cur.date}</strong>
+          <span style={{ color: curColor, fontWeight: 700 }}>{cur.pct.toFixed(1)}% {title}</span>
+          {zoneTag && (
+            <span
+              style={{
+                fontSize: 9,
+                fontWeight: 700,
+                padding: "0 5px",
+                borderRadius: 999,
+                background: `${zoneTag.color}22`,
+                border: `1px solid ${zoneTag.color}66`,
+                color: zoneTag.color,
+              }}
+            >
+              {zoneTag.label}
+            </span>
+          )}
+          {curSpx != null && (
+            <span style={{ color: A.text, fontWeight: 700 }}>
+              {spx.label} {fmtSpx(curSpx)}
+            </span>
+          )}
+        </div>
+        <ChartControls
+          A={A}
+          range={range}
+          onRange={onRange}
+          onResetHover={() => setHoverIdx(null)}
+          spxData={spxData}
+          showSpx={showSpx}
+          onToggleSpx={onToggleSpx}
+        />
+      </div>
+
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        style={{ width: "100%", height: "auto", display: "block" }}
+        onMouseLeave={() => setHoverIdx(null)}
+      >
+        {/* Shaded overbought (>80%) & oversold washout (<20%) bands */}
+        <rect x={padL} y={padT} width={plotW} height={y80 - padT} fill={COLORS.blue} fillOpacity="0.11" />
+        <rect x={padL} y={y20} width={plotW} height={baseY - y20} fill={COLORS.pink} fillOpacity="0.12" />
+
+        {/* Horizontal guide lines */}
+        <line x1={padL} y1={padT} x2={W - padR} y2={padT} stroke={A.border} strokeDasharray="2 3" strokeOpacity="0.55" />
+        <line x1={padL} y1={y80} x2={W - padR} y2={y80} stroke={COLORS.blue} strokeDasharray="3 3" strokeOpacity="0.5" />
+        <line x1={padL} y1={y50} x2={W - padR} y2={y50} stroke={A.textMuted} strokeDasharray="3 3" strokeOpacity="0.45" />
+        <line x1={padL} y1={y20} x2={W - padR} y2={y20} stroke={COLORS.pink} strokeDasharray="3 3" strokeOpacity="0.55" />
+        <line x1={padL} y1={baseY} x2={W - padR} y2={baseY} stroke={A.border} strokeOpacity="0.7" />
+
+        {/* Left Y-axis labels */}
+        <text x={padL - 5} y={padT + 7} textAnchor="end" fontSize="8.5" fill={A.textMuted} fontFamily="monospace">100%</text>
+        <text x={padL - 5} y={y80 + 3} textAnchor="end" fontSize="8.5" fill={COLORS.blue} fontFamily="monospace">80%</text>
+        <text x={padL - 5} y={y50 + 3} textAnchor="end" fontSize="8.5" fill={A.textMuted} fontFamily="monospace">50%</text>
+        <text x={padL - 5} y={y20 + 3} textAnchor="end" fontSize="8.5" fill={COLORS.pink} fontFamily="monospace">20%</text>
+        <text x={padL - 5} y={baseY} textAnchor="end" fontSize="8.5" fill={A.textMuted} fontFamily="monospace">0%</text>
+
+        {/* Right Y-axis scale labels (SPX) */}
+        {spx && (
+          <>
+            <text x={W - padR + 5} y={padT + 8} textAnchor="start" fontSize="9" fill={A.textDim} fontFamily="monospace">{fmtSpx(spx.max)}</text>
+            <text x={W - padR + 5} y={y50 + 3} textAnchor="start" fontSize="9" fill={A.textMuted} fontFamily="monospace">{fmtSpx(spx.mid)}</text>
+            <text x={W - padR + 5} y={baseY} textAnchor="start" fontSize="9" fill={A.textDim} fontFamily="monospace">{fmtSpx(spx.min)}</text>
+          </>
+        )}
+
+        {/* Subtle area fill under MA% line */}
+        {areaD && <path d={areaD} fill={COLORS.blue} fillOpacity="0.10" style={{ pointerEvents: "none" }} />}
+
+        {/* Hover hit zones */}
+        {series.map((d, i) => {
+          const isActive = i === activeIdx;
+          return (
+            <g key={d.date} onMouseEnter={() => setHoverIdx(i)} style={{ cursor: "crosshair" }}>
+              <rect x={padL + i * step} y={padT} width={step} height={plotH} fill={isActive ? A.text : "transparent"} fillOpacity={isActive ? 0.06 : 0} />
+              {isActive && (
+                <line x1={xOf(i)} y1={padT} x2={xOf(i)} y2={baseY} stroke={A.textMuted} strokeDasharray="2 2" strokeOpacity="0.45" />
+              )}
+            </g>
+          );
+        })}
+
+        {/* MA% line */}
+        {n >= 2 && (
+          <path
+            d={lineD}
+            fill="none"
+            stroke={COLORS.cyan}
+            strokeWidth="1.9"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            style={{ pointerEvents: "none" }}
+          />
+        )}
+        <circle
+          cx={xOf(activeIdx)}
+          cy={yOf(cur.pct)}
+          r="3.4"
+          fill={curColor}
+          stroke={spxHalo}
+          strokeWidth="1.3"
+          style={{ pointerEvents: "none" }}
+        />
+
+        {/* SPX price line overlay */}
+        {spx && (
+          <g style={{ pointerEvents: "none" }}>
+            <path d={spx.pathD} fill="none" stroke={spxHalo} strokeWidth="3.2" strokeOpacity="0.65" strokeLinejoin="round" strokeLinecap="round" />
+            <path d={spx.pathD} fill="none" stroke={spxStroke} strokeWidth="1.7" strokeLinejoin="round" strokeLinecap="round" />
+            {curSpx != null && (
+              <circle cx={spx.xOf(activeIdx)} cy={spx.yOf(curSpx)} r="3.2" fill={spxStroke} stroke={spxHalo} strokeWidth="1.2" />
+            )}
+          </g>
+        )}
+
+        {/* X-axis date ticks */}
+        <text x={padL} y={H - 5} textAnchor="start" fontSize="9" fill={A.textMuted} fontFamily="monospace">{fmtShortDate(series[0].date)}</text>
+        {n > 4 && (
+          <text x={padL + midIdx * step + step / 2} y={H - 5} textAnchor="middle" fontSize="9" fill={A.textMuted} fontFamily="monospace">{fmtShortDate(series[midIdx].date)}</text>
+        )}
+        <text x={W - padR} y={H - 5} textAnchor="end" fontSize="9" fill={series[n - 1].isLive ? A.green : A.textMuted} fontFamily="monospace">{fmtShortDate(series[n - 1].date)}</text>
+      </svg>
+
+      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginTop: 4, fontSize: 10, color: A.textMuted, fontFamily: "monospace" }}>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <span><span style={{ color: COLORS.cyan }}>━</span> {title} (left)</span>
+          <span><span style={{ color: COLORS.blue }}>■</span> &gt;80% OB</span>
+          <span><span style={{ color: COLORS.pink }}>■</span> &lt;20% OS</span>
+          {spx && <span><span style={{ color: A.text }}>━</span> {spx.label} (right)</span>}
+        </div>
+        {partialNote && <span>{partialNote}</span>}
+      </div>
+    </div>
+  );
+}
+
+// Mirrored McClellan Oscillator bar chart around 0 with ±60 overbought/oversold guide lines + SPX overlay
+function McClellanHistoryChart({ A, series, range, onRange, spxData, showSpx, onToggleSpx, todayStr }) {
+  const [hoverIdx, setHoverIdx] = useState(null);
+  if (!series || series.length === 0) {
+    return (
+      <div style={{ fontSize: 11, color: A.textMuted, padding: "8px 10px", marginTop: 8, background: A.bg, border: `1px solid ${A.border}`, borderRadius: 8 }}>
+        No historical McClellan Oscillator series available yet.
+      </div>
+    );
+  }
+
+  const W = 600, H = 152;
+  const n = series.length;
+  const padL = 36, padT = 10, padB = 22;
+  const hasSpx = Boolean(showSpx && spxData?.map && series.filter((d) => spxData.map.has(d.isLive ? todayStr : d.date)).length >= 2);
+  const padR = hasSpx ? 44 : 10;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+  const midY = padT + plotH / 2;
+  const halfH = plotH / 2;
+  const step = plotW / n;
+  const spx = hasSpx ? buildSpxOverlay(series, spxData, todayStr, padL, step, padT, plotH) : null;
+
+  const peak = Math.max(...series.map((d) => Math.abs(d.osc || 0)), 0);
+  const maxAbs = Math.max(100, Math.ceil(peak / 10) * 10);
+  const yOf = (v) => midY - (v / maxAbs) * halfH;
+  const yPos60 = yOf(60);
+  const yNeg60 = yOf(-60);
+  const barW = Math.max(1.5, Math.min(16, step * 0.72));
+
+  const activeIdx = hoverIdx != null && hoverIdx < n ? hoverIdx : n - 1;
+  const cur = series[activeIdx];
+  const curSpx = spx ? spx.values[activeIdx] : null;
+  const spxStroke = A.text || "#f8fafc";
+  const spxHalo = A.bg || "#0d1117";
+  const zoneTag = cur.osc <= -60 ? { label: "Oversold", color: COLORS.pink } : cur.osc >= 60 ? { label: "Overbought", color: COLORS.blue } : null;
+
+  const spansYear = series[0]?.date && series[n - 1]?.date && String(series[0].date).slice(0, 4) !== String(series[n - 1].date).slice(0, 4);
+  const fmtShortDate = (d) => (d === "Today (Live)" ? "Live" : spansYear ? String(d || "").slice(2) : String(d || "").slice(5));
+  const midIdx = Math.floor((n - 1) / 2);
+  const partialNote = n < range ? `${n}d shown (earliest ${series[0].date})` : null;
+
+  return (
+    <div
+      style={{
+        marginTop: 8,
+        padding: "10px 12px 8px",
+        background: A.bg,
+        border: `1px solid ${A.border}`,
+        borderRadius: 8,
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 6, fontSize: 11, fontFamily: "monospace" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <strong style={{ color: A.text }}>{cur.date}</strong>
+          <span style={{ color: cur.osc >= 0 ? COLORS.blue : COLORS.pink, fontWeight: 700 }}>
+            Osc {fmtSigned(cur.osc, 1)}
+          </span>
+          <span style={{ color: A.textMuted }}>
+            Sum {cur.summation.toLocaleString()}
+          </span>
+          {zoneTag && (
+            <span
+              style={{
+                fontSize: 9,
+                fontWeight: 700,
+                padding: "0 5px",
+                borderRadius: 999,
+                background: `${zoneTag.color}22`,
+                border: `1px solid ${zoneTag.color}66`,
+                color: zoneTag.color,
+              }}
+            >
+              {zoneTag.label}
+            </span>
+          )}
+          {curSpx != null && (
+            <span style={{ color: A.text, fontWeight: 700 }}>
+              {spx.label} {fmtSpx(curSpx)}
+            </span>
+          )}
+        </div>
+        <ChartControls
+          A={A}
+          range={range}
+          onRange={onRange}
+          onResetHover={() => setHoverIdx(null)}
+          spxData={spxData}
+          showSpx={showSpx}
+          onToggleSpx={onToggleSpx}
+        />
+      </div>
+
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        style={{ width: "100%", height: "auto", display: "block" }}
+        onMouseLeave={() => setHoverIdx(null)}
+      >
+        {/* Guide lines: +max, +60 OB, 0, -60 OS, -max */}
+        <line x1={padL} y1={padT} x2={W - padR} y2={padT} stroke={A.border} strokeDasharray="2 3" strokeOpacity="0.55" />
+        <line x1={padL} y1={yPos60} x2={W - padR} y2={yPos60} stroke={COLORS.blue} strokeDasharray="3 3" strokeOpacity="0.6" />
+        <line x1={padL} y1={midY} x2={W - padR} y2={midY} stroke={A.textMuted} strokeOpacity="0.5" />
+        <line x1={padL} y1={yNeg60} x2={W - padR} y2={yNeg60} stroke={COLORS.pink} strokeDasharray="3 3" strokeOpacity="0.6" />
+        <line x1={padL} y1={padT + plotH} x2={W - padR} y2={padT + plotH} stroke={A.border} strokeDasharray="2 3" strokeOpacity="0.55" />
+
+        {/* Left Y-axis labels */}
+        <text x={padL - 5} y={padT + 7} textAnchor="end" fontSize="8.5" fill={A.textMuted} fontFamily="monospace">+{maxAbs}</text>
+        <text x={padL - 5} y={yPos60 + 3} textAnchor="end" fontSize="8.5" fill={COLORS.blue} fontFamily="monospace">+60</text>
+        <text x={padL - 5} y={midY + 3} textAnchor="end" fontSize="8.5" fill={A.textMuted} fontFamily="monospace">0</text>
+        <text x={padL - 5} y={yNeg60 + 3} textAnchor="end" fontSize="8.5" fill={COLORS.pink} fontFamily="monospace">-60</text>
+        <text x={padL - 5} y={padT + plotH} textAnchor="end" fontSize="8.5" fill={A.textMuted} fontFamily="monospace">-{maxAbs}</text>
+
+        {/* Right Y-axis scale labels (SPX) */}
+        {spx && (
+          <>
+            <text x={W - padR + 5} y={padT + 8} textAnchor="start" fontSize="9" fill={A.textDim} fontFamily="monospace">{fmtSpx(spx.max)}</text>
+            <text x={W - padR + 5} y={midY + 3} textAnchor="start" fontSize="9" fill={A.textMuted} fontFamily="monospace">{fmtSpx(spx.mid)}</text>
+            <text x={W - padR + 5} y={padT + plotH} textAnchor="start" fontSize="9" fill={A.textDim} fontFamily="monospace">{fmtSpx(spx.min)}</text>
+          </>
+        )}
+
+        {/* Mirrored oscillator bars around 0 */}
+        {series.map((d, i) => {
+          const cx = padL + i * step + step / 2;
+          const x = cx - barW / 2;
+          const v = d.osc || 0;
+          const h = Math.min(halfH, Math.max(0.8, (Math.abs(v) / maxAbs) * halfH));
+          const isPos = v >= 0;
+          const isActive = i === activeIdx;
+          return (
+            <g key={d.date} onMouseEnter={() => setHoverIdx(i)} style={{ cursor: "crosshair" }}>
+              <rect x={padL + i * step} y={padT} width={step} height={plotH} fill={isActive ? A.text : "transparent"} fillOpacity={isActive ? 0.06 : 0} />
+              <rect
+                x={x}
+                y={isPos ? midY - h : midY}
+                width={barW}
+                height={h}
+                rx={n > 150 ? 0.5 : 1.5}
+                fill={isPos ? COLORS.blue : COLORS.pink}
+                fillOpacity={isActive ? 1 : d.isLive ? 0.92 : 0.76}
+              />
+            </g>
+          );
+        })}
+
+        {/* SPX price line overlay */}
+        {spx && (
+          <g style={{ pointerEvents: "none" }}>
+            <path d={spx.pathD} fill="none" stroke={spxHalo} strokeWidth="3.2" strokeOpacity="0.65" strokeLinejoin="round" strokeLinecap="round" />
+            <path d={spx.pathD} fill="none" stroke={spxStroke} strokeWidth="1.7" strokeLinejoin="round" strokeLinecap="round" />
+            {curSpx != null && (
+              <circle cx={spx.xOf(activeIdx)} cy={spx.yOf(curSpx)} r="3.2" fill={spxStroke} stroke={spxHalo} strokeWidth="1.2" />
+            )}
+          </g>
+        )}
+
+        {/* X-axis date ticks */}
+        <text x={padL} y={H - 5} textAnchor="start" fontSize="9" fill={A.textMuted} fontFamily="monospace">{fmtShortDate(series[0].date)}</text>
+        {n > 4 && (
+          <text x={padL + midIdx * step + step / 2} y={H - 5} textAnchor="middle" fontSize="9" fill={A.textMuted} fontFamily="monospace">{fmtShortDate(series[midIdx].date)}</text>
+        )}
+        <text x={W - padR} y={H - 5} textAnchor="end" fontSize="9" fill={series[n - 1].isLive ? A.green : A.textMuted} fontFamily="monospace">{fmtShortDate(series[n - 1].date)}</text>
+      </svg>
+
+      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginTop: 4, fontSize: 10, color: A.textMuted, fontFamily: "monospace" }}>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <span><span style={{ color: COLORS.blue }}>■</span> &gt;0 Bullish</span>
+          <span><span style={{ color: COLORS.pink }}>■</span> &lt;0 Bearish</span>
+          <span><span style={{ color: A.textDim }}>┄</span> ±60 OB/OS</span>
+          {spx && <span><span style={{ color: A.text }}>━</span> {spx.label} (right)</span>}
+        </div>
+        {partialNote && <span>{partialNote}</span>}
+      </div>
+    </div>
+  );
+}
+
 // 100% stacked daily bar chart for Stan Weinstein Stages 1-4 (bottom->top: Stage 2, Stage 1, Stage 3, Stage 4) + optional SPX overlay
 function StageHistoryChart({ A, series, range, onRange, spxData, showSpx, onToggleSpx, todayStr }) {
   const [hoverIdx, setHoverIdx] = useState(null);
@@ -438,44 +1086,15 @@ function StageHistoryChart({ A, series, range, onRange, spxData, showSpx, onTogg
             </span>
           )}
         </div>
-        <div style={{ display: "inline-flex", gap: 4 }}>
-          <button
-            onClick={onToggleSpx}
-            title={`Toggle ${spxData?.label || "SPX"} price line overlay`}
-            style={{
-              background: showSpx ? A.bgHover : "transparent",
-              border: `1px solid ${showSpx ? A.text : A.border}`,
-              color: showSpx ? A.text : A.textMuted,
-              borderRadius: 4,
-              padding: "1px 6px",
-              fontSize: 10,
-              fontWeight: 700,
-              fontFamily: "monospace",
-              cursor: "pointer",
-            }}
-          >
-            {spxData?.label || "SPX"}
-          </button>
-          {[[22, "1M"], [63, "3M"], [126, "6M"], [252, "1Y"]].map(([days, lbl]) => (
-            <button
-              key={lbl}
-              onClick={() => { setHoverIdx(null); onRange(days); }}
-              style={{
-                background: range === days ? A.bgHover : "transparent",
-                border: `1px solid ${range === days ? COLORS.blue : A.border}`,
-                color: range === days ? COLORS.blue : A.textMuted,
-                borderRadius: 4,
-                padding: "1px 6px",
-                fontSize: 10,
-                fontWeight: 700,
-                fontFamily: "monospace",
-                cursor: "pointer",
-              }}
-            >
-              {lbl}
-            </button>
-          ))}
-        </div>
+        <ChartControls
+          A={A}
+          range={range}
+          onRange={onRange}
+          onResetHover={() => setHoverIdx(null)}
+          spxData={spxData}
+          showSpx={showSpx}
+          onToggleSpx={onToggleSpx}
+        />
       </div>
 
       <svg
@@ -561,14 +1180,253 @@ function StageHistoryChart({ A, series, range, onRange, spxData, showSpx, onTogg
   );
 }
 
-export default function MarketBreadthCard({ A, stockMap, breadth, monitor }) {
+// Inline stock drill-down drawer for a clicked Stage 1-4 bucket
+function StageStockDrawer({
+  A,
+  stageNum,
+  totalCount,
+  stocks,
+  leadingOnly,
+  onToggleLeading,
+  minRs,
+  onSetMinRs,
+  onClose,
+  onTicker,
+  chartTicker,
+}) {
+  const color = STAGE_COLOR[stageNum] || COLORS.blue;
+  const meta = STAGE_META[stageNum] || { label: `Stage ${stageNum}`, hint: "" };
+  const rows = stocks.slice(0, 30);
+  const filtered = leadingOnly || minRs > 0;
+  const chipStyle = (active, accent) => ({
+    background: active ? `${accent}22` : "transparent",
+    border: `1px solid ${active ? accent : A.border}`,
+    color: active ? accent : A.textMuted,
+    borderRadius: 4,
+    padding: "1px 6px",
+    fontSize: 10,
+    fontWeight: 700,
+    fontFamily: "monospace",
+    cursor: "pointer",
+  });
+  const thStyle = (align = "left") => ({
+    textAlign: align,
+    padding: "4px 6px",
+    fontSize: 10,
+    fontWeight: 700,
+    fontFamily: "monospace",
+    color: A.textMuted,
+    borderBottom: `1px solid ${A.border}`,
+    position: "sticky",
+    top: 0,
+    background: A.bg,
+    whiteSpace: "nowrap",
+  });
+  const tdStyle = (align = "left") => ({
+    textAlign: align,
+    padding: "4px 6px",
+    fontSize: 11,
+    fontFamily: "monospace",
+    fontVariantNumeric: "tabular-nums",
+    borderBottom: `1px solid ${A.border}66`,
+    whiteSpace: "nowrap",
+  });
+
+  return (
+    <div
+      style={{
+        marginTop: 10,
+        padding: "10px 12px 8px",
+        background: A.bg,
+        border: `1px solid ${color}66`,
+        borderRadius: 8,
+      }}
+    >
+      {/* Drawer header: stage badge + count + filter chips + close */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
+              fontSize: 10,
+              fontWeight: 800,
+              fontFamily: "monospace",
+              padding: "2px 7px",
+              borderRadius: 999,
+              background: `${color}22`,
+              border: `1px solid ${color}77`,
+              color,
+            }}
+          >
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: color }} />
+            {meta.label} · {meta.hint}
+          </span>
+          <span style={{ fontSize: 11, fontFamily: "monospace", color: A.textMuted }}>
+            <strong style={{ color: A.text }}>{stocks.length.toLocaleString()}</strong>
+            {filtered && totalCount != null ? ` of ${totalCount.toLocaleString()}` : ""} stocks
+          </span>
+        </div>
+
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            onClick={onToggleLeading}
+            title="Show only stocks in Leading or Emerging themes"
+            style={chipStyle(leadingOnly, A.green || COLORS.blue)}
+          >
+            Leading themes
+          </button>
+          <button
+            type="button"
+            onClick={() => onSetMinRs(minRs === 80 ? 0 : 80)}
+            style={chipStyle(minRs === 80, COLORS.blue)}
+          >
+            RS ≥ 80
+          </button>
+          <button
+            type="button"
+            onClick={() => onSetMinRs(minRs === 90 ? 0 : 90)}
+            style={chipStyle(minRs === 90, COLORS.cyan)}
+          >
+            RS ≥ 90
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close stage stock drawer"
+            title="Close drawer"
+            style={{
+              background: "transparent",
+              border: `1px solid ${A.border}`,
+              color: A.textMuted,
+              borderRadius: 4,
+              padding: "1px 6px",
+              fontSize: 10,
+              fontWeight: 700,
+              fontFamily: "monospace",
+              cursor: "pointer",
+              marginLeft: 2,
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+
+      {/* Scrollable compact table (top 30 matches) */}
+      {rows.length === 0 ? (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "8px 4px", fontSize: 11, color: A.textMuted, fontFamily: "monospace" }}>
+          <span>No {meta.label} stocks match the active filters.</span>
+          {filtered && (
+            <button
+              type="button"
+              onClick={() => { if (leadingOnly) onToggleLeading(); if (minRs > 0) onSetMinRs(0); }}
+              style={{ background: "transparent", border: `1px solid ${A.border}`, color: A.text, borderRadius: 4, padding: "2px 7px", fontSize: 10, fontFamily: "monospace", cursor: "pointer" }}
+            >
+              Reset filters
+            </button>
+          )}
+        </div>
+      ) : (
+        <>
+          <div style={{ maxHeight: 240, overflowY: "auto", overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  <th style={thStyle("left")}>Ticker</th>
+                  <th style={thStyle("left")}>Theme · Layer</th>
+                  <th style={thStyle("right")}>RS</th>
+                  <th style={thStyle("right")}>Chg%</th>
+                  <th style={thStyle("right")}>vs 50d</th>
+                  <th style={thStyle("right")}>Off 52wH</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((s) => {
+                  const active = Boolean(chartTicker && s.ticker === chartTicker);
+                  const l = s.layer;
+                  const themeText = l?.theme || s.sector || "";
+                  const layerText = l?.name || s.industry || "";
+                  const groupLabel = themeText && layerText && themeText !== layerText
+                    ? `${themeText} · ${layerText}`
+                    : themeText || layerText || "—";
+                  const layerDot = l?.st === "lead" ? (A.green || COLORS.blue) : l?.st === "emerg" ? COLORS.cyan : null;
+                  const chgColor = s.change_pct == null ? A.textMuted : s.change_pct > 0 ? (A.green || COLORS.blue) : s.change_pct < 0 ? COLORS.pink : A.textDim;
+                  const s50Color = s.sma50_pct == null ? A.textMuted : s.sma50_pct >= 0 ? COLORS.blue : COLORS.pink;
+                  const rsColor = (s.rs_rank ?? 0) >= 90 ? COLORS.cyan : (s.rs_rank ?? 0) >= 80 ? A.text : A.textMuted;
+
+                  return (
+                    <tr
+                      key={s.ticker}
+                      onClick={onTicker ? () => onTicker(s.ticker) : undefined}
+                      style={{
+                        cursor: onTicker ? "pointer" : "default",
+                        background: active ? `${color}20` : "transparent",
+                      }}
+                    >
+                      <td style={{ ...tdStyle("left"), fontWeight: 800, color: active ? color : A.text }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                          {active && <span style={{ width: 5, height: 5, borderRadius: "50%", background: color }} />}
+                          {s.ticker}
+                        </span>
+                      </td>
+                      <td
+                        title={s.company ? `${s.company} — ${groupLabel}` : groupLabel}
+                        style={{
+                          ...tdStyle("left"),
+                          fontFamily: "inherit",
+                          color: A.textDim,
+                          maxWidth: 220,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {layerDot && <span style={{ color: layerDot, marginRight: 4, fontSize: 9 }}>●</span>}
+                        {groupLabel}
+                      </td>
+                      <td style={{ ...tdStyle("right"), fontWeight: 700, color: rsColor }}>
+                        {s.rs_rank != null && Number.isFinite(s.rs_rank) ? Math.round(s.rs_rank) : "—"}
+                      </td>
+                      <td style={{ ...tdStyle("right"), fontWeight: 700, color: chgColor }}>
+                        {fmtPct(s.change_pct)}
+                      </td>
+                      <td style={{ ...tdStyle("right"), color: s50Color }}>
+                        {fmtPct(s.sma50_pct)}
+                      </td>
+                      <td style={{ ...tdStyle("right"), color: A.textDim }}>
+                        {fmtPct(s.off_52w_high)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {stocks.length > 30 && (
+            <div style={{ marginTop: 4, fontSize: 10, color: A.textMuted, fontFamily: "monospace", textAlign: "right" }}>
+              Showing top 30 of {stocks.length.toLocaleString()} matches (sorted by RS, then Chg%)
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+export default function MarketBreadthCard({ A, stockMap, breadth, monitor, onTicker, chartTicker, tickerLayer }) {
   const [slide, setSlide] = useState(0); // 0 = Breadth + Stage Analysis (Deepvue view), 1 = MA Breadth + 4% Movers
-  const [openChart, setOpenChart] = useState(null); // null | "nhnl" | "ad" | "stage"
+  const [openChart, setOpenChart] = useState(null); // null | "nhnl" | "ad" | "stage" | "p20" | "p50" | "p200" | "mcclellan"
+  const [adMode, setAdMode] = useState("daily"); // "daily" | "cum"
   const [histRange, setHistRange] = useState(22); // 22 (~1M) | 63 (~3M) | 126 (~6M) | 252 (~1Y)
   const [showSpx, setShowSpx] = useState(true);
   const [spxData, setSpxData] = useState(() => _spxCache.data);
   const [liveStats, setLiveStats] = useState(() => _hpCache.stats);
   const [liveAt, setLiveAt] = useState(() => (_hpCache.ts ? new Date(_hpCache.ts) : null));
+  const [selectedStage, setSelectedStage] = useState(null); // null | 1 | 2 | 3 | 4
+  const [stageLeadingOnly, setStageLeadingOnly] = useState(false);
+  const [stageMinRs, setStageMinRs] = useState(0); // 0 | 80 | 90
   const todayStr = etClock().today;
 
   // Lazily load daily SPX (^GSPC, fallback SPY) closes once any history chart is opened
@@ -631,10 +1489,9 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor }) {
     return null;
   }, [liveStats, breadth]);
 
-  // Historical daily series for New Highs vs New Lows and Advance vs Decline (last 1M / 3M + live Today bar)
-  const { nhnlSeries, adSeries } = useMemo(() => {
+  // Historical daily series for New Highs vs New Lows, Advance vs Decline, Cumulative A/D, and McClellan
+  const { nhnlSeries, adSeries, cumAdSeries, mcclellanSeries } = useMemo(() => {
     const raw = Array.isArray(breadth?.ad_history) ? breadth.ad_history : [];
-    const todayStr = etClock().today;
     const lastDate = raw.length ? raw[raw.length - 1]?.date : null;
 
     const nhRows = raw
@@ -653,8 +1510,28 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor }) {
       adRows.push({ date: "Today (Live)", pos: advDec.adv, neg: advDec.dec, isLive: true });
     }
 
-    return { nhnlSeries: nhRows, adSeries: adRows };
-  }, [breadth, histRange, nhNl, advDec]);
+    const fullCumAd = buildCumulativeAdSeries(raw, advDec, todayStr);
+    const fullMcClellan = buildMcClellanSeries(raw, advDec, todayStr);
+
+    return {
+      nhnlSeries: nhRows,
+      adSeries: adRows,
+      cumAdSeries: fullCumAd.slice(-histRange),
+      mcclellanSeries: fullMcClellan.slice(-histRange),
+    };
+  }, [breadth, histRange, nhNl, advDec, todayStr]);
+
+  // Historical daily series for Slide 2 MA Breadth (Above 20d / 50d / 200d SMA)
+  const maSeries = useMemo(() => {
+    const hist = breadth?.history;
+    const live50 = liveStats?.sma50_above?.pct ?? null;
+    const live200 = liveStats?.sma200_above?.pct ?? null;
+    return {
+      p20: buildMaBreadthSeries(hist, "p20", null, todayStr).slice(-histRange),
+      p50: buildMaBreadthSeries(hist, "p50", live50, todayStr).slice(-histRange),
+      p200: buildMaBreadthSeries(hist, "p200", live200, todayStr).slice(-histRange),
+    };
+  }, [breadth, liveStats, histRange, todayStr]);
 
   // 3. Stan Weinstein Stage Analysis (Stages 1-4 across stockMap universe) + daily lookback
   const stageDist = useMemo(() => computeStageDistribution(stockMap), [stockMap]);
@@ -662,6 +1539,16 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor }) {
     () => estimateStageHistory(breadth?.history, stageDist, breadth?.date).slice(-histRange),
     [breadth, stageDist, histRange]
   );
+
+  // Filtered stocks for the clicked Stage Analysis bucket drawer
+  const stageDrawerStocks = useMemo(() => {
+    if (selectedStage == null) return [];
+    return filterStageStocks(stockMap, selectedStage, {
+      tickerLayer,
+      leadingOnly: stageLeadingOnly,
+      minRs: stageMinRs,
+    });
+  }, [stockMap, selectedStage, tickerLayer, stageLeadingOnly, stageMinRs]);
 
   // Contextual tape read (e.g. Ted Zhang's "Junk rally" tell: big Adv% while Stage 4 >= 50% and NH/NL weak)
   const tapeTag = useMemo(() => {
@@ -706,19 +1593,21 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor }) {
     const up4 = cur?.up_4pct ?? stocks.filter((s) => (s.change_pct ?? 0) >= 4).length;
     const dn4 = cur?.down_4pct ?? stocks.filter((s) => (s.change_pct ?? 0) <= -4).length;
     const tot4 = up4 + dn4;
+    const latestMc = mcclellanSeries.length ? mcclellanSeries[mcclellanSeries.length - 1].osc : null;
     return {
       s20,
       s50,
       s200,
       m4: { up: up4, dn: dn4, pct: tot4 > 0 ? (up4 / tot4) * 100 : 50 },
       t2108: cur?.t2108 ?? null,
-      mcclellan: breadth?.conditions?.qulla?.mcclellan?.osc ?? null,
+      mcclellan: breadth?.conditions?.qulla?.mcclellan?.osc ?? latestMc,
     };
-  }, [stockMap, liveStats, monitor, breadth]);
+  }, [stockMap, liveStats, monitor, breadth, mcclellanSeries]);
 
   const isDark = A.bg === "#0a0d12" || A.bg === "#0d1117" || /^#0|^#1/.test(String(A.bg || ""));
   const trackBg = isDark ? "#2d333b" : "#e2e8f0";
   const isLive = Boolean(nhNl?.isLive || advDec?.isLive);
+  const toggleChart = (id) => setOpenChart((cur) => (cur === id ? null : id));
 
   return (
     <div style={{ marginBottom: 10 }}>
@@ -746,6 +1635,7 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor }) {
             {isLive ? `LIVE${liveAt ? ` · ${liveAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}` : `EOD${breadth?.date ? ` · ${breadth.date}` : ""}`}
           </span>
           <button
+            type="button"
             onClick={() => setSlide((s) => (s === 0 ? 1 : 0))}
             style={{
               background: "transparent",
@@ -783,7 +1673,7 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor }) {
               textColor={A.text}
               mutedColor={A.textMuted}
               expanded={openChart === "nhnl"}
-              onClick={() => setOpenChart((cur) => (cur === "nhnl" ? null : "nhnl"))}
+              onClick={() => toggleChart("nhnl")}
             />
             {openChart === "nhnl" && (
               <BreadthHistoryChart
@@ -810,30 +1700,47 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor }) {
               textColor={A.text}
               mutedColor={A.textMuted}
               expanded={openChart === "ad"}
-              onClick={() => setOpenChart((cur) => (cur === "ad" ? null : "ad"))}
+              onClick={() => toggleChart("ad")}
             />
             {openChart === "ad" && (
-              <BreadthHistoryChart
-                A={A}
-                series={adSeries}
-                posLabel="Advance"
-                negLabel="Decline"
-                range={histRange}
-                onRange={setHistRange}
-                spxData={spxData}
-                showSpx={showSpx}
-                onToggleSpx={() => setShowSpx((v) => !v)}
-                todayStr={todayStr}
-              />
+              adMode === "cum" ? (
+                <CumAdHistoryChart
+                  A={A}
+                  series={cumAdSeries}
+                  range={histRange}
+                  onRange={setHistRange}
+                  spxData={spxData}
+                  showSpx={showSpx}
+                  onToggleSpx={() => setShowSpx((v) => !v)}
+                  todayStr={todayStr}
+                  mode={adMode}
+                  onMode={setAdMode}
+                />
+              ) : (
+                <BreadthHistoryChart
+                  A={A}
+                  series={adSeries}
+                  posLabel="Advance"
+                  negLabel="Decline"
+                  range={histRange}
+                  onRange={setHistRange}
+                  spxData={spxData}
+                  showSpx={showSpx}
+                  onToggleSpx={() => setShowSpx((v) => !v)}
+                  todayStr={todayStr}
+                  mode={adMode}
+                  onMode={setAdMode}
+                />
+              )
             )}
 
             {/* Stan Weinstein Stage Analysis */}
             <div>
               <div
-                onClick={() => setOpenChart((cur) => (cur === "stage" ? null : "stage"))}
+                onClick={() => toggleChart("stage")}
                 role="button"
                 tabIndex={0}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpenChart((cur) => (cur === "stage" ? null : "stage")); } }}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleChart("stage"); } }}
                 title={openChart === "stage" ? "Hide Stage Analysis history chart" : "Click to view daily Stage Analysis lookback (1M / 3M / 6M / 1Y)"}
                 style={{ cursor: "pointer", userSelect: "none" }}
               >
@@ -852,7 +1759,7 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor }) {
                   {stageDist.stages.map((st) => (
                     <div
                       key={st.stage}
-                      title={`${st.label} (${st.hint}): ${st.count.toLocaleString()} (${st.pct}%)`}
+                      title={`${st.label} (${STAGE_META[st.stage]?.hint || st.hint}): ${st.count.toLocaleString()} (${st.pct}%)`}
                       style={{
                         width: `${stageDist.total > 0 ? (st.count / stageDist.total) * 100 : 0}%`,
                         background: STAGE_COLOR[st.stage],
@@ -869,19 +1776,70 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor }) {
                     marginTop: 10,
                   }}
                 >
-                  {stageDist.stages.map((st) => (
-                    <div key={st.stage} title={`${st.label} — ${st.hint}`}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: A.text }}>
-                        <span style={{ width: 7, height: 7, borderRadius: "50%", background: STAGE_COLOR[st.stage], flexShrink: 0 }} />
-                        <span>{st.label}</span>
+                  {stageDist.stages.map((st) => {
+                    const active = selectedStage === st.stage;
+                    const c = STAGE_COLOR[st.stage];
+                    const hint = STAGE_META[st.stage]?.hint || st.hint;
+                    return (
+                      <div
+                        key={st.stage}
+                        role="button"
+                        tabIndex={0}
+                        title={`Click to inspect ${st.label} (${hint}) stocks`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedStage((cur) => (cur === st.stage ? null : st.stage));
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setSelectedStage((cur) => (cur === st.stage ? null : st.stage));
+                          }
+                        }}
+                        style={{
+                          padding: "5px 7px",
+                          borderRadius: 6,
+                          border: `1px solid ${active ? c : "transparent"}`,
+                          background: active ? `${c}18` : "transparent",
+                          cursor: "pointer",
+                          transition: "border-color 0.15s ease, background 0.15s ease",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4, fontSize: 11, fontWeight: 700, color: A.text }}>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                            <span style={{ width: 7, height: 7, borderRadius: "50%", background: c, flexShrink: 0 }} />
+                            <span>{st.label}</span>
+                          </span>
+                          <span style={{ fontSize: 9, color: active ? c : A.textMuted, fontFamily: "monospace" }}>
+                            {active ? "▾" : "▸"}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 11, color: A.textMuted, marginTop: 2, fontVariantNumeric: "tabular-nums" }}>
+                          {st.count.toLocaleString()} · <strong style={{ color: A.textDim }}>{st.pct}%</strong>
+                        </div>
                       </div>
-                      <div style={{ fontSize: 11, color: A.textMuted, marginTop: 2, fontVariantNumeric: "tabular-nums" }}>
-                        {st.count.toLocaleString()} · <strong style={{ color: A.textDim }}>{st.pct}%</strong>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
+
+              {selectedStage != null && (
+                <StageStockDrawer
+                  A={A}
+                  stageNum={selectedStage}
+                  totalCount={stageDist.stages[selectedStage - 1]?.count ?? null}
+                  stocks={stageDrawerStocks}
+                  leadingOnly={stageLeadingOnly}
+                  onToggleLeading={() => setStageLeadingOnly((v) => !v)}
+                  minRs={stageMinRs}
+                  onSetMinRs={setStageMinRs}
+                  onClose={() => setSelectedStage(null)}
+                  onTicker={onTicker}
+                  chartTicker={chartTicker}
+                />
+              )}
+
               {openChart === "stage" && (
                 <StageHistoryChart
                   A={A}
@@ -907,7 +1865,23 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor }) {
               trackBg={trackBg}
               textColor={A.text}
               mutedColor={A.textMuted}
+              expanded={openChart === "p20"}
+              onClick={() => toggleChart("p20")}
             />
+            {openChart === "p20" && (
+              <MaBreadthHistoryChart
+                A={A}
+                title="Above 20-Day SMA"
+                series={maSeries.p20}
+                range={histRange}
+                onRange={setHistRange}
+                spxData={spxData}
+                showSpx={showSpx}
+                onToggleSpx={() => setShowSpx((v) => !v)}
+                todayStr={todayStr}
+              />
+            )}
+
             <RatioBar
               title="Above 50-Day SMA"
               pct={maStats.s50.pct}
@@ -917,7 +1891,23 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor }) {
               trackBg={trackBg}
               textColor={A.text}
               mutedColor={A.textMuted}
+              expanded={openChart === "p50"}
+              onClick={() => toggleChart("p50")}
             />
+            {openChart === "p50" && (
+              <MaBreadthHistoryChart
+                A={A}
+                title="Above 50-Day SMA"
+                series={maSeries.p50}
+                range={histRange}
+                onRange={setHistRange}
+                spxData={spxData}
+                showSpx={showSpx}
+                onToggleSpx={() => setShowSpx((v) => !v)}
+                todayStr={todayStr}
+              />
+            )}
+
             <RatioBar
               title="Above 200-Day SMA"
               pct={maStats.s200.pct}
@@ -927,7 +1917,23 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor }) {
               trackBg={trackBg}
               textColor={A.text}
               mutedColor={A.textMuted}
+              expanded={openChart === "p200"}
+              onClick={() => toggleChart("p200")}
             />
+            {openChart === "p200" && (
+              <MaBreadthHistoryChart
+                A={A}
+                title="Above 200-Day SMA"
+                series={maSeries.p200}
+                range={histRange}
+                onRange={setHistRange}
+                spxData={spxData}
+                showSpx={showSpx}
+                onToggleSpx={() => setShowSpx((v) => !v)}
+                todayStr={todayStr}
+              />
+            )}
+
             <RatioBar
               title="Stockbee 4% Movers"
               pct={maStats.m4.pct}
@@ -938,11 +1944,55 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor }) {
               textColor={A.text}
               mutedColor={A.textMuted}
             />
-            {(maStats.t2108 != null || maStats.mcclellan != null) && (
-              <div style={{ display: "flex", gap: 14, fontSize: 11, fontFamily: "monospace", color: A.textMuted }}>
-                {maStats.t2108 != null && <span>T2108 <strong style={{ color: A.text }}>{maStats.t2108}%</strong></span>}
-                {maStats.mcclellan != null && (
-                  <span>McClellan Osc <strong style={{ color: maStats.mcclellan >= 0 ? COLORS.blue : COLORS.pink }}>{maStats.mcclellan > 0 ? `+${maStats.mcclellan}` : maStats.mcclellan}</strong></span>
+
+            {(maStats.t2108 != null || maStats.mcclellan != null || mcclellanSeries.length > 0) && (
+              <div>
+                <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 12, fontSize: 11, fontFamily: "monospace", color: A.textMuted }}>
+                  {maStats.t2108 != null && (
+                    <span>T2108 <strong style={{ color: A.text }}>{maStats.t2108}%</strong></span>
+                  )}
+                  {(maStats.mcclellan != null || mcclellanSeries.length > 0) && (
+                    <button
+                      type="button"
+                      onClick={() => toggleChart("mcclellan")}
+                      title={openChart === "mcclellan" ? "Hide McClellan Oscillator chart" : "Click to view McClellan Oscillator history chart (1M / 3M / 6M / 1Y)"}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        background: openChart === "mcclellan" ? A.bgHover : "transparent",
+                        border: `1px solid ${openChart === "mcclellan" ? COLORS.blue : A.border}`,
+                        borderRadius: 6,
+                        padding: "2px 8px",
+                        fontSize: 11,
+                        fontFamily: "monospace",
+                        color: A.textMuted,
+                        cursor: "pointer",
+                      }}
+                    >
+                      <span>
+                        McClellan Osc{" "}
+                        <strong style={{ color: (maStats.mcclellan ?? 0) >= 0 ? COLORS.blue : COLORS.pink }}>
+                          {maStats.mcclellan != null ? fmtSigned(maStats.mcclellan, 1) : "—"}
+                        </strong>
+                      </span>
+                      <span style={{ fontSize: 10, color: A.textMuted }}>
+                        {openChart === "mcclellan" ? "▾ hide" : "▸ chart"}
+                      </span>
+                    </button>
+                  )}
+                </div>
+                {openChart === "mcclellan" && (
+                  <McClellanHistoryChart
+                    A={A}
+                    series={mcclellanSeries}
+                    range={histRange}
+                    onRange={setHistRange}
+                    spxData={spxData}
+                    showSpx={showSpx}
+                    onToggleSpx={() => setShowSpx((v) => !v)}
+                    todayStr={todayStr}
+                  />
                 )}
               </div>
             )}
@@ -954,6 +2004,7 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor }) {
           {[0, 1].map((i) => (
             <button
               key={i}
+              type="button"
               aria-label={i === 0 ? "Breadth & Stage Analysis" : "Moving Average Breadth"}
               onClick={() => setSlide(i)}
               style={{
