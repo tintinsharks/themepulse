@@ -24,7 +24,7 @@ import {
   IntradayChart as LegacyIntradayChart,
 } from "./LWChartLegacy.jsx";
 import SubthemeRotation, { SubthemeRotationAutoRefresh } from "./SubthemeRotation";
-import LeadershipView, { LEAD_INDEXES, zvrFor, useRvolProfiles } from "./LeadershipView.jsx";
+import LeadershipView, { LEAD_INDEXES, zvrFor, useRvolProfiles, TierMark } from "./LeadershipView.jsx";
 
 // One-time cleanup: preferences saved by the retired Dash tab (Scan Watch,
 // rotation board, chain table, earnings calendar). Nothing reads them now.
@@ -2405,6 +2405,7 @@ function ChartPanelInline({
                 <span style={{ color: zvr == null ? ARIA.textMuted : zvr >= 2 ? ARIA.purple : zvr >= 1.3 ? ARIA.green : zvr < 0.7 ? ARIA.textMuted : ARIA.textDim, fontWeight: 700 }}>
                   {zvr == null ? "\u2014" : `${zvr.toFixed(2)}×`}</span>
               </span>
+              <TierMark t={ticker} label />
             </div>
           )}
           {description

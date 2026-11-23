@@ -1,0 +1,1730 @@
+// Shared helpers, data hooks and small components for the Leaders / Scanner /
+// Brief views. Split out of LeadershipView.jsx.
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+
+export const LEAD = 88;          // layer leadership threshold (backtest)
+export const PEAK_LOOKBACK = 40; // sessions to look back for "was leading"
+export const SPARK_N = 60;       // sessions in each sparkline
+
+export const STATUS = {
+  lead:  { label: "Leading",        hint: `Rank ≥ ${LEAD} and held ≥ 80 a week ago` },
+  emerg: { label: "Emerging",       hint: "Rank ≥ 70, up 20+ pts in a month, rising in 6+ of the last 10 sessions — unproven: early rotation backtested negative" },
+  weak:  { label: "Weakening",      hint: `Led (≥ ${LEAD}) within ${PEAK_LOOKBACK} sessions, now 60–87 and falling` },
+  brk:   { label: "Breaking down",  hint: `Led (≥ ${LEAD}) within ${PEAK_LOOKBACK} sessions, now below 60` },
+  lag:   { label: "Lagging",        hint: "Not leading and no recent leadership" },
+};
+
+export function useJson(path) {
+  const [d, setD] = useState(null);
+  useEffect(() => {
+    let live = true;
+    fetch(path, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (live) setD(j); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [path]);
+  return d;
+}
+
+export function statusColor(st, A) {
+  return { lead: A.green, emerg: A.cyan, weak: A.yellow, brk: A.red, lag: A.textMuted }[st];
+}
+
+// Rank trend from the daily history, so one noisy session can't make or
+// break a status: slope = least-squares points/session over the last 5
+// sessions; ups = sessions out of the last 10 the rank rose.
+// Rank stability: sessions of the last 20 the rank held >= 80. Separates a
+// layer that has sat in the top tier for a month from one that spiked there.
+export function rankHeld(hist, n = 20, lvl = 80) {
+  const v = hist.filter((x) => x != null).slice(-n);
+  return { held: v.filter((x) => x >= lvl).length, of: v.length };
+}
+
+export function rankTrend(hist) {
+  const v = hist.filter((x) => x != null);
+  const t5 = v.slice(-5);
+  let slope = null;
+  if (t5.length >= 3) {
+    const n = t5.length, mx = (n - 1) / 2, my = t5.reduce((a, b) => a + b, 0) / n;
+    let num = 0, den = 0;
+    t5.forEach((y, i) => { num += (i - mx) * (y - my); den += (i - mx) ** 2; });
+    slope = num / den;
+  }
+  const t10 = v.slice(-11);
+  let ups = 0;
+  for (let i = 1; i < t10.length; i++) if (t10[i] > t10[i - 1]) ups++;
+  return { slope, ups, of: Math.max(0, t10.length - 1) };
+}
+
+export function classify({ now, w1, m1 }, hist) {
+  const recent = hist.slice(-PEAK_LOOKBACK).filter((x) => x != null);
+  const peak = recent.length ? Math.max(...recent) : now;
+  const tr = rankTrend(hist);
+  if (now >= LEAD && (w1 ?? now) >= 80) return { st: "lead", peak };
+  if (peak >= LEAD && now < 60) return { st: "brk", peak };
+  if (peak >= LEAD && now < LEAD && now <= peak - 10) return { st: "weak", peak };
+  // Emerging also needs a steady climb — rising in 6+ of the last 10 sessions
+  // and still rising over the last 5 — not one jump off a single day.
+  if (now >= 70 && now - (m1 ?? now) >= 20 && (tr.of < 6 || (tr.ups >= 6 && (tr.slope ?? 0) > 0))) return { st: "emerg", peak };
+  if (now >= LEAD) return { st: "lead", peak };
+  return { st: "lag", peak };
+}
+
+// Breadth + volume inside a layer, from its members' per-stock fields:
+//   a50 — % above their 50-day · rs80 — % with RS ≥ 80 · nh — % closing at a
+//   20-session high · udv — median up-day ÷ down-day volume (20 sessions) ·
+//   dv — median 5-day ÷ 20-day dollar volume.
+// The median rank alone can be held up by 2-3 names; these show whether the
+// whole layer is moving. Context only — none of it is backtested yet.
+export function layerStats(tickers, stockMap) {
+  const S = tickers.map((t) => stockMap[t]).filter(Boolean);
+  if (!S.length) return null;
+  const pct = (f) => Math.round((S.filter(f).length / S.length) * 100);
+  const med = (k) => {
+    const v = S.map((s) => s[k]).filter((x) => x != null && isFinite(x)).sort((a, b) => a - b);
+    return v.length ? v[Math.floor(v.length / 2)] : null;
+  };
+  return {
+    n: S.length,
+    a50: pct((s) => (s.sma50_pct ?? -1) > 0),
+    rs80: pct((s) => (s.rs_rank ?? 0) >= 80),
+    nh: pct((s) => s.nh20 === 1),
+    udv: med("udv20"),
+    dv: med("dvol_ratio_5_20"),
+    rsMed: med("rs_rank"),
+  };
+}
+
+// Volume / participation confirmation for a layer, from layer_breadth.json
+// (pipeline 10f). Each check is one way a rising group shows institutions are
+// actually behind it:
+//   acc     accumulation days (member up >= 1% on >= 1.5x 50-day volume) over
+//           10 sessions >= 3 and at least twice the distribution days
+//   money   layer's share of universe dollar volume, 5d vs 20d, >= 1.15x
+//   leaders members at stock RS >= 90 up by 2+ vs 5 sessions ago
+// Percent-of-members measures (% above MAs, RS-line highs, breadth thrust)
+// were dropped 2026-11-21: layers run 4-140 members, so a small layer moves
+// in 25-point jumps. Counts and ratios only.
+export function layerConfirm(lbRow) {
+  if (!lbRow || !lbRow.acc) return null;
+  const lastOf = (arr, back = 0) => {
+    if (!arr) return null;
+    let i = arr.length - 1;
+    while (i >= 0 && arr[i] == null) i--;
+    i -= back;
+    return i >= 0 ? arr[i] : null;
+  };
+  const acc = lastOf(lbRow.acc), dist = lastOf(lbRow.dist), dvs = lastOf(lbRow.dvs);
+  const l90 = lastOf(lbRow.l90), l90p = lastOf(lbRow.l90, 5);
+  const lx = lastOf(lbRow.lx), lxT = lbRow.lx_t || [];
+  const checks = {
+    acc: acc != null && acc >= 3 && acc >= 2 * (dist ?? 0),
+    money: dvs != null && dvs >= 1.15,
+    leaders: l90 != null && l90p != null && l90 - l90p >= 2,
+  };
+  const passed = Object.keys(checks).filter((k) => checks[k]);
+  return { acc, dist, dvs, lx, lxT, l90, l90d: l90 != null && l90p != null ? l90 - l90p : null, passed,
+    distHeavy: dist != null && dist >= 3 && dist >= 2 * (acc ?? 0) };
+}
+export const CONF_LABEL = { acc: "accumulation days", money: "money flowing in", leaders: "new RS 90+ leaders" };
+
+export function layerFlags(l) {
+  const b = l.stats;
+  if (!b || b.n < 3) return [];
+  const f = [];
+  const hd = l.held;
+  if (hd?.of >= 15) {
+    if (l.now >= 80 && hd.held <= 5) f.push(["spiky", `Only ${hd.held} of the last ${hd.of} sessions at 80+ — a fresh spike, not established`]);
+  }
+  const cf = l.conf;
+  if (cf && cf.lx >= 2) f.push(["exiting", `${cf.lx} leaders cracked this week (were RS 90+, now below the 50-day or under RS 80): ${cf.lxT.join(", ")}`]);
+  if (cf) {
+    if ((l.st === "lead" || l.st === "weak") && cf.distHeavy)
+      f.push(["distrib", `Distribution: ${cf.dist} heavy-volume down days vs ${cf.acc} accumulation days across members over 10 sessions`]);
+    // "rising" = Emerging, or a non-leader whose rank is climbing (+10 in a month, still rising)
+    const rising = l.st === "emerg" || (l.st !== "lead" && (l.now - (l.m1 ?? l.now)) >= 10 && (l.trend?.slope ?? 0) > 0);
+    if (rising) {
+      if (cf.passed.length >= 2) f.push(["confirmed", `Rank rising with ${cf.passed.length} of 3 confirmations: ${cf.passed.map((k) => CONF_LABEL[k]).join(", ")}`]);
+      else f.push(["unconfirmed", `Rank rising without volume/participation confirmation${cf.passed.length ? ` (only ${CONF_LABEL[cf.passed[0]]})` : ""}`]);
+    }
+  } else if ((l.st === "lead" || l.st === "weak") && b.udv != null && b.udv < 0.8) {
+    f.push(["distrib", "Down-day volume outweighs up-day volume over 20 sessions"]);
+  }
+  return f;
+}
+
+export function Spark({ vals, color, A, w = 90, h = 22 }) {
+  const pts = vals.filter((v) => v != null);
+  if (pts.length < 2) return <span style={{ display: "inline-block", width: w }} />;
+  const step = w / (vals.length - 1);
+  const y = (v) => h - (v / 100) * h;
+  let d = "";
+  vals.forEach((v, i) => { if (v != null) d += `${d ? "L" : "M"}${(i * step).toFixed(1)},${y(v).toFixed(1)}`; });
+  return (
+    <svg width={w} height={h} style={{ display: "block", flexShrink: 0 }} aria-hidden>
+      <line x1="0" x2={w} y1={y(LEAD)} y2={y(LEAD)} stroke={A.borderLight} strokeDasharray="2 2" />
+      <path d={d} fill="none" stroke={color} strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+export function Delta({ v, A }) {
+  if (v == null || !Number.isFinite(v)) return <span style={{ color: A.textMuted }}>—</span>;
+  const c = v > 0 ? A.green : v < 0 ? A.red : A.textMuted;
+  return <span style={{ color: c }}>{v > 0 ? "+" : ""}{Math.round(v)}</span>;
+}
+
+export function Card({ title, sub, right, children, A }) {
+  return (
+    <div style={{ background: A.bgCard, border: `1px solid ${A.border}`, borderRadius: 8, padding: "10px 12px", marginBottom: 10 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
+        <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.4, color: A.text }}>{title}</div>
+        {sub && <div style={{ fontSize: 11, color: A.textMuted }}>{sub}</div>}
+        <div style={{ marginLeft: "auto" }}>{right}</div>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+export const th = (A, align = "left") => ({ textAlign: align, fontSize: 10, fontWeight: 600, color: A.textMuted, padding: "4px 6px", borderBottom: `1px solid ${A.border}`, whiteSpace: "nowrap", letterSpacing: 0.3 });
+export const td = (A, align = "left") => ({ textAlign: align, fontSize: 12, color: A.textDim, padding: "5px 6px", borderBottom: `1px solid ${A.border}`, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" });
+
+export function TickerChip({ t, onClick, active, A, dim }) {
+  return (
+    <button onClick={(e) => { e.stopPropagation(); onClick(t); }}
+      style={{
+        background: active ? A.glowGreen : "transparent", border: `1px solid ${active ? A.green : A.border}`,
+        color: dim ? A.textMuted : A.text, borderRadius: 4, padding: "1px 5px", fontSize: 11, cursor: "pointer",
+        fontFamily: "monospace", marginRight: 3, marginBottom: 2,
+      }}>{t}</button>
+  );
+}
+
+// ── Themes ────────────────────────────────────────────────────────────────
+export function ThemeBoard({ themes, A, selected, onSelect }) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: 8 }}>
+      {themes.map((t) => {
+        const c = statusColor(t.st, A);
+        const on = selected === t.themeId;
+        return (
+          <button key={t.themeId} onClick={() => onSelect(on ? null : t.themeId)}
+            title={STATUS[t.st].hint}
+            style={{
+              textAlign: "left", cursor: "pointer", background: on ? A.bgHover : A.bgRow,
+              borderStyle: "solid", borderWidth: "1px 1px 1px 3px", borderColor: `${on ? c : A.border} ${on ? c : A.border} ${on ? c : A.border} ${c}`, borderRadius: 6, padding: "7px 9px", color: A.text,
+            }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+              <span style={{ fontSize: 12, fontWeight: 700 }}>{t.theme}</span>
+              <span style={{ marginLeft: "auto", fontSize: 16, fontWeight: 700, color: c, fontVariantNumeric: "tabular-nums" }}>{Math.round(t.now)}</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+              <Spark vals={t.hist} color={c} A={A} w={96} h={20} />
+              <div style={{ fontSize: 10, color: A.textMuted, lineHeight: 1.35 }}>
+                <div>1w <Delta v={t.now - t.w1} A={A} /> · 1m <Delta v={t.now - t.m1} A={A} /></div>
+                <div>
+                  <span style={{ color: A.green }}>{t.counts.lead}▲</span>{" "}
+                  <span style={{ color: A.yellow }}>{t.counts.weak}</span>{" "}
+                  <span style={{ color: A.red }}>{t.counts.brk}▼</span>{" "}
+                  / {t.layers.length}
+                </div>
+              </div>
+            </div>
+            {t.stats && (
+              <div title="Rank trend: points per session over the last 5 · sessions rising of the last 10"
+                style={{ fontSize: 10, color: A.textMuted, marginTop: 3, fontVariantNumeric: "tabular-nums" }}>
+                {t.trend?.slope != null && <>trend <span style={{ color: t.trend.slope > 0.5 ? A.green : t.trend.slope < -0.5 ? A.red : A.textMuted }}>{t.trend.slope > 0 ? "+" : ""}{t.trend.slope.toFixed(1)}</span> {t.trend.ups}/{t.trend.of}</>}
+              </div>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Layers ────────────────────────────────────────────────────────────────
+// Sort keys for the Layers table. Click a header to sort (high → low first,
+// A → Z for names); click again to flip; a third click restores the default
+// order. The choice is remembered across tabs and reloads.
+export const LAYER_SORT = {
+  name: (l) => l.name?.toLowerCase(),
+  rank: (l) => l.now,
+  mbr: (l) => l.stats?.rsMed,
+  w1: (l) => (l.w1 == null ? null : l.now - l.w1),
+  m1: (l) => (l.m1 == null ? null : l.now - l.m1),
+  peak: (l) => l.peak,
+  spark: (l) => (l.hist?.length ? l.hist[l.hist.length - 1] - l.hist[0] : null),
+  trend: (l) => l.trend?.slope,
+  today: (l) => l.today,
+  vol: (l) => (l.conf?.acc != null ? l.conf.acc - l.conf.dist : null),
+  rs90: (l) => l.conf?.l90,
+  held20: (l) => l.held?.held,
+  held: (l) => l.persist,
+};
+
+export function LayerTable({ rows: rowsIn, A, onTicker, chartTicker, stockMap, showPeak, members, expanded, onToggle, focus, compact }) {
+  const [sort, setSort] = useState(() => { try { return JSON.parse(localStorage.getItem("tp_layer_sort")) || null; } catch { return null; } });
+  const rows = useMemo(() => {
+    if (!sort || !LAYER_SORT[sort.k]) return rowsIn;
+    const f = LAYER_SORT[sort.k], dir = sort.d === "asc" ? 1 : -1;
+    return [...rowsIn].sort((a, b) => {
+      const x = f(a), y = f(b);
+      if (x == null && y == null) return 0;
+      if (x == null) return 1;            // blanks last either way
+      if (y == null) return -1;
+      return (x < y ? -1 : x > y ? 1 : 0) * dir;
+    });
+  }, [rowsIn, sort]);
+  const clickSort = (k) => setSort((cur) => {
+    const first = k === "name" ? "asc" : "desc";
+    const next = !cur || cur.k !== k ? { k, d: first } : cur.d === first ? { k, d: first === "asc" ? "desc" : "asc" } : null;
+    try { localStorage.setItem("tp_layer_sort", JSON.stringify(next)); } catch { /* ignore */ }
+    return next;
+  });
+  const sh = (k, label, align, title, cls) => (
+    <th className={cls} title={title} onClick={() => clickSort(k)}
+      style={{ ...th(A, align), cursor: "pointer", userSelect: "none", color: sort?.k === k ? A.text : th(A).color }}>
+      {label}{sort?.k === k ? (sort.d === "asc" ? " ▲" : " ▼") : ""}
+    </th>
+  );
+  if (!rows.length) return <div style={{ fontSize: 11, color: A.textMuted, padding: "6px 2px" }}>None.</div>;
+  return (
+    <div style={{ overflowX: "auto", maxHeight: 640, overflowY: "auto" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead style={{ position: "sticky", top: 0, background: A.bg, zIndex: 1 }}>
+          <tr>
+            {sh("name", "Layer", "left")}
+            {sh("rank", "Rank", "right", "Layer RS rank among all layers (0–100)")}
+            {sh("mbr", "Mbr RS", "right", "Typical (median) member's own stock RS — a top-ranked layer can still be made of middling stocks")}
+            {sh("w1", "1w", "right", "Rank change over a week")}
+            {sh("m1", "1m", "right", "Rank change over a month")}
+            {sh("today", "Today", "right", "Median move of the layer's members today — live during the session (hourly), otherwise the last close")}
+            {showPeak && sh("peak", "Peak", "right")}
+            {!compact && sh("spark", `${SPARK_N}d`, "left", `Rank change over ${SPARK_N} sessions`, "tp-hide-sm")}
+            {sh("trend", "Trend", "right", "Rank change per session, least-squares over the last 5 sessions · sessions out of the last 10 the rank rose", "tp-hide-sm")}
+            {sh("vol", "Volume", "right", "Accumulation / distribution days across members over 10 sessions (up or down ≥ 1% on ≥ 1.5× 50-day volume) · layer's share of universe dollar volume, 5-day vs 20-day · sorts by accumulation minus distribution", "tp-hide-sm")}
+            {sh("rs90", "RS 90+", "right", "Members at stock RS 90+ (change vs 5 sessions ago) · leaders that cracked this week (were RS 90+, now below the 50-day or under RS 80)", "tp-hide-sm")}
+            {sh("held20", "80+ of 20", "right", "Rank stability: sessions of the last 20 the layer ranked 80 or higher", "tp-hide-sm")}
+            {!compact && sh("held", "Held", "right", "Share of the trailing quarter this layer ranked ≥ 88", "tp-hide-sm")}
+            {!compact && <th style={th(A)}>Strongest names <span style={{ fontWeight: 400 }}>· click a row for every member</span></th>}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((l) => {
+            const c = statusColor(l.st, A);
+            const all = (members?.[l.key] || (l.holds || []).map((h) => h.t))
+              .filter((t) => stockMap[t])
+              .sort((a, b) => (stockMap[b]?.rs_rank ?? 0) - (stockMap[a]?.rs_rank ?? 0));
+            const names = all.slice(0, 5).map((t) => ({ t }));
+            const open = expanded === l.key;
+            const b = l.stats, tr = l.trend;
+            const flags = layerFlags(l);
+            return (
+              <React.Fragment key={l.key}>
+              <tr onClick={() => onToggle?.(l)} title="Show every member in the Stocks box"
+                style={{ cursor: "pointer", background: open ? A.bgHover : "transparent", boxShadow: open ? `inset 3px 0 0 ${c}` : "none" }}>
+                <td style={compact ? { ...td(A), whiteSpace: "normal", minWidth: 120 } : td(A)}>
+                  <div style={{ color: A.text, fontWeight: 600 }}>{l.name}</div>
+                  <div style={{ fontSize: 10, color: A.textMuted }}>{l.theme}
+                    {flags.map(([k, why]) => (
+                      <span key={k} title={why} style={{ marginLeft: 5, padding: "0 4px", borderRadius: 3, fontSize: 9, fontWeight: 700,
+                        border: `1px solid ${k === "confirmed" || k === "steady" ? A.green : k === "unconfirmed" || k === "spiky" ? A.textMuted : k === "exiting" ? A.red : A.yellow}`,
+                        color: k === "confirmed" || k === "steady" ? A.green : k === "unconfirmed" || k === "spiky" ? A.textMuted : k === "exiting" ? A.red : A.yellow }}>{k}</span>
+                    ))}
+                  </div>
+                </td>
+                <td title={l.rankLive ? `Live — ${l.now_close} at the close, ${l.now - l.now_close >= 0 ? "+" : ""}${l.now - l.now_close} today` : undefined}
+                  style={{ ...td(A, "right"), color: c, fontWeight: 700 }}>{l.now}{l.rankLive && l.now !== l.now_close
+                    ? <span style={{ fontSize: 9, color: l.now > l.now_close ? A.green : A.red }}>{l.now > l.now_close ? "▲" : "▼"}</span> : null}</td>
+                <td style={{ ...td(A, "right"), color: b?.rsMed == null ? A.textMuted : b.rsMed >= 80 ? A.green : b.rsMed >= 60 ? A.yellow : A.red }}>{b?.rsMed ?? "—"}</td>
+                <td style={td(A, "right")}><Delta v={l.now - l.w1} A={A} /></td>
+                <td style={td(A, "right")}><Delta v={l.now - l.m1} A={A} /></td>
+                <td style={{ ...td(A, "right"), color: l.today == null ? A.textMuted : l.today >= 0 ? A.green : A.red, fontVariantNumeric: "tabular-nums" }}>
+                  {l.today == null ? "—" : `${l.today > 0 ? "+" : ""}${l.today.toFixed(1)}%`}</td>
+                {showPeak && <td style={td(A, "right")}>{l.peak}</td>}
+                {!compact && <td className="tp-hide-sm" style={td(A)}><Spark vals={l.hist} color={c} A={A} /></td>}
+                <td className="tp-hide-sm" style={{ ...td(A, "right"), whiteSpace: "nowrap" }}>
+                  {tr?.slope != null ? <span style={{ color: tr.slope > 0.5 ? A.green : tr.slope < -0.5 ? A.red : A.textMuted }}>{tr.slope > 0 ? "+" : ""}{tr.slope.toFixed(1)}</span> : "—"}
+                  <span style={{ color: A.textMuted, fontSize: 10 }}> {tr?.of ? `${tr.ups}/${tr.of}` : ""}</span>
+                </td>
+                <td className="tp-hide-sm" style={{ ...td(A, "right"), whiteSpace: "nowrap", fontSize: 11 }}>
+                  {l.conf?.acc != null ? (<>
+                    <span style={{ color: l.conf.passed.includes("acc") ? A.green : l.conf.distHeavy ? A.red : A.textDim }}>{l.conf.acc}/{l.conf.dist}</span>
+                    {l.conf.dvs != null && <span style={{ color: l.conf.dvs >= 1.15 ? A.green : l.conf.dvs < 0.87 ? A.red : A.textMuted }}> · {l.conf.dvs.toFixed(2)}×</span>}
+                  </>) : b?.udv != null ? <span style={{ color: A.textMuted }}>{b.udv.toFixed(2)}</span> : "—"}
+                </td>
+                <td className="tp-hide-sm" style={{ ...td(A, "right"), whiteSpace: "nowrap", fontSize: 11 }}>
+                  {l.conf?.l90 != null ? (<>
+                    <span style={{ color: A.text }}>{l.conf.l90}</span>
+                    {l.conf.l90d ? <span style={{ color: l.conf.l90d > 0 ? A.green : A.red, fontSize: 10 }}> {l.conf.l90d > 0 ? "+" : ""}{l.conf.l90d}</span> : null}
+                    {l.conf.lx > 0 && <span title={`Cracked this week: ${l.conf.lxT.join(", ")}`} style={{ color: A.red, fontSize: 10 }}> · {l.conf.lx} out</span>}
+                  </>) : "—"}
+                </td>
+                <td className="tp-hide-sm" style={{ ...td(A, "right"), fontSize: 11 }}>
+                  {l.held?.of ? <span style={{ color: l.held.held >= 15 ? A.green : l.held.held >= 8 ? A.yellow : A.textMuted }}>{l.held.held}</span> : "—"}
+                </td>
+                {!compact && <td className="tp-hide-sm" style={td(A, "right")}>{l.persist != null ? `${l.persist}%` : "—"}</td>}
+                {!compact && <td style={{ ...td(A), whiteSpace: "normal", minWidth: 160 }}>
+                  {names.map((h) => (
+                    <TickerChip key={h.t} t={h.t} onClick={(t) => { onTicker(t); }} active={chartTicker === h.t || focus === h.t} A={A}
+                      dim={(stockMap[h.t]?.rs_rank ?? 0) < 80} />
+                  ))}
+                  {all.length > 5 && <span style={{ fontSize: 10, color: A.textMuted }}>+{all.length - 5}</span>}
+                </td>}
+              </tr>
+              </React.Fragment>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ── Stocks ────────────────────────────────────────────────────────────────
+// Layer name in a stock row — click opens that layer's members in the Stocks
+// box (and charts this stock) instead of selecting the row.
+export function LayerLink({ r, A, onLayer }) {
+  if (!r.layer) return <span style={{ color: A.textMuted }}>—</span>;
+  return (
+    <span onClick={onLayer ? (e) => { e.stopPropagation(); onLayer(r.t ?? r.ticker); } : undefined}
+      title={onLayer ? "Show every stock in this layer" : undefined}
+      style={{ color: statusColor(r.layerSt, A), cursor: onLayer ? "pointer" : "inherit", textDecoration: onLayer ? "underline dotted" : "none", textUnderlineOffset: 2 }}>
+      {r.layer}
+    </span>
+  );
+}
+
+export function StockTable({ rows, A, onTicker, chartTicker, mode, onLayer }) {
+  if (!rows.length) return <div style={{ fontSize: 11, color: A.textMuted, padding: "6px 2px" }}>None.</div>;
+  return (
+    <div style={{ overflowX: "auto", maxHeight: 520, overflowY: "auto" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead style={{ position: "sticky", top: 0, background: A.bg }}>
+          <tr>
+            <th style={th(A)}>Ticker</th>
+            <th style={th(A, "right")}>RS</th>
+            <th style={th(A, "right")} title={EPS_TIP}>EPS</th>
+            {mode === "brk" && <th style={th(A, "right")} title="Share of the quarter in the top decile of RS">Held</th>}
+            <th style={th(A, "right")}>vs 50d</th>
+            <th style={th(A, "right")}>Off high</th>
+            <th style={th(A, "right")}>1m</th>
+            <th style={th(A)}>Layer</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => {
+            const on = chartTicker === r.ticker;
+            const pct = (v) => (v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(1)}%`);
+            return (
+              <tr key={r.ticker} data-nav={r.ticker} onClick={() => onTicker(r.ticker)} style={{ cursor: "pointer", background: on ? A.bgHover : "transparent" }}>
+                <td style={td(A)}>
+                  <FlagButton t={r.ticker} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.ticker}</span>
+                  {r.inLead && mode === "lead" && <span title="In a leading layer" style={{ color: A.green, marginLeft: 4 }}>●</span>}
+                  <RslDot tip={r.rsl} A={A} />
+                  {r.pin && <span title={r.pin} style={{ color: A.yellow, marginLeft: 4, fontSize: 9, fontWeight: 700, border: `1px solid ${A.yellow}`, borderRadius: 3, padding: "0 3px" }}>PIN</span>}
+                </td>
+                <td style={{ ...td(A, "right"), color: r.rs >= 90 ? A.green : r.rs < 70 ? A.red : A.yellow, fontWeight: 700 }}>{r.rs ?? "—"}</td>
+                <td title={r.epsTip || ""} style={{ ...td(A, "right"), color: r.eps >= 80 ? A.green : r.eps >= 50 ? A.yellow : r.eps != null ? A.red : A.textMuted }}>{r.eps ?? "—"}{r.epsAcc ? <span style={{ color: A.green, fontSize: 9 }}>▲</span> : null}</td>
+                {mode === "brk" && <td style={td(A, "right")}>{r.persist}%</td>}
+                <td style={{ ...td(A, "right"), color: (r.sma50 ?? 0) >= 0 ? A.green : A.red }}>{pct(r.sma50)}</td>
+                <td style={td(A, "right")}>{pct(r.off)}</td>
+                <td style={{ ...td(A, "right"), color: (r.r1m ?? 0) >= 0 ? A.green : A.red }}>{pct(r.r1m)}</td>
+                <td style={{ ...td(A), fontSize: 11, color: A.textMuted, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <LayerLink r={r} A={A} onLayer={onLayer} />
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export function Tabs({ value, onChange, items, A }) {
+  return (
+    <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+      {items.map(([k, label, n, color]) => (
+        <button key={k} onClick={() => onChange(k)}
+          style={{
+            background: value === k ? A.bgHover : "transparent",
+            border: `1px solid ${value === k ? color : A.border}`,
+            color: value === k ? color : A.textDim, borderRadius: 4, padding: "3px 9px",
+            fontSize: 11, fontWeight: 600, cursor: "pointer",
+          }}>{label} <span style={{ opacity: 0.7 }}>{n}</span></button>
+      ))}
+    </div>
+  );
+}
+
+// ── Major indexes ─────────────────────────────────────────────────────────
+// Daily bars from /api/ohlc (FMP) + today's live quote from /api/live, so the
+// panel is current even when breadth.json is days old. Everything — trend
+// state, MA distances, distribution days — is computed here from the bars.
+export const LEAD_INDEXES = [
+  { t: "SPY", name: "S&P 500" },
+  { t: "QQQ", name: "Nasdaq 100" },
+  { t: "IWM", name: "Russell 2000" },
+  { t: "DIA", name: "Dow" },
+  { t: "MDY", name: "S&P MidCap" },
+  { t: "RSP", name: "S&P Equal Wt" },
+];
+
+export const _ohlcCache = {};
+export function useIndexBars(tickers) {
+  const [bars, setBars] = useState(() => {
+    const m = {};
+    tickers.forEach((t) => { if (_ohlcCache[t]) m[t] = _ohlcCache[t]; });
+    return m;
+  });
+  const key = tickers.join(",");
+  useEffect(() => {
+    let live = true;
+    key.split(",").forEach((t) => {
+      if (_ohlcCache[t]) return;
+      fetch(`/api/ohlc?ticker=${encodeURIComponent(t)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (!d?.ohlc?.length) return;
+          _ohlcCache[t] = d.ohlc;
+          if (live) setBars((p) => ({ ...p, [t]: d.ohlc }));
+        })
+        .catch(() => {});
+    });
+    return () => { live = false; };
+  }, [key]);
+  return bars;
+}
+
+export function ema(vals, n) {
+  const k = 2 / (n + 1);
+  const out = [];
+  let e = null;
+  vals.forEach((v, i) => {
+    e = e == null ? v : v * k + e * (1 - k);
+    out.push(i >= n - 1 ? e : null);
+  });
+  return out;
+}
+export function sma(vals, n) {
+  const out = [];
+  let s = 0;
+  vals.forEach((v, i) => {
+    s += v;
+    if (i >= n) s -= vals[i - n];
+    out.push(i >= n - 1 ? s / n : null);
+  });
+  return out;
+}
+
+// Append/patch today's bar from the live quote when the OHLC feed lags.
+export function withLive(bars, q) {
+  if (!bars?.length || !q?.price) return bars;
+  const last = bars[bars.length - 1];
+  const near = (a, b) => a && b && Math.abs(a - b) / b < 0.0005;
+  if (near(last.close, q.previousClose) && !near(q.price, q.previousClose)) {
+    return [...bars, {
+      date: "live", open: q.open ?? q.price, high: q.dayHigh ?? q.price, low: q.dayLow ?? q.price,
+      close: q.price, volume: q.volume ?? 0,
+    }];
+  }
+  return bars;
+}
+
+export function indexStats(rawBars, q) {
+  const bars = withLive(rawBars, q);
+  if (!bars || bars.length < 210) return null;
+  const c = bars.map((b) => b.close);
+  const n = c.length, i = n - 1, px = c[i];
+  const e21 = ema(c, 21), s50 = sma(c, 50), s200 = sma(c, 200);
+  const pct = (a, b) => (a != null && b ? ((a - b) / b) * 100 : null);
+  const yr = String(new Date().getFullYear());
+  const prevYearIdx = bars.findIndex((b) => b.date !== "live" && String(b.date).startsWith(yr)) - 1;
+  const hi52 = Math.max(...bars.slice(-252).map((b) => b.high));
+  // Distribution days: down ≥ 0.2% on higher volume than the prior session,
+  // within the last 25 sessions; one drops off once the index closes 5% above it.
+  let dd = 0;
+  for (let j = Math.max(1, n - 25); j < n; j++) {
+    const ch = (c[j] - c[j - 1]) / c[j - 1];
+    if (ch <= -0.002 && bars[j].volume > bars[j - 1].volume) {
+      const later = Math.max(...c.slice(j + 1).concat([c[j]]));
+      if (later < c[j] * 1.05) dd++;
+    }
+  }
+  const s50Rising = s50[i] != null && s50[i - 10] != null && s50[i] > s50[i - 10];
+  let trend, tone;
+  if (px > e21[i] && e21[i] > s50[i] && s50[i] > s200[i]) { trend = "Uptrend"; tone = "green"; }
+  else if (px > s50[i] && px > s200[i]) { trend = "Pullback"; tone = "yellow"; }
+  else if (px > s200[i]) { trend = "Correction"; tone = "orange"; }
+  else { trend = "Downtrend"; tone = "red"; }
+  const spark = bars.slice(-63);
+  return {
+    px,
+    day: q?.change ?? pct(c[i], c[i - 1]),
+    w1: pct(px, c[i - 5]), m1: pct(px, c[i - 21]),
+    ytd: prevYearIdx >= 0 ? pct(px, c[prevYearIdx]) : null,
+    off: pct(px, hi52),
+    v21: pct(px, e21[i]), v50: pct(px, s50[i]), v200: pct(px, s200[i]),
+    s50Rising, trend, tone, dd,
+    spark: { c: spark.map((b) => b.close), e21: e21.slice(-63), s50: s50.slice(-63) },
+    asOf: bars[i].date === "live" ? "live" : bars[i].date,
+  };
+}
+
+export function IndexSpark({ s, A, color, w = 120, h = 30 }) {
+  const all = [...s.c, ...s.e21, ...s.s50].filter((v) => v != null);
+  const lo = Math.min(...all), hi = Math.max(...all), rng = hi - lo || 1;
+  const step = w / (s.c.length - 1);
+  const path = (arr) => {
+    let d = "";
+    arr.forEach((v, i) => { if (v != null) d += `${d ? "L" : "M"}${(i * step).toFixed(1)},${(h - ((v - lo) / rng) * h).toFixed(1)}`; });
+    return d;
+  };
+  return (
+    <svg width={w} height={h} style={{ display: "block" }} aria-hidden>
+      <path d={path(s.s50)} fill="none" stroke={A.textMuted} strokeWidth="1" strokeDasharray="3 2" />
+      <path d={path(s.e21)} fill="none" stroke={A.blue} strokeWidth="1" opacity="0.7" />
+      <path d={path(s.c)} fill="none" stroke={color} strokeWidth="1.6" />
+    </svg>
+  );
+}
+
+export function IndexPanel({ A, liveQuotes, onTicker, chartTicker, bars }) {
+  // Open by default; collapsing leaves a one-line strip of day change + trend.
+  const [open, setOpen] = useState(() => { try { return localStorage.getItem("tp_indexes_open") !== "0"; } catch { return true; } });
+  const toggle = () => setOpen((v) => { try { localStorage.setItem("tp_indexes_open", v ? "0" : "1"); } catch { /* ignore */ } return !v; });
+  const rows = LEAD_INDEXES.map((x) => ({ ...x, s: indexStats(bars[x.t], liveQuotes?.get?.(x.t)) }));
+  const ready = rows.filter((r) => r.s);
+  const toneC = (t) => ({ green: A.green, yellow: A.yellow, orange: "#fb923c", red: A.red }[t] || A.textDim);
+  const up = ready.filter((r) => r.s.trend === "Uptrend").length;
+  const fmt = (v, d = 1) => (v == null || !Number.isFinite(v) ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(d)}%`);
+  const pc = (v) => ({ color: v == null ? A.textMuted : v >= 0 ? A.green : A.red });
+  const asOf = ready.find((r) => r.s.asOf)?.s.asOf;
+  return (
+    <Card A={A} title={<span onClick={toggle} style={{ cursor: "pointer" }}>{open ? "▾" : "▸"} Major indexes</span>}
+      sub={!ready.length ? "Loading index data…" : open
+        ? `${up} of ${ready.length} in an uptrend (above a rising 21e > 50d > 200d) · ${asOf === "live" ? "live" : `as of ${asOf}`} · line = price, blue = 21e, dashed = 50d`
+        : <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 10 }}>
+            {ready.map(({ t, s }) => (
+              <span key={t} onClick={() => onTicker(t)} title={`${t} · ${s.trend}`} style={{ cursor: "pointer", whiteSpace: "nowrap" }}>
+                <b style={{ color: chartTicker === t ? A.green : A.text }}>{t}</b> <span style={pc(s.day)}>{fmt(s.day, 2)}</span>
+                <span style={{ color: toneC(s.tone), fontSize: 10 }}> {s.trend}</span>
+              </span>
+            ))}
+          </span>}
+      right={<button onClick={toggle} style={{ background: "transparent", border: `1px solid ${A.border}`, color: A.textMuted, borderRadius: 4, padding: "2px 8px", fontSize: 11, cursor: "pointer" }}>{open ? "Hide" : "Show"}</button>}>
+      {open && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(215px, 1fr))", gap: 8 }}>
+        {rows.map(({ t, name, s }) => {
+          const on = chartTicker === t;
+          const col = s ? toneC(s.tone) : A.textMuted;
+          const stat = (label, v, title) => (
+            <div title={title}>
+              <div style={{ fontSize: 9, color: A.textMuted, letterSpacing: 0.3 }}>{label}</div>
+              <div style={{ fontSize: 11, fontVariantNumeric: "tabular-nums", ...pc(v) }}>{fmt(v)}</div>
+            </div>
+          );
+          return (
+            <button key={t} onClick={() => onTicker(t)}
+              style={{
+                textAlign: "left", cursor: "pointer", background: on ? A.bgHover : A.bgRow, color: A.text,
+                borderStyle: "solid", borderWidth: "1px 1px 1px 3px",
+                borderColor: `${on ? col : A.border} ${on ? col : A.border} ${on ? col : A.border} ${col}`,
+                borderRadius: 6, padding: "7px 9px",
+              }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                <span style={{ fontWeight: 700, fontFamily: "monospace", fontSize: 13 }}>{t}</span>
+                <span style={{ color: A.textMuted, fontSize: 10 }}>{name}</span>
+                {s && <span style={{ marginLeft: "auto", fontSize: 10, fontWeight: 700, color: col }}>{s.trend.toUpperCase()}</span>}
+              </div>
+              {s ? (
+                <>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 2 }}>
+                    <span style={{ fontSize: 15, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{s.px.toFixed(2)}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, ...pc(s.day) }}>{fmt(s.day, 2)}</span>
+                    <span style={{ marginLeft: "auto", fontSize: 10, color: s.dd >= 6 ? A.red : s.dd >= 4 ? A.yellow : A.textMuted, fontWeight: s.dd >= 4 ? 700 : 400 }}
+                      title="Distribution days, last 25 sessions (down ≥ 0.2% on higher volume; drops off after a 5% rally)">
+                      {s.dd} dist
+                    </span>
+                  </div>
+                  <div style={{ margin: "4px 0" }}><IndexSpark s={s.spark} A={A} color={col} w={195} h={32} /></div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 2 }}>
+                    {stat("1W", s.w1)}{stat("1M", s.m1)}{stat("YTD", s.ytd)}{stat("OFF HI", s.off, "Off the 52-week high")}
+                    {stat("21E", s.v21, "Distance from the 21-day EMA")}
+                    {stat(`50D ${s.s50Rising ? "↗" : "↘"}`, s.v50, s.s50Rising ? "50-day rising" : "50-day falling")}
+                    {stat("200D", s.v200, "Distance from the 200-day")}
+                  </div>
+                </>
+              ) : (
+                <div style={{ fontSize: 11, color: A.textMuted, padding: "14px 0" }}>loading…</div>
+              )}
+            </button>
+          );
+        })}
+      </div>}
+    </Card>
+  );
+}
+
+// ── Market gate (O'Neil direction + exposure) ───────────────────────────────
+// From breadth.json → conditions.market_gate (stock-pipeline market_gate.py):
+// correction → rally attempt (day count) → follow-through day → uptrend, per
+// SPY and QQQ, with distribution days and a suggested exposure range. During
+// the session a live quote previews whether today could be the follow-through
+// (or an undercut that resets the count) — confirmed only at the close.
+export const GATE_COLOR = (st, A) => (st === "uptrend" ? A.green : st === "ftd" ? A.cyan : st === "rally" ? A.yellow : A.red);
+export const GATE_NAME = { correction: "Correction", rally: "Rally attempt", ftd: "Follow-through", uptrend: "Uptrend" };
+export function MarketGate({ A, gate, liveQuotes }) {
+  if (!gate?.overall) return null;
+  const o = gate.overall;
+  const live = Object.entries(gate.indices || {}).map(([t, g]) => {
+    const q = liveQuotes?.get?.(t);
+    if (!g || !q?.price || !q.previousClose || Math.abs(q.previousClose - g.close) / g.close > 0.0005) return null;
+    const chg = (q.price / q.previousClose - 1) * 100;
+    const volUp = g.volume && q.volume ? q.volume > g.volume : null;
+    if ((g.state === "rally" || g.state === "correction") && g.low != null && (q.dayLow ?? q.price) < g.low)
+      return { t, tone: A.red, text: `${t} undercutting the low (${g.low}) — the rally count resets` };
+    if (g.state === "correction" && chg > 0) return { t, tone: A.yellow, text: `${t} up ${chg.toFixed(2)}% — rally day 1 if it closes up` };
+    if (g.state === "rally" && g.rally_day + 1 >= 4 && chg >= 1.2)
+      return { t, tone: A.cyan, text: `${t} +${chg.toFixed(2)}% on rally day ${g.rally_day + 1} — possible follow-through if it holds into the close${volUp == null ? "" : volUp ? " (volume already above yesterday)" : " (needs volume above yesterday's)"}` };
+    if (g.state === "ftd" && g.low != null && q.price < g.low) return { t, tone: A.red, text: `${t} below the rally low ${g.low} — follow-through failing` };
+    return null;
+  }).filter(Boolean);
+  const idx = (t) => {
+    const g = gate.indices?.[t];
+    if (!g) return null;
+    const ev = (g.events || []).slice().reverse().map((e) => `${e.date}  ${e.event.replace("_", " ")}`).join("\n");
+    const detail = g.state === "rally" ? `day ${g.rally_day} · low ${g.low}` : g.state === "ftd" ? `FTD ${g.ftd_date} +${g.ftd_chg}%` : g.state === "correction" ? `low ${g.low}` : g.ftd_date ? `since FTD ${g.ftd_date}` : "";
+    return (
+      <span key={t} title={`Recent events (as of ${g.asof}):\n${ev}\n\nDistribution days (25 sessions): ${(g.dist_dates || []).join(", ") || "none"}`}
+        style={{ fontSize: 11, color: A.textDim, whiteSpace: "nowrap" }}>
+        <b style={{ color: A.text }}>{t}</b> <span style={{ color: GATE_COLOR(g.state, A) }}>{GATE_NAME[g.state]}</span>
+        {detail ? ` · ${detail}` : ""} · {g.dist_days} dist · {g.off_high}% off high
+      </span>
+    );
+  };
+  return (
+    <div style={{ width: "100%", display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center", borderTop: `1px solid ${A.border}`, paddingTop: 8 }}>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 10, color: A.textMuted, letterSpacing: 0.4 }}>MARKET GATE</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: GATE_COLOR(o.state, A) }}>{o.label}</div>
+      </div>
+      <div title="Suggested total exposure for the market state — a guide, not a rule"
+        style={{ border: `1px solid ${GATE_COLOR(o.state, A)}`, borderRadius: 6, padding: "3px 10px", textAlign: "center" }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: GATE_COLOR(o.state, A), lineHeight: 1.1 }}>{o.exposure}</div>
+        <div style={{ fontSize: 9, color: A.textMuted }}>exposure</div>
+      </div>
+      <div style={{ flex: "1 1 260px", minWidth: 0, fontSize: 11, color: A.textDim, lineHeight: 1.45 }}>{o.note}</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>{idx("SPY")}{idx("QQQ")}</div>
+      {live.map((l) => (
+        <div key={l.t} style={{ width: "100%", fontSize: 11, color: l.tone, fontWeight: 600 }}>● Live: {l.text}</div>
+      ))}
+    </div>
+  );
+}
+
+// ── What changed today ────────────────────────────────────────────────────
+// Diff of today vs the prior session: layers crossing the leadership line,
+// layers breaking down, the biggest rank moves, theme moves, and index trend
+// changes (computed by re-running indexStats without today's bar).
+export function ChangesPanel({ A, layers, themes, bars, liveQuotes, date, onTicker, onLayer, onTheme }) {
+  // Collapsed by default; the choice is remembered.
+  const [open, setOpen] = useState(() => { try { return localStorage.getItem("tp_changes_open") === "1"; } catch { return false; } });
+  const toggle = () => setOpen((v) => { try { localStorage.setItem("tp_changes_open", v ? "0" : "1"); } catch { /* ignore */ } return !v; });
+  const idxEvents = [];
+  LEAD_INDEXES.forEach(({ t }) => {
+    const q = liveQuotes?.get?.(t);
+    const full = withLive(bars[t], q);
+    if (!full || full.length < 212) return;
+    const now = indexStats(bars[t], q), prev = indexStats(full.slice(0, -1), null);
+    if (!now || !prev) return;
+    if (now.trend !== prev.trend) idxEvents.push({ t, text: `${prev.trend} → ${now.trend}`, good: ["Uptrend", "Pullback", "Correction", "Downtrend"].indexOf(now.trend) < ["Uptrend", "Pullback", "Correction", "Downtrend"].indexOf(prev.trend) });
+    [["21e", "v21"], ["50d", "v50"], ["200d", "v200"]].forEach(([lbl, k]) => {
+      if (prev[k] != null && now[k] != null && Math.sign(prev[k]) !== Math.sign(now[k]))
+        idxEvents.push({ t, text: `${now[k] > 0 ? "reclaimed" : "lost"} ${lbl}`, good: now[k] > 0 });
+    });
+    if (now.dd > prev.dd) idxEvents.push({ t, text: `distribution day (${now.dd})`, good: false });
+  });
+
+  const gained = layers.filter((l) => l.now >= LEAD && (l.d1 ?? l.now) < LEAD).sort((a, b) => b.now - a.now);
+  const lost = layers.filter((l) => (l.d1 ?? 0) >= LEAD && l.now < LEAD).sort((a, b) => a.now - b.now);
+  const broke = layers.filter((l) => l.st === "brk" && (l.d1 ?? 0) >= 60 && l.now < 60);
+  const moves = layers.filter((l) => l.d1 != null).map((l) => ({ l, d: l.now - l.d1 }));
+  const up = moves.filter((m) => m.d >= 5).sort((a, b) => b.d - a.d).slice(0, 6);
+  const dn = moves.filter((m) => m.d <= -5).sort((a, b) => a.d - b.d).slice(0, 6);
+  const themeMoves = themes.map((t) => {
+    const d1 = t.layers.reduce((s, l) => s + (l.d1 ?? l.now), 0) / t.layers.length;
+    return { t, d: t.now - d1 };
+  }).filter((x) => Math.abs(x.d) >= 2).sort((a, b) => b.d - a.d);
+
+  const chip = (key, label, sub, color, onClick, title) => (
+    <button key={key} onClick={onClick} title={title}
+      style={{
+        background: "transparent", border: `1px solid ${A.border}`, borderRadius: 4, padding: "2px 7px",
+        fontSize: 11, color: A.text, cursor: "pointer", marginRight: 4, marginBottom: 4, whiteSpace: "nowrap",
+      }}>
+      {label} <span style={{ color, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{sub}</span>
+    </button>
+  );
+  const row = (label, color, items) => items.length ? (
+    <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 2 }}>
+      <div className="tp-lead-label" style={{ width: 118, flexShrink: 0, fontSize: 10, fontWeight: 700, color, letterSpacing: 0.3, paddingTop: 4 }}>{label}</div>
+      <div style={{ display: "flex", flexWrap: "wrap" }}>{items}</div>
+    </div>
+  ) : null;
+  const layerChip = (l, color, sub) => chip(l.key, l.name, sub ?? `${l.d1}→${l.now}`, color, () => onLayer(l), `${l.theme} · ${STATUS[l.st].label}`);
+  const empty = !idxEvents.length && !gained.length && !lost.length && !broke.length && !up.length && !dn.length && !themeMoves.length;
+
+  return (
+    <Card A={A} title={<span onClick={toggle} style={{ cursor: "pointer" }}>{open ? "▾" : "▸"} What changed today</span>}
+      sub={open ? `vs the prior session${date ? ` · layers as of ${date}` : ""} · click a layer to jump to it`
+        : empty ? "No notable changes" : [idxEvents.length && `${idxEvents.length} index event${idxEvents.length > 1 ? "s" : ""}`, gained.length && `${gained.length} new leaders`,
+            lost.length && `${lost.length} lost leadership`, broke.length && `${broke.length} broke down`].filter(Boolean).join(" · ") || "Rank moves only"}
+      right={<button onClick={toggle} style={{ background: "transparent", border: `1px solid ${A.border}`, color: A.textMuted, borderRadius: 4, padding: "2px 8px", fontSize: 11, cursor: "pointer" }}>{open ? "Hide" : "Show"}</button>}>
+      {open && <>
+      {empty && <div style={{ fontSize: 11, color: A.textMuted }}>No notable changes.</div>}
+      {row("INDEXES", A.text, idxEvents.map((e, i) => chip(`${e.t}${i}`, e.t, e.text, e.good ? A.green : A.red, () => onTicker(e.t))))}
+      {row("NEW LEADERS", A.green, gained.map((l) => layerChip(l, A.green)))}
+      {row("LOST LEADERSHIP", A.yellow, lost.map((l) => layerChip(l, A.yellow)))}
+      {row("BROKE DOWN", A.red, broke.map((l) => layerChip(l, A.red)))}
+      {row("BIGGEST GAINS", A.green, up.map(({ l, d }) => layerChip(l, A.green, `+${d}`)))}
+      {row("BIGGEST DROPS", A.red, dn.map(({ l, d }) => layerChip(l, A.red, `${d}`)))}
+      {row("THEMES", A.textDim, themeMoves.map(({ t, d }) => chip(t.themeId, t.theme, `${d > 0 ? "+" : ""}${d.toFixed(0)}`, d > 0 ? A.green : A.red, () => onTheme(t.themeId))))}
+      </>}
+    </Card>
+  );
+}
+
+
+// ── Intraday scan ─────────────────────────────────────────────────────────
+// Nitin's intraday screen. Structural filters (stored, from the pipeline)
+// narrow the universe to a few hundred names; live filters run on fresh
+// /api/live quotes, polled every 60s while the tab is open.
+//   structural: mcap > $300M · ADR > 2% · avg vol ≥ 500K · avg $vol ≥ $25M · SMA50 > SMA200 ·
+//               revenue (last FQ) > 0
+//   live:       price >= $7 · vol > 50K · rel vol > 0.1 · chg > 0% ·
+//               within 30% of the 52w high · >= 30% above the 52w low ·
+//               price > SMA200 · price > EMA50
+//   column:     change from open % (default sort)
+export function useScanQuotes(tickers, active) {
+  const [quotes, setQuotes] = useState(() => new Map());
+  const [at, setAt] = useState(null);
+  const key = tickers.join(",");
+  useEffect(() => {
+    if (!active || !key) return;
+    let live = true;
+    const pull = async () => {
+      if (document.hidden) return;
+      const list = key.split(",");
+      const m = new Map();
+      for (let i = 0; i < list.length; i += 500) {
+        try {
+          const r = await fetch(`/api/live?universe=${encodeURIComponent(list.slice(i, i + 500).join(","))}`);
+          const d = r.ok ? await r.json() : null;
+          (d?.theme_universe || d?.universe || []).forEach((q) => { if (q?.ticker) m.set(q.ticker, q); });
+        } catch { /* keep last */ }
+      }
+      if (live && m.size) { setQuotes(m); setAt(new Date()); }
+    };
+    // FMP budget: 60s polls only during regular hours. Outside them the scan
+    // shows the saved closing ZVR, so a slow 15-min refresh is plenty.
+    pull();
+    let id;
+    const schedule = () => {
+      id = setTimeout(async () => { await pull(); if (live) schedule(); }, etClock().rth ? 60000 : 15 * 60000);
+    };
+    schedule();
+    // fetch as soon as a background tab is brought forward, instead of
+    // waiting for the next tick
+    const onVis = () => { if (!document.hidden) pull(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { live = false; clearTimeout(id); document.removeEventListener("visibilitychange", onVis); };
+  }, [key, active]);
+  return { quotes, at };
+}
+
+// Zanger Volume Ratio — identical to the Scan/Chain tables' calcZVR fallback:
+// live volume ÷ (avg volume × fraction of a normal day's volume done by now,
+// from the intraday U-profile), × 100. 100 = average pace, 200 = double.
+export const VOL_PROFILE = [[0, 0], [5, 0.04], [15, 0.08], [30, 0.13], [60, 0.21], [90, 0.27], [120, 0.33], [150, 0.38], [180, 0.43], [210, 0.48], [240, 0.53], [270, 0.59], [300, 0.66], [330, 0.74], [360, 0.84], [375, 0.91], [390, 1]];
+export function sessionElapsedFrac() {
+  const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const m = et.getHours() * 60 + et.getMinutes() - 570;
+  if (et.getDay() === 0 || et.getDay() === 6 || m < 0 || m >= 390) return 1;
+  for (let i = 1; i < VOL_PROFILE.length; i++) {
+    const [m1, f1] = VOL_PROFILE[i - 1], [m2, f2] = VOL_PROFILE[i];
+    if (m <= m2) return Math.max(0.02, f1 + (f2 - f1) * (m - m1) / (m2 - m1));
+  }
+  return 1;
+}
+
+// Session clock in ET. Outside regular hours the scan shows each name's LAST
+// ZVR from the session (saved to localStorage on every RTH refresh) instead of
+// recomputing from a quote whose volume may include extended-hours trading.
+export function etClock() {
+  const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const mins = et.getHours() * 60 + et.getMinutes();
+  const wkday = et.getDay() >= 1 && et.getDay() <= 5;
+  const rth = wkday && mins >= 570 && mins < 960;
+  // the session the closing values belong to: today once it has opened,
+  // otherwise the previous weekday
+  const last = new Date(et);
+  if (!(wkday && mins >= 570)) {
+    do { last.setDate(last.getDate() - 1); } while (last.getDay() === 0 || last.getDay() === 6);
+  }
+  return { rth, today: ymd(et), session: ymd(last) };
+}
+export const ZVR_SNAP_KEY = "tp-zvr-close-v2"; // v2: ratio vs 10-session avg (v1 was % vs 50d)
+export function readZvrSnap() {
+  try { return JSON.parse(localStorage.getItem(ZVR_SNAP_KEY) || "null"); } catch { return null; }
+}
+export function writeZvrSnap(date, map) {
+  try { localStorage.setItem(ZVR_SNAP_KEY, JSON.stringify({ date, at: new Date().toISOString(), z: map })); } catch { /* storage off */ }
+}
+
+export function scanBase(s, session) {
+  if (!s?.ticker) return null;
+  const c = s.close || s.price;
+  if (!c) return null;
+  // Levels come straight from the pipeline's daily bars (TradingView-
+  // equivalent: 20d ADR, SMA50/200, EMA50, 52w high/low). The older pct
+  // fields are only a fallback — they disagreed with TV (PANW ADR 1.4% vs 5.6%).
+  const lvl = (pct) => (pct == null ? null : c / (1 + pct / 100));
+  const sma50 = s.sma50_lvl ?? lvl(s.sma50_pct);
+  const sma200 = s.sma200_lvl ?? lvl(s.sma200_pct);
+  const ema50 = s.ema50_lvl ?? lvl(s.ema50_pct);
+  const hi52 = s.hi52_lvl ?? lvl(s.off_52w_high);
+  const lo52 = s.lo52_lvl ?? lvl(s.above_52w_low);
+  const adr = s.adr20 ?? s.adr_pct;
+  const rev = s.last_earnings_actual_revenue ?? (Array.isArray(s.quarters) ? s.quarters[0]?.revenue : null);
+  if ((s.market_cap_raw ?? 0) <= 300e6) return null;
+  if ((adr ?? 0) <= 2) return null;                            // ADR (20d) > 2%
+  if ((s.avg_volume_raw ?? 0) < 500e3) return null;           // avg volume ≥ 500K shares
+  const adv = s.avg_dollar_vol_raw ?? ((s.avg_volume_raw ?? 0) * c);
+  if (adv < 25e6) return null;                                 // avg $ volume ≥ $25M
+  if (!(sma50 && sma200 && sma50 > sma200)) return null;
+  if (!(rev > 0)) return null;
+  // ZVR baseline = the 10 sessions BEFORE the one being measured: once the
+  // pipeline has the measured session as its last bar, use the prior-10 avg
+  const avg10 = (s.last_bar_date && s.last_bar_date === session && s.avg_vol_10d_prior) || s.avg_vol_10d || s.avg_volume_raw;
+  return { t: s.ticker, sma200, ema50, hi52, lo52, avgVol: s.avg_volume_raw, avg10, adr, rs: s.rs_rank, eps: s.eps_rating ?? null, epsTip: s.eps_tip, epsAcc: s.eps_accel };
+}
+
+
+// Exact "relative volume at time": each stock's own average cumulative volume
+// by this minute over the last 10 sessions (pipeline: 10e_rvol_profiles.py,
+// 78 five-minute marks). Returns null outside RTH or without a profile, so the
+// caller falls back to the generic session curve.
+export function rthMinute() {
+  const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const m = et.getHours() * 60 + et.getMinutes() + et.getSeconds() / 60 - 570;
+  return et.getDay() >= 1 && et.getDay() <= 5 && m > 0 && m < 390 ? m : null;
+}
+export function expectedVolAt(p, m) {
+  if (!Array.isArray(p) || p.length < 78 || m == null) return null;
+  const t = m / 5, k = Math.floor(t);
+  const v = k === 0 ? p[0] * t : p[k - 1] + (p[Math.min(k, 77)] - p[k - 1]) * (t - k);
+  return v > 0 ? v : null;
+}
+
+// ZVR for one ticker (chart panel): today's volume ÷ the volume a normal day
+// has done by this minute — the ticker's own intraday volume profile when the
+// pipeline has one, else 10-session average × the market's elapsed-volume
+// share. Outside the session it's full-day volume ÷ the 10-session average.
+export function useRvolProfiles() { return useJson("/data/rvol_profiles.json"); }
+export function zvrFor(s, q, profiles) {
+  const vol = q?.volume;
+  if (!s || !vol) return null;
+  const clock = etClock();
+  const avg10 = (s.last_bar_date && s.last_bar_date === clock.session && s.avg_vol_10d_prior) || s.avg_vol_10d || s.avg_volume_raw;
+  if (clock.rth) {
+    const exp = expectedVolAt(profiles?.p?.[s.ticker], rthMinute());
+    if (exp) return vol / exp;
+    return avg10 ? vol / (avg10 * sessionElapsedFrac()) : null;
+  }
+  return avg10 ? vol / avg10 : null;
+}
+
+// ADR floor for the Stocks box: one click toggles it (last value, 4% the first
+// time); type a value to change it. Filters every Stocks tab by 20-day ADR.
+export function AdrFilter({ A, value, onChange }) {
+  const [draft, setDraft] = useState(value ?? "");
+  useEffect(() => { setDraft(value ?? ""); }, [value]);
+  const last = () => { try { return parseFloat(localStorage.getItem("tp_adr_last")) || 4; } catch { return 4; } };
+  const commit = (v) => { const n = parseFloat(v); if (n > 0) { try { localStorage.setItem("tp_adr_last", String(n)); } catch { /* ignore */ } onChange(n); } else onChange(null); };
+  const on = value != null;
+  return (
+    <span title="Show only stocks with a 20-day ADR at or above this — applies to every Stocks tab"
+      style={{ display: "inline-flex", alignItems: "center", border: `1px solid ${on ? A.cyan : A.border}`, borderRadius: 4, background: on ? A.bgHover : "transparent", marginRight: 4 }}>
+      <button onClick={() => (on ? onChange(null) : commit(last()))}
+        style={{ background: "transparent", border: "none", color: on ? A.cyan : A.textDim, padding: "3px 4px 3px 8px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>ADR ≥</button>
+      <input value={draft} inputMode="decimal" aria-label="Minimum ADR percent" placeholder="—"
+        onChange={(e) => setDraft(e.target.value.replace(/[^0-9.]/g, ""))}
+        onBlur={() => commit(draft)} onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+        style={{ width: 30, background: "transparent", border: "none", color: on ? A.cyan : A.textDim, fontSize: 11, fontWeight: 600, textAlign: "right", padding: "3px 0", outline: "none" }} />
+      <span style={{ color: on ? A.cyan : A.textMuted, fontSize: 11, padding: "0 7px 0 1px" }}>%</span>
+    </span>
+  );
+}
+
+export function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, allowed, onLayer, keep }) {
+  const profiles = useJson("/data/rvol_profiles.json");
+  const base = useMemo(() => Object.values(stockMap || {}).map((x) => scanBase(x, etClock().session)).filter(Boolean)
+    .filter((b) => (!allowed || allowed.has(b.t)) && (!keep || keep(b.t))), [stockMap, allowed, keep]);
+  const { quotes, at } = useScanQuotes(base.map((b) => b.t), true);
+  const [sort, setSort] = useState({ k: "fromOpen", d: -1 });
+  const clock = etClock();
+  const snap = useMemo(() => (clock.rth ? null : readZvrSnap()), [clock.rth, quotes]);
+  const snapOk = !clock.rth && snap?.date === clock.session && snap?.z;
+  const rows = useMemo(() => {
+    const frac = sessionElapsedFrac();
+    const rm = rthMinute();
+    const zvrOf = (b, vol) => {
+      const exp = expectedVolAt(profiles?.p?.[b.t], rm);
+      if (exp) return +(vol / exp).toFixed(2);
+      return b.avg10 ? +(vol / (b.avg10 * frac)).toFixed(2) : null;
+    };
+    const out = [];
+    base.forEach((b) => {
+      const q = quotes.get(b.t);
+      if (!q?.price) return;
+      const px = q.price, vol = q.volume ?? 0;
+      const hi = Math.max(b.hi52 || 0, q.yearHigh || 0) || null;
+      const lo = Math.min(...[b.lo52, q.yearLow].filter((v) => v > 0)) || null;
+      const offHi = hi ? (px / hi - 1) * 100 : null;
+      const aboveLo = lo ? (px / lo - 1) * 100 : null;
+      const chg = q.change ?? (q.previousClose ? (px / q.previousClose - 1) * 100 : null);
+      const fromOpen = q.open ? (px / q.open - 1) * 100 : null;
+      // RVol at time (TradingView-style): today's volume ÷ (10-session avg ×
+      // share of a normal day's volume done by now). 1.00 = normal pace.
+      const liveZvr = zvrOf(b, vol);
+      const zvr = snapOk && snap.z[b.t] != null ? snap.z[b.t] : liveZvr;
+      if (px < 7 || vol <= 50e3 || !(zvr > 0.1) || !(chg > 0)) return;
+      if (offHi == null || offHi < -30) return;
+      if (aboveLo == null || aboveLo < 30) return;
+      if (!(px > b.sma200) || !(b.ema50 && px > b.ema50)) return;
+      const L = tickerLayer[b.t];
+      out.push({ t: b.t, px, zvr, chg, fromOpen, adr: b.adr, offHi, rs: b.rs, eps: b.eps, epsTip: b.epsTip, epsAcc: b.epsAcc, layer: L?.name, layerSt: L?.st });
+    });
+    const k = sort.k, d = sort.d;
+    out.sort((x, y) => ((x[k] ?? -1e9) - (y[k] ?? -1e9)) * d);
+    return out;
+  }, [base, quotes, tickerLayer, sort, snap, snapOk, profiles]);
+  // During RTH, persist every structural-pass name's ZVR (not just the rows
+  // that pass today's live filters) so the after-hours view has a value.
+  useEffect(() => {
+    if (!clock.rth || !quotes.size) return;
+    const frac = sessionElapsedFrac();
+    const rm = rthMinute();
+    const z = {};
+    base.forEach((b) => {
+      const q = quotes.get(b.t);
+      if (!q?.price || !b.avg10) return;
+      const exp = expectedVolAt(profiles?.p?.[b.t], rm);
+      z[b.t] = +(((q.volume ?? 0) / (exp || b.avg10 * frac))).toFixed(2);
+    });
+    writeZvrSnap(clock.today, z);
+  }, [quotes, base, clock.rth, clock.today, profiles]);
+  const col = (k, label, align = "right", title) => (
+    <th style={{ ...th(A, align), cursor: "pointer", color: sort.k === k ? A.text : A.textMuted }} title={title}
+      onClick={() => setSort((p) => ({ k, d: p.k === k ? -p.d : -1 }))}>{label}{sort.k === k ? (sort.d < 0 ? " ▼" : " ▲") : ""}</th>
+  );
+  const pct = (v, dgt = 1) => (v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(dgt)}%`);
+  return (
+    <div>
+      <div style={{ fontSize: 10, color: A.textMuted, marginBottom: 6 }}>
+        {at ? `Live · ${at.toLocaleTimeString()} · refreshes every ${clock.rth ? "60s" : "15 min (market closed)"}` : "Loading live quotes…"}
+        {!clock.rth && (snapOk
+          ? ` · ZVR at close (${snap.date}, last saved ${new Date(snap.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })})`
+          : " · ZVR = full-session volume ÷ average (no intraday snapshot saved for the last session)")} · {base.length} pass the structural filters · {rows.length} pass all
+      </div>
+      {!rows.length ? <div style={{ fontSize: 11, color: A.textMuted, padding: "6px 2px" }}>{at ? "Nothing passes right now." : ""}</div> : (
+        <div style={{ overflowX: "auto", maxHeight: 520, overflowY: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead style={{ position: "sticky", top: 0, background: A.bg }}>
+              <tr>
+                <th style={th(A)}>Ticker</th>
+                {col("zvr", "ZVR", "right", "Relative volume at time (TradingView-style): today's volume ÷ the 10-session average × the share of a normal day's volume done by now. 1.00 = normal pace. After hours: the last value from the session")}{col("chg", "Chg")}{col("fromOpen", "From open")}
+                {col("adr", "ADR")}{col("offHi", "Off high")}{col("rs", "RS")}{col("eps", "EPS", "right", EPS_TIP)}
+                <th style={th(A)}>Layer</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.t} data-nav={r.t} onClick={() => onTicker(r.t)} style={{ cursor: "pointer", background: chartTicker === r.t ? A.bgHover : "transparent" }}>
+                  <td style={td(A)}><FlagButton t={r.t} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span><TierMark t={r.t} /></td>
+                  <td style={{ ...td(A, "right"), color: r.zvr >= 1.5 ? A.green : r.zvr >= 1 ? A.text : A.textMuted, fontWeight: r.zvr >= 1.5 ? 700 : 400 }}>{r.zvr == null ? "—" : r.zvr.toFixed(2)}</td>
+                  <td style={{ ...td(A, "right"), color: A.green }}>{pct(r.chg, 2)}</td>
+                  <td style={{ ...td(A, "right"), color: (r.fromOpen ?? 0) >= 0 ? A.green : A.red, fontWeight: 700 }}>{pct(r.fromOpen, 2)}</td>
+                  <td style={td(A, "right")}>{r.adr == null ? "—" : `${r.adr.toFixed(1)}%`}</td>
+                  <td style={td(A, "right")}>{pct(r.offHi)}</td>
+                  <td style={{ ...td(A, "right"), color: r.rs >= 90 ? A.green : r.rs >= 70 ? A.yellow : A.red }}>{r.rs ?? "—"}</td>
+                  <td title={r.epsTip || ""} style={{ ...td(A, "right"), color: r.eps >= 80 ? A.green : r.eps >= 50 ? A.yellow : r.eps != null ? A.red : A.textMuted }}>{r.eps ?? "—"}{r.epsAcc ? <span style={{ color: A.green, fontSize: 9 }}>▲</span> : null}</td>
+                  <td style={{ ...td(A), fontSize: 11, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <LayerLink r={r} A={A} onLayer={onLayer} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Pre/After-market movers ───────────────────────────────────────────────
+// Today's pre-market movers and the last session's after-hours movers, from
+// the pipeline's session-stamped snapshots (last_pm / last_ah — the live ah_*
+// lists are emptied by the morning scrape). Earnings movers are flagged ER.
+export function extRows(snap, stockMap, tickerLayer, universeOnly) {
+  if (!snap) return [];
+  const seen = new Map();
+  const add = (list, er) => (list || []).forEach((m) => {
+    const t = m?.ticker;
+    if (!t || seen.has(t)) return;
+    const chg = m.ext_hours_change_pct ?? m.change_pct;
+    const s = stockMap?.[t];
+    const L = tickerLayer[t];
+    const head = (m.headlines || [])[0] || "";
+    seen.set(t, {
+      t, chg, price: m.price, vol: m.volume, er,
+      grade: m.ep_quality_label || null,
+      catalyst: head.replace(/\s*\[[^\]]*\]\s*$/, ""),
+      rs: s?.rs_rank ?? m.rs_rank ?? null, eps: s?.eps_rating ?? null, epsTip: s?.eps_tip, epsAcc: s?.eps_accel,
+      inU: !!s, layer: L?.name, layerSt: L?.st,
+    });
+  });
+  add(snap.earnings, true);
+  add(snap.movers, false);
+  add(snap.top, false);
+  return [...seen.values()]
+    .filter((r) => r.chg != null && r.chg !== 0)
+    .filter((r) => !universeOnly || (r.inU && (r.price ?? 0) >= 5))
+    .sort((a, b) => Math.abs(b.chg) - Math.abs(a.chg));
+}
+
+export function ExtHoursMovers({ A, pipeline, stockMap, tickerLayer, onTicker, chartTicker, onLayer, keep }) {
+  const [uOnly, setUOnly] = useState(true);
+  const today = etClock().today;
+  const pmSnap = pipeline?.last_pm || (pipeline?.pm_sip_movers?.length || pipeline?.pm_earnings_movers?.length
+    ? { session: null, earnings: pipeline.pm_earnings_movers, movers: pipeline.pm_sip_movers, top: pipeline.pm_top_movers } : null);
+  const ahSnap = pipeline?.last_ah || (pipeline?.ah_sip_movers?.length || pipeline?.ah_earnings_movers?.length
+    ? { session: null, earnings: pipeline.ah_earnings_movers, movers: pipeline.ah_sip_movers, top: pipeline.ah_top_movers } : null);
+  const pmRows = useMemo(() => extRows(pmSnap, stockMap, tickerLayer, uOnly).filter((r) => !keep || keep(r.t)), [pmSnap, stockMap, tickerLayer, uOnly, keep]);
+  const ahRows = useMemo(() => extRows(ahSnap, stockMap, tickerLayer, uOnly).filter((r) => !keep || keep(r.t)), [ahSnap, stockMap, tickerLayer, uOnly, keep]);
+  const fmtVol = (v) => (v == null ? "—" : v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `${Math.round(v / 1e3)}K` : String(v));
+  // Click-to-sort, shared by both tables. Default: biggest move either way.
+  const [sort, setSort] = useState({ k: "absChg", d: -1 });
+  const TEXT = new Set(["t", "layer", "catalyst"]);
+  const sorted = (rows) => {
+    const { k, d } = sort;
+    const val = (r) => (k === "absChg" ? Math.abs(r.chg) : r[k]);
+    return [...rows].sort((a, b) => {
+      const x = val(a), y = val(b);
+      if (x == null && y == null) return 0;
+      if (x == null || x === "") return 1;      // blanks always last
+      if (y == null || y === "") return -1;
+      return (TEXT.has(k) ? String(x).localeCompare(String(y)) : x - y) * d;
+    });
+  };
+  const hdr = (k, label, align = "left", title) => {
+    const on = sort.k === k || (k === "chg" && sort.k === "absChg");
+    return (
+      <th title={title} style={{ ...th(A, align), cursor: "pointer", userSelect: "none", color: on ? A.text : A.textMuted }}
+        onClick={() => setSort((p) => (p.k === k ? { k, d: -p.d } : { k, d: TEXT.has(k) ? 1 : -1 }))}>
+        {label}{sort.k === k ? (sort.d < 0 ? " ▼" : " ▲") : ""}
+      </th>
+    );
+  };
+  const section = (title, sub, rows0) => { const rows = sorted(rows0); return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, margin: "2px 0 6px" }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: A.text }}>{title}</span>
+        <span style={{ fontSize: 10, color: A.textMuted }}>{sub}</span>
+      </div>
+      {!rows.length ? <div style={{ fontSize: 11, color: A.textMuted, padding: "4px 2px" }}>No movers{uOnly ? " in the universe (≥ $5)" : ""}.</div> : (
+        <div style={{ overflowX: "auto", maxHeight: 340, overflowY: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead style={{ position: "sticky", top: 0, background: A.bg }}>
+              <tr>
+                {hdr("t", "Ticker")}{hdr("chg", "Chg", "right", "Default order is biggest move either way; click to sort high → low")}{hdr("price", "Price", "right")}
+                {hdr("vol", "Vol", "right")}{hdr("rs", "RS", "right")}{hdr("eps", "EPS", "right", EPS_TIP)}{hdr("layer", "Layer")}{hdr("catalyst", "Catalyst")}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.t} data-nav={r.t} onClick={() => onTicker(r.t)} style={{ cursor: "pointer", background: chartTicker === r.t ? A.bgHover : "transparent" }}>
+                  <td style={td(A)}>
+                    <FlagButton t={r.t} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span><TierMark t={r.t} />
+                    {r.er && <span title={r.grade ? `Earnings · EP quality ${r.grade}` : "Earnings"} style={{ marginLeft: 5, fontSize: 9, fontWeight: 700, color: A.cyan, border: `1px solid ${A.cyan}`, borderRadius: 3, padding: "0 3px" }}>ER</span>}
+                  </td>
+                  <td style={{ ...td(A, "right"), color: r.chg >= 0 ? A.green : A.red, fontWeight: 700 }}>{r.chg > 0 ? "+" : ""}{r.chg.toFixed(2)}%</td>
+                  <td style={td(A, "right")}>{r.price ? r.price.toFixed(2) : "—"}</td>
+                  <td style={td(A, "right")}>{fmtVol(r.vol)}</td>
+                  <td style={{ ...td(A, "right"), color: r.rs >= 90 ? A.green : r.rs >= 70 ? A.yellow : r.rs != null ? A.red : A.textMuted }}>{r.rs ?? "—"}</td>
+                  <td title={r.epsTip || ""} style={{ ...td(A, "right"), color: r.eps >= 80 ? A.green : r.eps >= 50 ? A.yellow : r.eps != null ? A.red : A.textMuted }}>{r.eps ?? "—"}{r.epsAcc ? <span style={{ color: A.green, fontSize: 9 }}>▲</span> : null}</td>
+                  <td style={{ ...td(A), fontSize: 11, maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <LayerLink r={r} A={A} onLayer={onLayer} />
+                  </td>
+                  <td title={r.catalyst} style={{ ...td(A), fontSize: 11, color: A.textDim, maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis" }}>{r.catalyst || "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  ); };
+  const pmSub = pmSnap?.session
+    ? (pmSnap.session === today ? `today · scanned ${String(pmSnap.scanned || "").slice(11)} ET` : `no scan yet today — last: ${pmSnap.session}`)
+    : "today";
+  const ahSub = ahSnap?.session ? `${ahSnap.session} close · scanned ${String(ahSnap.scanned || "").slice(5)} ET` : (ahSnap ? "last session" : "no after-hours scan saved yet");
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
+        <label style={{ fontSize: 11, color: A.textDim, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+          <input type="checkbox" checked={uOnly} onChange={(e) => setUOnly(e.target.checked)} /> Universe only, ≥ $5
+        </label>
+      </div>
+      {section("Pre-market", pmSub, pmRows)}
+      {section("After-hours", ahSub, ahRows)}
+    </div>
+  );
+}
+
+// ── Flags (red / blue / gold) ─────────────────────────────────────────────
+// Synced across devices via /api/userdata?scope=flags (per-ticker, latest
+// timestamp wins; clearing writes a null-color tombstone). A module-level
+// store keeps every table on the page in step; localStorage gives an
+// instant first paint before the server answers.
+export const FLAG_ORDER = ["red", "blue", "gold"];
+export const FLAG_LS = "tp-flags";
+export const _flags = { map: {}, subs: new Set(), loading: null };
+try { _flags.map = JSON.parse(localStorage.getItem(FLAG_LS) || "{}") || {}; } catch { _flags.map = {}; }
+export function _flagsNotify() {
+  try { localStorage.setItem(FLAG_LS, JSON.stringify(_flags.map)); } catch { /* storage off */ }
+  _flags.subs.forEach((fn) => fn({ ..._flags.map }));
+}
+export function _flagsMerge(remote) {
+  let changed = false;
+  for (const [t, v] of Object.entries(remote || {})) {
+    const cur = _flags.map[t];
+    if (!cur || String(cur.at || "") < String(v.at || "")) { _flags.map[t] = v; changed = true; }
+  }
+  return changed;
+}
+export function _flagsPost(entries) {
+  return fetch("/api/userdata?scope=flags", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ flags: entries }) }).catch(() => {});
+}
+export function _flagsPull() {
+  if (_flags.loading) return _flags.loading;
+  _flags.loading = fetch("/api/userdata?scope=flags", { cache: "no-store" })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((d) => {
+      if (!d?.flags) return;
+      // push local entries the server hasn't seen (made offline / before it loaded)
+      const mine = {};
+      for (const [t, v] of Object.entries(_flags.map)) {
+        const sv = d.flags[t];
+        if (!sv || String(sv.at || "") < String(v.at || "")) mine[t] = v;
+      }
+      if (_flagsMerge(d.flags)) _flagsNotify();
+      if (Object.keys(mine).length) _flagsPost(mine);
+    })
+    .catch(() => {})
+    .finally(() => { _flags.loading = null; });
+  return _flags.loading;
+}
+export function setFlag(ticker, color) {
+  const v = { c: color || null, at: new Date().toISOString() };
+  _flags.map[ticker] = v;
+  _flagsNotify();
+  _flagsPost({ [ticker]: v });
+}
+export function useFlags() {
+  const [map, setMap] = useState(() => ({ ..._flags.map }));
+  useEffect(() => {
+    _flags.subs.add(setMap);
+    _flagsPull();
+    const onFocus = () => { if (!document.hidden) _flagsPull(); };
+    document.addEventListener("visibilitychange", onFocus);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      _flags.subs.delete(setMap);
+      document.removeEventListener("visibilitychange", onFocus);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, []);
+  return map;
+}
+export const flagHex = (c, A) => ({ red: A.red, blue: A.blue, gold: A.gold || "#e3b341" }[c]);
+
+export function FlagButton({ t, A }) {
+  const flags = useFlags();
+  const c = flags[t]?.c || null;
+  const [open, setOpen] = useState(false);
+  const ref = React.useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+  return (
+    <span ref={ref} style={{ position: "relative", display: "inline-block", marginRight: 5 }} onClick={(e) => e.stopPropagation()}>
+      <button aria-label={c ? `Flagged ${c}, change flag` : "Flag"} title={c ? `Flagged ${c}` : "Flag"} onClick={() => setOpen((o) => !o)}
+        style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 12, lineHeight: 1,
+          color: c ? flagHex(c, A) : A.textMuted, opacity: c ? 1 : 0.45 }}>
+        {c ? "⚑" : "⚐"}
+      </button>
+      {open && (
+        <span style={{ position: "absolute", top: 16, left: -4, zIndex: 30, display: "flex", gap: 6, alignItems: "center",
+          background: A.bgCard, border: `1px solid ${A.borderLight}`, borderRadius: 6, padding: "5px 7px", boxShadow: A.shadow, whiteSpace: "nowrap", backdropFilter: "blur(12px)" }}>
+          {FLAG_ORDER.map((k) => (
+            <button key={k} aria-label={`Flag ${k}`} title={k} onClick={() => { setFlag(t, k); setOpen(false); }}
+              style={{ width: 16, height: 16, borderRadius: "50%", cursor: "pointer", background: flagHex(k, A),
+                border: c === k ? `2px solid ${A.text}` : "2px solid transparent", padding: 0 }} />
+          ))}
+          {c && <button onClick={() => { setFlag(t, null); setOpen(false); }}
+            style={{ background: "none", border: "none", color: A.textDim, cursor: "pointer", fontSize: 10, padding: "0 2px" }}>clear</button>}
+        </span>
+      )}
+    </span>
+  );
+}
+
+export function FlaggedTab({ A, stockMap, tickerLayer, onTicker, chartTicker, onLayer, keep }) {
+  const flags = useFlags();
+  const profiles = useJson("/data/rvol_profiles.json");
+  const [only, setOnly] = useState(null);
+  const tickers = Object.entries(flags).filter(([, v]) => v?.c).map(([t]) => t).filter((t) => !keep || keep(t)).sort();
+  const { quotes, at } = useScanQuotes(tickers, true);
+  // default: grouped by flag colour; header clicks sort like the Intraday scan
+  const [sort, setSort] = useState({ k: "flag", d: 1 });
+  const clock = etClock();
+  const snap = useMemo(() => (clock.rth ? null : readZvrSnap()), [clock.rth, quotes]);
+  const snapOk = !clock.rth && snap?.date === clock.session && snap?.z;
+  const frac = sessionElapsedFrac();
+  const rm = rthMinute();
+  // Same columns and maths as the Intraday scan, but no filters: a flagged
+  // name shows even when it fails the scan today.
+  const rows = tickers.filter((t) => !only || flags[t].c === only).map((t) => {
+    const q = quotes.get(t), s = stockMap?.[t] || {}, L = tickerLayer[t];
+    const c0 = s.close || s.price;
+    const px = q?.price ?? c0 ?? null;
+    const hiLvl = s.hi52_lvl ?? (c0 && s.off_52w_high != null ? c0 / (1 + s.off_52w_high / 100) : null);
+    const hi = Math.max(hiLvl || 0, q?.yearHigh || 0) || null;
+    const avg10 = (s.last_bar_date && s.last_bar_date === clock.session && s.avg_vol_10d_prior) || s.avg_vol_10d || s.avg_volume_raw;
+    let zvr = null;
+    if (snapOk && snap.z[t] != null) zvr = snap.z[t];
+    else if (q?.volume != null) {
+      const exp = expectedVolAt(profiles?.p?.[t], rm);
+      zvr = exp ? +(q.volume / exp).toFixed(2) : avg10 ? +(q.volume / (avg10 * frac)).toFixed(2) : null;
+    }
+    return {
+      t, c: flags[t].c, flag: FLAG_ORDER.indexOf(flags[t].c), px, zvr,
+      chg: q?.change ?? (q?.previousClose ? (q.price / q.previousClose - 1) * 100 : s.change_pct ?? null),
+      fromOpen: q?.open ? (q.price / q.open - 1) * 100 : null,
+      adr: s.adr20 ?? s.adr_pct ?? null,
+      offHi: hi && px ? (px / hi - 1) * 100 : null,
+      rs: s.rs_rank ?? null, eps: s.eps_rating ?? null, epsTip: s.eps_tip, epsAcc: s.eps_accel, layer: L?.name, layerSt: L?.st,
+    };
+  });
+  rows.sort((a, b) => {
+    const { k, d } = sort;
+    const x = a[k], y = b[k];
+    if (x == null && y == null) return a.t.localeCompare(b.t);
+    if (x == null) return 1;
+    if (y == null) return -1;
+    return ((x - y) * d) || a.t.localeCompare(b.t);
+  });
+  const col = (k, label, align = "right", title) => (
+    <th style={{ ...th(A, align), cursor: "pointer", userSelect: "none", color: sort.k === k ? A.text : A.textMuted }} title={title}
+      onClick={() => setSort((p) => ({ k, d: p.k === k ? -p.d : k === "flag" ? 1 : -1 }))}>{label}{sort.k === k ? (sort.d < 0 ? " ▼" : " ▲") : ""}</th>
+  );
+  const pct = (v, dgt = 1) => (v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(dgt)}%`);
+  const counts = Object.fromEntries(FLAG_ORDER.map((k) => [k, tickers.filter((t) => flags[t].c === k).length]));
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 6, flexWrap: "wrap" }}>
+        {[null, ...FLAG_ORDER].map((k) => (
+          <button key={k || "all"} onClick={() => setOnly(k)}
+            style={{ display: "flex", alignItems: "center", gap: 5, background: only === k ? A.bgHover : "transparent",
+              border: `1px solid ${only === k ? A.borderLight : A.border}`, borderRadius: 4, padding: "2px 8px", fontSize: 11, color: A.text, cursor: "pointer" }}>
+            {k ? <span style={{ width: 9, height: 9, borderRadius: "50%", background: flagHex(k, A) }} /> : null}
+            {k ? k[0].toUpperCase() + k.slice(1) : "All"} <span style={{ color: A.textMuted }}>{k ? counts[k] : tickers.length}</span>
+          </button>
+        ))}
+        <span style={{ marginLeft: "auto", fontSize: 10, color: A.textMuted }}>{at && tickers.length ? `Live · ${at.toLocaleTimeString()}` : ""}</span>
+      </div>
+      {!rows.length ? (
+        <div style={{ fontSize: 11, color: A.textMuted, padding: "6px 2px" }}>
+          {tickers.length ? "No flags of this color." : "Nothing flagged yet. Click the ⚐ next to any ticker in the other tabs."}
+        </div>
+      ) : (
+        <div style={{ overflowX: "auto", maxHeight: 520, overflowY: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead style={{ position: "sticky", top: 0, background: A.bg }}>
+              <tr>
+                {col("flag", "Ticker", "left", "Click to group by flag colour")}
+                {col("zvr", "ZVR", "right", "Relative volume at time: today's volume ÷ the stock's average volume by this time of day. 1.00 = normal pace. After hours: the last value from the session")}{col("chg", "Chg")}{col("fromOpen", "From open")}
+                {col("adr", "ADR")}{col("offHi", "Off high")}{col("rs", "RS")}{col("eps", "EPS", "right", EPS_TIP)}
+                <th style={th(A)}>Layer</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.t} data-nav={r.t} onClick={() => onTicker(r.t)} style={{ cursor: "pointer", background: chartTicker === r.t ? A.bgHover : "transparent" }}>
+                  <td style={td(A)}><FlagButton t={r.t} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span><TierMark t={r.t} /></td>
+                  <td style={{ ...td(A, "right"), color: r.zvr >= 1.5 ? A.green : r.zvr >= 1 ? A.text : A.textMuted, fontWeight: r.zvr >= 1.5 ? 700 : 400 }}>{r.zvr == null ? "—" : r.zvr.toFixed(2)}</td>
+                  <td style={{ ...td(A, "right"), color: (r.chg ?? 0) >= 0 ? A.green : A.red }}>{pct(r.chg, 2)}</td>
+                  <td style={{ ...td(A, "right"), color: (r.fromOpen ?? 0) >= 0 ? A.green : A.red, fontWeight: 700 }}>{pct(r.fromOpen, 2)}</td>
+                  <td style={td(A, "right")}>{r.adr == null ? "—" : `${r.adr.toFixed(1)}%`}</td>
+                  <td style={td(A, "right")}>{pct(r.offHi)}</td>
+                  <td style={{ ...td(A, "right"), color: r.rs >= 90 ? A.green : r.rs >= 70 ? A.yellow : r.rs != null ? A.red : A.textMuted }}>{r.rs ?? "—"}</td>
+                  <td title={r.epsTip || ""} style={{ ...td(A, "right"), color: r.eps >= 80 ? A.green : r.eps >= 50 ? A.yellow : r.eps != null ? A.red : A.textMuted }}>{r.eps ?? "—"}{r.epsAcc ? <span style={{ color: A.green, fontSize: 9 }}>▲</span> : null}</td>
+                  <td style={{ ...td(A), fontSize: 11, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <LayerLink r={r} A={A} onLayer={onLayer} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// Buyout-pinned / no-range names: a stock trading in a fixed deal band keeps
+// RS 96–99 and sits ~0% off its high, so it floats to the top of Leaders
+// without being a live breakout. Pinned = 20-day OR 5-day ADR under 0.8%, or
+// the 5-day ADR has collapsed below half its long-run ADR (< 1.5%) while
+// sitting within 2% of the high — the 20-day window still holds the
+// announcement-day jump for a week or two, so it misses fresh deals (SGRY).
+export const PIN_ADR = 0.8;
+export function pinReason(s) {
+  if (!s) return null;
+  const a20 = s.adr20 ?? s.adr_pct, a5 = s.adr5, lt = s.adr_pct, off = s.off_52w_high;
+  const lo = Math.min(a20 ?? Infinity, a5 ?? Infinity);
+  if (lo < PIN_ADR) return `ADR ${lo.toFixed(2)}% — pinned / no range`;
+  if (a5 != null && lt && off != null && a5 < 1.5 && off >= -2 && a5 < 0.5 * lt)
+    return `5-day ADR ${a5.toFixed(2)}% vs ${lt.toFixed(1)}% normal at the high — likely deal-pinned`;
+  return null;
+}
+
+// RS line leads price: the stock's RS line (close ÷ SPY) set a 52-week high
+// on the latest session, price is still 5–15% under its own high (basing, not
+// extended), and the stock closed UP that day — the RS line rose because the
+// stock rallied, not just because it fell less than the market. In a broad
+// correction almost every defensive name's RS line is at a high; the green
+// close is what separates accumulation from "falling slower".
+// Uses the pipeline's close-of-day change, the same bar rsl_hi_ago is measured on.
+export const RSL_OFF = [-15, -5];
+export function rsLeads(s) {
+  if (!s || s.rsl_hi_ago !== 0) return null;
+  const off = s.off_52w_high ?? s.pct_from_high;
+  if (off == null || off > RSL_OFF[1] || off < RSL_OFF[0]) return null;
+  if (s.change_pct == null || s.change_pct < 0) return null;
+  return `RS line at a new 52-week high on ${s.change_pct > 0 ? `a +${s.change_pct.toFixed(1)}%` : "an unchanged"} close while price is ${off.toFixed(1)}% off its high — RS leading price`;
+}
+// ⭐ Leader / 🌱 Emerging — computed from the Leaders data (LeadershipView
+// publishes the sets through TierCtx) so every list marks the same names the
+// Leaders tab shows. Filters (ADR, pinned toggle, theme) don't change tiers.
+//   Leader   = passes the Leaders screen: RS 90+, above the 50d, within 25% of
+//              the high, $20M+/day, not buyout-pinned.
+//   Emerging = not a leader yet, but RS 75+, above the 50d, $20M+/day, and
+//              within 8% of the high or RS line at a new high, in a leading
+//              or emerging layer. Top 40 by RS.
+export const TierCtx = createContext(null);
+export function computeTiers(stockMap, tickerLayer) {
+  const leaders = new Set(), em = [];
+  Object.values(stockMap || {}).forEach((s) => {
+    if (!s?.ticker || (s.avg_dollar_vol_raw ?? 0) < 20e6 || !s.above_50ma) return;
+    const rs = s.rs_rank ?? 0, off = s.off_52w_high ?? -100;
+    if (rs >= 90 && off >= -25 && !pinReason(s)) { leaders.add(s.ticker); return; }
+    const st = tickerLayer?.[s.ticker]?.st;
+    if (rs >= 75 && (st === "lead" || st === "emerg") && (off >= -8 || s.rs_line_new_high || rsLeads(s))) em.push(s);
+  });
+  em.sort((a, b) => (b.rs_rank ?? 0) - (a.rs_rank ?? 0) || (b.off_52w_high ?? -100) - (a.off_52w_high ?? -100));
+  return { leaders, emerging: new Set(em.slice(0, 40).map((s) => s.ticker)) };
+}
+export function TierMark({ t, label }) {
+  const tiers = useContext(TierCtx);
+  if (!tiers || !t) return null;
+  const L = tiers.leaders.has(t), E = !L && tiers.emerging.has(t);
+  if (!L && !E) return null;
+  return <span title={L ? "⭐ Leader — passes the Leaders screen (RS 90+, above 50d, within 25% of high)"
+    : "🌱 Emerging — RS 75+ in a leading/emerging layer, near its high or RS line at a new high; not a leader yet"}
+    style={{ marginLeft: label ? 0 : 4, fontSize: 9, color: L ? "#f59e0b" : "#4ade80", fontWeight: 700 }}>{L ? "⭐" : "🌱"}{label ? (L ? " Leader" : " Emerging") : ""}</span>;
+}
+export const RslDot = ({ tip, A }) => (tip ? <span title={tip} style={{ color: A.blue || "#3b82f6", marginLeft: 4 }}>●</span> : null);
+
+// ── Layer members ─────────────────────────────────────────────────────────
+// Every stock in one layer, shown in the Stocks box when a layer row is
+// clicked. Same columns as the Scanner plus vs-50d; ★ = fastest EPS grower.
+export function LayerMembers({ A, layer, tickers, stockMap, onTicker, chartTicker, keep }) {
+  const [sort, setSort] = useState({ k: "rs", d: -1 });
+  const list = useMemo(() => tickers.filter((t) => stockMap[t] && (!keep || keep(t))), [tickers, stockMap, keep]);
+  const { quotes, at } = useScanQuotes(list, true);
+  const rows = useMemo(() => {
+    const topEps = Math.max(-1, ...list.map((t) => stockMap[t]?.eps_rating ?? -1));
+    const out = list.map((t) => {
+      const s = stockMap[t], q = quotes.get(t);
+      return {
+        t, px: q?.price ?? s.close, chg: q?.change ?? s.change_pct ?? null,
+        r1w: s.return_1w, r1m: s.return_1m, r3m: s.return_3m,
+        adr: s.adr20 ?? s.adr_pct, s50: s.sma50_pct, off: s.off_52w_high ?? s.pct_from_high,
+        rs: s.rs_rank, eps: s.eps_rating ?? null, epsTip: s.eps_tip, epsAcc: s.eps_accel,
+        top: s.eps_rating != null && s.eps_rating === topEps, nh: s.nh20 === 1,
+      };
+    });
+    const { k, d } = sort;
+    out.sort((x, y) => {
+      const a = x[k], b = y[k];
+      if (a == null && b == null) return x.t.localeCompare(y.t);
+      if (a == null) return 1;
+      if (b == null) return -1;
+      return (a - b) * d || x.t.localeCompare(y.t);
+    });
+    return out;
+  }, [list, quotes, sort, stockMap]);
+  const col = (k, label, title) => (
+    <th key={k} style={{ ...th(A, "right"), cursor: "pointer", userSelect: "none", color: sort.k === k ? A.text : A.textMuted }} title={title}
+      onClick={() => setSort((p) => ({ k, d: p.k === k ? -p.d : -1 }))}>{label}{sort.k === k ? (sort.d < 0 ? " ▼" : " ▲") : ""}</th>
+  );
+  const pct = (v, dg = 1) => (v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(dg)}%`);
+  const pc = (v) => (v == null ? A.textMuted : v >= 0 ? A.green : A.red);
+  const b = layer.stats;
+  return (
+    <div>
+      <div style={{ fontSize: 10, color: A.textMuted, marginBottom: 6 }}>
+        <span style={{ color: statusColor(layer.st, A), fontWeight: 700 }}>{STATUS[layer.st].label}</span> · rank {layer.now}{b?.rsMed != null && <> · typical member RS {b.rsMed}</>}
+        {" "}(<Delta v={layer.now - layer.w1} A={A} /> 1w, <Delta v={layer.now - layer.m1} A={A} /> 1m) · {layer.theme}
+        {at && <> · live {at.toLocaleTimeString()}</>}
+        {" "}· ★ fastest EPS grower · ↑/↓ to step through
+      </div>
+      <div style={{ overflowX: "auto", maxHeight: 560, overflowY: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead style={{ position: "sticky", top: 0, background: A.bg }}>
+            <tr>
+              <th style={th(A)}>Ticker</th>
+              {col("px", "Price")}{col("chg", "Chg")}
+              {col("r1w", "1W")}{col("r1m", "1M")}{col("r3m", "3M")}
+              {col("adr", "ADR")}{col("s50", "vs 50d")}{col("off", "Off high")}{col("rs", "RS")}{col("eps", "EPS", EPS_TIP)}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.t} data-nav={r.t} onClick={() => onTicker(r.t)} style={{ cursor: "pointer", background: chartTicker === r.t ? A.bgHover : "transparent" }}>
+                <td style={td(A)}><FlagButton t={r.t} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span><TierMark t={r.t} />
+                  {r.top && <span title="Fastest EPS grower in this layer" style={{ color: A.green, marginLeft: 4 }}>★</span>}
+                  {r.nh && <span title="Closed at a 20-session high" style={{ color: A.cyan, marginLeft: 4, fontSize: 9 }}>NH</span>}</td>
+                <td style={{ ...td(A, "right"), color: A.text }}>{r.px != null ? r.px.toFixed(2) : "—"}</td>
+                <td style={{ ...td(A, "right"), color: pc(r.chg), fontWeight: 700 }}>{pct(r.chg, 2)}</td>
+                <td style={{ ...td(A, "right"), color: pc(r.r1w) }}>{pct(r.r1w)}</td>
+                <td style={{ ...td(A, "right"), color: pc(r.r1m) }}>{pct(r.r1m)}</td>
+                <td style={{ ...td(A, "right"), color: pc(r.r3m) }}>{pct(r.r3m)}</td>
+                <td style={td(A, "right")}>{r.adr == null ? "—" : `${r.adr.toFixed(1)}%`}</td>
+                <td style={{ ...td(A, "right"), color: pc(r.s50) }}>{pct(r.s50)}</td>
+                <td style={td(A, "right")}>{pct(r.off)}</td>
+                <td style={{ ...td(A, "right"), color: r.rs >= 90 ? A.green : r.rs >= 70 ? A.yellow : r.rs != null ? A.red : A.textMuted, fontWeight: 700 }}>{r.rs ?? "—"}</td>
+                <td title={r.epsTip || ""} style={{ ...td(A, "right"), color: r.eps >= 80 ? A.green : r.eps >= 50 ? A.yellow : r.eps != null ? A.red : A.textMuted }}>{r.eps ?? "—"}{r.epsAcc ? <span style={{ color: A.green, fontSize: 9 }}>▲</span> : null}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ── EPS Rating (O'Neil / IBD-style) ───────────────────────────────────────
+// IBD's EPS Rating blends the two most recent quarters' year-over-year EPS
+// growth with the multi-year annual growth rate, then ranks 1-99 against the
+// universe. Built from each stock's own quarters[] / annual[] (GAAP EPS from
+// FMP, so names with non-GAAP-only profits — stock-comp-heavy software — score
+// lower than on IBD):
+//   raw = 0.35·Q1 + 0.25·Q2 + 0.40·A3
+//   Q1/Q2  latest / prior quarter EPS growth vs the year-ago quarter
+//   A3     median of the last 3 annual EPS growth rates, −10 pts per down
+//          year among them (O'Neil wants steady annual growth)
+// Each growth term is capped to −100…+200 so one tiny base can't dominate.
+// A current loss scores −100 (no credit for a shrinking loss); a swing from a
+// loss to a profit scores +100.
+export const EPS_TIP = "O'Neil-style EPS Rating 1-99: last two quarters' year-over-year EPS growth + 3-year annual growth, ranked vs the universe. ▲ = growth accelerating 3 quarters running";
+export const capG = (x) => Math.max(-100, Math.min(200, x));
+export function epsGrowth(cur, prev, pct) {
+  if (cur == null) return null;
+  if (cur <= 0) return -100;
+  if (prev != null) return prev <= 0 ? 100 : capG((cur / prev - 1) * 100);
+  return pct == null ? null : capG(pct);
+}
+export function epsRaw(s) {
+  const Q = (s.quarters || []).filter((q) => q.eps != null)
+    .sort((a, b) => String(b.report_date || "").localeCompare(String(a.report_date || "")));
+  const Y = (s.annual || []).filter((a) => a.eps != null).sort((a, b) => b.year - a.year);
+  if (Q.length < 2 || Y.length < 2) return null;
+  let q1 = epsGrowth(Q[0].eps, null, Q[0].eps_yoy), q2 = epsGrowth(Q[1].eps, null, Q[1].eps_yoy);
+  if (q1 == null && q2 == null) return null;
+  q1 = q1 ?? q2; q2 = q2 ?? q1;   // one quarter without a year-ago figure: lean on the other
+  // median of the last three annual growth rates, not a CAGR off one endpoint:
+  // a single depressed base year (GPN 2022 EPS $0.41) made the CAGR +132%/yr
+  const yg = Y.slice(0, 3).map((a, i) => (Y[i + 1] ? epsGrowth(a.eps, Y[i + 1].eps) : null)).filter((x) => x != null).sort((a, b) => a - b);
+  let a3;
+  if (Y[0].eps <= 0) a3 = -100;
+  else a3 = yg.length ? yg[Math.floor(yg.length / 2)] : -100;
+  const down = Y.slice(0, 3).filter((a, i) => Y[i + 1] && a.eps < Y[i + 1].eps).length;
+  a3 -= 10 * down;
+  // acceleration: growth rising quarter over quarter for the last three
+  const q3 = Q[2] ? epsGrowth(Q[2].eps, null, Q[2].eps_yoy) : null;
+  const accel = q3 != null && q1 >= 25 && q1 > q2 && q2 > q3;
+  return { raw: 0.35 * q1 + 0.25 * q2 + 0.4 * a3, q1, q2, a3, down, accel };
+}
+export function withEpsRating(stockMap) {
+  const rows = [];
+  for (const [t, s] of Object.entries(stockMap || {})) {
+    const r = s?.ticker ? epsRaw(s) : null;
+    if (r) rows.push([t, r]);
+  }
+  const sorted = rows.map(([, r]) => r.raw).sort((a, b) => a - b), n = sorted.length;
+  const out = { ...stockMap };
+  const fmt = (v) => `${v > 0 ? "+" : ""}${Math.round(v)}%`;
+  for (const [t, r] of rows) {
+    let lo = 0, hi = n;
+    while (lo < hi) { const m = (lo + hi) >> 1; sorted[m] < r.raw ? (lo = m + 1) : (hi = m); }
+    let up = lo; while (up < n && sorted[up] === r.raw) up++;
+    const rating = Math.max(1, Math.min(99, Math.round(((lo + up + 1) / 2) / n * 98 + 1)));
+    out[t] = { ...stockMap[t], eps_rating: rating, eps_accel: r.accel,
+      eps_tip: `EPS Rating ${rating} — last qtr ${fmt(r.q1)} · prior qtr ${fmt(r.q2)} · 3-yr median ${fmt(r.a3)}/yr${r.down ? ` (incl. −${10 * r.down} for ${r.down} down yr)` : ""}${r.accel ? " · accelerating" : ""}` };
+  }
+  return out;
+}
+
+// ── Live RS ───────────────────────────────────────────────────────────────
+// The pipeline ranks RS once a night (0.40·1M + 0.20·3M + 0.20·6M + 0.20·1Y,
+// percentile × 99 across the universe). During a session that rank is a day
+// old, so a leader gapping up or breaking down doesn't move until tomorrow.
+// This re-bases every return on the live price (refreshed hourly) — (1 + r) × price / close − 1 —
+// and re-ranks the whole universe with the same weights. Only runs when the
+// current session is newer than the pipeline's close; stale-history tickers
+// (> 7 days behind) stay out of the pool, as in the pipeline.
+export const RS_W = [["return_1m", 0.4], ["return_3m", 0.2], ["return_6m", 0.2], ["return_1y", 0.2]];
+export function rsScore(s, f) {
+  let sum = 0, w = 0;
+  for (const [k, wt] of RS_W) {
+    const r = s[k];
+    if (r == null || !isFinite(r)) continue;
+    sum += ((1 + r / 100) * f - 1) * 100 * wt; w += wt;
+  }
+  return w ? sum / w : null;
+}
+export function useLiveRS(stockMap) {
+  const [quotes, setQuotes] = useState(null);
+  const [at, setAt] = useState(null);
+  const meta = useMemo(() => {
+    const all = Object.values(stockMap || {}).filter((s) => s?.ticker && s.close > 0);
+    const newest = all.reduce((m, s) => (s.last_bar_date > m ? s.last_bar_date : m), "");
+    const cut = newest ? new Date(new Date(newest).getTime() - 7 * 864e5).toISOString().slice(0, 10) : "";
+    const pool = all.filter((s) => (s.last_bar_date || "") >= cut);
+    return { newest, tickers: pool.map((s) => s.ticker) };
+  }, [stockMap]);
+  const key = meta.tickers.join(",");
+  useEffect(() => {
+    if (!key) return;
+    let live = true, id;
+    let last = 0;
+    const pull = async () => {
+      if (document.hidden) return;
+      if (!(etClock().session > meta.newest)) { setQuotes(null); return; }
+      // RS refreshes at most once an hour — tab refocus or a re-render
+      // doesn't pull early
+      if (Date.now() - last < 3600000) return;
+      last = Date.now();
+      const list = key.split(","), m = new Map();
+      const chunks = [];
+      for (let i = 0; i < list.length; i += 500) chunks.push(list.slice(i, i + 500));
+      await Promise.all(chunks.map(async (c) => {
+        try {
+          const r = await fetch(`/api/live?universe=${encodeURIComponent(c.join(","))}`);
+          const d = r.ok ? await r.json() : null;
+          (d?.theme_universe || d?.universe || []).forEach((q) => { if (q?.ticker && q.price > 0) m.set(q.ticker, q.price); });
+        } catch { /* keep last */ }
+      }));
+      if (live && m.size > list.length * 0.5) { setQuotes(m); setAt(new Date()); }
+    };
+    // Hourly during the session (Nitin's call: intraday RS should move on
+    // the hour, not tick); 15-min checks otherwise just notice a new session.
+    const schedule = () => { id = setTimeout(async () => { await pull(); if (live) schedule(); }, etClock().rth ? 3600000 : 15 * 60000); };
+    pull(); schedule();
+    const onVis = () => { if (!document.hidden) pull(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { live = false; clearTimeout(id); document.removeEventListener("visibilitychange", onVis); };
+  }, [key, meta.newest]);
+  return useMemo(() => {
+    if (!quotes) return { map: stockMap, at: null };
+    const pool = new Set(meta.tickers);
+    const sc = [];
+    for (const t of meta.tickers) {
+      const s = stockMap[t], p = quotes.get(t);
+      const v0 = rsScore(s, 1), v = rsScore(s, p ? p / s.close : 1);
+      if (v != null) sc.push([t, v0, v]);
+    }
+    // pandas rank(pct=True) uses average ranks for ties: (lo + hi + 1) / 2 / n
+    const ranker = (vals) => {
+      const sorted = [...vals].sort((a, b) => a - b), n = sorted.length;
+      return (v) => {
+        let lo = 0, hi = n;
+        while (lo < hi) { const m = (lo + hi) >> 1; sorted[m] < v ? (lo = m + 1) : (hi = m); }
+        let up = lo; while (up < n && sorted[up] === v) up++;
+        return ((lo + up + 1) / 2) / n;
+      };
+    };
+    const p0 = ranker(sc.map((x) => x[1])), p1 = ranker(sc.map((x) => x[2]));
+    const out = { ...stockMap };
+    // Applied as a change on top of the pipeline's rank: the pipeline ranks a
+    // slightly larger pool, so re-ranking from scratch would shift names ±1-10
+    // points at the open before any price had moved.
+    for (const [t, v0, v] of sc) {
+      const base = stockMap[t].rs_rank ?? Math.round(p0(v0) * 99);
+      const rs = Math.max(0, Math.min(99, Math.round(base + (p1(v) - p0(v0)) * 99)));
+      const px = quotes.get(t);
+      out[t] = { ...stockMap[t], rs_rank_close: stockMap[t].rs_rank, rs_rank: rs, rs_live: true,
+        rs_score_close: v0, rs_score_live: v, chg_live: px ? (px / stockMap[t].close - 1) * 100 : null };
+    }
+    // out-of-pool (stale history) names rank 0, matching the pipeline
+    for (const t of Object.keys(stockMap)) if (!pool.has(t) && stockMap[t]?.ticker) out[t] = { ...stockMap[t], rs_rank_close: stockMap[t].rs_rank, rs_rank: 0 };
+    return { map: out, at };
+  }, [quotes, at, stockMap, meta]);
+}
+
+// Live layer rank. The pipeline (10c) ranks layers by the MEDIAN of members'
+// stock RS score, shrunk toward the cross-layer median by n/(n+3), then
+// percentile-ranked 0–100. During the session we run that exact calculation
+// twice — on the close scores and on the live-price scores — and apply the
+// difference to the pipeline's rank, so the open doesn't shift every layer
+// before any price has moved (same delta approach as live stock RS).
+export function layerRanksFrom(keys, members, stockMap, field) {
+  const raw = {};
+  for (const k of keys) {
+    const v = (members[k] || []).map((t) => stockMap[t]?.[field]).filter((x) => x != null && isFinite(x)).sort((a, b) => a - b);
+    if (!v.length) continue;
+    const m = v.length % 2 ? v[(v.length - 1) / 2] : (v[v.length / 2 - 1] + v[v.length / 2]) / 2;
+    raw[k] = [m, v.length];
+  }
+  const ks = Object.keys(raw);
+  if (!ks.length) return {};
+  const ms = ks.map((k) => raw[k][0]).sort((a, b) => a - b);
+  const med = ms.length % 2 ? ms[(ms.length - 1) / 2] : (ms[ms.length / 2 - 1] + ms[ms.length / 2]) / 2;
+  const adj = ks.map((k) => [k, med + (raw[k][0] - med) * (raw[k][1] / (raw[k][1] + 3))]).sort((a, b) => a[1] - b[1]);
+  const denom = adj.length - 1 || 1, out = {};
+  adj.forEach(([k], i) => { out[k] = (i / denom) * 100; });
+  return out;
+}
+
