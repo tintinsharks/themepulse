@@ -1,0 +1,544 @@
+{
+  "id": "brief-2026-11-23-intraday-1305",
+  "date": "2026-11-23",
+  "session": "intraday",
+  "label": "1:05 PM PT Closing-Bell Intraday Brief",
+  "headline": "QQQ (+6.97%) & SPY (+4.74%) Lock In FTD Rally at the Bell; CBRL Sets New 52W High ($75.02), ETON & CDNA Surge Into Close, PTRN Closes at HOD (+11.89%), and HPE (+7.9% AH) & SMTC (+2.8% AH) Jump on Earnings",
+  "regime": {
+    "posture": "Confirmed Follow-Through Day Expansion — Broad Institutional Accumulation Into the Closing Bell",
+    "spy": {
+      "price": 722.5,
+      "changePct": 4.74,
+      "afterHours": 722.66,
+      "volume": 13018469
+    },
+    "qqq": {
+      "price": 650.86,
+      "changePct": 6.97,
+      "afterHours": 650.74,
+      "volume": 73809209
+    },
+    "iwm": {
+      "price": 265.53,
+      "changePct": 3.48,
+      "afterHours": 265.62,
+      "volume": 5234507
+    },
+    "breadth": {
+      "leadingLayers": 20,
+      "emergingLayers": 4,
+      "breakingDownLayers": 21,
+      "intradayScanPassers": 133
+    }
+  },
+  "macroTape": {
+    "vix": {
+      "value": 26.81,
+      "changePct": -25.3
+    },
+    "us10y": {
+      "value": 4.96,
+      "unit": "%"
+    },
+    "wti": {
+      "value": 81.87,
+      "changePct": -1.85
+    },
+    "dxy": {
+      "value": 103.81
+    }
+  },
+  "intradayMovers": [
+    {
+      "ticker": "PTRN",
+      "layer": "Strongest Stock 5",
+      "rs": 96,
+      "eps": 85,
+      "price": 20.71,
+      "changePct": 11.89,
+      "fromOpenPct": 4.81,
+      "zvr": 1.55,
+      "status": "Building (Closed at HOD $20.71)",
+      "progression": [
+        "+6.16%",
+        "+9.56%",
+        "+9.91%",
+        "+8.59%",
+        "+8.64%",
+        "+8.81%",
+        "+9.02%",
+        "+11.89%"
+      ],
+      "catalystUrl": "https://themepulse.vercel.app/?view=lead&ticker=PTRN"
+    },
+    {
+      "ticker": "MRNA",
+      "layer": "Biotech",
+      "rs": 89,
+      "eps": 60,
+      "price": 212.08,
+      "changePct": 8.76,
+      "fromOpenPct": 3.3,
+      "zvr": 1.35,
+      "status": "Building (New Session High $212.66)",
+      "progression": [
+        "+8.16%",
+        "+7.17%",
+        "+8.67%",
+        "+7.84%",
+        "+7.81%",
+        "+8.61%",
+        "+7.78%",
+        "+8.76%"
+      ],
+      "catalystUrl": "https://themepulse.vercel.app/?view=scanner&ticker=MRNA"
+    },
+    {
+      "ticker": "INSM",
+      "layer": "Biotech",
+      "rs": 97,
+      "eps": 72,
+      "price": 149.09,
+      "changePct": 5.49,
+      "fromOpenPct": 4.1,
+      "zvr": 1.5,
+      "status": "Building (New Session High $149.83; AH $149.57)",
+      "progression": [
+        "+1.54%",
+        "+3.89%",
+        "+3.68%",
+        "+4.83%",
+        "+5.60%",
+        "+4.37%",
+        "+4.33%",
+        "+5.49%"
+      ],
+      "catalystUrl": "https://tickeron.com/blogs/insmed-insm-shares-climb-51-on-sanofi-takeover-speculation-and-strong-q3-results-44262/"
+    },
+    {
+      "ticker": "PRCH",
+      "layer": "Software / InsurTech",
+      "rs": 98,
+      "eps": 69,
+      "price": 21.22,
+      "changePct": 6.74,
+      "fromOpenPct": 2.36,
+      "zvr": 5.29,
+      "status": "Building",
+      "progression": [
+        "+4.83%",
+        "+8.25%",
+        "+7.49%",
+        "+6.89%",
+        "+6.61%",
+        "+5.43%",
+        "+6.41%",
+        "+6.74%"
+      ],
+      "catalystUrl": "https://www.stocktitan.net/sec-filings/PRCH/10-q-porch-group-inc-quarterly-earnings-report-a3aee6fed76d.html"
+    },
+    {
+      "ticker": "APPN",
+      "layer": "Strongest Stock 5",
+      "rs": 94,
+      "eps": 78,
+      "price": 54.78,
+      "changePct": 5.77,
+      "fromOpenPct": 2.41,
+      "zvr": 1.4,
+      "status": "Building (Closed Near $54.83 High)",
+      "progression": [
+        "+3.35%",
+        "+5.08%",
+        "+4.76%",
+        "+4.90%",
+        "+4.19%",
+        "+4.09%",
+        "+5.66%",
+        "+5.77%"
+      ],
+      "catalystUrl": "https://themepulse.vercel.app/?view=lead&ticker=APPN"
+    },
+    {
+      "ticker": "LFST",
+      "layer": "Healthcare Services",
+      "rs": 98,
+      "eps": 91,
+      "price": 14.44,
+      "changePct": 4.49,
+      "fromOpenPct": 2.41,
+      "zvr": 2.1,
+      "status": "Holding in Buy Zone ($14.00-$14.70)",
+      "progression": [
+        "+3.26%",
+        "+5.07%",
+        "+5.03%",
+        "+4.16%",
+        "+3.98%",
+        "+4.59%",
+        "+6.81%",
+        "+4.49%"
+      ],
+      "catalystUrl": "https://www.stocktitan.net/sec-filings/LFST/144-life-stance-health-group-inc-sec-filing-fc0bc8c2da63.html"
+    },
+    {
+      "ticker": "BLMN",
+      "layer": "Restaurants + QSR",
+      "rs": 88,
+      "eps": 82,
+      "price": 10.35,
+      "changePct": 3.81,
+      "fromOpenPct": 3.19,
+      "zvr": 1.65,
+      "status": "Holding Tight ($10.50 High)",
+      "progression": [
+        "+2.01%",
+        "+1.10%",
+        "+2.01%",
+        "+1.81%",
+        "+3.06%",
+        "+3.56%",
+        "+3.96%",
+        "+3.81%"
+      ],
+      "catalystUrl": "https://themepulse.vercel.app/?view=scanner&ticker=BLMN"
+    },
+    {
+      "ticker": "XERS",
+      "layer": "Specialty Pharma",
+      "rs": 99,
+      "eps": 74,
+      "price": 17.52,
+      "changePct": 3.24,
+      "fromOpenPct": 3.06,
+      "zvr": 2.15,
+      "status": "Holding Tight (52W High $17.74)",
+      "progression": [
+        "+2.53%",
+        "+2.47%",
+        "+2.71%",
+        "+3.06%",
+        "+3.42%",
+        "+4.07%",
+        "+3.42%",
+        "+3.24%"
+      ],
+      "catalystUrl": "https://www.stocktitan.net/news/XERS/xeris-biopharma-reports-third-quarter-2026-financial-results-and-1864fi6uljqw.html"
+    },
+    {
+      "ticker": "BIIB",
+      "layer": "Biotech",
+      "rs": 84,
+      "eps": 79,
+      "price": 256.71,
+      "changePct": 2.85,
+      "fromOpenPct": 2.61,
+      "zvr": 4.03,
+      "status": "Holding Tight",
+      "progression": [
+        "+1.92%",
+        "+3.08%",
+        "+3.43%",
+        "+2.73%",
+        "+2.77%",
+        "+2.98%",
+        "+2.98%",
+        "+2.85%"
+      ],
+      "catalystUrl": "https://www.stocktitan.net/news/BIIB/stoke-therapeutics-and-biogen-announce-presentations-of-long-term-znq2jfq1z6by.html"
+    },
+    {
+      "ticker": "BIP",
+      "layer": "Utilities / Infrastructure",
+      "rs": 91,
+      "eps": 70,
+      "price": 45.24,
+      "changePct": 5.68,
+      "fromOpenPct": 2.82,
+      "zvr": 3.92,
+      "status": "MOC Auction Surge (AH $44.60)",
+      "progression": [
+        "+4.88%",
+        "+6.12%",
+        "+6.18%",
+        "+7.08%",
+        "+4.26%",
+        "+3.70%",
+        "+3.69%",
+        "+5.68%"
+      ],
+      "catalystUrl": "https://www.stocktitan.net/sec-filings/BIP/6-k-brookfield-infrastructure-partners-l-p-current-report-foreign-iss-52f8d5fe7549.html"
+    },
+    {
+      "ticker": "HPE",
+      "layer": "AI Hardware / Servers",
+      "rs": 78,
+      "eps": 81,
+      "price": 47.96,
+      "changePct": 17.15,
+      "afterHoursPrice": 51.75,
+      "afterHoursChangePct": 7.9,
+      "zvr": 2.4,
+      "status": "AMC Earnings Beat (+7.90% AH to $51.75)",
+      "progression": [
+        "+13.26%",
+        "+14.85%",
+        "+13.34%",
+        "+13.90%",
+        "+16.65%",
+        "+16.59%",
+        "+16.45%",
+        "+17.15%"
+      ],
+      "catalystUrl": "https://investors.hpe.com/news-and-events"
+    },
+    {
+      "ticker": "SMTC",
+      "layer": "Semiconductors",
+      "rs": 82,
+      "eps": 84,
+      "price": 104.13,
+      "changePct": 18.83,
+      "afterHoursPrice": 107,
+      "afterHoursChangePct": 2.76,
+      "zvr": 1.95,
+      "status": "AMC Earnings Reaction (+2.76% AH to $107.00)",
+      "progression": [
+        "+17.01%",
+        "+18.58%",
+        "+17.92%",
+        "+18.26%",
+        "+16.21%",
+        "+16.81%",
+        "+17.38%",
+        "+18.83%"
+      ],
+      "catalystUrl": "https://investors.semtech.com/"
+    },
+    {
+      "ticker": "SYM",
+      "layer": "AI Robotics / Warehouse",
+      "rs": 72,
+      "eps": 68,
+      "price": 34.97,
+      "changePct": 12.44,
+      "afterHoursPrice": 33.64,
+      "afterHoursChangePct": -3.8,
+      "zvr": 2.1,
+      "status": "AMC Earnings Pullback (-3.80% AH to $33.64)",
+      "progression": [
+        "+21.37%",
+        "+19.12%",
+        "+17.20%",
+        "+15.40%",
+        "+15.53%",
+        "+15.53%",
+        "+15.27%",
+        "+12.44%"
+      ],
+      "catalystUrl": "https://www.stocktitan.net/news/SYM/symbotic-reports-fourth-quarter-and-fiscal-year-2026-rdm4re447svt.html"
+    },
+    {
+      "ticker": "KYMR",
+      "layer": "Biotech",
+      "rs": 98,
+      "eps": 64,
+      "price": 150.37,
+      "changePct": 30.4,
+      "fromOpenPct": 8.96,
+      "zvr": 89.92,
+      "status": "Faded -6.9% Off $161.49 Peak",
+      "progression": [
+        "+24.79%",
+        "+24.44%",
+        "+31.87%",
+        "+39.52%",
+        "+35.34%",
+        "+32.31%",
+        "+30.50%",
+        "+30.40%"
+      ],
+      "catalystUrl": "https://www.tradingview.com/news/tradingview:b5cbfb7ddc422:0-kymera-therapeutics-inc-stock-12-month-price-target-raised-to-148-48-implies-29-upside/"
+    },
+    {
+      "ticker": "TPL",
+      "layer": "Energy / Land",
+      "rs": 75,
+      "eps": 88,
+      "price": 258.07,
+      "changePct": -3.6,
+      "fromOpenPct": -7.94,
+      "zvr": 2.9,
+      "status": "Faded / Reversed",
+      "progression": [
+        "+5.48%",
+        "-2.92%",
+        "-3.85%",
+        "-2.98%",
+        "-0.72%",
+        "-1.63%",
+        "-3.19%",
+        "-3.60%"
+      ],
+      "catalystUrl": "https://www.texaspacific.com/investors/news-events/press-releases/detail/191/texas-pacific-land-to-acquire-eaglerock-in-all-stock"
+    }
+  ],
+  "leadingPulse": [
+    {
+      "ticker": "CBRL",
+      "grade": "B+",
+      "layer": "Restaurants + QSR",
+      "rs": 89,
+      "eps": 84,
+      "price": 74.82,
+      "changePct": 5.75,
+      "pivot": 72.8,
+      "buyZone": "72.80-76.44",
+      "stop": 67.7,
+      "status": "New 52W High Breakout ($75.02 High)"
+    },
+    {
+      "ticker": "ETON",
+      "grade": "A",
+      "layer": "Specialty Pharma",
+      "rs": 95,
+      "eps": 91,
+      "price": 63.65,
+      "changePct": 4.6,
+      "pivot": 62.5,
+      "buyZone": "62.50-65.63",
+      "stop": 58.13,
+      "status": "Closing-Bell Breakout ($63.83 High)"
+    },
+    {
+      "ticker": "CDNA",
+      "grade": "A",
+      "layer": "Diagnostics",
+      "rs": 98,
+      "eps": 80,
+      "price": 75.75,
+      "changePct": 8.21,
+      "pivot": 72.5,
+      "buyZone": "72.50-76.13",
+      "stop": 67.43,
+      "status": "Closed at Session High ($75.99 High)"
+    },
+    {
+      "ticker": "WWW",
+      "grade": "B+",
+      "layer": "Footwear / Apparel",
+      "rs": 83,
+      "eps": 88,
+      "price": 25.79,
+      "changePct": 4.16,
+      "pivot": 25.1,
+      "buyZone": "25.10-26.36",
+      "stop": 23.34,
+      "status": "Closed Near High in Buy Zone ($25.91 High)"
+    },
+    {
+      "ticker": "OKTA",
+      "grade": "A-",
+      "layer": "Cybersecurity",
+      "rs": 90,
+      "eps": 94,
+      "price": 205.84,
+      "changePct": 7.51,
+      "pivot": 205,
+      "buyZone": "205.00-215.25",
+      "stop": 190.65,
+      "status": "Closed Above $205.00 Pivot (AH $206.28)"
+    },
+    {
+      "ticker": "VCEL",
+      "grade": "B+",
+      "layer": "Biotech",
+      "rs": 86,
+      "eps": 82,
+      "price": 59,
+      "changePct": 2.57,
+      "pivot": 58.8,
+      "buyZone": "58.80-61.74",
+      "stop": 54.68,
+      "status": "Closed Above $58.80 Pivot ($59.28 High)"
+    },
+    {
+      "ticker": "AMRX",
+      "grade": "A+",
+      "layer": "Specialty Pharma",
+      "rs": 96,
+      "eps": 86,
+      "price": 21.9,
+      "changePct": 3.69,
+      "pivot": 22.13,
+      "buyZone": "22.13-23.24",
+      "stop": 20.58,
+      "status": "Coiled 1.0% Below 52W High Pivot ($22.03 High)"
+    },
+    {
+      "ticker": "GEN",
+      "grade": "A-",
+      "layer": "Cybersecurity",
+      "rs": 85,
+      "eps": 87,
+      "price": 30.04,
+      "changePct": 2.91,
+      "pivot": 30.2,
+      "buyZone": "30.20-31.71",
+      "stop": 28.09,
+      "status": "Coiled 0.5% Below Pivot ($30.17 High)"
+    },
+    {
+      "ticker": "COLM",
+      "grade": "B+",
+      "layer": "Footwear / Apparel",
+      "rs": 82,
+      "eps": 85,
+      "price": 75.77,
+      "changePct": 1.04,
+      "pivot": 76,
+      "buyZone": "76.00-79.80",
+      "stop": 70.68,
+      "status": "Tested $76.00 Pivot ($76.32 High)"
+    },
+    {
+      "ticker": "LTH",
+      "grade": "A-",
+      "layer": "Leisure / Fitness",
+      "rs": 95,
+      "eps": 83,
+      "price": 47.32,
+      "changePct": 2.1,
+      "pivot": 48.48,
+      "buyZone": "48.48-50.90",
+      "stop": 45.09,
+      "status": "Closed Near Session High ($47.51 High)"
+    },
+    {
+      "ticker": "TGTX",
+      "grade": "A+",
+      "layer": "Biotech",
+      "rs": 97,
+      "eps": 99,
+      "price": 63.99,
+      "changePct": 1.03,
+      "pivot": 65.5,
+      "buyZone": "65.50-68.78",
+      "stop": 60.5,
+      "status": "Holding Handle Support"
+    },
+    {
+      "ticker": "CBOE",
+      "grade": "B",
+      "layer": "Brokerage / Exchanges",
+      "rs": 81,
+      "eps": 82,
+      "price": 353.07,
+      "changePct": -1.3,
+      "pivot": 365,
+      "buyZone": "365.00-383.25",
+      "stop": 339.45,
+      "status": "21d MA Support Test on Light Vol"
+    }
+  ]
+}
