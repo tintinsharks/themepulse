@@ -1,6 +1,7 @@
 // Shared helpers, data hooks and small components for the Leaders / Scanner /
 // Brief views. Split out of LeadershipView.jsx.
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { authHeaders, notifyAuthRequired, setAuthToken } from "../utils.js";
 
 import {
   LEAD,
@@ -948,8 +949,31 @@ export function _flagsMerge(remote) {
   }
   return changed;
 }
+export const _flagsPending = {};
 export function _flagsPost(entries) {
-  return fetch("/api/userdata?scope=flags", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ flags: entries }) }).catch(() => {});
+  return fetch("/api/userdata?scope=flags", {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ flags: entries }),
+  })
+    .then((r) => {
+      if (r.status === 401) {
+        Object.assign(_flagsPending, entries);
+        setAuthToken("");
+        notifyAuthRequired();
+      }
+      return r;
+    })
+    .catch(() => {});
+}
+if (typeof window !== "undefined") {
+  window.addEventListener("tp-auth-changed", (e) => {
+    if (e?.detail?.unlocked && Object.keys(_flagsPending).length) {
+      const batch = { ..._flagsPending };
+      for (const k of Object.keys(_flagsPending)) delete _flagsPending[k];
+      _flagsPost(batch);
+    }
+  });
 }
 export function _flagsPull() {
   if (_flags.loading) return _flags.loading;

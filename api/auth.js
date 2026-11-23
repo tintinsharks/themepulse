@@ -36,12 +36,35 @@ function verifyToken(token) {
   }
 }
 
+function extractBearer(req) {
+  const auth = req.headers?.authorization || "";
+  return auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
+}
+
+const ALLOWED_ORIGINS = new Set([
+  "https://themepulse.vercel.app",
+  "http://localhost:5173",
+  "http://localhost:4173",
+]);
+
 export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  const origin = req.headers?.origin;
+  if (origin && ALLOWED_ORIGINS.has(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+  }
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Cache-Control", "private, no-store");
   if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
+
+  if (req.method === "GET") {
+    const configured = Boolean(process.env.TP_PIN && getSecret());
+    const authenticated = configured && verifyToken(extractBearer(req));
+    return res.status(200).json({ ok: true, configured, authenticated });
+  }
+
+  if (req.method !== "POST") return res.status(405).json({ error: "GET or POST only" });
 
   const { pin } = req.body || {};
   if (!pin) return res.status(400).json({ ok: false, error: "PIN required" });
@@ -55,6 +78,4 @@ export default async function handler(req, res) {
   return res.status(200).json({ ok: true, token: createToken(pin) });
 }
 
-// Export for use — but since Vercel isolates each file,
-// userdata.js will have its own copy of verify logic
-export { verifyToken, createToken };
+export { verifyToken, createToken, extractBearer };

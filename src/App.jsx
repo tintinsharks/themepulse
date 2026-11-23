@@ -16,7 +16,7 @@
 
 import React, { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { ARIA_DARK, ARIA_LIGHT, ARIA } from "./styles.js";
-import { isPipelineStale } from "./utils.js";
+import { isPipelineStale, getAuthToken, setAuthToken, authHeaders, notifyAuthRequired } from "./utils.js";
 import { mergeTrades, applyClearTombstone, newestStamp } from "./wheelTrades.js";
 import LeadershipView, { LEAD_INDEXES, zvrFor, useRvolProfiles, useJson, TierMark } from "./LeadershipView.jsx";
 
@@ -612,6 +612,16 @@ function _setState(updater) {
   _debounceTimer = setTimeout(_pushToServer, SERVER_DEBOUNCE_MS);
 }
 
+let _pendingAuthRetry = false;
+if (typeof window !== "undefined") {
+  window.addEventListener("tp-auth-changed", (e) => {
+    if (e?.detail?.unlocked && _pendingAuthRetry) {
+      _pendingAuthRetry = false;
+      _pushToServer();
+    }
+  });
+}
+
 async function _pushToServer() {
   _debounceTimer = null;
   const s = _getState();
@@ -619,7 +629,7 @@ async function _pushToServer() {
   try {
     const r = await fetch("/api/userdata", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         analyzedPicks: s.analyzedPicks,
         watchlist: s.watchlist,
@@ -631,6 +641,12 @@ async function _pushToServer() {
         wheelClearedAt: s.wheelClearedAt,
       }),
     });
+    if (r.status === 401) {
+      _pendingAuthRetry = true;
+      setAuthToken("");
+      notifyAuthRequired();
+      return;
+    }
     if (!r.ok) return;
     const d = await r.json();
     if (!d.ok) return;
@@ -2761,6 +2777,179 @@ if (typeof document !== "undefined" && !document.getElementById("tp-visual-css")
 
 
 
+function AuthControl({ ARIA }) {
+  const [unlocked, setUnlocked] = useState(() => Boolean(getAuthToken()));
+  const [open, setOpen] = useState(false);
+  const [pin, setPin] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [prompted, setPrompted] = useState(false);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    let live = true;
+    fetch("/api/auth", { headers: authHeaders(), cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!live || !d) return;
+        if (!d.authenticated && getAuthToken()) setAuthToken("");
+        setUnlocked(Boolean(d.authenticated));
+      })
+      .catch(() => {});
+    const onChanged = (e) => setUnlocked(Boolean(e?.detail?.unlocked));
+    const onReq = () => { setUnlocked(false); setPrompted(true); setErr(""); setOpen(true); };
+    window.addEventListener("tp-auth-changed", onChanged);
+    window.addEventListener("tp-auth-required", onReq);
+    return () => {
+      live = false;
+      window.removeEventListener("tp-auth-changed", onChanged);
+      window.removeEventListener("tp-auth-required", onReq);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (open && !unlocked) setTimeout(() => inputRef.current?.focus(), 20);
+  }, [open, unlocked]);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!pin.trim() || busy) return;
+    setBusy(true);
+    setErr("");
+    try {
+      const r = await fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin: pin.trim() }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok || !d.ok || !d.token) {
+        setErr(d.error || `Unlock failed (${r.status})`);
+        return;
+      }
+      setAuthToken(d.token);
+      setPin("");
+      setPrompted(false);
+      setOpen(false);
+    } catch {
+      setErr("Network error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const lock = () => {
+    setAuthToken("");
+    setOpen(false);
+  };
+
+  return (
+    <div style={{ position: "relative" }}>
+      <button
+        onClick={() => { setPrompted(false); setErr(""); setOpen((v) => !v); }}
+        title={unlocked ? "Writes unlocked — click to lock" : "Read-only — click to unlock saving lists & flags with PIN"}
+        style={{
+          background: unlocked ? "rgba(13,145,99,0.12)" : "transparent",
+          border: `1px solid ${unlocked ? ARIA.green : ARIA.border}`,
+          color: unlocked ? ARIA.green : ARIA.textDim,
+          padding: "4px 8px",
+          borderRadius: 4,
+          cursor: "pointer",
+          fontFamily: "monospace",
+          fontSize: 10,
+          letterSpacing: 0.4,
+        }}
+      >
+        {unlocked ? "🔓" : "🔒 Unlock"}
+      </button>
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            right: 0,
+            top: "calc(100% + 6px)",
+            width: 220,
+            background: ARIA.bgCard,
+            border: `1px solid ${ARIA.borderLight || ARIA.border}`,
+            borderRadius: 8,
+            boxShadow: ARIA.shadow || "0 8px 24px rgba(0,0,0,0.45)",
+            padding: 10,
+            zIndex: 200,
+            fontFamily: "monospace",
+          }}
+        >
+          {unlocked ? (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <span style={{ fontSize: 10, color: ARIA.green }}>Saves unlocked</span>
+              <button
+                onClick={lock}
+                style={{
+                  background: "transparent",
+                  border: `1px solid ${ARIA.border}`,
+                  color: ARIA.textDim,
+                  padding: "3px 8px",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                  fontFamily: "monospace",
+                  fontSize: 10,
+                }}
+              >
+                Lock
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ fontSize: 10, color: prompted ? "#f59e0b" : ARIA.textDim }}>
+                {prompted ? "Enter PIN to save changes" : "Enter PIN to unlock writes"}
+              </div>
+              <div style={{ display: "flex", gap: 4 }}>
+                <input
+                  ref={inputRef}
+                  type="password"
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Escape") setOpen(false); }}
+                  placeholder="PIN"
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    fontSize: 11,
+                    padding: "4px 6px",
+                    background: ARIA.bg,
+                    border: `1px solid ${ARIA.border}`,
+                    borderRadius: 4,
+                    color: ARIA.text,
+                    fontFamily: "monospace",
+                    outline: "none",
+                  }}
+                />
+                <button
+                  type="submit"
+                  disabled={busy}
+                  style={{
+                    background: "rgba(13,145,99,0.16)",
+                    border: `1px solid ${ARIA.green}`,
+                    color: ARIA.green,
+                    padding: "4px 8px",
+                    borderRadius: 4,
+                    cursor: "pointer",
+                    fontFamily: "monospace",
+                    fontSize: 10,
+                    fontWeight: 700,
+                  }}
+                >
+                  {busy ? "…" : "Go"}
+                </button>
+              </div>
+              {err && <div style={{ fontSize: 9, color: ARIA.red }}>{err}</div>}
+            </form>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AppMain() {
   // ── ALL hooks must be at the top, before any conditional return ────────
   // Phase 2.7 had useMemo(stockMap) AFTER the data.loading early return,
@@ -3036,6 +3225,7 @@ function AppMain() {
               </span>
             )}
           </span>
+          <AuthControl ARIA={ARIA} />
           <button
             onClick={toggleTheme}
             title={`Switch to ${themeMode === "dark" ? "light" : "dark"} mode`}

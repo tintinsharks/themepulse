@@ -110,3 +110,29 @@ export const QC = {
   WEAKENING: { bg: "#431407", text: "#fdba74", tag: "#ea580c" },
   WEAK: { bg: "#450a0a", text: "#fca5a5", tag: "#dc2626" },
 };
+
+// ── PIN write-auth token helpers (shared by App.jsx & src/lead/core.jsx) ──
+const AUTH_TOKEN_KEY = "tp-auth-token";
+export function getAuthToken() {
+  try { return localStorage.getItem(AUTH_TOKEN_KEY) || ""; } catch { return ""; }
+}
+export function setAuthToken(tok) {
+  try {
+    if (tok) localStorage.setItem(AUTH_TOKEN_KEY, tok);
+    else localStorage.removeItem(AUTH_TOKEN_KEY);
+  } catch {}
+  try {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("tp-auth-changed", { detail: { unlocked: Boolean(tok) } }));
+    }
+  } catch {}
+}
+export function authHeaders(extra = {}) {
+  const tok = getAuthToken();
+  return tok ? { ...extra, Authorization: `Bearer ${tok}` } : extra;
+}
+export function notifyAuthRequired() {
+  try {
+    if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("tp-auth-required"));
+  } catch {}
+}

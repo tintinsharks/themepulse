@@ -10,7 +10,8 @@ Vite + React 18 single-page dashboard for CAN SLIM / momentum growth stock resea
 ## Architecture
 - **Root app**: `src/App.jsx` (~3,150 lines) — theme context (Aria dark/light + zoom), pipeline data loading, quote manager (`useLiveQuotes`), userdata sync (`useServerState`), `ChartPanelInline` + `DailyChartSVG` + `EarningsBox`, trade alerts, and topbar navigation.
 - **Primary views**: Three views switched via topbar (`LEADERS`, `SCANNER`, `BRIEF`), orchestrated by `src/LeadershipView.jsx`:
-  - `src/lead/core.jsx` — Shared market gate, index panel, themes/layers boards, stock tables, intraday scan, extended-hours movers, ticker flags, tier/EPS/live-RS calculations.
+  - `src/lead/math.js` — Pure JSX-free ranking, classification, ZVR, tier, EPS, and RS math (unit-tested in `test/leadMath.test.js`).
+  - `src/lead/core.jsx` — Shared data hooks (`useJson` with in-memory/in-flight cache), market gate, index panel, themes/layers boards, stock tables, intraday scan, extended-hours movers, ticker flags.
   - `src/lead/Scanner.jsx` (lazy-loaded) — Live scanner view.
   - `src/lead/Brief.jsx` (lazy-loaded) — Daily PM/AM brief view.
   - `src/lead/Rotation.jsx` (lazy-loaded) — Subtheme/layer rotation view.
@@ -28,19 +29,13 @@ stock-pipeline (GitHub Actions)
   → Vercel serves static JSON with Cache-Control: public, max-age=60, stale-while-revalidate=300
   → Frontend fetches static JSON with { cache: "no-cache" } (ETag/304 revalidation)
 
-Vercel Serverless Functions (api/) — 12 functions (Vercel Hobby cap):
-  - api/live.js            — Real-time quotes + news/fundamentals (Finviz Elite / FMP)
-  - api/ohlc.js            — Historical daily/weekly OHLC bars (FMP)
-  - api/earnings.js        — Per-ticker earnings history/estimates
-  - api/userdata.js        — Upstash Redis persistence (watchlist/portfolio/wheelTrades + ?scope=flags|pm-movers|ah-movers)
-  - api/zvr.js             — Zanger Volume Ratio + setup journal queries
-  - api/market-quality.js  — Market Quality Terminal scoring (used by public/terminal.html)
-  - api/scan-scores.js     — Pre-computed EPS/C&A/MS scan scores
-  - api/analyze-ticker.js  — On-demand 4-agent ticker analysis
-  - api/theme-analysis.js  — EOD theme analysis storage (Upstash, x-api-key gated)
-  - api/wheel.js           — Schwab options chain wheel screener
-  - api/schwab-callback.js — Schwab OAuth callback handler
-  - api/auth.js            — PIN → HMAC token auth (requires TP_PIN + TP_SESSION_SECRET)
+Vercel Serverless Functions (api/) — 6 functions (6 free slots under Vercel Hobby's 12-function cap):
+  - api/live.js           — Real-time quotes + news/fundamentals (Finviz Elite / FMP)
+  - api/ohlc.js           — Historical daily/weekly OHLC bars (FMP)
+  - api/earnings.js       — Per-ticker earnings history/estimates
+  - api/userdata.js       — Upstash Redis persistence (public GET; PIN-Bearer gated POST for lists & ?scope=flags; RVOL_SCANNER_TOKEN for pm-movers/ah-movers)
+  - api/auth.js           — GET status check + POST PIN → HMAC Bearer token (requires TP_PIN + TP_SESSION_SECRET)
+  - api/market-quality.js — Market Quality Terminal scoring (used by public/terminal.html)
 ```
 
 ## Commands

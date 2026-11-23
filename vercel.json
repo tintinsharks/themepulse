@@ -31,26 +31,11 @@
     "api/live.js": {
       "maxDuration": 30
     },
-    "api/wheel.js": {
-      "maxDuration": 20
-    },
-    "api/schwab-callback.js": {
-      "maxDuration": 15
-    },
     "api/ohlc.js": {
       "maxDuration": 15
     },
-    "api/scan-scores.js": {
-      "maxDuration": 30
-    },
     "api/market-quality.js": {
       "maxDuration": 30
-    },
-    "api/analyze-ticker.js": {
-      "maxDuration": 30
-    },
-    "api/theme-analysis.js": {
-      "maxDuration": 10
     },
     "api/userdata.js": {
       "maxDuration": 10
@@ -60,9 +45,6 @@
     },
     "api/earnings.js": {
       "maxDuration": 15
-    },
-    "api/zvr.js": {
-      "maxDuration": 20
     }
   },
   "rewrites": [
