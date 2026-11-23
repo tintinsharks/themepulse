@@ -6,4 +6,5 @@ dist
 .env*
 *.bak*
 _to_delete/
+reports/
 
