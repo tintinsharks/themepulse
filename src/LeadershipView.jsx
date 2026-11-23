@@ -1166,10 +1166,32 @@ export function zvrFor(s, q, profiles) {
   return avg10 ? vol / avg10 : null;
 }
 
-function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, allowed, onLayer }) {
+// ADR floor for the Stocks box: one click toggles it (last value, 4% the first
+// time); type a value to change it. Filters every Stocks tab by 20-day ADR.
+function AdrFilter({ A, value, onChange }) {
+  const [draft, setDraft] = useState(value ?? "");
+  useEffect(() => { setDraft(value ?? ""); }, [value]);
+  const last = () => { try { return parseFloat(localStorage.getItem("tp_adr_last")) || 4; } catch { return 4; } };
+  const commit = (v) => { const n = parseFloat(v); if (n > 0) { try { localStorage.setItem("tp_adr_last", String(n)); } catch { /* ignore */ } onChange(n); } else onChange(null); };
+  const on = value != null;
+  return (
+    <span title="Show only stocks with a 20-day ADR at or above this — applies to every Stocks tab"
+      style={{ display: "inline-flex", alignItems: "center", border: `1px solid ${on ? A.cyan : A.border}`, borderRadius: 4, background: on ? A.bgHover : "transparent", marginRight: 4 }}>
+      <button onClick={() => (on ? onChange(null) : commit(last()))}
+        style={{ background: "transparent", border: "none", color: on ? A.cyan : A.textDim, padding: "3px 4px 3px 8px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>ADR ≥</button>
+      <input value={draft} inputMode="decimal" aria-label="Minimum ADR percent" placeholder="—"
+        onChange={(e) => setDraft(e.target.value.replace(/[^0-9.]/g, ""))}
+        onBlur={() => commit(draft)} onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+        style={{ width: 30, background: "transparent", border: "none", color: on ? A.cyan : A.textDim, fontSize: 11, fontWeight: 600, textAlign: "right", padding: "3px 0", outline: "none" }} />
+      <span style={{ color: on ? A.cyan : A.textMuted, fontSize: 11, padding: "0 7px 0 1px" }}>%</span>
+    </span>
+  );
+}
+
+function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, allowed, onLayer, keep }) {
   const profiles = useJson("/data/rvol_profiles.json");
   const base = useMemo(() => Object.values(stockMap || {}).map((x) => scanBase(x, etClock().session)).filter(Boolean)
-    .filter((b) => !allowed || allowed.has(b.t)), [stockMap, allowed]);
+    .filter((b) => (!allowed || allowed.has(b.t)) && (!keep || keep(b.t))), [stockMap, allowed, keep]);
   const { quotes, at } = useScanQuotes(base.map((b) => b.t), true);
   const [sort, setSort] = useState({ k: "fromOpen", d: -1 });
   const clock = etClock();
@@ -1303,15 +1325,15 @@ function extRows(snap, stockMap, tickerLayer, universeOnly) {
     .sort((a, b) => Math.abs(b.chg) - Math.abs(a.chg));
 }
 
-function ExtHoursMovers({ A, pipeline, stockMap, tickerLayer, onTicker, chartTicker, onLayer }) {
+function ExtHoursMovers({ A, pipeline, stockMap, tickerLayer, onTicker, chartTicker, onLayer, keep }) {
   const [uOnly, setUOnly] = useState(true);
   const today = etClock().today;
   const pmSnap = pipeline?.last_pm || (pipeline?.pm_sip_movers?.length || pipeline?.pm_earnings_movers?.length
     ? { session: null, earnings: pipeline.pm_earnings_movers, movers: pipeline.pm_sip_movers, top: pipeline.pm_top_movers } : null);
   const ahSnap = pipeline?.last_ah || (pipeline?.ah_sip_movers?.length || pipeline?.ah_earnings_movers?.length
     ? { session: null, earnings: pipeline.ah_earnings_movers, movers: pipeline.ah_sip_movers, top: pipeline.ah_top_movers } : null);
-  const pmRows = useMemo(() => extRows(pmSnap, stockMap, tickerLayer, uOnly), [pmSnap, stockMap, tickerLayer, uOnly]);
-  const ahRows = useMemo(() => extRows(ahSnap, stockMap, tickerLayer, uOnly), [ahSnap, stockMap, tickerLayer, uOnly]);
+  const pmRows = useMemo(() => extRows(pmSnap, stockMap, tickerLayer, uOnly).filter((r) => !keep || keep(r.t)), [pmSnap, stockMap, tickerLayer, uOnly, keep]);
+  const ahRows = useMemo(() => extRows(ahSnap, stockMap, tickerLayer, uOnly).filter((r) => !keep || keep(r.t)), [ahSnap, stockMap, tickerLayer, uOnly, keep]);
   const fmtVol = (v) => (v == null ? "—" : v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `${Math.round(v / 1e3)}K` : String(v));
   // Click-to-sort, shared by both tables. Default: biggest move either way.
   const [sort, setSort] = useState({ k: "absChg", d: -1 });
@@ -1493,11 +1515,11 @@ function FlagButton({ t, A }) {
   );
 }
 
-function FlaggedTab({ A, stockMap, tickerLayer, onTicker, chartTicker, onLayer }) {
+function FlaggedTab({ A, stockMap, tickerLayer, onTicker, chartTicker, onLayer, keep }) {
   const flags = useFlags();
   const profiles = useJson("/data/rvol_profiles.json");
   const [only, setOnly] = useState(null);
-  const tickers = Object.entries(flags).filter(([, v]) => v?.c).map(([t]) => t).sort();
+  const tickers = Object.entries(flags).filter(([, v]) => v?.c).map(([t]) => t).filter((t) => !keep || keep(t)).sort();
   const { quotes, at } = useScanQuotes(tickers, true);
   // default: grouped by flag colour; header clicks sort like the Intraday scan
   const [sort, setSort] = useState({ k: "flag", d: 1 });
@@ -2064,9 +2086,9 @@ function LiveBrief({ A, themes, layers, stockMap, tickerLayer, members, brk, pip
 // ── Layer members ─────────────────────────────────────────────────────────
 // Every stock in one layer, shown in the Stocks box when a layer row is
 // clicked. Same columns as the Scanner plus vs-50d; ★ = fastest EPS grower.
-function LayerMembers({ A, layer, tickers, stockMap, onTicker, chartTicker }) {
+function LayerMembers({ A, layer, tickers, stockMap, onTicker, chartTicker, keep }) {
   const [sort, setSort] = useState({ k: "rs", d: -1 });
-  const list = useMemo(() => tickers.filter((t) => stockMap[t]), [tickers, stockMap]);
+  const list = useMemo(() => tickers.filter((t) => stockMap[t] && (!keep || keep(t))), [tickers, stockMap, keep]);
   const { quotes, at } = useScanQuotes(list, true);
   const rows = useMemo(() => {
     const topEps = Math.max(-1, ...list.map((t) => stockMap[t]?.eps_rating ?? -1));
@@ -2479,6 +2501,9 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
   }, []);
   const [layerTab, setLayerTab] = useState("lead");
   const [hidePinned, setHidePinned] = useState(() => { try { return localStorage.getItem("tp_hide_pinned") !== "0"; } catch { return true; } });
+  // Stocks box ADR floor — every tab shows only names with 20-day ADR ≥ this (null = off)
+  const [adrMin, setAdrMinS] = useState(() => { try { const v = parseFloat(localStorage.getItem("tp_adr_min")); return v > 0 ? v : null; } catch { return null; } });
+  const setAdrMin = (v) => { const n = v > 0 ? v : null; setAdrMinS(n); try { localStorage.setItem("tp_adr_min", n ? String(n) : ""); } catch { /* ignore */ } };
   const togglePinned = () => setHidePinned((v) => { try { localStorage.setItem("tp_hide_pinned", v ? "0" : "1"); } catch { /* ignore */ } return !v; });
   const [stockTab, setStockTab] = useState("intra");
   const [expanded, setExpanded] = useState(null);   // layer shown in the Stocks box
@@ -2610,6 +2635,7 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
     }
     return out;
   }, [stockMap, tickerLayer, members]);
+  const keepAdr = useMemo(() => (adrMin ? (t) => ((stockMapX[t]?.adr20 ?? stockMapX[t]?.adr_pct) ?? -1) >= adrMin : null), [adrMin, stockMapX]);
 
   const stocks = useMemo(() => {
     const pm = seats?.persistMap || {};
@@ -2619,6 +2645,7 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
       if (!s?.ticker) return;
       if (allowed && !allowed.has(s.ticker)) return;
       if ((s.avg_dollar_vol_raw ?? 0) < 20e6) return;
+      if (keepAdr && !keepAdr(s.ticker)) return;
       const pin = pinReason(s);
       const L = tickerLayer[s.ticker];
       const row = {
@@ -2635,7 +2662,7 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
     lead.sort((a, b) => (b.inLead - a.inLead) || (b.rs - a.rs) || (b.off - a.off));
     brk.sort((a, b) => b.persist - a.persist || (a.rs ?? 0) - (b.rs ?? 0));
     return { lead: lead.slice(0, 60), brk: brk.slice(0, 60), pinned: pinned.sort() };
-  }, [stockMapX, seats, tickerLayer, theme, visLayers, hidePinned]);
+  }, [stockMapX, seats, tickerLayer, theme, visLayers, hidePinned, keepAdr]);
 
   const lookupHits = useMemo(() => {
     const q = lookupQ;
@@ -2847,6 +2874,7 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
                       style={{ background: "transparent", border: "none", color: A.textMuted, padding: "3px 7px 3px 3px", fontSize: 11, cursor: "pointer" }}>✕</button>
                   </span>
                 )}
+                <AdrFilter A={A} value={adrMin} onChange={setAdrMin} />
                 <Tabs A={A} value={stockTab} onChange={setStockTab} items={[
                 ["lead", "Leaders", stocks.lead.length, A.green],
                 ["brk", "Leaders breaking down", stocks.brk.length, A.red],
@@ -2856,13 +2884,13 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
               ]} /></div>}>
               {stockTab === "layer" && shownLayer
                 ? <LayerMembers A={A} layer={shownLayer} tickers={members[shownLayer.key] || (shownLayer.holds || []).map((h) => h.t)}
-                    stockMap={stockMapX} onTicker={onTickerClick} chartTicker={chartTicker} />
+                    stockMap={stockMapX} onTicker={onTickerClick} chartTicker={chartTicker} keep={keepAdr} />
                 : stockTab === "flag"
-                ? <FlaggedTab A={A} stockMap={stockMapX} tickerLayer={tickerLayer} onTicker={onTickerClick} chartTicker={chartTicker} onLayer={layerOfTicker} />
+                ? <FlaggedTab A={A} stockMap={stockMapX} tickerLayer={tickerLayer} onTicker={onTickerClick} chartTicker={chartTicker} onLayer={layerOfTicker} keep={keepAdr} />
                 : stockTab === "ext"
-                ? <ExtHoursMovers A={A} pipeline={pipeline} stockMap={stockMapX} tickerLayer={tickerLayer} onTicker={onTickerClick} chartTicker={chartTicker} onLayer={layerOfTicker} />
+                ? <ExtHoursMovers A={A} pipeline={pipeline} stockMap={stockMapX} tickerLayer={tickerLayer} onTicker={onTickerClick} chartTicker={chartTicker} onLayer={layerOfTicker} keep={keepAdr} />
                 : stockTab === "intra"
-                ? <IntradayScan A={A} stockMap={stockMapX} onTicker={onTickerClick} chartTicker={chartTicker} tickerLayer={tickerLayer} onLayer={layerOfTicker}
+                ? <IntradayScan A={A} stockMap={stockMapX} onTicker={onTickerClick} chartTicker={chartTicker} tickerLayer={tickerLayer} onLayer={layerOfTicker} keep={keepAdr}
                     allowed={theme ? new Set(visLayers.flatMap((l) => members[l.key] || (l.holds || []).map((h) => h.t))) : null} />
                 : <StockTable rows={stocks[stockTab]} A={A} onTicker={onTickerClick} chartTicker={chartTicker} mode={stockTab} onLayer={layerOfTicker} />}
             </Card>
