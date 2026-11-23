@@ -259,6 +259,18 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
   const openLayer = (l) => {
     setTheme(null); setLayerTab(l.st); showLayer(l, false);
   };
+  const openLayerEvtRef = useRef(null);
+  openLayerEvtRef.current = ({ themeId, layer }) => {
+    const key = `${themeId}|${layer}`;
+    const match = layers.find((l) => l.key === key);
+    if (match) openLayer(match);
+    else if (themeId) showTheme(themeId);
+  };
+  useEffect(() => {
+    const onOpenLayer = (e) => { if (e?.detail) openLayerEvtRef.current?.(e.detail); };
+    window.addEventListener("tp-open-layer", onOpenLayer);
+    return () => window.removeEventListener("tp-open-layer", onOpenLayer);
+  }, []);
   const [themeLayer, setThemeLayer] = useState(null);   // a whole theme shown like a layer
   const shownLayer = expanded ? (layers.find((l) => l.key === expanded) || (themeLayer?.key === expanded ? themeLayer : null)) : null;
   const showTheme = (themeId) => {

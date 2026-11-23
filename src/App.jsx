@@ -2095,8 +2095,8 @@ function ChartPanelInline({
           style={{ width: 20, height: 20, borderRadius: 4, background: "#ffffff", objectFit: "contain", padding: 1.5, flexShrink: 0 }} />
         <span style={{ fontSize: 12, fontWeight: 800, color: ARIA.text, flexShrink: 0 }}>{ticker}</span>
         {tickerLayers.length > 0 ? (
-          <span onClick={() => { try { window.dispatchEvent(new CustomEvent("tp-open-drawer", { detail: tickerLayers[0].themeId })); } catch {} }}
-            title={`${tickerLayers[0].theme} — click to open value-chain drawer${tickerLayers.length > 1 ? ` (+${tickerLayers.length - 1} more layer${tickerLayers.length - 1 > 1 ? "s" : ""})` : ""}`}
+          <span onClick={() => { try { window.dispatchEvent(new CustomEvent("tp-open-layer", { detail: { themeId: tickerLayers[0].themeId, layer: tickerLayers[0].layer } })); } catch {} }}
+            title={`${tickerLayers[0].theme} — click to view layer members${tickerLayers.length > 1 ? ` (+${tickerLayers.length - 1} more layer${tickerLayers.length - 1 > 1 ? "s" : ""})` : ""}`}
             style={{ fontSize: 8, fontWeight: 700, padding: "1px 7px", borderRadius: 4, background: "rgba(251,191,36,0.12)", border: "1px solid #a07a1f", color: "#fbbf24", textTransform: "uppercase", letterSpacing: 0.4, cursor: "pointer", flexShrink: 0 }}>
             {tickerLayers[0].theme} • {tickerLayers[0].layer}{tickerLayers.length > 1 ? ` +${tickerLayers.length - 1}` : ""}
           </span>
@@ -2742,33 +2742,6 @@ if (typeof document !== "undefined" && !document.getElementById("tp-visual-css")
   document.head.appendChild(st);
 }
 
-// Click-popover for the 📰 catalyst glyphs — native title tooltips on a 7px
-// glyph are unusable. Glyphs dispatch "tp-news-pop"; any outside click/scroll
-// dismisses (glyph clicks stopPropagation, so they don't self-dismiss).
-function NewsPopover({ ARIA }) {
-  const [pop, setPop] = useState(null);
-  useEffect(() => {
-    const on = (e) => setPop(e.detail);
-    const off = () => setPop(null);
-    window.addEventListener("tp-news-pop", on);
-    window.addEventListener("click", off);
-    window.addEventListener("scroll", off, true);
-    return () => { window.removeEventListener("tp-news-pop", on); window.removeEventListener("click", off); window.removeEventListener("scroll", off, true); };
-  }, []);
-  if (!pop) return null;
-  const W = 340;
-  const left = Math.min(pop.x + 8, (window.innerWidth || 1200) - W - 12);
-  const top = Math.min(pop.y + 8, (window.innerHeight || 800) - 160);
-  return (
-    <div onClick={(e) => e.stopPropagation()} style={{ position: "fixed", left, top, width: W, zIndex: 80, background: ARIA.bgCard, border: `1px solid ${ARIA.borderLight}`, borderRadius: 8, boxShadow: ARIA.shadow, padding: "8px 10px", fontFamily: "monospace", backdropFilter: "blur(14px)" }}>
-      <div style={{ fontSize: 9, fontWeight: 800, color: ARIA.text, marginBottom: 4 }}>📰 {pop.ticker}</div>
-      {(pop.items || []).map((h, i) => (
-        <div key={i} style={{ fontSize: 9, color: ARIA.textDim, lineHeight: 1.45, padding: "3px 0", borderBottom: i < pop.items.length - 1 ? `1px solid ${ARIA.border}` : "none" }}>{h}</div>
-      ))}
-    </div>
-  );
-}
-
 // ──────────────────────────────────────────────────────────────────────────
 // WheelView — cash-secured put / covered call screener for the wheel.
 //
@@ -2981,7 +2954,6 @@ function AppMain() {
       }}
     >
       <AlertsBell alerts={tradeAlerts} onTicker={handleTickerClick} ARIA={ARIA} />
-      <NewsPopover ARIA={ARIA} />
       {/* Topbar */}
       <div
         className="tp-topbar"

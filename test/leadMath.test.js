@@ -1,0 +1,195 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {
+  rankHeld,
+  rankTrend,
+  classify,
+  layerStats,
+  layerConfirm,
+  layerFlags,
+  ema,
+  sma,
+  expectedVolAt,
+  zvrFor,
+  pinReason,
+  rsLeads,
+  computeTiers,
+  epsGrowth,
+  withEpsRating,
+  rsScore,
+  layerRanksFrom,
+} from "../src/lead/math.js";
+
+test("rankHeld counts sessions at or above threshold in trailing window", () => {
+  const hist = [70, 82, 85, null, 79, 90];
+  assert.deepEqual(rankHeld(hist, 20, 80), { held: 3, of: 5 });
+  assert.deepEqual(rankHeld(hist, 2, 80), { held: 1, of: 2 });
+});
+
+test("rankTrend computes least-squares slope and up-session counts", () => {
+  const rising = [50, 52, 54, 56, 58, 60];
+  const tr = rankTrend(rising);
+  assert.equal(tr.slope, 2);
+  assert.equal(tr.ups, 5);
+  assert.equal(tr.of, 5);
+
+  const short = [50, 55];
+  assert.equal(rankTrend(short).slope, null);
+});
+
+test("classify distinguishes lead, brk, weak, emerg, and lag states", () => {
+  // Leading: now >= 88 and w1 >= 80
+  assert.equal(classify({ now: 92, w1: 85, m1: 75 }, [75, 85, 92]).st, "lead");
+  // Breaking down: peak >= 88 within lookback, now < 60
+  assert.equal(classify({ now: 52, w1: 70, m1: 90 }, [91, 80, 70, 52]).st, "brk");
+  // Weakening: peak >= 88, now < 88 and <= peak - 10
+  assert.equal(classify({ now: 75, w1: 85, m1: 90 }, [92, 88, 85, 75]).st, "weak");
+  // Emerging: now >= 70, +20 vs m1, climbing steadily (6+ ups of 10, slope > 0)
+  const climb = [45, 48, 51, 54, 57, 60, 63, 66, 69, 72, 75];
+  assert.equal(classify({ now: 75, w1: 63, m1: 45 }, climb).st, "emerg");
+  // Lagging
+  assert.equal(classify({ now: 40, w1: 42, m1: 45 }, [45, 42, 40]).st, "lag");
+});
+
+test("layerStats computes breadth percentages and medians", () => {
+  const map = {
+    A: { sma50_pct: 5, rs_rank: 95, nh20: 1, udv20: 1.5, dvol_ratio_5_20: 1.2 },
+    B: { sma50_pct: -2, rs_rank: 70, nh20: 0, udv20: 0.9, dvol_ratio_5_20: 0.8 },
+    C: { sma50_pct: 10, rs_rank: 85, nh20: 1, udv20: 1.2, dvol_ratio_5_20: 1.1 },
+  };
+  assert.deepEqual(layerStats(["A", "B", "C", "MISSING"], map), {
+    n: 3,
+    a50: 67,
+    rs80: 67,
+    nh: 67,
+    udv: 1.2,
+    dv: 1.1,
+    rsMed: 85,
+  });
+  assert.equal(layerStats(["MISSING"], map), null);
+});
+
+test("layerConfirm and layerFlags detect confirmation and distribution", () => {
+  const confirmed = layerConfirm({
+    acc: [1, 4],
+    dist: [1, 1],
+    dvs: [1.0, 1.3],
+    l90: [1, 1, 1, 2, 2, 4],
+    lx: [0, 0],
+    lx_t: [],
+  });
+  assert.deepEqual(confirmed.passed, ["acc", "money", "leaders"]);
+  assert.equal(confirmed.distHeavy, false);
+
+  const flags = layerFlags({
+    st: "emerg",
+    now: 78,
+    m1: 50,
+    stats: { n: 5, udv: 1.2 },
+    held: { held: 2, of: 20 },
+    conf: confirmed,
+  });
+  assert.ok(flags.some(([k]) => k === "confirmed"));
+
+  const dist = layerConfirm({ acc: [1], dist: [4], dvs: [0.9], l90: [2], lx: [2], lx_t: ["NVDA", "AVGO"] });
+  assert.equal(dist.distHeavy, true);
+  const dFlags = layerFlags({ st: "lead", now: 90, m1: 88, stats: { n: 5 }, held: { held: 15, of: 20 }, conf: dist });
+  assert.ok(dFlags.some(([k]) => k === "distrib"));
+  assert.ok(dFlags.some(([k]) => k === "exiting"));
+});
+
+test("ema and sma compute expected values with warmup nulls", () => {
+  assert.deepEqual(sma([10, 20, 30, 40], 3), [null, null, 20, 30]);
+  const e = ema([10, 10, 10, 10], 3);
+  assert.deepEqual(e, [null, null, 10, 10]);
+});
+
+test("expectedVolAt interpolates 5-minute profile and zvrFor scales by session", () => {
+  const profile = Array.from({ length: 78 }, (_, i) => (i + 1) * 10000);
+  assert.equal(expectedVolAt(profile, 5), 10000);
+  assert.equal(expectedVolAt(profile, 7.5), 15000);
+  assert.equal(expectedVolAt(profile, null), null);
+
+  // Off-hours Saturday ET: full-day volume / avg_vol_10d
+  const sat = new Date("2026-11-21T18:00:00Z");
+  const z = zvrFor({ ticker: "NVDA", avg_vol_10d: 1000000 }, { volume: 2500000 }, null, sat);
+  assert.equal(z, 2.5);
+});
+
+test("pinReason, rsLeads, and computeTiers classify leaders and emerging stocks", () => {
+  assert.ok(pinReason({ adr20: 0.5 }));
+  assert.ok(pinReason({ adr20: 3.0, adr5: 1.0, adr_pct: 4.0, off_52w_high: -1.0 }));
+  assert.equal(pinReason({ adr20: 4.5, adr5: 4.2, adr_pct: 4.5, off_52w_high: -3.0 }), null);
+
+  assert.ok(rsLeads({ rsl_hi_ago: 0, off_52w_high: -8, change_pct: 1.5 }));
+  assert.equal(rsLeads({ rsl_hi_ago: 0, off_52w_high: -8, change_pct: -0.5 }), null);
+
+  const stockMap = {
+    LEAD1: { ticker: "LEAD1", avg_dollar_vol_raw: 50e6, above_50ma: true, rs_rank: 95, off_52w_high: -5, adr20: 4 },
+    PIN1: { ticker: "PIN1", avg_dollar_vol_raw: 50e6, above_50ma: true, rs_rank: 95, off_52w_high: -1, adr20: 0.4 },
+    EMRG1: { ticker: "EMRG1", avg_dollar_vol_raw: 50e6, above_50ma: true, rs_rank: 82, off_52w_high: -4, adr20: 4 },
+    ILLIQ: { ticker: "ILLIQ", avg_dollar_vol_raw: 5e6, above_50ma: true, rs_rank: 99, off_52w_high: -2, adr20: 4 },
+  };
+  const tiers = computeTiers(stockMap, { EMRG1: { st: "lead" } });
+  assert.equal(tiers.leaders.has("LEAD1"), true);
+  assert.equal(tiers.leaders.has("PIN1"), false);
+  assert.equal(tiers.leaders.has("ILLIQ"), false);
+  assert.equal(tiers.emerging.has("EMRG1"), true);
+});
+
+test("epsGrowth and withEpsRating rank faster growers higher and flag acceleration", () => {
+  assert.equal(epsGrowth(-0.5, 1.0), -100);
+  assert.equal(epsGrowth(0.5, -0.5), 100);
+  assert.equal(epsGrowth(10, 1), 200); // capped at +200
+
+  const stockMap = {
+    FAST: {
+      ticker: "FAST",
+      quarters: [
+        { report_date: "2026-09-30", eps: 2.0, eps_yoy: 90 },
+        { report_date: "2026-06-30", eps: 1.5, eps_yoy: 60 },
+        { report_date: "2026-03-31", eps: 1.2, eps_yoy: 30 },
+      ],
+      annual: [
+        { year: 2025, eps: 6.0 },
+        { year: 2024, eps: 4.0 },
+        { year: 2023, eps: 2.5 },
+        { year: 2022, eps: 1.5 },
+      ],
+    },
+    SLOW: {
+      ticker: "SLOW",
+      quarters: [
+        { report_date: "2026-09-30", eps: 1.0, eps_yoy: 5 },
+        { report_date: "2026-06-30", eps: 1.0, eps_yoy: 4 },
+      ],
+      annual: [
+        { year: 2025, eps: 4.0 },
+        { year: 2024, eps: 4.1 },
+      ],
+    },
+  };
+  const rated = withEpsRating(stockMap);
+  assert.ok(rated.FAST.eps_rating > rated.SLOW.eps_rating);
+  assert.equal(rated.FAST.eps_accel, true);
+  assert.equal(rated.SLOW.eps_accel, false);
+});
+
+test("rsScore and layerRanksFrom rank layers monotonically with shrinkage", () => {
+  const score = rsScore({ return_1m: 10, return_3m: 20, return_6m: 30, return_1y: 40 }, 1);
+  assert.ok(Math.abs(score - 22) < 1e-9);
+  const stockMap = {
+    A1: { rs_score_live: 50 },
+    A2: { rs_score_live: 60 },
+    B1: { rs_score_live: -10 },
+    B2: { rs_score_live: -20 },
+  };
+  const ranks = layerRanksFrom(
+    ["t|High", "t|Low"],
+    { "t|High": ["A1", "A2"], "t|Low": ["B1", "B2"] },
+    stockMap,
+    "rs_score_live"
+  );
+  assert.equal(ranks["t|High"], 100);
+  assert.equal(ranks["t|Low"], 0);
+});
