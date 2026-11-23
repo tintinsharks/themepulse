@@ -805,6 +805,9 @@ function IndexSpark({ s, A, color, w = 120, h = 30 }) {
 }
 
 function IndexPanel({ A, liveQuotes, onTicker, chartTicker, bars }) {
+  // Open by default; collapsing leaves a one-line strip of day change + trend.
+  const [open, setOpen] = useState(() => { try { return localStorage.getItem("tp_indexes_open") !== "0"; } catch { return true; } });
+  const toggle = () => setOpen((v) => { try { localStorage.setItem("tp_indexes_open", v ? "0" : "1"); } catch { /* ignore */ } return !v; });
   const rows = LEAD_INDEXES.map((x) => ({ ...x, s: indexStats(bars[x.t], liveQuotes?.get?.(x.t)) }));
   const ready = rows.filter((r) => r.s);
   const toneC = (t) => ({ green: A.green, yellow: A.yellow, orange: "#fb923c", red: A.red }[t] || A.textDim);
@@ -813,11 +816,19 @@ function IndexPanel({ A, liveQuotes, onTicker, chartTicker, bars }) {
   const pc = (v) => ({ color: v == null ? A.textMuted : v >= 0 ? A.green : A.red });
   const asOf = ready.find((r) => r.s.asOf)?.s.asOf;
   return (
-    <Card A={A} title="Major indexes"
-      sub={ready.length
+    <Card A={A} title={<span onClick={toggle} style={{ cursor: "pointer" }}>{open ? "▾" : "▸"} Major indexes</span>}
+      sub={!ready.length ? "Loading index data…" : open
         ? `${up} of ${ready.length} in an uptrend (above a rising 21e > 50d > 200d) · ${asOf === "live" ? "live" : `as of ${asOf}`} · line = price, blue = 21e, dashed = 50d`
-        : "Loading index data…"}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(215px, 1fr))", gap: 8 }}>
+        : <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 10 }}>
+            {ready.map(({ t, s }) => (
+              <span key={t} onClick={() => onTicker(t)} title={`${t} · ${s.trend}`} style={{ cursor: "pointer", whiteSpace: "nowrap" }}>
+                <b style={{ color: chartTicker === t ? A.green : A.text }}>{t}</b> <span style={pc(s.day)}>{fmt(s.day, 2)}</span>
+                <span style={{ color: toneC(s.tone), fontSize: 10 }}> {s.trend}</span>
+              </span>
+            ))}
+          </span>}
+      right={<button onClick={toggle} style={{ background: "transparent", border: `1px solid ${A.border}`, color: A.textMuted, borderRadius: 4, padding: "2px 8px", fontSize: 11, cursor: "pointer" }}>{open ? "Hide" : "Show"}</button>}>
+      {open && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(215px, 1fr))", gap: 8 }}>
         {rows.map(({ t, name, s }) => {
           const on = chartTicker === t;
           const col = s ? toneC(s.tone) : A.textMuted;
@@ -864,7 +875,7 @@ function IndexPanel({ A, liveQuotes, onTicker, chartTicker, bars }) {
             </button>
           );
         })}
-      </div>
+      </div>}
     </Card>
   );
 }
@@ -2688,7 +2699,10 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
           </div>
         </div>
 
-        {/* Major indexes sit right under the header strip / market gate */}
+        {/* What changed today, then Major indexes, right under the header strip / market gate */}
+        <ChangesPanel A={A} layers={layers} themes={themes} bars={idxBars} liveQuotes={indexQuotes} date={rot?.date}
+          onTicker={onTickerClick} onLayer={(l) => { setTheme(l.themeId); setLayerTab(l.st); showLayer(l); }}
+          onTheme={(id) => setTheme(id)} />
         <IndexPanel A={A} liveQuotes={indexQuotes} onTicker={onTickerClick} chartTicker={chartTicker} bars={idxBars} />
 
         {loading ? (
@@ -2773,9 +2787,6 @@ export default function LeadershipView({ ARIA: A, stockMap: stockMapIn, onTicker
             </Card>
             </div>
 
-            <ChangesPanel A={A} layers={layers} themes={themes} bars={idxBars} liveQuotes={indexQuotes} date={rot?.date}
-              onTicker={onTickerClick} onLayer={(l) => { setTheme(l.themeId); setLayerTab(l.st); showLayer(l); }}
-              onTheme={(id) => setTheme(id)} />
 
             {/* Themes and Layers side by side. The Rotation tab's charts need
                 the full width, so the pair stacks while it is open; narrow
