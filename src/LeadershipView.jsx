@@ -508,9 +508,9 @@ function LayerTable({ rows: rowsIn, A, onTicker, chartTicker, stockMap, showPeak
   );
   if (!rows.length) return <div style={{ fontSize: 11, color: A.textMuted, padding: "6px 2px" }}>None.</div>;
   return (
-    <div style={{ overflowX: "auto" }}>
+    <div style={{ overflowX: "auto", maxHeight: 640, overflowY: "auto" }}>
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead>
+        <thead style={{ position: "sticky", top: 0, background: A.bg, zIndex: 1 }}>
           <tr>
             {sh("name", "Layer", "left")}
             {sh("rank", "Rank", "right", "Layer RS rank among all layers (0–100)")}
