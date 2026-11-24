@@ -14,7 +14,7 @@
 // NEGATIVE, so it is shown but labelled unproven, never mixed in with leaders.
 // ──────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useMemo, useRef, useState, Suspense } from "react";
-import { AdrFilter, Card, ChangesPanel, Delta, ExtHoursMovers, FlaggedTab, IndexPanel, IntradayScan, LEAD, LEAD_INDEXES, LayerMembers, LayerTable, MarketGate, PEAK_LOOKBACK, PIN_ADR, SPARK_N, STATUS, StockTable, Tabs, ThemeBoard, TierCtx, WatchlistPortfolioTab, classify, computeTiers, layerConfirm, layerRanksFrom, layerStats, pinReason, rankHeld, rankTrend, rsLeads, statusColor, td, th, useIndexBars, useJson, useLiveRS, withEpsRating } from "./lead/core.jsx";
+import { AdrFilter, Card, ChangesPanel, Delta, ExtHoursMovers, FlaggedTab, IntradayScan, LEAD, LEAD_INDEXES, LayerMembers, LayerTable, MarketGate, PEAK_LOOKBACK, PIN_ADR, SPARK_N, STATUS, StockTable, Tabs, ThemeBoard, TierCtx, WatchlistPortfolioTab, classify, computeTiers, layerConfirm, layerRanksFrom, layerStats, pinReason, rankHeld, rankTrend, rsLeads, statusColor, td, th, useIndexBars, useJson, useLiveRS, withEpsRating } from "./lead/core.jsx";
 import MarketBreadthCard from "./components/MarketBreadthCard.jsx";
 export { LEAD_INDEXES, zvrFor, useRvolProfiles, useJson, TierMark, computeTiers } from "./lead/core.jsx";
 function lazyWithReload(load) {
@@ -378,7 +378,7 @@ export default function LeadershipView({
           )}
           {view === "brief"
             ? <BriefPanel A={A} themes={themes} layers={layers} stockMap={stockMapX} tickerLayer={tickerLayer} tiers={tiers} members={members}
-                breadth={breadth} monitor={monitor}
+                breadth={breadth} monitor={monitor} indexQuotes={indexQuotes} idxBars={idxBars}
                 portfolio={portfolio} setPortfolio={setPortfolio} watchlist={watchlist} setWatchlist={setWatchlist}
                 brk={stocks.brk} pipeline={pipeline} dates={dates} theme={theme} lb={layerBreadth}
                 onTicker={onTickerClick} chartTicker={chartTicker} onLayer={(l) => showLayer(l)} onTheme={showTheme} layerOfTicker={layerOfTicker} />
@@ -420,11 +420,10 @@ export default function LeadershipView({
           </div>
         </div>
 
-        {/* What changed today, then Major indexes, right under the header strip / market gate */}
+        {/* What changed today, right under the header strip / market gate */}
         <ChangesPanel A={A} layers={layers} themes={themes} bars={idxBars} liveQuotes={indexQuotes} date={rot?.date}
           onTicker={onTickerClick} onLayer={(l) => { setTheme(l.themeId); setLayerTab(l.st); showLayer(l); }}
           onTheme={(id) => setTheme(id)} />
-        <IndexPanel A={A} liveQuotes={indexQuotes} onTicker={onTickerClick} chartTicker={chartTicker} bars={idxBars} />
         <MarketBreadthCard
           A={A}
           stockMap={stockMapX}
