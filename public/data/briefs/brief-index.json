@@ -1,6 +1,14 @@
 {
-  "latest": "brief-2026-11-24-intraday-1306.json",
+  "latest": "brief-2026-11-24-pm.json",
   "briefs": [
+    {
+      "id": "brief-2026-11-24-pm",
+      "date": "2026-11-24",
+      "session": "pm",
+      "label": "ThemePulse Postmarket Brief — 2026-11-24",
+      "file": "brief-2026-11-24-pm.json",
+      "regime": "Market Update"
+    },
     {
       "id": "brief-2026-11-24-intraday-1306",
       "date": "2026-11-24",
