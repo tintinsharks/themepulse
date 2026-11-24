@@ -1,0 +1,74 @@
+{
+ "OSPN": {
+  "entered": "2026-11-24",
+  "px": 22.91,
+  "layer": "Threat Operations",
+  "peak": 22.91,
+  "last_seen": "2026-11-24",
+  "ondeck": false
+ },
+ "TENB": {
+  "entered": "2026-11-24",
+  "px": 45.81,
+  "layer": "Threat Operations",
+  "peak": 45.81,
+  "last_seen": "2026-11-24",
+  "ondeck": false
+ },
+ "CDNA": {
+  "entered": "2026-11-24",
+  "px": 75.75,
+  "layer": "Diagnostics",
+  "peak": 75.75,
+  "last_seen": "2026-11-24",
+  "ondeck": false
+ },
+ "TWST": {
+  "entered": "2026-11-24",
+  "px": 111.35,
+  "layer": "Diagnostics",
+  "peak": 111.35,
+  "last_seen": "2026-11-24",
+  "ondeck": false
+ },
+ "MRNA": {
+  "entered": "2026-11-24",
+  "px": 212.08,
+  "layer": "Oncology",
+  "peak": 212.08,
+  "last_seen": "2026-11-24",
+  "ondeck": false
+ },
+ "TGTX": {
+  "entered": "2026-11-24",
+  "px": 63.99,
+  "layer": "Oncology",
+  "peak": 63.99,
+  "last_seen": "2026-11-24",
+  "ondeck": false
+ },
+ "OKTA": {
+  "entered": "2026-11-24",
+  "px": 206.28,
+  "layer": "Platform + Endpoint",
+  "peak": 206.28,
+  "last_seen": "2026-11-24",
+  "ondeck": false
+ },
+ "AMRX": {
+  "entered": "2026-11-24",
+  "px": 21.9,
+  "layer": "Specialty Pharma",
+  "peak": 21.9,
+  "last_seen": "2026-11-24",
+  "ondeck": false
+ },
+ "BHC": {
+  "entered": "2026-11-24",
+  "px": 8.33,
+  "layer": "Specialty Pharma",
+  "peak": 8.33,
+  "last_seen": "2026-11-24",
+  "ondeck": false
+ }
+}

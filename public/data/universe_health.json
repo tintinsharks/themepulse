@@ -1,7 +1,7 @@
 {
- "generated": "2026-11-23T01:58",
- "universe": 2993,
- "in_layer": 2426,
+ "generated": "2026-11-24T00:35",
+ "universe": 2992,
+ "in_layer": 2432,
  "layers": 161,
  "checks": [
   {
@@ -88,8 +88,8 @@
     "JCPB",
     "JMUB",
     "MMED",
-    "BKH",
     "BSP",
+    "BKH",
     "MSGS"
    ],
    "status": "warn",
@@ -121,9 +121,10 @@
   },
   {
    "id": "stale_prices",
-   "label": "Liquid names whose price history is behind 2026-11-20",
-   "count": 9,
+   "label": "Liquid names whose price history is behind 2026-11-23",
+   "count": 12,
    "items": [
+    "BIPC",
     "BKH",
     "ENVX",
     "ITGR",
@@ -132,9 +133,11 @@
     "PCRX",
     "PEPG",
     "RCAT",
-    "UTZ"
+    "TCBI",
+    "UTZ",
+    "WYFI"
    ],
-   "status": "ok",
+   "status": "warn",
    "note": ""
   }
  ]
