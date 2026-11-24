@@ -1615,7 +1615,7 @@ export default function MarketBreadthCard({
 }) {
   const [cardTab, setCardTab] = useState("breadth"); // "breadth" | "themes" | "layers"
   const [selThemeId, setSelThemeId] = useState(null);
-  const [layerTab, setLayerTab] = useState("lead"); // "lead" | "weak" | "brk" | "emerg" | "lag"
+  const [layerTab, setLayerTab] = useState("all"); // "all" | "lead" | "weak" | "brk" | "emerg" | "lag"
   const [slide, setSlide] = useState(0); // 0 = Breadth + Stage Analysis (Deepvue view), 1 = MA Breadth + 4% Movers
   const [openChart, setOpenChart] = useState(null); // null | "nhnl" | "ad" | "stage" | "p20" | "p50" | "p200" | "mcclellan"
   const [adMode, setAdMode] = useState("daily"); // "daily" | "cum"
@@ -1851,7 +1851,7 @@ export default function MarketBreadthCard({
     [layers, selThemeId]
   );
   const layerBuckets = useMemo(() => {
-    const b = { lead: [], weak: [], brk: [], emerg: [], lag: [] };
+    const b = { all: [...visLayers].sort((x, y) => (y.now ?? -1) - (x.now ?? -1)), lead: [], weak: [], brk: [], emerg: [], lag: [] };
     for (const l of visLayers) {
       if (b[l.st]) b[l.st].push(l);
     }
@@ -1861,10 +1861,11 @@ export default function MarketBreadthCard({
   const pickTheme = (id) => {
     setSelThemeId(id);
     if (id) {
-      const subset = (layers || []).filter((l) => l.themeId === id);
-      if (subset.length && !subset.some((l) => l.st === layerTab)) {
-        const first = ["lead", "emerg", "weak", "brk", "lag"].find((k) => subset.some((l) => l.st === k));
-        if (first) setLayerTab(first);
+      if (layerTab !== "all") {
+        const subset = (layers || []).filter((l) => l.themeId === id);
+        if (subset.length && !subset.some((l) => l.st === layerTab)) {
+          setLayerTab("all");
+        }
       }
       setCardTab("layers");
     }
@@ -2041,6 +2042,7 @@ export default function MarketBreadthCard({
                 value={layerTab}
                 onChange={setLayerTab}
                 items={[
+                  ["all", "All", layerBuckets.all.length, A.text],
                   ["lead", "Leading", layerBuckets.lead.length, A.green],
                   ["weak", "Weakening", layerBuckets.weak.length, A.yellow],
                   ["brk", "Breaking down", layerBuckets.brk.length, A.red],
@@ -2071,7 +2073,7 @@ export default function MarketBreadthCard({
               )}
             </div>
             <div style={{ fontSize: 10, color: A.textMuted, marginBottom: 6 }}>
-              {STATUS[layerTab]?.hint}
+              {layerTab === "all" ? "All layers ranked by RS score · click any layer to open its members" : STATUS[layerTab]?.hint}
             </div>
             <div style={{ maxHeight: 460, overflowY: "auto", overflowX: "auto" }}>
               <LayerTable
