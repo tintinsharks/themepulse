@@ -1471,8 +1471,9 @@ export default function ZangerBriefSection({
                         title={layerTip}
                         style={{
                           display: "inline-flex",
-                          alignItems: "center",
-                          gap: 5,
+                          flexDirection: "column",
+                          alignItems: "flex-start",
+                          gap: 1,
                           background: "transparent",
                           border: "none",
                           padding: 0,
@@ -1481,24 +1482,32 @@ export default function ZangerBriefSection({
                           color: A.textDim,
                           cursor: onLayer ? "pointer" : "default",
                           textAlign: "left",
+                          maxWidth: 150,
                         }}
                       >
-                        <span
-                          style={{
-                            width: 6,
-                            height: 6,
-                            borderRadius: 3,
-                            background: dotColor,
-                            flexShrink: 0,
-                            display: "inline-block",
-                          }}
-                        />
-                        <span>
-                          <strong style={{ color: A.text }}>{m.theme}</strong> · {m.layer}
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, maxWidth: "100%" }}>
+                          <span
+                            style={{
+                              width: 6,
+                              height: 6,
+                              borderRadius: 3,
+                              background: dotColor,
+                              flexShrink: 0,
+                              display: "inline-block",
+                            }}
+                          />
+                          <strong style={{ color: A.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {m.theme}
+                          </strong>
+                          {hasLayerWarn && (
+                            <span style={{ color: "#f59e0b", fontSize: 11, lineHeight: 1, flexShrink: 0 }} aria-label="Layer warning">
+                              ⚠
+                            </span>
+                          )}
                         </span>
-                        {hasLayerWarn && (
-                          <span style={{ color: "#f59e0b", fontSize: 11, lineHeight: 1 }} aria-label="Layer warning">
-                            ⚠
+                        {m.layer && (
+                          <span style={{ fontSize: 10, color: A.textMuted, paddingLeft: 11, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {m.layer}
                           </span>
                         )}
                       </button>
