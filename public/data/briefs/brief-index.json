@@ -1,6 +1,14 @@
 {
-  "latest": "brief-2026-11-24-am.json",
+  "latest": "brief-2026-11-24-intraday-0715.json",
   "briefs": [
+    {
+      "id": "brief-2026-11-24-intraday-0715",
+      "date": "2026-11-24",
+      "session": "intraday",
+      "label": "Intraday Brief — Tue Nov 24, 2026 (7:15 AM PT)",
+      "file": "brief-2026-11-24-intraday-0715.json",
+      "regime": "Market Update"
+    },
     {
       "id": "brief-2026-11-24-am",
       "date": "2026-11-24",
