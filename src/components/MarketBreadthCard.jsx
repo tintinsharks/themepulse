@@ -1607,7 +1607,6 @@ export default function MarketBreadthCard({
   breadth,
   monitor,
   indexQuotes,
-  macroPills = [],
   onTicker,
   chartTicker,
   tickerLayer,
@@ -2019,43 +2018,6 @@ export default function MarketBreadthCard({
                   {sig.label} · {dateLbl}
                 </button>
               </BreadthTagTip>
-            );
-          })}
-          {macroPills.length > 0 && macroPills.map((p) => {
-            const active = chartTicker === p.chartTicker;
-            const chgColor = p.change == null ? A.textMuted : p.change >= 0 ? A.green : A.red;
-            const pxStr = p.price == null
-              ? null
-              : p.price >= 1000
-                ? Math.round(p.price).toLocaleString()
-                : p.price.toFixed(2);
-            const chgStr = p.change != null ? `${p.change > 0 ? "+" : ""}${p.change.toFixed(1)}%` : "—";
-            return (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => onTicker && onTicker(p.chartTicker)}
-                title={p.tip}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 4,
-                  fontSize: 10,
-                  fontFamily: "monospace",
-                  fontVariantNumeric: "tabular-nums",
-                  padding: "2px 7px",
-                  borderRadius: 6,
-                  background: active ? `${p.accent}22` : A.bg,
-                  border: `1px solid ${active ? p.accent : A.border}`,
-                  color: A.text,
-                  cursor: onTicker ? "pointer" : "default",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                <span style={{ color: p.accent, fontWeight: 800 }}>{p.label}</span>
-                {pxStr && <span style={{ color: A.textDim }}>{pxStr}</span>}
-                <span style={{ color: chgColor, fontWeight: 700 }}>{chgStr}</span>
-              </button>
             );
           })}
         </div>

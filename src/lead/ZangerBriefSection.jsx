@@ -538,7 +538,6 @@ export default function ZangerBriefSection({
       breadth={breadth}
       monitor={monitor}
       indexQuotes={indexQuotes}
-      macroPills={macroPills}
       onTicker={onTicker}
       chartTicker={chartTicker}
       tickerLayer={tickerLayer}
@@ -905,6 +904,49 @@ export default function ZangerBriefSection({
                 );
               })}
             </div>
+          </div>
+        )}
+
+        {/* Macro Cross-Asset Pills (DXY, BTC, GOLD) right under Major Index cards */}
+        {macroPills.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, marginBottom: 8 }}>
+            {macroPills.map((p) => {
+              const active = chartTicker === p.chartTicker;
+              const chgColor = p.change == null ? A.textMuted : p.change >= 0 ? A.green : A.red;
+              const pxStr = p.price == null
+                ? null
+                : p.price >= 1000
+                  ? Math.round(p.price).toLocaleString()
+                  : p.price.toFixed(2);
+              const chgStr = p.change != null ? `${p.change > 0 ? "+" : ""}${p.change.toFixed(2)}%` : "—";
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => onTicker && onTicker(p.chartTicker)}
+                  title={p.tip}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    fontSize: 11,
+                    fontFamily: "monospace",
+                    fontVariantNumeric: "tabular-nums",
+                    padding: "4px 10px",
+                    borderRadius: 6,
+                    background: active ? `${p.accent}22` : A.bg,
+                    border: `1px solid ${active ? p.accent : A.border}`,
+                    color: A.text,
+                    cursor: onTicker ? "pointer" : "default",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  <span style={{ color: p.accent, fontWeight: 800 }}>{p.label}</span>
+                  {pxStr && <span style={{ color: A.textDim, fontWeight: 600 }}>{pxStr}</span>}
+                  <span style={{ color: chgColor, fontWeight: 700 }}>{chgStr}</span>
+                </button>
+              );
+            })}
           </div>
         )}
 
