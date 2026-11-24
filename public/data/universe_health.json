@@ -1,6 +1,6 @@
 {
- "generated": "2026-11-24T00:35",
- "universe": 2992,
+ "generated": "2026-11-24T12:25",
+ "universe": 2993,
  "in_layer": 2432,
  "layers": 161,
  "checks": [
@@ -122,7 +122,7 @@
   {
    "id": "stale_prices",
    "label": "Liquid names whose price history is behind 2026-11-23",
-   "count": 12,
+   "count": 10,
    "items": [
     "BIPC",
     "BKH",
@@ -133,9 +133,7 @@
     "PCRX",
     "PEPG",
     "RCAT",
-    "TCBI",
-    "UTZ",
-    "WYFI"
+    "UTZ"
    ],
    "status": "warn",
    "note": ""

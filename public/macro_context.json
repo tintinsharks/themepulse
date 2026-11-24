@@ -1,15 +1,15 @@
 {
   "date": "2026-11-24",
-  "generated": "2026-11-24 00:30",
-  "vix": 26.62,
+  "generated": "2026-11-24 12:21",
+  "vix": 28.67,
   "vixChg": null,
-  "tenYearYield": 4.919,
+  "tenYearYield": 4.918,
   "yieldBps": 1,
-  "dxy": 104.317,
-  "dxyChg": 0.51,
+  "dxy": 103.888,
+  "dxyChg": 0.081,
   "putCallRatio": null,
   "regime": "RISK-OFF",
-  "regimeReason": "Risk-off environment: high vol, dollar strong",
+  "regimeReason": "Risk-off environment: high vol",
   "t2108": null,
   "ratio5d": null
 }
