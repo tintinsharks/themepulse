@@ -487,7 +487,7 @@ export default async function handler(req, res) {
     // Parallel fetches
     const [quotes, yhLive, monitor, dashData, userData] = await Promise.all([
       fetchQuotes([...INDEX_TICKERS, ...SECTOR_ETFS, "VIXY", "UUP"], fmpKey),
-      fetchYahooLiveQuotes(["ES=F", "NQ=F", "YM=F", "RTY=F", "DX-Y.NYB", "SPY", "QQQ", "DIA", "IWM"]),
+      fetchYahooLiveQuotes(["ES=F", "NQ=F", "YM=F", "RTY=F", "DX-Y.NYB", "SI=F", "CL=F", "SPY", "QQQ", "DIA", "IWM"]),
       fetchJson(origin, "/market_monitor.json"),
       fetchJson(origin, "/dashboard_data.json"),
       (async () => {
@@ -994,19 +994,35 @@ export default async function handler(req, res) {
           }
 
           // 2. 24h commodities / FX / crypto from FMP batch-quote
-          const symbols = ["CLUSD", "NGUSD", "GCUSD", "EURUSD", "USDJPY", "GBPUSD", "BTCUSD"];
-          const labels = { CLUSD: "Crude Oil", NGUSD: "Natural Gas", GCUSD: "Gold", EURUSD: "EUR/USD", USDJPY: "USD/JPY", GBPUSD: "GBP/USD", BTCUSD: "BTC/USD" };
+          const symbols = ["CLUSD", "NGUSD", "GCUSD", "SIUSD", "EURUSD", "USDJPY", "GBPUSD", "BTCUSD"];
+          const labels = { CLUSD: "Crude Oil", NGUSD: "Natural Gas", GCUSD: "Gold", SIUSD: "Silver", EURUSD: "EUR/USD", USDJPY: "USD/JPY", GBPUSD: "GBP/USD", BTCUSD: "BTC/USD" };
           const url = `https://financialmodelingprep.com/stable/batch-quote?symbols=${symbols.join(",")}&apikey=${fmpKey}`;
+          const seenNames = new Set(results.map((x) => x.name));
           const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
           if (r.ok) {
             const data = await r.json();
             for (const q of Array.isArray(data) ? data : []) {
+              const nm = labels[q.symbol] || q.name || q.symbol;
+              seenNames.add(nm);
               results.push({
-                name: labels[q.symbol] || q.name || q.symbol,
+                name: nm,
                 price: q.price ?? null,
                 change: q.change ?? null,
                 changePct: q.changePercentage ?? null,
                 source: "24h",
+              });
+            }
+          }
+          // Backup Silver / Crude Oil from Yahoo futures if FMP omitted them
+          for (const [ySym, nm] of [["SI=F", "Silver"], ["CL=F", "Crude Oil"]]) {
+            if (!seenNames.has(nm) && yhLive?.[ySym]?.regularMarketPrice > 0) {
+              const fq = yhLive[ySym];
+              results.push({
+                name: nm,
+                price: fq.regularMarketPrice,
+                change: fq.regularMarketChange ?? null,
+                changePct: fq.regularMarketChangePercent ?? null,
+                source: "futures",
               });
             }
           }

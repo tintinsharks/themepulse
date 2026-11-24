@@ -28,7 +28,7 @@ import MarketBreadthCard from "../components/MarketBreadthCard.jsx";
 const BRIEF_DIR = "/data/briefs/";
 const MONO = "'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace";
 const INDEX_TKS = LEAD_INDEXES.map((x) => x.t);
-const MACRO_PILL_TKS = ["UUP", "IBIT", "GLD"];
+const MACRO_PILL_TKS = ["VIXY", "UUP", "IBIT", "GLD", "SLV", "USO"];
 const NEWS_TTL_MS = 5 * 60 * 1000;
 const _newsCache = new Map();
 const safeUrl = (u) => (typeof u === "string" && /^https?:\/\//i.test(u) ? u : null);
@@ -509,7 +509,7 @@ export default function ZangerBriefSection({
       const n = Number(v);
       return v != null && v !== "" && Number.isFinite(n) ? n : null;
     };
-    const mk = (id, label, chartTk, spotObj, proxyTk, accent, note) => {
+    const mk = (id, label, chartTk, spotObj, proxyTk, accent, note, invertColor = false) => {
       const q = qOf(proxyTk);
       const spPx = numOr(spotObj?.price);
       const spChg = numOr(spotObj?.changePct ?? spotObj?.change);
@@ -522,13 +522,17 @@ export default function ZangerBriefSection({
         price: px,
         change: chg,
         accent,
+        invertColor,
         tip: `${note}${spPx == null ? ` (${proxyTk} proxy)` : ""} · click to chart ${chartTk}`,
       };
     };
     return [
-      mk("dxy", "DXY", "UUP", findTape("DXY"), "UUP", "#38bdf8", "US Dollar (UUP proxy)"),
+      mk("vix", "VIX", "VIXY", findTape("VIX") || snap?.market?.vix, "VIXY", "#f472b6", "CBOE Volatility Index", true),
+      mk("dxy", "DXY", "UUP", findTape("DXY"), "UUP", "#38bdf8", "US Dollar Index"),
       mk("btc", "BTC", "IBIT", findFut(/btc|bitcoin/i), "IBIT", "#f59e0b", "Bitcoin"),
       mk("gold", "GOLD", "GLD", findFut(/gold/i), "GLD", "#eab308", "Gold"),
+      mk("silver", "SILVER", "SLV", findFut(/silver/i), "SLV", "#cbd5e1", "Silver"),
+      mk("oil", "OIL", "USO", findFut(/crude|oil|wti/i), "USO", "#fb923c", "WTI Crude Oil"),
     ];
   }, [mq, snap, liveOn, quotes, stockMap]);
 
@@ -588,9 +592,6 @@ export default function ZangerBriefSection({
   const uptrendCount = readyIndices.filter((x) => x.stats.trend === "Uptrend").length;
   const idxToneC = (tone) => ({ green: A.green, yellow: A.yellow, orange: "#fb923c", red: A.red }[tone] || A.textDim);
 
-  const liveVix = liveOn && tapeMap.get("VIX")?.price != null
-    ? { price: Number(tapeMap.get("VIX").price), change: Number(tapeMap.get("VIX").change) }
-    : baseMkt.vix;
   const liveTnx = liveOn && tapeMap.get("TNX")?.price != null
     ? { price: Number(tapeMap.get("TNX").price), change: Number(tapeMap.get("TNX").change) }
     : baseMkt.tnx;
@@ -908,12 +909,13 @@ export default function ZangerBriefSection({
           </div>
         )}
 
-        {/* Macro Cross-Asset Pills (DXY, BTC, GOLD) right under Major Index cards */}
+        {/* Macro Cross-Asset Pills (VIX, DXY, BTC, GOLD, SILVER, OIL) right under Major Index cards */}
         {macroPills.length > 0 && (
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, marginBottom: 8 }}>
             {macroPills.map((p) => {
               const active = chartTicker === p.chartTicker;
-              const chgColor = p.change == null ? A.textMuted : p.change >= 0 ? A.green : A.red;
+              const isPos = p.invertColor ? p.change <= 0 : p.change >= 0;
+              const chgColor = p.change == null ? A.textMuted : isPos ? A.green : A.red;
               const pxStr = p.price == null
                 ? null
                 : p.price >= 1000
@@ -967,7 +969,6 @@ export default function ZangerBriefSection({
 
         {/* Macro / Breadth / Sector Rotation Strip */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 10, fontSize: 11, color: A.textDim, fontFamily: MONO, marginBottom: 6 }}>
-          {liveVix && <span>VIX <strong style={{ color: A.text }}>{liveVix.price.toFixed(2)}</strong> ({fmtPct(liveVix.change, 1)})</span>}
           {liveTnx && <span>10Y <strong style={{ color: A.text }}>{liveTnx.price.toFixed(2)}%</strong></span>}
           {baseMkt.breadth?.pctAbove50 != null && <span>&gt;50MA <strong style={{ color: A.text }}>{baseMkt.breadth.pctAbove50}%</strong></span>}
           {baseMkt.breadth?.up4 != null && baseMkt.breadth?.down4 != null && (
