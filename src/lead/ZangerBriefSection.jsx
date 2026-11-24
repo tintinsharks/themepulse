@@ -909,8 +909,8 @@ export default function ZangerBriefSection({
           </div>
         )}
 
-        {/* Macro Cross-Asset Pills (VIX, DXY, BTC, GOLD, SILVER, OIL) right under Major Index cards */}
-        {macroPills.length > 0 && (
+        {/* Macro Cross-Asset & Breadth Pills (VIX, DXY, BTC, GOLD, SILVER, OIL, 10Y, >50MA, 4% Movers, T2108) */}
+        {(macroPills.length > 0 || liveTnx || baseMkt.breadth?.pctAbove50 != null || (baseMkt.breadth?.up4 != null && baseMkt.breadth?.down4 != null) || baseMkt.breadth?.t2108 != null) && (
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, marginBottom: 8 }}>
             {macroPills.map((p) => {
               const active = chartTicker === p.chartTicker;
@@ -951,6 +951,106 @@ export default function ZangerBriefSection({
                 </button>
               );
             })}
+            {liveTnx && (
+              <button
+                type="button"
+                className="tp-card-btn"
+                onClick={() => onTicker && onTicker("TLT")}
+                title={`US 10-Year Treasury Yield${liveTnx.change != null ? ` (${fmtPct(liveTnx.change, 2)})` : ""} · click to chart TLT`}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  fontSize: 11,
+                  fontFamily: MONO,
+                  fontVariantNumeric: "tabular-nums",
+                  padding: "4px 10px",
+                  borderRadius: 6,
+                  background: chartTicker === "TLT" ? "rgba(167,139,250,0.16)" : A.bg,
+                  border: `1px solid ${chartTicker === "TLT" ? "#a78bfa" : A.border}`,
+                  color: A.text,
+                  cursor: onTicker ? "pointer" : "default",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <span style={{ color: "#a78bfa", fontWeight: 800 }}>10Y</span>
+                <span style={{ color: A.text, fontWeight: 700 }}>{liveTnx.price.toFixed(2)}%</span>
+              </button>
+            )}
+            {baseMkt.breadth?.pctAbove50 != null && (
+              <span
+                title="% of stocks trading above their 50-day moving average"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  fontSize: 11,
+                  fontFamily: MONO,
+                  fontVariantNumeric: "tabular-nums",
+                  padding: "4px 10px",
+                  borderRadius: 6,
+                  background: A.bg,
+                  border: `1px solid ${A.border}`,
+                  color: A.text,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <span style={{ color: A.textMuted, fontWeight: 700 }}>&gt;50MA</span>
+                <span style={{ color: baseMkt.breadth.pctAbove50 >= 50 ? A.green : baseMkt.breadth.pctAbove50 <= 30 ? A.red : A.yellow, fontWeight: 700 }}>
+                  {baseMkt.breadth.pctAbove50}%
+                </span>
+              </span>
+            )}
+            {baseMkt.breadth?.up4 != null && baseMkt.breadth?.down4 != null && (
+              <span
+                title="Stockbee 4% daily movers (up 4%+ vs down 4%+)"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  fontSize: 11,
+                  fontFamily: MONO,
+                  fontVariantNumeric: "tabular-nums",
+                  padding: "4px 10px",
+                  borderRadius: 6,
+                  background: A.bg,
+                  border: `1px solid ${A.border}`,
+                  color: A.textDim,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <span style={{ color: A.textMuted, fontWeight: 700 }}>4% Movers</span>
+                <span>
+                  <strong style={{ color: A.green }}>{baseMkt.breadth.up4}↑</strong>
+                  {" / "}
+                  <strong style={{ color: A.red }}>{baseMkt.breadth.down4}↓</strong>
+                </span>
+              </span>
+            )}
+            {baseMkt.breadth?.t2108 != null && (
+              <span
+                title="T2108 (% of NYSE stocks above their 40-day MA)"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  fontSize: 11,
+                  fontFamily: MONO,
+                  fontVariantNumeric: "tabular-nums",
+                  padding: "4px 10px",
+                  borderRadius: 6,
+                  background: A.bg,
+                  border: `1px solid ${A.border}`,
+                  color: A.text,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <span style={{ color: A.textMuted, fontWeight: 700 }}>T2108</span>
+                <span style={{ color: baseMkt.breadth.t2108 >= 60 ? A.green : baseMkt.breadth.t2108 <= 25 ? A.red : A.text, fontWeight: 700 }}>
+                  {baseMkt.breadth.t2108}%
+                </span>
+              </span>
+            )}
           </div>
         )}
 
@@ -967,22 +1067,16 @@ export default function ZangerBriefSection({
           </div>
         )}
 
-        {/* Macro / Breadth / Sector Rotation Strip */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, fontSize: 11, color: A.textDim, fontFamily: MONO, marginBottom: 6 }}>
-          {liveTnx && <span>10Y <strong style={{ color: A.text }}>{liveTnx.price.toFixed(2)}%</strong></span>}
-          {baseMkt.breadth?.pctAbove50 != null && <span>&gt;50MA <strong style={{ color: A.text }}>{baseMkt.breadth.pctAbove50}%</strong></span>}
-          {baseMkt.breadth?.up4 != null && baseMkt.breadth?.down4 != null && (
-            <span>4% Movers <strong style={{ color: A.green }}>{baseMkt.breadth.up4}↑</strong> / <strong style={{ color: A.red }}>{baseMkt.breadth.down4}↓</strong></span>
-          )}
-          {baseMkt.breadth?.t2108 != null && <span>T2108 <strong style={{ color: A.text }}>{baseMkt.breadth.t2108}%</strong></span>}
-          {liveSectors && (
+        {/* Sector Rotation Strip */}
+        {liveSectors && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, fontSize: 11, color: A.textDim, fontFamily: MONO, marginBottom: 6 }}>
             <span>
               Sectors <strong style={{ color: A.text }}>{liveSectors.positive}/{liveSectors.total}</strong> green
               {" · "}Top: <span style={{ color: A.green }}>{liveSectors.leaders.map((s) => `${s.ticker} ${fmtPct(s.change, 1)}`).join(", ")}</span>
               {" · "}Lag: <span style={{ color: A.red }}>{liveSectors.laggards.map((s) => `${s.ticker} ${fmtPct(s.change, 1)}`).join(", ")}</span>
             </span>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Market Commentary Bullets */}
         {Array.isArray(baseMkt.commentary) && baseMkt.commentary.length > 0 && (
