@@ -1397,6 +1397,7 @@ export default function ZangerBriefSection({
                   {moverTh("sig", "Sig", "left")}
                   {moverTh("ticker", "Ticker", "left", undefined, true)}
                   {moverTh("theme", "Theme", "left", "Theme & Layer", true)}
+                  {moverTh("thrust", "Thr", "right", "Stock Thrust: Chg% × ZVR")}
                   {moverTh("adr", "ADR")}
                   {moverTh("chg", "Chg%")}
                   {moverTh("fromOpen", "Opn%", "right", "Intraday gain/loss from today's open")}
@@ -1405,7 +1406,6 @@ export default function ZangerBriefSection({
                   {moverTh("rs", "RS")}
                   {moverTh("eps", "EPS", "right", EPS_TIP)}
                   {moverTh("off52", "52wH", "right", "% off 52-week high")}
-                  {moverTh("thrust", "Thr", "right", "Stock Thrust: Chg% × ZVR")}
                   {(setPortfolio || setWatchlist) && (
                     <th style={{ ...th(A, "right"), padding: "5px 4px", fontSize: 10, letterSpacing: 0.25 }}>List</th>
                   )}
@@ -1533,21 +1533,6 @@ export default function ZangerBriefSection({
                         )}
                       </button>
                     </td>
-                    <td style={mtd("right", { fontFamily: MONO, color: (m.adr ?? 0) >= 4 ? A.cyan : A.textDim, whiteSpace: "nowrap" })}>{m.adr != null ? `${m.adr.toFixed(1)}%` : "—"}</td>
-                    <td style={mtd("right", { fontFamily: MONO, fontWeight: 700, color: pc(m.chg), whiteSpace: "nowrap" })}>
-                      {fmtPct(m.chg, 1)}
-                      {m.dollarMove != null && m.dollarMove >= 0.9 && (
-                        <span style={{ display: "block", fontSize: 10, fontWeight: 500, color: A.cyan }}>+${m.dollarMove.toFixed(2)}</span>
-                      )}
-                    </td>
-                    <td style={mtd("right", { fontFamily: MONO, color: pc(m.fromOpen), whiteSpace: "nowrap" })}>
-                      {fmtPct(m.fromOpen, 1)}
-                    </td>
-                    <td style={mtd("right")}><ZvrMeter zvr={m.zvr} A={A} /></td>
-                    <td style={mtd("right")}><CrMeter cr={m.cr} A={A} /></td>
-                    <td style={mtd("right", { fontFamily: MONO, fontWeight: 700, color: rsC(m.rs) })}>{m.rs}</td>
-                    <td style={mtd("right", { fontFamily: MONO, color: epsC(m.eps), whiteSpace: "nowrap" })}>{m.eps ?? "—"}{m.epsAccel ? <span style={{ color: A.green, fontSize: 10 }}>▲</span> : null}</td>
-                    <td style={mtd("right", { fontFamily: MONO, color: (m.off52 ?? -99) >= -5 ? A.green : A.textDim, whiteSpace: "nowrap" })}>{fmtPct(m.off52, 1)}</td>
                     {(() => {
                       const thr = stockThrust(m.chg, m.zvr);
                       const thrTip = [
@@ -1568,6 +1553,21 @@ export default function ZangerBriefSection({
                         </td>
                       );
                     })()}
+                    <td style={mtd("right", { fontFamily: MONO, color: (m.adr ?? 0) >= 4 ? A.cyan : A.textDim, whiteSpace: "nowrap" })}>{m.adr != null ? `${m.adr.toFixed(1)}%` : "—"}</td>
+                    <td style={mtd("right", { fontFamily: MONO, fontWeight: 700, color: pc(m.chg), whiteSpace: "nowrap" })}>
+                      {fmtPct(m.chg, 1)}
+                      {m.dollarMove != null && m.dollarMove >= 0.9 && (
+                        <span style={{ display: "block", fontSize: 10, fontWeight: 500, color: A.cyan }}>+${m.dollarMove.toFixed(2)}</span>
+                      )}
+                    </td>
+                    <td style={mtd("right", { fontFamily: MONO, color: pc(m.fromOpen), whiteSpace: "nowrap" })}>
+                      {fmtPct(m.fromOpen, 1)}
+                    </td>
+                    <td style={mtd("right")}><ZvrMeter zvr={m.zvr} A={A} /></td>
+                    <td style={mtd("right")}><CrMeter cr={m.cr} A={A} /></td>
+                    <td style={mtd("right", { fontFamily: MONO, fontWeight: 700, color: rsC(m.rs) })}>{m.rs}</td>
+                    <td style={mtd("right", { fontFamily: MONO, color: epsC(m.eps), whiteSpace: "nowrap" })}>{m.eps ?? "—"}{m.epsAccel ? <span style={{ color: A.green, fontSize: 10 }}>▲</span> : null}</td>
+                    <td style={mtd("right", { fontFamily: MONO, color: (m.off52 ?? -99) >= -5 ? A.green : A.textDim, whiteSpace: "nowrap" })}>{fmtPct(m.off52, 1)}</td>
                     {(setPortfolio || setWatchlist) && (
                       <td style={mtd("right")} onClick={(e) => e.stopPropagation()}>
                         <span style={{ display: "inline-flex", gap: 2 }}>
