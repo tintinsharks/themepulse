@@ -71,9 +71,9 @@ function ZvrMeter({ zvr, A }) {
   const pct = Math.min(100, Math.round((zvr / 3.5) * 100));
   const color = zvr >= 2.0 ? "#fbbf24" : zvr >= 1.5 ? A.green : A.textDim;
   return (
-    <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", gap: 2, minWidth: 48 }}>
-      <span style={{ color, fontWeight: zvr >= 1.5 ? 800 : 500, fontFamily: MONO, fontSize: 11 }}>{zvr.toFixed(2)}x</span>
-      <div style={{ width: 44, height: 3, borderRadius: 2, background: A.border, overflow: "hidden" }}>
+    <div title={`${zvr.toFixed(2)}x`} style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", gap: 2, minWidth: 34 }}>
+      <span style={{ color, fontWeight: zvr >= 1.5 ? 800 : 500, fontFamily: MONO, fontSize: 10.5 }}>{zvr.toFixed(1)}x</span>
+      <div style={{ width: 32, height: 3, borderRadius: 2, background: A.border, overflow: "hidden" }}>
         <div style={{ width: `${pct}%`, height: "100%", background: color, borderRadius: 2 }} />
       </div>
     </div>
@@ -84,9 +84,9 @@ function CrMeter({ cr, A }) {
   if (cr == null) return <span style={{ color: A.textMuted }}>—</span>;
   const color = cr >= 75 ? A.green : cr >= 60 ? A.cyan : cr >= 40 ? A.textDim : A.red;
   return (
-    <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", gap: 2, minWidth: 40 }}>
-      <span style={{ color, fontWeight: cr >= 70 ? 700 : 400, fontFamily: MONO, fontSize: 11 }}>{cr}%</span>
-      <div style={{ width: 36, height: 3, borderRadius: 2, background: A.border, position: "relative" }}>
+    <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", gap: 2, minWidth: 28 }}>
+      <span style={{ color, fontWeight: cr >= 70 ? 700 : 400, fontFamily: MONO, fontSize: 10.5 }}>{cr}%</span>
+      <div style={{ width: 26, height: 3, borderRadius: 2, background: A.border, position: "relative" }}>
         <div style={{ position: "absolute", left: 0, top: 0, width: `${Math.max(4, Math.min(100, cr))}%`, height: "100%", background: color, borderRadius: 2 }} />
       </div>
     </div>
@@ -639,23 +639,25 @@ export default function ZangerBriefSection({
     return (va - vb) * d || String(tie(a)).localeCompare(String(tie(b)));
   };
 
-  const makeSortTh = (sortState, setSortState) => (k, label, align = "right", title, textDefault = false) => (
+  const makeSortTh = (sortState, setSortState, styleOverride) => (k, label, align = "right", title, textDefault = false) => (
     <th
       key={k}
       title={title}
       onClick={() => setSortState((p) => ({ k, d: p.k === k ? -p.d : (textDefault ? 1 : -1) }))}
       style={{
         ...th(A, align),
+        ...styleOverride,
         cursor: "pointer",
         userSelect: "none",
         color: sortState.k === k ? A.text : A.textMuted,
       }}
     >
-      {label}{sortState.k === k ? (sortState.d < 0 ? " ▼" : " ▲") : ""}
+      {label}{sortState.k === k ? (sortState.d < 0 ? "▼" : "▲") : ""}
     </th>
   );
 
-  const moverTh = makeSortTh(moverSort, setMoverSort);
+  const moverTh = makeSortTh(moverSort, setMoverSort, { padding: "5px 4px", fontSize: 10, letterSpacing: 0.25 });
+  const mtd = (align = "left", extra) => ({ ...td(A, align), padding: "5px 4px", fontSize: 11, ...extra });
   const flowTh = makeSortTh(flowSort, setFlowSort);
   const portTh = makeSortTh(portSort, setPortSort);
 
@@ -1378,17 +1380,19 @@ export default function ZangerBriefSection({
                 <tr>
                   {moverTh("sig", "Sig", "left")}
                   {moverTh("ticker", "Ticker", "left", undefined, true)}
-                  {moverTh("theme", "Theme · Layer", "left", undefined, true)}
+                  {moverTh("theme", "Theme", "left", "Theme & Layer", true)}
                   {moverTh("adr", "ADR")}
                   {moverTh("chg", "Chg%")}
-                  {moverTh("fromOpen", "Open%", "right", "Intraday gain/loss from today's open")}
+                  {moverTh("fromOpen", "Opn%", "right", "Intraday gain/loss from today's open")}
                   {moverTh("zvr", "ZVR", "right", "Zanger Volume Ratio vs 10-day intraday volume profile")}
-                  {moverTh("cr", "CR%", "right", "Closing Range — where price sits in today's low-to-high range")}
+                  {moverTh("cr", "CR", "right", "Closing Range — where price sits in today's low-to-high range")}
                   {moverTh("rs", "RS")}
                   {moverTh("eps", "EPS", "right", EPS_TIP)}
-                  {moverTh("off52", "Off 52wH")}
-                  {moverTh("score", "Score")}
-                  {(setPortfolio || setWatchlist) && <th style={th(A, "right")}>List</th>}
+                  {moverTh("off52", "52wH", "right", "% off 52-week high")}
+                  {moverTh("score", "Scr", "right", "Composite breakout score")}
+                  {(setPortfolio || setWatchlist) && (
+                    <th style={{ ...th(A, "right"), padding: "5px 4px", fontSize: 10, letterSpacing: 0.25 }}>List</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -1421,50 +1425,51 @@ export default function ZangerBriefSection({
                       boxShadow: chartTicker === m.ticker ? `inset 2px 0 0 ${A.green}` : "none",
                     }}
                   >
-                    <td style={td(A)}>
-                      <span style={{ display: "inline-flex", gap: 3, flexWrap: "wrap" }}>
+                    <td style={mtd()}>
+                      <span style={{ display: "inline-flex", gap: 2, flexWrap: "wrap", maxWidth: 78 }}>
                         {m.isNew && (
-                          <span style={{ fontSize: 10, fontWeight: 800, fontFamily: MONO, padding: "1px 4px", borderRadius: 4, background: "rgba(56,189,248,0.2)", color: A.cyan, border: `1px solid ${A.cyan}` }}>NEW</span>
+                          <span style={{ fontSize: 10, fontWeight: 800, fontFamily: MONO, padding: "1px 3px", lineHeight: 1.15, borderRadius: 3, background: "rgba(56,189,248,0.2)", color: A.cyan, border: `1px solid ${A.cyan}` }}>NEW</span>
                         )}
                         {m.breakoutTypes?.length ? m.breakoutTypes.map((k) => {
                           const c = BO_COLORS[k] || "#fbbf24";
+                          const shortLabel = k === "ZANGER" ? "ZNG" : k;
                           return (
-                            <span key={k} style={{ fontSize: 10, fontWeight: 700, fontFamily: MONO, padding: "1px 4px", borderRadius: 4, background: `${c}20`, color: c, border: `1px solid ${c}66` }}>{k}</span>
+                            <span key={k} title={BO_META[k]?.tip || k} style={{ fontSize: 10, fontWeight: 700, fontFamily: MONO, padding: "1px 3px", lineHeight: 1.15, borderRadius: 3, background: `${c}20`, color: c, border: `1px solid ${c}66` }}>{shortLabel}</span>
                           );
                         }) : (
-                          <span style={{ fontSize: 10, fontWeight: 700, fontFamily: MONO, padding: "1px 4px", borderRadius: 4, background: m.rsl ? "rgba(56,189,248,0.16)" : m.qualifiesZanger ? "rgba(34,197,94,0.16)" : "transparent", color: m.rsl ? A.cyan : m.qualifiesZanger ? A.green : A.textDim, border: m.rsl || m.qualifiesZanger ? "none" : `1px solid ${A.border}` }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, fontFamily: MONO, padding: "1px 3px", lineHeight: 1.15, borderRadius: 3, background: m.rsl ? "rgba(56,189,248,0.16)" : m.qualifiesZanger ? "rgba(34,197,94,0.16)" : "transparent", color: m.rsl ? A.cyan : m.qualifiesZanger ? A.green : A.textDim, border: m.rsl || m.qualifiesZanger ? "none" : `1px solid ${A.border}` }}>
                             {m.rsl ? "RSL" : m.qualifiesZanger ? "VOL" : "LEAD"}
                           </span>
                         )}
                         {isRow9M(m) && (
                           <span
                             title={`${fmtVol(getRowVol(m))} shares traded today (≥ 8.9M)`}
-                            style={{ fontSize: 10, fontWeight: 800, fontFamily: MONO, padding: "1px 4px", borderRadius: 4, background: "rgba(249,115,22,0.18)", color: "#f97316", border: "1px solid rgba(249,115,22,0.6)" }}
+                            style={{ fontSize: 10, fontWeight: 800, fontFamily: MONO, padding: "1px 3px", lineHeight: 1.15, borderRadius: 3, background: "rgba(249,115,22,0.18)", color: "#f97316", border: "1px solid rgba(249,115,22,0.6)" }}
                           >
                             9M
                           </span>
                         )}
                       </span>
                     </td>
-                    <td style={td(A)}>
+                    <td style={mtd()}>
                       <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
                         <FlagButton t={m.ticker} A={A} />
                         <Tk t={m.ticker} />
                         <TierMark t={m.ticker} />
                         <RslDot tip={m.rslTip} A={A} />
                         {m.earningsDays != null && m.earningsDays >= 0 && m.earningsDays <= 5 && (
-                          <span title={m.earningsDisplay || ""} style={{ marginLeft: 3, fontSize: 10, fontWeight: 700, fontFamily: MONO, padding: "0 4px", borderRadius: 4, background: "rgba(245,158,11,0.18)", color: "#f59e0b" }}>
-                            ER {m.earningsDays}d
+                          <span title={m.earningsDisplay || ""} style={{ marginLeft: 2, fontSize: 10, fontWeight: 700, fontFamily: MONO, padding: "0 3px", borderRadius: 3, background: "rgba(245,158,11,0.18)", color: "#f59e0b" }}>
+                            ER{m.earningsDays}d
                           </span>
                         )}
                       </div>
                       {company && (
-                        <div style={{ fontSize: 10, color: A.textMuted, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <div title={company} style={{ fontSize: 10, color: A.textMuted, maxWidth: 92, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {company}
                         </div>
                       )}
                     </td>
-                    <td style={{ ...td(A), fontSize: 11, color: A.textDim }}>
+                    <td style={mtd("left", { color: A.textDim })}>
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); onLayer && onLayer(m.ticker); }}
@@ -1482,10 +1487,10 @@ export default function ZangerBriefSection({
                           color: A.textDim,
                           cursor: onLayer ? "pointer" : "default",
                           textAlign: "left",
-                          maxWidth: 150,
+                          maxWidth: 108,
                         }}
                       >
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, maxWidth: "100%" }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, maxWidth: "100%" }}>
                           <span
                             style={{
                               width: 6,
@@ -1506,36 +1511,36 @@ export default function ZangerBriefSection({
                           )}
                         </span>
                         {m.layer && (
-                          <span style={{ fontSize: 10, color: A.textMuted, paddingLeft: 11, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          <span style={{ fontSize: 10, color: A.textMuted, paddingLeft: 10, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {m.layer}
                           </span>
                         )}
                       </button>
                     </td>
-                    <td style={{ ...td(A, "right"), fontFamily: MONO, color: (m.adr ?? 0) >= 4 ? A.cyan : A.textDim }}>{m.adr != null ? `${m.adr.toFixed(1)}%` : "—"}</td>
-                    <td style={{ ...td(A, "right"), fontFamily: MONO, fontWeight: 700, color: pc(m.chg) }}>
-                      {fmtPct(m.chg, 2)}
+                    <td style={mtd("right", { fontFamily: MONO, color: (m.adr ?? 0) >= 4 ? A.cyan : A.textDim, whiteSpace: "nowrap" })}>{m.adr != null ? `${m.adr.toFixed(1)}%` : "—"}</td>
+                    <td style={mtd("right", { fontFamily: MONO, fontWeight: 700, color: pc(m.chg), whiteSpace: "nowrap" })}>
+                      {fmtPct(m.chg, 1)}
                       {m.dollarMove != null && m.dollarMove >= 0.9 && (
                         <span style={{ display: "block", fontSize: 10, fontWeight: 500, color: A.cyan }}>+${m.dollarMove.toFixed(2)}</span>
                       )}
                     </td>
-                    <td style={{ ...td(A, "right"), fontFamily: MONO, color: pc(m.fromOpen) }}>
+                    <td style={mtd("right", { fontFamily: MONO, color: pc(m.fromOpen), whiteSpace: "nowrap" })}>
                       {fmtPct(m.fromOpen, 1)}
                     </td>
-                    <td style={td(A, "right")}><ZvrMeter zvr={m.zvr} A={A} /></td>
-                    <td style={td(A, "right")}><CrMeter cr={m.cr} A={A} /></td>
-                    <td style={{ ...td(A, "right"), fontFamily: MONO, fontWeight: 700, color: rsC(m.rs) }}>{m.rs}</td>
-                    <td style={{ ...td(A, "right"), fontFamily: MONO, color: epsC(m.eps) }}>{m.eps ?? "—"}{m.epsAccel ? <span style={{ color: A.green, fontSize: 10 }}>▲</span> : null}</td>
-                    <td style={{ ...td(A, "right"), fontFamily: MONO, color: (m.off52 ?? -99) >= -5 ? A.green : A.textDim }}>{fmtPct(m.off52, 1)}</td>
-                    <td style={{ ...td(A, "right"), fontFamily: MONO, fontWeight: 800, color: (m.score ?? 0) >= 70 ? "#fbbf24" : A.text }}>{m.score != null ? m.score.toFixed(1) : "—"}</td>
+                    <td style={mtd("right")}><ZvrMeter zvr={m.zvr} A={A} /></td>
+                    <td style={mtd("right")}><CrMeter cr={m.cr} A={A} /></td>
+                    <td style={mtd("right", { fontFamily: MONO, fontWeight: 700, color: rsC(m.rs) })}>{m.rs}</td>
+                    <td style={mtd("right", { fontFamily: MONO, color: epsC(m.eps), whiteSpace: "nowrap" })}>{m.eps ?? "—"}{m.epsAccel ? <span style={{ color: A.green, fontSize: 10 }}>▲</span> : null}</td>
+                    <td style={mtd("right", { fontFamily: MONO, color: (m.off52 ?? -99) >= -5 ? A.green : A.textDim, whiteSpace: "nowrap" })}>{fmtPct(m.off52, 1)}</td>
+                    <td title={m.score != null ? m.score.toFixed(1) : undefined} style={mtd("right", { fontFamily: MONO, fontWeight: 800, color: (m.score ?? 0) >= 70 ? "#fbbf24" : A.text })}>{m.score != null ? Math.round(m.score) : "—"}</td>
                     {(setPortfolio || setWatchlist) && (
-                      <td style={td(A, "right")} onClick={(e) => e.stopPropagation()}>
-                        <span style={{ display: "inline-flex", gap: 3 }}>
+                      <td style={mtd("right")} onClick={(e) => e.stopPropagation()}>
+                        <span style={{ display: "inline-flex", gap: 2 }}>
                           {setPortfolio && (
                             <button
                               title={inPf ? "Remove from Portfolio" : "Add to Portfolio"}
                               onClick={() => toggleList(m.ticker, "pf")}
-                              style={{ background: inPf ? `${A.green}22` : "transparent", border: `1px solid ${inPf ? A.green : A.border}`, color: inPf ? A.green : A.textMuted, borderRadius: 4, padding: "1px 4px", fontSize: 10, fontFamily: MONO, fontWeight: inPf ? 700 : 500, cursor: "pointer" }}
+                              style={{ background: inPf ? `${A.green}22` : "transparent", border: `1px solid ${inPf ? A.green : A.border}`, color: inPf ? A.green : A.textMuted, borderRadius: 3, padding: "1px 3px", fontSize: 10, fontFamily: MONO, fontWeight: inPf ? 700 : 500, cursor: "pointer" }}
                             >
                               PF
                             </button>
@@ -1544,7 +1549,7 @@ export default function ZangerBriefSection({
                             <button
                               title={inWl ? "Remove from Watchlist" : "Add to Watchlist"}
                               onClick={() => toggleList(m.ticker, "wl")}
-                              style={{ background: inWl ? `${A.cyan}22` : "transparent", border: `1px solid ${inWl ? A.cyan : A.border}`, color: inWl ? A.cyan : A.textMuted, borderRadius: 4, padding: "1px 4px", fontSize: 10, fontFamily: MONO, fontWeight: inWl ? 700 : 500, cursor: "pointer" }}
+                              style={{ background: inWl ? `${A.cyan}22` : "transparent", border: `1px solid ${inWl ? A.cyan : A.border}`, color: inWl ? A.cyan : A.textMuted, borderRadius: 3, padding: "1px 3px", fontSize: 10, fontFamily: MONO, fontWeight: inWl ? 700 : 500, cursor: "pointer" }}
                             >
                               WL
                             </button>
