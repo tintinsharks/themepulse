@@ -1066,11 +1066,13 @@ export function extRows(snap, stockMap, tickerLayer, universeOnly) {
     const chg = m.ext_hours_change_pct ?? m.change_pct;
     const s = stockMap?.[t];
     const L = tickerLayer[t];
-    const head = (m.headlines || [])[0] || "";
+    const rawHeads = Array.isArray(m.headlines) ? m.headlines.filter(Boolean).map((h) => String(h).replace(/\s*\[[^\]]*\]\s*$/, "")) : [];
+    const head = rawHeads[0] || "";
     seen.set(t, {
       t, chg, price: m.price, vol: m.volume, er,
       grade: m.ep_quality_label || null,
-      catalyst: head.replace(/\s*\[[^\]]*\]\s*$/, ""),
+      catalyst: head,
+      headlines: rawHeads.slice(0, 3),
       rs: s?.rs_rank ?? m.rs_rank ?? null, eps: s?.eps_rating ?? null, epsTip: s?.eps_tip, epsAcc: s?.eps_accel,
       inU: !!s, layer: L?.name, layerSt: L?.st,
     });
@@ -1085,6 +1087,75 @@ export function extRows(snap, stockMap, tickerLayer, universeOnly) {
 }
 
 const FROZEN_AH_KEY = "tp-frozen-ah-v1";
+
+function CatalystHoverCell({ A, ticker, catalyst, headlines = [], er, grade }) {
+  const [pos, setPos] = useState(null);
+  const items = headlines.length ? headlines : (catalyst ? [catalyst] : []);
+  const show = (e) => {
+    if (!items.length) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const popW = Math.min(440, window.innerWidth - 24);
+    const left = Math.max(12, Math.min(rect.left, window.innerWidth - popW - 12));
+    const above = rect.bottom + 140 > window.innerHeight && rect.top > 160;
+    setPos({ left, top: above ? rect.top - 8 : rect.bottom + 6, above, width: popW });
+  };
+  return (
+    <td
+      onMouseEnter={show}
+      onMouseLeave={() => setPos(null)}
+      style={{ ...td(A), fontSize: 11, color: A.textDim, maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis" }}
+    >
+      {catalyst || "—"}
+      {pos && items.length > 0 && (
+        <div
+          role="tooltip"
+          style={{
+            position: "fixed",
+            left: pos.left,
+            top: pos.top,
+            transform: pos.above ? "translateY(-100%)" : "none",
+            width: pos.width,
+            zIndex: 9999,
+            pointerEvents: "none",
+            background: A.bgCard || A.bg,
+            border: `1px solid ${A.borderLight || A.border}`,
+            borderRadius: 8,
+            padding: "8px 11px",
+            boxShadow: "0 12px 32px rgba(0,0,0,0.5)",
+            whiteSpace: "normal",
+            lineHeight: 1.45,
+            color: A.text,
+            textAlign: "left",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+            <span style={{ fontFamily: MONO, fontWeight: 800, fontSize: 11, color: A.text }}>{ticker}</span>
+            {er && (
+              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: A.cyan, border: `1px solid ${A.cyan}`, borderRadius: 4, padding: "0 4px" }}>
+                ER{grade ? ` · ${grade}` : ""}
+              </span>
+            )}
+            <span style={{ fontSize: 10, color: A.textMuted, marginLeft: "auto" }}>Catalyst</span>
+          </div>
+          {items.map((h, i) => (
+            <div
+              key={i}
+              style={{
+                fontSize: 11.5,
+                color: i === 0 ? A.text : A.textDim,
+                marginTop: i > 0 ? 5 : 0,
+                paddingTop: i > 0 ? 5 : 0,
+                borderTop: i > 0 ? `1px solid ${A.border}` : "none",
+              }}
+            >
+              {h}
+            </div>
+          ))}
+        </div>
+      )}
+    </td>
+  );
+}
 
 export function ExtHoursMovers({ A, pipeline, stockMap, tickerLayer, onTicker, chartTicker, onLayer, keep }) {
   const [uOnly, setUOnly] = useState(true);
@@ -1197,7 +1268,7 @@ export function ExtHoursMovers({ A, pipeline, stockMap, tickerLayer, onTicker, c
                   <td style={{ ...td(A), fontSize: 11, maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis" }}>
                     <LayerLink r={r} A={A} onLayer={onLayer} />
                   </td>
-                  <td title={r.catalyst} style={{ ...td(A), fontSize: 11, color: A.textDim, maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis" }}>{r.catalyst || "—"}</td>
+                  <CatalystHoverCell A={A} ticker={r.t} catalyst={r.catalyst} headlines={r.headlines} er={r.er} grade={r.grade} />
                 </tr>
                 );
               })}
