@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { CONF_LABEL, Card, Delta, EPS_TIP, ExtHoursMovers, FlagButton, IndexPanel, LayerLink, StockTable, TierMark, closingRange, statusColor, td, th, useRvolProfiles, useScanQuotes, zvrFor } from "./core.jsx";
+import { CONF_LABEL, Card, Delta, EPS_TIP, ExtHoursMovers, FlagButton, LayerLink, StockTable, TierMark, closingRange, statusColor, td, th, useRvolProfiles, useScanQuotes, zvrFor } from "./core.jsx";
 import { authFetch } from "../utils.js";
 import { collectBriefTickers, evalPivotStatus, matchMacroLive } from "./briefLive.js";
 import RotationView from "./Rotation.jsx";
@@ -16,7 +16,7 @@ const BRIEF_DIR = "/data/briefs/";
 const safeUrl = (u) => (typeof u === "string" && /^https?:\/\//i.test(u) ? u : null);
 const SESSION_LABEL = { am: "Premarket", pm: "Postmarket", intraday: "Intraday" };
 
-function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch, indexQuotes, idxBars }) {
+function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
   const [index, setIndex] = useState(null);
   const [sel, setSel] = useState(null);
   const [brief, setBrief] = useState(null);
@@ -161,22 +161,8 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch, indexQuo
       {modeSwitch}
     </div>
   );
-  if (err && !brief) {
-    return (
-      <>
-        <Card A={A} title="Written brief" right={picker}><div style={{ fontSize: 12, color: A.textMuted }}>{err}</div></Card>
-        <IndexPanel A={A} liveQuotes={indexQuotes} onTicker={onTicker} chartTicker={chartTicker} bars={idxBars} />
-      </>
-    );
-  }
-  if (!brief) {
-    return (
-      <>
-        <Card A={A} title="Written brief" right={picker}><div style={{ fontSize: 12, color: A.textMuted }}>Loading…</div></Card>
-        <IndexPanel A={A} liveQuotes={indexQuotes} onTicker={onTicker} chartTicker={chartTicker} bars={idxBars} />
-      </>
-    );
-  }
+  if (err && !brief) return <Card A={A} title="Written brief" right={picker}><div style={{ fontSize: 12, color: A.textMuted }}>{err}</div></Card>;
+  if (!brief) return <Card A={A} title="Written brief" right={picker}><div style={{ fontSize: 12, color: A.textMuted }}>Loading…</div></Card>;
 
   const rg = brief.regime || {};
   const br = rg.breadth || {};
@@ -232,8 +218,6 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch, indexQuo
           )}
         </div>
       </Card>
-
-      <IndexPanel A={A} liveQuotes={indexQuotes} onTicker={onTicker} chartTicker={chartTicker} bars={idxBars} />
 
       {arr(brief.macroTape).length > 0 && (
         <Card A={A} title="Macro tape" sub={liveOn && mq ? "Live VIX / 10Y / Crude / DXY overlaid from /api/market-quality" : undefined}>
@@ -514,7 +498,7 @@ function BriefPanel(props) {
   return (
     <>
       {mode === "written"
-        ? <WrittenBrief A={A} stockMap={props.stockMap} onTicker={props.onTicker} chartTicker={props.chartTicker} modeSwitch={modeSwitch} indexQuotes={props.indexQuotes} idxBars={props.idxBars} />
+        ? <WrittenBrief A={A} stockMap={props.stockMap} onTicker={props.onTicker} chartTicker={props.chartTicker} modeSwitch={modeSwitch} />
         : <LiveBrief {...props} modeSwitch={modeSwitch} />}
       <MarketBreadthCard
         A={A}
@@ -537,6 +521,8 @@ function BriefPanel(props) {
         layers={props.layers}
         themes={props.themes}
         tiers={props.tiers}
+        indexQuotes={props.indexQuotes}
+        idxBars={props.idxBars}
         portfolio={props.portfolio}
         setPortfolio={props.setPortfolio}
         watchlist={props.watchlist}

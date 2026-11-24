@@ -4,9 +4,12 @@ import {
   CopyTickersBtn,
   EPS_TIP,
   FlagButton,
+  IndexSpark,
+  LEAD_INDEXES,
   RslDot,
   TierMark,
   closingRange,
+  indexStats,
   pinReason,
   scoreZangerCandidate,
   statusColor,
@@ -20,7 +23,7 @@ import { computeLivePortfolioPulse, filterRecentHeadlines } from "./briefLive.js
 import BreakoutFollowThroughCard from "./BreakoutFollowThroughCard.jsx";
 
 const BRIEF_DIR = "/data/briefs/";
-const INDEX_TKS = ["SPY", "QQQ", "IWM", "DIA"];
+const INDEX_TKS = LEAD_INDEXES.map((x) => x.t);
 const NEWS_TTL_MS = 5 * 60 * 1000;
 const _newsCache = new Map();
 const safeUrl = (u) => (typeof u === "string" && /^https?:\/\//i.test(u) ? u : null);
@@ -93,6 +96,8 @@ export default function ZangerBriefSection({
   layers,
   themes,
   tiers,
+  indexQuotes,
+  idxBars = {},
   portfolio = [],
   setPortfolio,
   watchlist = [],
@@ -432,18 +437,20 @@ export default function ZangerBriefSection({
 
   const baseMkt = snap?.market || {};
   const tapeMap = new Map((mq?.tape || []).filter((x) => x?.ticker).map((x) => [x.ticker, x]));
-  const baseIndices = baseMkt.indices?.length
-    ? baseMkt.indices
-    : [["SPY", "S&P 500"], ["QQQ", "Nasdaq 100"], ["IWM", "Russell 2000"], ["DIA", "Dow 30"]].map(([ticker, name]) => ({ ticker, name }));
-  const liveIndices = baseIndices.map((idx) => {
-    if (!liveOn) return idx;
-    const q = quotes.get(idx.ticker);
-    const t = tapeMap.get(idx.ticker);
-    const price = q?.rthPrice ?? q?.price ?? (t?.price != null ? Number(t.price) : idx.price);
-    const change = q?.change ?? (t?.change != null ? Number(t.change) : idx.change);
-    const cr = q ? closingRange(q, null) : idx.cr;
-    return { ...idx, price, change, cr };
+  const snapIdxMap = new Map((baseMkt.indices || []).filter((x) => x?.ticker).map((x) => [x.ticker, x]));
+  const liveIndices = LEAD_INDEXES.map(({ t: ticker, name }) => {
+    const snapIdx = snapIdxMap.get(ticker) || {};
+    const q = liveOn ? (quotes.get(ticker) || indexQuotes?.get?.(ticker) || null) : null;
+    const tp = liveOn ? tapeMap.get(ticker) : null;
+    const stats = indexStats(idxBars?.[ticker], q);
+    const price = stats?.px ?? q?.rthPrice ?? q?.price ?? (tp?.price != null ? Number(tp.price) : snapIdx.price);
+    const change = stats?.day ?? q?.change ?? (tp?.change != null ? Number(tp.change) : snapIdx.change);
+    const cr = q ? closingRange(q, null) : snapIdx.cr;
+    return { ticker, name, price, change, cr, maStatus: snapIdx.maStatus, stats };
   });
+  const readyIndices = liveIndices.filter((x) => x.stats);
+  const uptrendCount = readyIndices.filter((x) => x.stats.trend === "Uptrend").length;
+  const idxToneC = (tone) => ({ green: A.green, yellow: A.yellow, orange: "#fb923c", red: A.red }[tone] || A.textDim);
 
   const liveVix = liveOn && tapeMap.get("VIX")?.price != null
     ? { price: Number(tapeMap.get("VIX").price), change: Number(tapeMap.get("VIX").change) }
@@ -675,27 +682,84 @@ export default function ZangerBriefSection({
         sub={`${liveComputed && at ? `Live as of ${at.toLocaleTimeString()} (60s refresh)` : (snap?.stamp?.pretty || "")} · ${bos.length} breakouts · ${movers.length} movers${holdRate ? ` · Hold rate ${holdRate.holding}/${holdRate.totalToday} (${holdRate.pct}%)` : ""}`}
         right={picker}
       >
-        {/* 4-Index Strip */}
+        {/* Merged Major Indexes Strip (SPY, QQQ, IWM, DIA, MDY, RSP — sparklines, MAs, dist days, CR%) */}
         {liveIndices.length > 0 && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8, marginBottom: 10 }}>
-            {liveIndices.map((idx) => (
-              <div
-                key={idx.ticker}
-                onClick={() => onTicker && onTicker(idx.ticker)}
-                style={{ cursor: "pointer", padding: "8px 10px", background: A.bg, border: `1px solid ${A.border}`, borderRadius: 6 }}
-              >
-                <div style={{ fontSize: 10, color: A.textMuted, fontFamily: "monospace" }}>
-                  <strong style={{ color: A.text }}>{idx.ticker}</strong> {idx.name}
-                </div>
-                <div style={{ marginTop: 2, fontFamily: "monospace", display: "flex", alignItems: "baseline", gap: 6 }}>
-                  <span style={{ fontSize: 15, fontWeight: 800, color: pc(idx.change) }}>{fmtPct(idx.change, 2)}</span>
-                  <span style={{ fontSize: 11, color: A.textDim }}>{typeof idx.price === "number" ? idx.price.toFixed(2) : "—"}</span>
-                </div>
-                <div style={{ fontSize: 10, color: A.textMuted, marginTop: 2 }}>
-                  {[idx.cr != null ? `CR ${idx.cr}%` : null, idx.maStatus].filter(Boolean).join(" · ") || "—"}
-                </div>
+          <div style={{ marginBottom: 10 }}>
+            {readyIndices.length > 0 && (
+              <div style={{ fontSize: 10, color: A.textMuted, fontFamily: "monospace", marginBottom: 6 }}>
+                <strong style={{ color: A.text }}>{uptrendCount} of {readyIndices.length}</strong> major indexes in an uptrend (above rising 21e &gt; 50d &gt; 200d) · line = price, blue = 21e, dashed = 50d
               </div>
-            ))}
+            )}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(215px, 1fr))", gap: 8 }}>
+              {liveIndices.map((idx) => {
+                const s = idx.stats;
+                const on = chartTicker === idx.ticker;
+                const col = s ? idxToneC(s.tone) : A.border;
+                const statCell = (label, v, tip) => (
+                  <div key={label} title={tip}>
+                    <div style={{ fontSize: 9, color: A.textMuted, letterSpacing: 0.3 }}>{label}</div>
+                    <div style={{ fontSize: 11, fontFamily: "monospace", fontVariantNumeric: "tabular-nums", color: pc(v) }}>{fmtPct(v, 1)}</div>
+                  </div>
+                );
+                return (
+                  <button
+                    key={idx.ticker}
+                    type="button"
+                    onClick={() => onTicker && onTicker(idx.ticker)}
+                    style={{
+                      textAlign: "left",
+                      cursor: "pointer",
+                      background: on ? A.bgHover : A.bg,
+                      color: A.text,
+                      borderStyle: "solid",
+                      borderWidth: "1px 1px 1px 3px",
+                      borderColor: `${on ? col : A.border} ${on ? col : A.border} ${on ? col : A.border} ${col}`,
+                      borderRadius: 6,
+                      padding: "7px 9px",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                      <span style={{ fontWeight: 800, fontFamily: "monospace", fontSize: 13 }}>{idx.ticker}</span>
+                      <span style={{ color: A.textMuted, fontSize: 10 }}>{idx.name}</span>
+                      {s && <span style={{ marginLeft: "auto", fontSize: 10, fontWeight: 700, color: col }}>{s.trend.toUpperCase()}</span>}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 7, marginTop: 2, fontFamily: "monospace", fontVariantNumeric: "tabular-nums" }}>
+                      <span style={{ fontSize: 15, fontWeight: 700 }}>{typeof idx.price === "number" ? idx.price.toFixed(2) : "—"}</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: pc(idx.change) }}>{fmtPct(idx.change, 2)}</span>
+                      <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "baseline", gap: 6, fontSize: 10 }}>
+                        {idx.cr != null && <span style={{ color: idx.cr >= 70 ? A.green : idx.cr <= 30 ? A.red : A.textMuted }}>CR {idx.cr}%</span>}
+                        {s && (
+                          <span
+                            style={{ color: s.dd >= 6 ? A.red : s.dd >= 4 ? A.yellow : A.textMuted, fontWeight: s.dd >= 4 ? 700 : 400 }}
+                            title="Distribution days, last 25 sessions (down ≥ 0.2% on higher volume; drops off after a 5% rally)"
+                          >
+                            {s.dd} dist
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                    {s ? (
+                      <>
+                        <div style={{ margin: "4px 0" }}><IndexSpark s={s.spark} A={A} color={col} w={195} h={32} /></div>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 2 }}>
+                          {statCell("1W", s.w1)}
+                          {statCell("1M", s.m1)}
+                          {statCell("YTD", s.ytd)}
+                          {statCell("OFF HI", s.off, "Off the 52-week high")}
+                          {statCell("21E", s.v21, "Distance from the 21-day EMA")}
+                          {statCell(`50D ${s.s50Rising ? "↗" : "↘"}`, s.v50, s.s50Rising ? "50-day rising" : "50-day falling")}
+                          {statCell("200D", s.v200, "Distance from the 200-day")}
+                        </div>
+                      </>
+                    ) : (
+                      <div style={{ fontSize: 10, color: A.textMuted, marginTop: 4 }}>
+                        {idx.maStatus || "Loading index bars…"}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 
