@@ -1630,7 +1630,7 @@ export default function MarketBreadthCard({
   const [slide, setSlide] = useState(0); // 0 = Breadth + Stage Analysis (Deepvue view), 1 = MA Breadth + 4% Movers
   const [openChart, setOpenChart] = useState(null); // null | "nhnl" | "ad" | "stage" | "p20" | "p50" | "p200" | "mcclellan"
   const [adMode, setAdMode] = useState("daily"); // "daily" | "cum"
-  const [histRange, setHistRange] = useState(22); // 22 (~1M) | 63 (~3M) | 126 (~6M) | 252 (~1Y)
+  const [histRange, setHistRange] = useState(126); // 22 (~1M) | 63 (~3M) | 126 (~6M) | 252 (~1Y)
   const [showSpx, setShowSpx] = useState(true);
   const [spxData, setSpxData] = useState(() => _spxCache.data);
   const [liveStats, setLiveStats] = useState(() => _hpCache.stats);
