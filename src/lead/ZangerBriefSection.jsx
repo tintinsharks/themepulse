@@ -27,6 +27,7 @@ import MarketBreadthCard from "../components/MarketBreadthCard.jsx";
 
 const BRIEF_DIR = "/data/briefs/";
 const INDEX_TKS = LEAD_INDEXES.map((x) => x.t);
+const MACRO_PILL_TKS = ["UUP", "IBIT", "GLD"];
 const NEWS_TTL_MS = 5 * 60 * 1000;
 const _newsCache = new Map();
 const safeUrl = (u) => (typeof u === "string" && /^https?:\/\//i.test(u) ? u : null);
@@ -251,7 +252,7 @@ export default function ZangerBriefSection({
   }, [stockMap, tickerLayer, tiers]);
 
   const quoteTickers = useMemo(
-    () => (liveOn ? [...new Set([...INDEX_TKS, ...poolTickers, ...(portfolio || []), ...(watchlist || [])].filter(Boolean))] : []),
+    () => (liveOn ? [...new Set([...INDEX_TKS, ...MACRO_PILL_TKS, ...poolTickers, ...(portfolio || []), ...(watchlist || [])].filter(Boolean))] : []),
     [liveOn, poolTickers, portfolio, watchlist]
   );
   const { quotes, at } = useScanQuotes(quoteTickers, liveOn && quoteTickers.length > 0);
@@ -497,6 +498,39 @@ export default function ZangerBriefSection({
     </div>
   );
 
+  const macroPills = useMemo(() => {
+    const tapeList = Array.isArray(mq?.tape) ? mq.tape : [];
+    const futList = Array.isArray(mq?.futures) && mq.futures.length ? mq.futures : (snap?.market?.futures || []);
+    const findTape = (tk) => tapeList.find((x) => x?.ticker === tk);
+    const findFut = (re) => futList.find((f) => re.test(String(f?.name || "")));
+    const qOf = (tk) => (liveOn ? quotes.get(tk) : null) || stockMap?.[tk] || null;
+    const numOr = (v) => {
+      const n = Number(v);
+      return v != null && v !== "" && Number.isFinite(n) ? n : null;
+    };
+    const mk = (id, label, chartTk, spotObj, proxyTk, accent, note) => {
+      const q = qOf(proxyTk);
+      const spPx = numOr(spotObj?.price);
+      const spChg = numOr(spotObj?.changePct ?? spotObj?.change);
+      const px = spPx ?? numOr(q?.rthPrice ?? q?.price ?? q?.close);
+      const chg = spChg ?? numOr(q?.change ?? q?.change_pct);
+      return {
+        id,
+        label,
+        chartTicker: chartTk,
+        price: px,
+        change: chg,
+        accent,
+        tip: `${note}${spPx == null ? ` (${proxyTk} proxy)` : ""} · click to chart ${chartTk}`,
+      };
+    };
+    return [
+      mk("dxy", "DXY", "UUP", findTape("DXY"), "UUP", "#38bdf8", "US Dollar (UUP proxy)"),
+      mk("btc", "BTC", "IBIT", findFut(/btc|bitcoin/i), "IBIT", "#f59e0b", "Bitcoin"),
+      mk("gold", "GOLD", "GLD", findFut(/gold/i), "GLD", "#eab308", "Gold"),
+    ];
+  }, [mq, snap, liveOn, quotes, stockMap]);
+
   const breadthEmbedded = (
     <MarketBreadthCard
       A={A}
@@ -504,6 +538,7 @@ export default function ZangerBriefSection({
       breadth={breadth}
       monitor={monitor}
       indexQuotes={indexQuotes}
+      macroPills={macroPills}
       onTicker={onTicker}
       chartTicker={chartTicker}
       tickerLayer={tickerLayer}
