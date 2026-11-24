@@ -199,14 +199,101 @@ function SignalMarkers({ series, signalByDate, allowedTypes, padL, step, padT, p
   );
 }
 
+const SIGNAL_EXPLAIN = {
+  ninety_up: {
+    meaning: "Institutional accumulation thrust — nearly all stocks rallying together on broad demand.",
+    rule: "Triggered when ≥ 88% of advancing + declining issues close higher (≥ 500 issues).",
+  },
+  ninety_down: {
+    meaning: "Broad liquidation / capitulation day — indiscriminate selling across the market.",
+    rule: "Triggered when ≥ 88% of advancing + declining issues close lower (≥ 500 issues).",
+  },
+  zbt: {
+    meaning: "Martin Zweig's rare breadth thrust — historically marks major bullish regime shifts.",
+    rule: "Triggered when the 10-day EMA of Adv/(Adv+Dec) surges from <40% to >61.5% within 10 sessions.",
+  },
+  mc_os_hook: {
+    meaning: "Short-term breadth washout turning up — early bounce / mean-reversion tell.",
+    rule: "Triggered when the McClellan Oscillator drops ≤ −60 and hooks higher from a local low.",
+  },
+  mc_ob_hook: {
+    meaning: "Short-term breadth momentum cooling from overbought territory.",
+    rule: "Triggered when the McClellan Oscillator reaches ≥ +60 and rolls over from a local peak.",
+  },
+  div_bear: {
+    meaning: "Thin rally warning — index price is pushing higher while fewer stocks participate underneath.",
+    rule: "Triggered when SPX is within 0.5% of a 20d high while Cum A/D or >50d SMA lags meaningfully below its 20d peak.",
+  },
+  div_bull: {
+    meaning: "Positive breadth divergence — fewer stocks are making new lows even as the index retests lows.",
+    rule: "Triggered when SPX is within 0.5% of a 20d low while Cum A/D or >50d SMA holds meaningfully above its 20d trough.",
+  },
+};
+
+function BreadthTagTip({ A, accent, heading, meaning, why, hint, children }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span
+      style={{ position: "relative", display: "inline-flex", alignItems: "center" }}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      onFocus={() => setOpen(true)}
+      onBlur={() => setOpen(false)}
+    >
+      {children}
+      {open && (
+        <div
+          role="tooltip"
+          style={{
+            position: "absolute",
+            top: "calc(100% + 6px)",
+            left: 0,
+            zIndex: 60,
+            width: 270,
+            maxWidth: "78vw",
+            padding: "8px 10px",
+            borderRadius: 8,
+            background: A.bgCard,
+            border: `1px solid ${accent}88`,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.45)",
+            pointerEvents: "none",
+            lineHeight: 1.45,
+          }}
+        >
+          <div style={{ fontSize: 11, fontWeight: 800, color: accent, fontFamily: "monospace", marginBottom: 3 }}>
+            {heading}
+          </div>
+          {meaning && (
+            <div style={{ fontSize: 10.5, color: A.text, marginBottom: 4 }}>
+              {meaning}
+            </div>
+          )}
+          {why && (
+            <div style={{ fontSize: 10, color: A.textDim, fontFamily: "monospace", borderTop: `1px solid ${A.border}`, paddingTop: 4 }}>
+              {why}
+            </div>
+          )}
+          {hint && (
+            <div style={{ fontSize: 9.5, color: A.textMuted, fontFamily: "monospace", marginTop: 4 }}>
+              {hint}
+            </div>
+          )}
+        </div>
+      )}
+    </span>
+  );
+}
+
 function HoverSignalPills({ signals, A }) {
   if (!signals?.length) return null;
   return signals.map((sig) => {
     const c = signalToneColor(sig.tone, A);
+    const ex = SIGNAL_EXPLAIN[sig.type];
+    const fullTip = [ex?.meaning, sig.detail, ex?.rule].filter(Boolean).join(" — ");
     return (
       <span
         key={`${sig.type}-${sig.date}`}
-        title={sig.detail}
+        title={fullTip}
         style={{
           fontSize: 9,
           fontWeight: 800,
@@ -215,6 +302,7 @@ function HoverSignalPills({ signals, A }) {
           background: `${c}22`,
           border: `1px solid ${c}77`,
           color: c,
+          cursor: "help",
         }}
       >
         {sig.label}
@@ -775,7 +863,11 @@ function MaBreadthHistoryChart({ A, title, series, range, onRange, spxData, show
   const spxStroke = A.text || "#f8fafc";
   const spxHalo = A.bg || "#0d1117";
   const curColor = cur.pct < 20 ? COLORS.pink : cur.pct > 80 ? COLORS.blue : COLORS.cyan;
-  const zoneTag = cur.pct < 20 ? { label: "Oversold", color: COLORS.pink } : cur.pct > 80 ? { label: "Overbought", color: COLORS.blue } : null;
+  const zoneTag = cur.pct < 20
+    ? { label: "Oversold", color: COLORS.pink, tip: `${title} is below 20% (${cur.pct.toFixed(1)}%) — washout zone where breadth often bounces.` }
+    : cur.pct > 80
+    ? { label: "Overbought", color: COLORS.blue, tip: `${title} is above 80% (${cur.pct.toFixed(1)}%) — stretched short-term breadth; watch for pullbacks.` }
+    : null;
 
   const linePts = series.map((d, i) => `${xOf(i).toFixed(1)},${yOf(d.pct).toFixed(1)}`);
   const lineD = linePts.map((pt, i) => `${i === 0 ? "M" : "L"}${pt}`).join(" ");
@@ -804,6 +896,7 @@ function MaBreadthHistoryChart({ A, title, series, range, onRange, spxData, show
           <span style={{ color: curColor, fontWeight: 700 }}>{cur.pct.toFixed(1)}% {title}</span>
           {zoneTag && (
             <span
+              title={zoneTag.tip}
               style={{
                 fontSize: 9,
                 fontWeight: 700,
@@ -812,6 +905,7 @@ function MaBreadthHistoryChart({ A, title, series, range, onRange, spxData, show
                 background: `${zoneTag.color}22`,
                 border: `1px solid ${zoneTag.color}66`,
                 color: zoneTag.color,
+                cursor: "help",
               }}
             >
               {zoneTag.label}
@@ -973,7 +1067,11 @@ function McClellanHistoryChart({ A, series, range, onRange, spxData, showSpx, on
   const curSpx = spx ? spx.values[activeIdx] : null;
   const spxStroke = A.text || "#f8fafc";
   const spxHalo = A.bg || "#0d1117";
-  const zoneTag = cur.osc <= -60 ? { label: "Oversold", color: COLORS.pink } : cur.osc >= 60 ? { label: "Overbought", color: COLORS.blue } : null;
+  const zoneTag = cur.osc <= -60
+    ? { label: "Oversold", color: COLORS.pink, tip: `McClellan Oscillator is ≤ −60 (${cur.osc.toFixed(1)}) — deeply oversold breadth; watch for an upward hook.` }
+    : cur.osc >= 60
+    ? { label: "Overbought", color: COLORS.blue, tip: `McClellan Oscillator is ≥ +60 (+${cur.osc.toFixed(1)}) — short-term overbought breadth; momentum may pause.` }
+    : null;
 
   const spansYear = series[0]?.date && series[n - 1]?.date && String(series[0].date).slice(0, 4) !== String(series[n - 1].date).slice(0, 4);
   const fmtShortDate = (d) => (d === "Today (Live)" ? "Live" : spansYear ? String(d || "").slice(2) : String(d || "").slice(5));
@@ -1001,6 +1099,7 @@ function McClellanHistoryChart({ A, series, range, onRange, spxData, showSpx, on
           </span>
           {zoneTag && (
             <span
+              title={zoneTag.tip}
               style={{
                 fontSize: 9,
                 fontWeight: 700,
@@ -1009,6 +1108,7 @@ function McClellanHistoryChart({ A, series, range, onRange, spxData, showSpx, on
                 background: `${zoneTag.color}22`,
                 border: `1px solid ${zoneTag.color}66`,
                 color: zoneTag.color,
+                cursor: "help",
               }}
             >
               {zoneTag.label}
@@ -1639,19 +1739,45 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor, onTic
     const s4 = stageDist.stages[3]?.pct ?? 0;
     const advPct = advDec?.pct ?? null;
     const nhPct = nhNl?.pct ?? null;
+    const statsLine = `Now: S2 ${s2}% · S4 ${s4}%${advPct != null ? ` · Adv ${Math.round(advPct)}%` : ""}${nhPct != null ? ` · NH ${Math.round(nhPct)}%` : ""}`;
     if (advPct != null && advPct >= 65 && s4 >= 50 && (nhPct == null || nhPct < 35)) {
-      return { label: "Bear-Market / Junk Rally", color: COLORS.pink };
+      return {
+        label: "Bear-Market / Junk Rally",
+        color: COLORS.pink,
+        meaning: "Short-covering bounce led by beaten-down names while most stocks remain in Stage 4 downtrends with weak New Highs.",
+        why: `Rule: Adv ≥65% + Stage 4 ≥50% + NH <35%. ${statsLine}`,
+      };
     }
     if (s2 >= 50 && (nhPct == null || nhPct >= 60)) {
-      return { label: "Broad Stage 2 Uptrend", color: COLORS.blue };
+      return {
+        label: "Broad Stage 2 Uptrend",
+        color: COLORS.blue,
+        meaning: "Healthy bull market — majority of stocks are in Stage 2 uptrends and New Highs dominate New Lows.",
+        why: `Rule: Stage 2 ≥50% + NH ≥60%. ${statsLine}`,
+      };
     }
     if (s4 >= 55) {
-      return { label: "Stage 4 Bear Regime", color: COLORS.pink };
+      return {
+        label: "Stage 4 Bear Regime",
+        color: COLORS.pink,
+        meaning: "Broad structural downtrend — over half the market is trading below declining 50d & 200d MAs. Stay defensive.",
+        why: `Rule: Stage 4 ≥55%. ${statsLine}`,
+      };
     }
     if (s2 >= 35 && s4 <= 35) {
-      return { label: "Constructive Breadth", color: A.green };
+      return {
+        label: "Constructive Breadth",
+        color: A.green,
+        meaning: "Supportive trend environment with solid Stage 2 leadership and limited Stage 4 damage.",
+        why: `Rule: Stage 2 ≥35% + Stage 4 ≤35%. ${statsLine}`,
+      };
     }
-    return { label: "Mixed / Transitional", color: COLORS.gold };
+    return {
+      label: "Mixed / Transitional",
+      color: COLORS.gold,
+      meaning: "Choppy or rotating market — neither broad Stage 2 expansion nor full Stage 4 bear regime. Be selective.",
+      why: `Rule: Between bull (S2 ≥35%, S4 ≤35%) and bear (S4 ≥55%) thresholds. ${statsLine}`,
+    };
   }, [stageDist, advDec, nhNl, A.green]);
 
   // Slide 2: Moving Average Breadth (>20d, >50d, >200d) + Stockbee 4% movers
@@ -1726,42 +1852,62 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor, onTic
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 6, padding: "0 2px" }}>
         <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
           <span style={{ fontSize: 13, fontWeight: 800, color: A.text, letterSpacing: 0.1 }}>Market Breadth</span>
-          <span
-            style={{
-              fontSize: 9,
-              fontWeight: 700,
-              fontFamily: "monospace",
-              padding: "1px 6px",
-              borderRadius: 999,
-              background: `${tapeTag.color}20`,
-              border: `1px solid ${tapeTag.color}66`,
-              color: tapeTag.color,
-            }}
+          <BreadthTagTip
+            A={A}
+            accent={tapeTag.color}
+            heading={tapeTag.label}
+            meaning={tapeTag.meaning}
+            why={tapeTag.why}
           >
-            {tapeTag.label}
-          </span>
+            <span
+              tabIndex={0}
+              style={{
+                fontSize: 9,
+                fontWeight: 700,
+                fontFamily: "monospace",
+                padding: "1px 6px",
+                borderRadius: 999,
+                background: `${tapeTag.color}20`,
+                border: `1px solid ${tapeTag.color}66`,
+                color: tapeTag.color,
+                cursor: "help",
+              }}
+            >
+              {tapeTag.label}
+            </span>
+          </BreadthTagTip>
           {breadthSignals.recent.slice(0, 3).map((sig) => {
             const c = signalToneColor(sig.tone, A);
+            const ex = SIGNAL_EXPLAIN[sig.type];
+            const dateLbl = sig.date === "Today (Live)" ? "Live" : sig.date.slice(5);
             return (
-              <button
+              <BreadthTagTip
                 key={`${sig.type}-${sig.date}`}
-                type="button"
-                onClick={() => openSignalChart(sig)}
-                title={`${sig.label} (${sig.date}): ${sig.detail} — click to inspect chart`}
-                style={{
-                  fontSize: 9,
-                  fontWeight: 800,
-                  fontFamily: "monospace",
-                  padding: "1px 6px",
-                  borderRadius: 999,
-                  background: `${c}1f`,
-                  border: `1px solid ${c}77`,
-                  color: c,
-                  cursor: "pointer",
-                }}
+                A={A}
+                accent={c}
+                heading={`${sig.label} (${sig.date})`}
+                meaning={ex?.meaning}
+                why={`${sig.detail}${ex?.rule ? ` · ${ex.rule}` : ""}`}
+                hint="Click tag to open chart →"
               >
-                {sig.label} · {sig.date === "Today (Live)" ? "Live" : sig.date.slice(5)}
-              </button>
+                <button
+                  type="button"
+                  onClick={() => openSignalChart(sig)}
+                  style={{
+                    fontSize: 9,
+                    fontWeight: 800,
+                    fontFamily: "monospace",
+                    padding: "1px 6px",
+                    borderRadius: 999,
+                    background: `${c}1f`,
+                    border: `1px solid ${c}77`,
+                    color: c,
+                    cursor: "pointer",
+                  }}
+                >
+                  {sig.label} · {dateLbl}
+                </button>
+              </BreadthTagTip>
             );
           })}
         </div>
