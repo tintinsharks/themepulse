@@ -11,6 +11,7 @@ import {
 } from "./breadthChartMath.js";
 
 // Shared 60s cache for Finviz homepage market_stats (Adv/Dec, New High/Low, >50/200 SMA)
+const MONO = "'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace";
 const HP_TTL_MS = 60 * 1000;
 let _hpCache = { ts: 0, stats: null, inflight: null };
 
@@ -189,7 +190,7 @@ function SignalMarkers({ series, signalByDate, allowedTypes, padL, step, padT, p
             <line x1={x} y1={padT} x2={x} y2={padT + plotH} stroke={c} strokeWidth="1" strokeDasharray="2 2" strokeOpacity="0.55" />
             <circle cx={x} cy={padT + 3.5} r="2.8" fill={c} stroke={A?.bg || "#0d1117"} strokeWidth="1" />
             {showText && (
-              <text x={x} y={padT - 1.5} textAnchor="middle" fontSize="7.5" fontWeight="700" fill={c} fontFamily="monospace">
+              <text x={x} y={padT - 1.5} textAnchor="middle" fontSize="8" fontWeight="700" fill={c} fontFamily={MONO}>
                 {sig.short}
               </text>
             )}
@@ -261,21 +262,21 @@ function BreadthTagTip({ A, accent, heading, meaning, why, hint, children }) {
             lineHeight: 1.45,
           }}
         >
-          <div style={{ fontSize: 11, fontWeight: 800, color: accent, fontFamily: "monospace", marginBottom: 3 }}>
+          <div style={{ fontSize: 11.5, fontWeight: 700, color: accent, marginBottom: 3 }}>
             {heading}
           </div>
           {meaning && (
-            <div style={{ fontSize: 10.5, color: A.text, marginBottom: 4 }}>
+            <div style={{ fontSize: 11, color: A.text, marginBottom: 4 }}>
               {meaning}
             </div>
           )}
           {why && (
-            <div style={{ fontSize: 10, color: A.textDim, fontFamily: "monospace", borderTop: `1px solid ${A.border}`, paddingTop: 4 }}>
+            <div style={{ fontSize: 10.5, color: A.textDim, borderTop: `1px solid ${A.border}`, paddingTop: 4 }}>
               {why}
             </div>
           )}
           {hint && (
-            <div style={{ fontSize: 9.5, color: A.textMuted, fontFamily: "monospace", marginTop: 4 }}>
+            <div style={{ fontSize: 10, color: A.textMuted, marginTop: 4 }}>
               {hint}
             </div>
           )}
@@ -296,8 +297,9 @@ function HoverSignalPills({ signals, A }) {
         key={`${sig.type}-${sig.date}`}
         title={fullTip}
         style={{
-          fontSize: 9,
+          fontSize: 10,
           fontWeight: 800,
+          fontFamily: MONO,
           padding: "0 5px",
           borderRadius: 4,
           background: `${c}22`,
@@ -345,9 +347,8 @@ function ChartControls({ A, range, onRange, onResetHover, spxData, showSpx, onTo
                   color: active ? COLORS.cyan : A.textMuted,
                   borderRadius: 6,
                   padding: "1px 6px",
-                  fontSize: 10,
-                  fontWeight: 700,
-                  fontFamily: "monospace",
+                  fontSize: 10.5,
+                  fontWeight: active ? 700 : 600,
                   cursor: "pointer",
                 }}
               >
@@ -367,9 +368,8 @@ function ChartControls({ A, range, onRange, onResetHover, spxData, showSpx, onTo
           color: showSpx ? A.text : A.textMuted,
           borderRadius: 6,
           padding: "1px 6px",
-          fontSize: 10,
-          fontWeight: 700,
-          fontFamily: "monospace",
+          fontSize: 10.5,
+          fontWeight: showSpx ? 700 : 600,
           cursor: "pointer",
         }}
       >
@@ -386,9 +386,8 @@ function ChartControls({ A, range, onRange, onResetHover, spxData, showSpx, onTo
             color: range === days ? COLORS.blue : A.textMuted,
             borderRadius: 6,
             padding: "1px 6px",
-            fontSize: 10,
-            fontWeight: 700,
-            fontFamily: "monospace",
+            fontSize: 10.5,
+            fontWeight: range === days ? 700 : 600,
             cursor: "pointer",
           }}
         >
@@ -414,12 +413,12 @@ function RatioBar({ title, pct, leftLabel, rightLabel, accentColor, trackBg, tex
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, color: textColor, letterSpacing: -0.1 }}>
           <span>{title}</span>
           {onClick && (
-            <span style={{ fontSize: 10, fontWeight: 500, color: mutedColor, fontFamily: "monospace" }}>
+            <span style={{ fontSize: 10.5, fontWeight: 500, color: mutedColor }}>
               {expanded ? "▾ hide" : "▸ chart"}
             </span>
           )}
         </span>
-        <span style={{ fontSize: 13, fontWeight: 800, color: accentColor, fontVariantNumeric: "tabular-nums" }}>
+        <span style={{ fontSize: 13, fontWeight: 800, color: accentColor, fontFamily: MONO, fontVariantNumeric: "tabular-nums" }}>
           {Number.isFinite(pct) ? `${Math.round(pct)}%` : "—"}
         </span>
       </div>
@@ -502,8 +501,8 @@ function BreadthHistoryChart({ A, series, posLabel, negLabel, range, onRange, sp
         borderRadius: 8,
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 6, fontSize: 11, fontFamily: "monospace" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 6, fontSize: 11 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontFamily: MONO }}>
           <strong style={{ color: A.text }}>{cur.date}</strong>
           <span style={{ color: COLORS.blue, fontWeight: 700 }}>{cur.pos.toLocaleString()} {posLabel}</span>
           <span style={{ color: COLORS.pink, fontWeight: 700 }}>{cur.neg.toLocaleString()} {negLabel}</span>
@@ -542,16 +541,16 @@ function BreadthHistoryChart({ A, series, posLabel, negLabel, range, onRange, sp
         <SignalMarkers series={series} signalByDate={signalByDate} allowedTypes={signalTypes} padL={padL} step={step} padT={padT} plotH={plotH} A={A} />
 
         {/* Left Y-axis scale labels */}
-        <text x={padL - 5} y={padT + 8} textAnchor="end" fontSize="9" fill={COLORS.blue} fontFamily="monospace">+{maxVal}</text>
-        <text x={padL - 5} y={midY + 3} textAnchor="end" fontSize="9" fill={A.textMuted} fontFamily="monospace">0</text>
-        <text x={padL - 5} y={padT + plotH} textAnchor="end" fontSize="9" fill={COLORS.pink} fontFamily="monospace">-{maxVal}</text>
+        <text x={padL - 5} y={padT + 8} textAnchor="end" fontSize="9.5" fill={COLORS.blue} fontFamily={MONO}>+{maxVal}</text>
+        <text x={padL - 5} y={midY + 3} textAnchor="end" fontSize="9.5" fill={A.textMuted} fontFamily={MONO}>0</text>
+        <text x={padL - 5} y={padT + plotH} textAnchor="end" fontSize="9.5" fill={COLORS.pink} fontFamily={MONO}>-{maxVal}</text>
 
         {/* Right Y-axis scale labels (SPX) */}
         {spx && (
           <>
-            <text x={W - padR + 5} y={padT + 8} textAnchor="start" fontSize="9" fill={A.textDim} fontFamily="monospace">{fmtSpx(spx.max)}</text>
-            <text x={W - padR + 5} y={midY + 3} textAnchor="start" fontSize="9" fill={A.textMuted} fontFamily="monospace">{fmtSpx(spx.mid)}</text>
-            <text x={W - padR + 5} y={padT + plotH} textAnchor="start" fontSize="9" fill={A.textDim} fontFamily="monospace">{fmtSpx(spx.min)}</text>
+            <text x={W - padR + 5} y={padT + 8} textAnchor="start" fontSize="9.5" fill={A.textDim} fontFamily={MONO}>{fmtSpx(spx.max)}</text>
+            <text x={W - padR + 5} y={midY + 3} textAnchor="start" fontSize="9.5" fill={A.textMuted} fontFamily={MONO}>{fmtSpx(spx.mid)}</text>
+            <text x={W - padR + 5} y={padT + plotH} textAnchor="start" fontSize="9.5" fill={A.textDim} fontFamily={MONO}>{fmtSpx(spx.min)}</text>
           </>
         )}
 
@@ -615,20 +614,20 @@ function BreadthHistoryChart({ A, series, posLabel, negLabel, range, onRange, sp
         )}
 
         {/* X-axis date ticks */}
-        <text x={padL} y={H - 5} textAnchor="start" fontSize="9" fill={A.textMuted} fontFamily="monospace">
+        <text x={padL} y={H - 5} textAnchor="start" fontSize="9.5" fill={A.textMuted} fontFamily={MONO}>
           {fmtShortDate(series[0].date)}
         </text>
         {n > 4 && (
-          <text x={padL + midIdx * step + step / 2} y={H - 5} textAnchor="middle" fontSize="9" fill={A.textMuted} fontFamily="monospace">
+          <text x={padL + midIdx * step + step / 2} y={H - 5} textAnchor="middle" fontSize="9.5" fill={A.textMuted} fontFamily={MONO}>
             {fmtShortDate(series[midIdx].date)}
           </text>
         )}
-        <text x={W - padR} y={H - 5} textAnchor="end" fontSize="9" fill={series[n - 1].isLive ? A.green : A.textMuted} fontFamily="monospace">
+        <text x={W - padR} y={H - 5} textAnchor="end" fontSize="9.5" fill={series[n - 1].isLive ? A.green : A.textMuted} fontFamily={MONO}>
           {fmtShortDate(series[n - 1].date)}
         </text>
       </svg>
 
-      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginTop: 4, fontSize: 10, color: A.textMuted, fontFamily: "monospace" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginTop: 4, fontSize: 10.5, color: A.textMuted }}>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           <span><span style={{ color: COLORS.blue }}>■</span> {posLabel} (up)</span>
           <span><span style={{ color: COLORS.pink }}>■</span> {negLabel} (down)</span>
@@ -705,8 +704,8 @@ function CumAdHistoryChart({ A, series, range, onRange, spxData, showSpx, onTogg
         borderRadius: 8,
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 6, fontSize: 11, fontFamily: "monospace" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 6, fontSize: 11 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontFamily: MONO }}>
           <strong style={{ color: A.text }}>{cur.date}</strong>
           <span style={{ color: COLORS.cyan, fontWeight: 700 }}>Cum A/D {fmtSigned(cur.cumAd)}</span>
           <span style={{ color: cur.net >= 0 ? COLORS.blue : COLORS.pink }}>
@@ -745,19 +744,19 @@ function CumAdHistoryChart({ A, series, range, onRange, spxData, showSpx, onTogg
         )}
 
         {/* Left Y-axis labels */}
-        <text x={padL - 5} y={padT + 8} textAnchor="end" fontSize="9" fill={COLORS.cyan} fontFamily="monospace">{fmtCompactSigned(maxVal)}</text>
-        <text x={padL - 5} y={midY + 3} textAnchor="end" fontSize="9" fill={A.textMuted} fontFamily="monospace">{fmtCompactSigned(midVal)}</text>
-        <text x={padL - 5} y={padT + plotH} textAnchor="end" fontSize="9" fill={A.textDim} fontFamily="monospace">{fmtCompactSigned(minVal)}</text>
+        <text x={padL - 5} y={padT + 8} textAnchor="end" fontSize="9.5" fill={COLORS.cyan} fontFamily={MONO}>{fmtCompactSigned(maxVal)}</text>
+        <text x={padL - 5} y={midY + 3} textAnchor="end" fontSize="9.5" fill={A.textMuted} fontFamily={MONO}>{fmtCompactSigned(midVal)}</text>
+        <text x={padL - 5} y={padT + plotH} textAnchor="end" fontSize="9.5" fill={A.textDim} fontFamily={MONO}>{fmtCompactSigned(minVal)}</text>
         {showZeroLabel && (
-          <text x={padL - 5} y={zeroY + 3} textAnchor="end" fontSize="9" fill={A.textMuted} fontFamily="monospace">0</text>
+          <text x={padL - 5} y={zeroY + 3} textAnchor="end" fontSize="9.5" fill={A.textMuted} fontFamily={MONO}>0</text>
         )}
 
         {/* Right Y-axis scale labels (SPX) */}
         {spx && (
           <>
-            <text x={W - padR + 5} y={padT + 8} textAnchor="start" fontSize="9" fill={A.textDim} fontFamily="monospace">{fmtSpx(spx.max)}</text>
-            <text x={W - padR + 5} y={midY + 3} textAnchor="start" fontSize="9" fill={A.textMuted} fontFamily="monospace">{fmtSpx(spx.mid)}</text>
-            <text x={W - padR + 5} y={padT + plotH} textAnchor="start" fontSize="9" fill={A.textDim} fontFamily="monospace">{fmtSpx(spx.min)}</text>
+            <text x={W - padR + 5} y={padT + 8} textAnchor="start" fontSize="9.5" fill={A.textDim} fontFamily={MONO}>{fmtSpx(spx.max)}</text>
+            <text x={W - padR + 5} y={midY + 3} textAnchor="start" fontSize="9.5" fill={A.textMuted} fontFamily={MONO}>{fmtSpx(spx.mid)}</text>
+            <text x={W - padR + 5} y={padT + plotH} textAnchor="start" fontSize="9.5" fill={A.textDim} fontFamily={MONO}>{fmtSpx(spx.min)}</text>
           </>
         )}
 
@@ -812,14 +811,14 @@ function CumAdHistoryChart({ A, series, range, onRange, spxData, showSpx, onTogg
         )}
 
         {/* X-axis date ticks */}
-        <text x={padL} y={H - 5} textAnchor="start" fontSize="9" fill={A.textMuted} fontFamily="monospace">{fmtShortDate(series[0].date)}</text>
+        <text x={padL} y={H - 5} textAnchor="start" fontSize="9.5" fill={A.textMuted} fontFamily={MONO}>{fmtShortDate(series[0].date)}</text>
         {n > 4 && (
-          <text x={padL + midIdx * step + step / 2} y={H - 5} textAnchor="middle" fontSize="9" fill={A.textMuted} fontFamily="monospace">{fmtShortDate(series[midIdx].date)}</text>
+          <text x={padL + midIdx * step + step / 2} y={H - 5} textAnchor="middle" fontSize="9.5" fill={A.textMuted} fontFamily={MONO}>{fmtShortDate(series[midIdx].date)}</text>
         )}
-        <text x={W - padR} y={H - 5} textAnchor="end" fontSize="9" fill={series[n - 1].isLive ? A.green : A.textMuted} fontFamily="monospace">{fmtShortDate(series[n - 1].date)}</text>
+        <text x={W - padR} y={H - 5} textAnchor="end" fontSize="9.5" fill={series[n - 1].isLive ? A.green : A.textMuted} fontFamily={MONO}>{fmtShortDate(series[n - 1].date)}</text>
       </svg>
 
-      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginTop: 4, fontSize: 10, color: A.textMuted, fontFamily: "monospace" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginTop: 4, fontSize: 10.5, color: A.textMuted }}>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           <span><span style={{ color: COLORS.cyan }}>━</span> Cum A/D Line (left)</span>
           {spx && <span><span style={{ color: A.text }}>━</span> {spx.label} (right)</span>}
@@ -891,16 +890,17 @@ function MaBreadthHistoryChart({ A, title, series, range, onRange, spxData, show
         borderRadius: 8,
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 6, fontSize: 11, fontFamily: "monospace" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 6, fontSize: 11 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontFamily: MONO }}>
           <strong style={{ color: A.text }}>{cur.date}</strong>
           <span style={{ color: curColor, fontWeight: 700 }}>{cur.pct.toFixed(1)}% {title}</span>
           {zoneTag && (
             <span
               title={zoneTag.tip}
               style={{
-                fontSize: 9,
+                fontSize: 10,
                 fontWeight: 700,
+                fontFamily: MONO,
                 padding: "0 5px",
                 borderRadius: 4,
                 background: `${zoneTag.color}22`,
@@ -947,18 +947,18 @@ function MaBreadthHistoryChart({ A, title, series, range, onRange, spxData, show
         <line x1={padL} y1={baseY} x2={W - padR} y2={baseY} stroke={A.border} strokeOpacity="0.7" />
 
         {/* Left Y-axis labels */}
-        <text x={padL - 5} y={padT + 7} textAnchor="end" fontSize="8.5" fill={A.textMuted} fontFamily="monospace">100%</text>
-        <text x={padL - 5} y={y80 + 3} textAnchor="end" fontSize="8.5" fill={COLORS.blue} fontFamily="monospace">80%</text>
-        <text x={padL - 5} y={y50 + 3} textAnchor="end" fontSize="8.5" fill={A.textMuted} fontFamily="monospace">50%</text>
-        <text x={padL - 5} y={y20 + 3} textAnchor="end" fontSize="8.5" fill={COLORS.pink} fontFamily="monospace">20%</text>
-        <text x={padL - 5} y={baseY} textAnchor="end" fontSize="8.5" fill={A.textMuted} fontFamily="monospace">0%</text>
+        <text x={padL - 5} y={padT + 7} textAnchor="end" fontSize="9.5" fill={A.textMuted} fontFamily={MONO}>100%</text>
+        <text x={padL - 5} y={y80 + 3} textAnchor="end" fontSize="9.5" fill={COLORS.blue} fontFamily={MONO}>80%</text>
+        <text x={padL - 5} y={y50 + 3} textAnchor="end" fontSize="9.5" fill={A.textMuted} fontFamily={MONO}>50%</text>
+        <text x={padL - 5} y={y20 + 3} textAnchor="end" fontSize="9.5" fill={COLORS.pink} fontFamily={MONO}>20%</text>
+        <text x={padL - 5} y={baseY} textAnchor="end" fontSize="9.5" fill={A.textMuted} fontFamily={MONO}>0%</text>
 
         {/* Right Y-axis scale labels (SPX) */}
         {spx && (
           <>
-            <text x={W - padR + 5} y={padT + 8} textAnchor="start" fontSize="9" fill={A.textDim} fontFamily="monospace">{fmtSpx(spx.max)}</text>
-            <text x={W - padR + 5} y={y50 + 3} textAnchor="start" fontSize="9" fill={A.textMuted} fontFamily="monospace">{fmtSpx(spx.mid)}</text>
-            <text x={W - padR + 5} y={baseY} textAnchor="start" fontSize="9" fill={A.textDim} fontFamily="monospace">{fmtSpx(spx.min)}</text>
+            <text x={W - padR + 5} y={padT + 8} textAnchor="start" fontSize="9.5" fill={A.textDim} fontFamily={MONO}>{fmtSpx(spx.max)}</text>
+            <text x={W - padR + 5} y={y50 + 3} textAnchor="start" fontSize="9.5" fill={A.textMuted} fontFamily={MONO}>{fmtSpx(spx.mid)}</text>
+            <text x={W - padR + 5} y={baseY} textAnchor="start" fontSize="9.5" fill={A.textDim} fontFamily={MONO}>{fmtSpx(spx.min)}</text>
           </>
         )}
 
@@ -1013,14 +1013,14 @@ function MaBreadthHistoryChart({ A, title, series, range, onRange, spxData, show
         )}
 
         {/* X-axis date ticks */}
-        <text x={padL} y={H - 5} textAnchor="start" fontSize="9" fill={A.textMuted} fontFamily="monospace">{fmtShortDate(series[0].date)}</text>
+        <text x={padL} y={H - 5} textAnchor="start" fontSize="9.5" fill={A.textMuted} fontFamily={MONO}>{fmtShortDate(series[0].date)}</text>
         {n > 4 && (
-          <text x={padL + midIdx * step + step / 2} y={H - 5} textAnchor="middle" fontSize="9" fill={A.textMuted} fontFamily="monospace">{fmtShortDate(series[midIdx].date)}</text>
+          <text x={padL + midIdx * step + step / 2} y={H - 5} textAnchor="middle" fontSize="9.5" fill={A.textMuted} fontFamily={MONO}>{fmtShortDate(series[midIdx].date)}</text>
         )}
-        <text x={W - padR} y={H - 5} textAnchor="end" fontSize="9" fill={series[n - 1].isLive ? A.green : A.textMuted} fontFamily="monospace">{fmtShortDate(series[n - 1].date)}</text>
+        <text x={W - padR} y={H - 5} textAnchor="end" fontSize="9.5" fill={series[n - 1].isLive ? A.green : A.textMuted} fontFamily={MONO}>{fmtShortDate(series[n - 1].date)}</text>
       </svg>
 
-      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginTop: 4, fontSize: 10, color: A.textMuted, fontFamily: "monospace" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginTop: 4, fontSize: 10.5, color: A.textMuted }}>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           <span><span style={{ color: COLORS.cyan }}>━</span> {title} (left)</span>
           <span><span style={{ color: COLORS.blue }}>■</span> &gt;80% OB</span>
@@ -1089,8 +1089,8 @@ function McClellanHistoryChart({ A, series, range, onRange, spxData, showSpx, on
         borderRadius: 8,
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 6, fontSize: 11, fontFamily: "monospace" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 6, fontSize: 11 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontFamily: MONO }}>
           <strong style={{ color: A.text }}>{cur.date}</strong>
           <span style={{ color: cur.osc >= 0 ? COLORS.blue : COLORS.pink, fontWeight: 700 }}>
             Osc {fmtSigned(cur.osc, 1)}
@@ -1102,8 +1102,9 @@ function McClellanHistoryChart({ A, series, range, onRange, spxData, showSpx, on
             <span
               title={zoneTag.tip}
               style={{
-                fontSize: 9,
+                fontSize: 10,
                 fontWeight: 700,
+                fontFamily: MONO,
                 padding: "0 5px",
                 borderRadius: 4,
                 background: `${zoneTag.color}22`,
@@ -1147,18 +1148,18 @@ function McClellanHistoryChart({ A, series, range, onRange, spxData, showSpx, on
         <SignalMarkers series={series} signalByDate={signalByDate} allowedTypes={signalTypes} padL={padL} step={step} padT={padT} plotH={plotH} A={A} />
 
         {/* Left Y-axis labels */}
-        <text x={padL - 5} y={padT + 7} textAnchor="end" fontSize="8.5" fill={A.textMuted} fontFamily="monospace">+{maxAbs}</text>
-        <text x={padL - 5} y={yPos60 + 3} textAnchor="end" fontSize="8.5" fill={COLORS.blue} fontFamily="monospace">+60</text>
-        <text x={padL - 5} y={midY + 3} textAnchor="end" fontSize="8.5" fill={A.textMuted} fontFamily="monospace">0</text>
-        <text x={padL - 5} y={yNeg60 + 3} textAnchor="end" fontSize="8.5" fill={COLORS.pink} fontFamily="monospace">-60</text>
-        <text x={padL - 5} y={padT + plotH} textAnchor="end" fontSize="8.5" fill={A.textMuted} fontFamily="monospace">-{maxAbs}</text>
+        <text x={padL - 5} y={padT + 7} textAnchor="end" fontSize="9.5" fill={A.textMuted} fontFamily={MONO}>+{maxAbs}</text>
+        <text x={padL - 5} y={yPos60 + 3} textAnchor="end" fontSize="9.5" fill={COLORS.blue} fontFamily={MONO}>+60</text>
+        <text x={padL - 5} y={midY + 3} textAnchor="end" fontSize="9.5" fill={A.textMuted} fontFamily={MONO}>0</text>
+        <text x={padL - 5} y={yNeg60 + 3} textAnchor="end" fontSize="9.5" fill={COLORS.pink} fontFamily={MONO}>-60</text>
+        <text x={padL - 5} y={padT + plotH} textAnchor="end" fontSize="9.5" fill={A.textMuted} fontFamily={MONO}>-{maxAbs}</text>
 
         {/* Right Y-axis scale labels (SPX) */}
         {spx && (
           <>
-            <text x={W - padR + 5} y={padT + 8} textAnchor="start" fontSize="9" fill={A.textDim} fontFamily="monospace">{fmtSpx(spx.max)}</text>
-            <text x={W - padR + 5} y={midY + 3} textAnchor="start" fontSize="9" fill={A.textMuted} fontFamily="monospace">{fmtSpx(spx.mid)}</text>
-            <text x={W - padR + 5} y={padT + plotH} textAnchor="start" fontSize="9" fill={A.textDim} fontFamily="monospace">{fmtSpx(spx.min)}</text>
+            <text x={W - padR + 5} y={padT + 8} textAnchor="start" fontSize="9.5" fill={A.textDim} fontFamily={MONO}>{fmtSpx(spx.max)}</text>
+            <text x={W - padR + 5} y={midY + 3} textAnchor="start" fontSize="9.5" fill={A.textMuted} fontFamily={MONO}>{fmtSpx(spx.mid)}</text>
+            <text x={W - padR + 5} y={padT + plotH} textAnchor="start" fontSize="9.5" fill={A.textDim} fontFamily={MONO}>{fmtSpx(spx.min)}</text>
           </>
         )}
 
@@ -1198,14 +1199,14 @@ function McClellanHistoryChart({ A, series, range, onRange, spxData, showSpx, on
         )}
 
         {/* X-axis date ticks */}
-        <text x={padL} y={H - 5} textAnchor="start" fontSize="9" fill={A.textMuted} fontFamily="monospace">{fmtShortDate(series[0].date)}</text>
+        <text x={padL} y={H - 5} textAnchor="start" fontSize="9.5" fill={A.textMuted} fontFamily={MONO}>{fmtShortDate(series[0].date)}</text>
         {n > 4 && (
-          <text x={padL + midIdx * step + step / 2} y={H - 5} textAnchor="middle" fontSize="9" fill={A.textMuted} fontFamily="monospace">{fmtShortDate(series[midIdx].date)}</text>
+          <text x={padL + midIdx * step + step / 2} y={H - 5} textAnchor="middle" fontSize="9.5" fill={A.textMuted} fontFamily={MONO}>{fmtShortDate(series[midIdx].date)}</text>
         )}
-        <text x={W - padR} y={H - 5} textAnchor="end" fontSize="9" fill={series[n - 1].isLive ? A.green : A.textMuted} fontFamily="monospace">{fmtShortDate(series[n - 1].date)}</text>
+        <text x={W - padR} y={H - 5} textAnchor="end" fontSize="9.5" fill={series[n - 1].isLive ? A.green : A.textMuted} fontFamily={MONO}>{fmtShortDate(series[n - 1].date)}</text>
       </svg>
 
-      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginTop: 4, fontSize: 10, color: A.textMuted, fontFamily: "monospace" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginTop: 4, fontSize: 10.5, color: A.textMuted }}>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           <span><span style={{ color: COLORS.blue }}>■</span> &gt;0 Bullish</span>
           <span><span style={{ color: COLORS.pink }}>■</span> &lt;0 Bearish</span>
@@ -1257,8 +1258,8 @@ function StageHistoryChart({ A, series, range, onRange, spxData, showSpx, onTogg
         borderRadius: 8,
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 6, fontSize: 11, fontFamily: "monospace" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 6, fontSize: 11 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontFamily: MONO }}>
           <strong style={{ color: A.text }}>{cur.date}</strong>
           <span style={{ color: STAGE_COLOR[2], fontWeight: 700 }}>S2 {cur.s2}%</span>
           <span style={{ color: STAGE_COLOR[1], fontWeight: 700 }}>S1 {cur.s1}%</span>
@@ -1291,16 +1292,16 @@ function StageHistoryChart({ A, series, range, onRange, spxData, showSpx, onTogg
         <line x1={padL} y1={padT + plotH / 2} x2={W - padR} y2={padT + plotH / 2} stroke={A.textMuted} strokeDasharray="3 3" strokeOpacity="0.45" />
         <line x1={padL} y1={padT + plotH} x2={W - padR} y2={padT + plotH} stroke={A.border} strokeOpacity="0.7" />
 
-        <text x={padL - 5} y={padT + 8} textAnchor="end" fontSize="9" fill={A.textMuted} fontFamily="monospace">100%</text>
-        <text x={padL - 5} y={padT + plotH / 2 + 3} textAnchor="end" fontSize="9" fill={A.textMuted} fontFamily="monospace">50%</text>
-        <text x={padL - 5} y={padT + plotH} textAnchor="end" fontSize="9" fill={A.textMuted} fontFamily="monospace">0%</text>
+        <text x={padL - 5} y={padT + 8} textAnchor="end" fontSize="9.5" fill={A.textMuted} fontFamily={MONO}>100%</text>
+        <text x={padL - 5} y={padT + plotH / 2 + 3} textAnchor="end" fontSize="9.5" fill={A.textMuted} fontFamily={MONO}>50%</text>
+        <text x={padL - 5} y={padT + plotH} textAnchor="end" fontSize="9.5" fill={A.textMuted} fontFamily={MONO}>0%</text>
 
         {/* Right Y-axis scale labels (SPX) */}
         {spx && (
           <>
-            <text x={W - padR + 5} y={padT + 8} textAnchor="start" fontSize="9" fill={A.textDim} fontFamily="monospace">{fmtSpx(spx.max)}</text>
-            <text x={W - padR + 5} y={padT + plotH / 2 + 3} textAnchor="start" fontSize="9" fill={A.textMuted} fontFamily="monospace">{fmtSpx(spx.mid)}</text>
-            <text x={W - padR + 5} y={padT + plotH} textAnchor="start" fontSize="9" fill={A.textDim} fontFamily="monospace">{fmtSpx(spx.min)}</text>
+            <text x={W - padR + 5} y={padT + 8} textAnchor="start" fontSize="9.5" fill={A.textDim} fontFamily={MONO}>{fmtSpx(spx.max)}</text>
+            <text x={W - padR + 5} y={padT + plotH / 2 + 3} textAnchor="start" fontSize="9.5" fill={A.textMuted} fontFamily={MONO}>{fmtSpx(spx.mid)}</text>
+            <text x={W - padR + 5} y={padT + plotH} textAnchor="start" fontSize="9.5" fill={A.textDim} fontFamily={MONO}>{fmtSpx(spx.min)}</text>
           </>
         )}
 
@@ -1340,14 +1341,14 @@ function StageHistoryChart({ A, series, range, onRange, spxData, showSpx, onTogg
           </g>
         )}
 
-        <text x={padL} y={H - 5} textAnchor="start" fontSize="9" fill={A.textMuted} fontFamily="monospace">{fmtShortDate(series[0].date)}</text>
+        <text x={padL} y={H - 5} textAnchor="start" fontSize="9.5" fill={A.textMuted} fontFamily={MONO}>{fmtShortDate(series[0].date)}</text>
         {n > 4 && (
-          <text x={padL + midIdx * step + step / 2} y={H - 5} textAnchor="middle" fontSize="9" fill={A.textMuted} fontFamily="monospace">{fmtShortDate(series[midIdx].date)}</text>
+          <text x={padL + midIdx * step + step / 2} y={H - 5} textAnchor="middle" fontSize="9.5" fill={A.textMuted} fontFamily={MONO}>{fmtShortDate(series[midIdx].date)}</text>
         )}
-        <text x={W - padR} y={H - 5} textAnchor="end" fontSize="9" fill={cur.exact ? A.green : A.textMuted} fontFamily="monospace">{fmtShortDate(series[n - 1].date)}</text>
+        <text x={W - padR} y={H - 5} textAnchor="end" fontSize="9.5" fill={cur.exact ? A.green : A.textMuted} fontFamily={MONO}>{fmtShortDate(series[n - 1].date)}</text>
       </svg>
 
-      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginTop: 4, fontSize: 10, color: A.textMuted, fontFamily: "monospace" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginTop: 4, fontSize: 10.5, color: A.textMuted }}>
         <span>
           <span style={{ color: STAGE_COLOR[2] }}>■</span> S2 Up &nbsp;
           <span style={{ color: STAGE_COLOR[1] }}>■</span> S1 Base &nbsp;
@@ -1388,29 +1389,30 @@ function StageStockDrawer({
     color: active ? accent : A.textMuted,
     borderRadius: 6,
     padding: "1px 6px",
-    fontSize: 10,
-    fontWeight: 700,
-    fontFamily: "monospace",
+    fontSize: 10.5,
+    fontWeight: active ? 700 : 600,
     cursor: "pointer",
   });
   const thStyle = (align = "left") => ({
     textAlign: align,
     padding: "4px 6px",
-    fontSize: 10,
-    fontWeight: 700,
-    fontFamily: "monospace",
+    fontSize: 10.5,
+    fontWeight: 600,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
     color: A.textMuted,
     borderBottom: `1px solid ${A.border}`,
     position: "sticky",
     top: 0,
     background: A.bg,
+    zIndex: 1,
     whiteSpace: "nowrap",
   });
   const tdStyle = (align = "left") => ({
     textAlign: align,
     padding: "4px 6px",
     fontSize: 11,
-    fontFamily: "monospace",
+    fontFamily: MONO,
     fontVariantNumeric: "tabular-nums",
     borderBottom: `1px solid ${A.border}66`,
     whiteSpace: "nowrap",
@@ -1434,9 +1436,9 @@ function StageStockDrawer({
               display: "inline-flex",
               alignItems: "center",
               gap: 5,
-              fontSize: 10,
+              fontSize: 10.5,
               fontWeight: 800,
-              fontFamily: "monospace",
+              fontFamily: MONO,
               padding: "2px 7px",
               borderRadius: 4,
               background: `${color}22`,
@@ -1447,9 +1449,9 @@ function StageStockDrawer({
             <span style={{ width: 6, height: 6, borderRadius: "50%", background: color }} />
             {meta.label} · {meta.hint}
           </span>
-          <span style={{ fontSize: 11, fontFamily: "monospace", color: A.textMuted }}>
-            <strong style={{ color: A.text }}>{stocks.length.toLocaleString()}</strong>
-            {filtered && totalCount != null ? ` of ${totalCount.toLocaleString()}` : ""} stocks
+          <span style={{ fontSize: 11, color: A.textMuted }}>
+            <strong style={{ color: A.text, fontFamily: MONO }}>{stocks.length.toLocaleString()}</strong>
+            {filtered && totalCount != null ? <> of <span style={{ fontFamily: MONO }}>{totalCount.toLocaleString()}</span></> : ""} stocks
           </span>
         </div>
 
@@ -1487,9 +1489,8 @@ function StageStockDrawer({
               color: A.textMuted,
               borderRadius: 6,
               padding: "1px 6px",
-              fontSize: 10,
-              fontWeight: 700,
-              fontFamily: "monospace",
+              fontSize: 10.5,
+              fontWeight: 600,
               cursor: "pointer",
               marginLeft: 2,
             }}
@@ -1501,13 +1502,13 @@ function StageStockDrawer({
 
       {/* Scrollable compact table (top 30 matches) */}
       {rows.length === 0 ? (
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "8px 4px", fontSize: 11, color: A.textMuted, fontFamily: "monospace" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "8px 4px", fontSize: 11, color: A.textMuted }}>
           <span>No {meta.label} stocks match the active filters.</span>
           {filtered && (
             <button
               type="button"
               onClick={() => { if (leadingOnly) onToggleLeading(); if (minRs > 0) onSetMinRs(0); }}
-              style={{ background: "transparent", border: `1px solid ${A.border}`, color: A.text, borderRadius: 6, padding: "2px 7px", fontSize: 10, fontFamily: "monospace", cursor: "pointer" }}
+              style={{ background: "transparent", border: `1px solid ${A.border}`, color: A.text, borderRadius: 6, padding: "2px 7px", fontSize: 10.5, fontWeight: 600, cursor: "pointer" }}
             >
               Reset filters
             </button>
@@ -1517,7 +1518,7 @@ function StageStockDrawer({
         <>
           <div style={{ maxHeight: 240, overflowY: "auto", overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
+              <thead style={{ position: "sticky", top: 0, background: A.bg, zIndex: 1 }}>
                 <tr>
                   <th style={thStyle("left")}>Ticker</th>
                   <th style={thStyle("left")}>Theme · Layer</th>
@@ -1569,7 +1570,7 @@ function StageStockDrawer({
                           textOverflow: "ellipsis",
                         }}
                       >
-                        {layerDot && <span style={{ color: layerDot, marginRight: 4, fontSize: 9 }}>●</span>}
+                        {layerDot && <span style={{ color: layerDot, marginRight: 4, fontSize: 10 }}>●</span>}
                         {groupLabel}
                       </td>
                       <td style={{ ...tdStyle("right"), fontWeight: 700, color: rsColor }}>
@@ -1591,8 +1592,8 @@ function StageStockDrawer({
             </table>
           </div>
           {stocks.length > 30 && (
-            <div style={{ marginTop: 4, fontSize: 10, color: A.textMuted, fontFamily: "monospace", textAlign: "right" }}>
-              Showing top 30 of {stocks.length.toLocaleString()} matches (sorted by RS, then Chg%)
+            <div style={{ marginTop: 4, fontSize: 10.5, color: A.textMuted, textAlign: "right" }}>
+              Showing top 30 of <span style={{ fontFamily: MONO }}>{stocks.length.toLocaleString()}</span> matches (sorted by RS, then Chg%)
             </div>
           )}
         </>
@@ -1906,9 +1907,8 @@ export default function MarketBreadthCard({
     color: active ? (accent || A.green) : A.textDim,
     borderRadius: 6,
     padding: "2px 7px",
-    fontSize: 10,
-    fontFamily: "monospace",
-    fontWeight: active ? 700 : 500,
+    fontSize: 10.5,
+    fontWeight: active ? 700 : 600,
     cursor: "pointer",
     whiteSpace: "nowrap",
   });
@@ -1959,7 +1959,7 @@ export default function MarketBreadthCard({
     <div style={embedded ? { marginTop: 12, paddingTop: 12, borderTop: `1px solid ${A.border}` } : { marginBottom: 10 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: embedded ? 10 : 6, padding: embedded ? 0 : "0 2px" }}>
         <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
-          <span style={{ fontSize: embedded ? 11 : 13, fontWeight: 800, color: embedded ? A.textDim : A.text, letterSpacing: embedded ? 0.4 : 0.1, textTransform: embedded ? "uppercase" : "none", fontFamily: embedded ? "monospace" : "inherit" }}>
+          <span style={{ fontSize: embedded ? 11 : 13, fontWeight: 700, color: embedded ? A.textDim : A.text, letterSpacing: embedded ? 0.5 : "-0.01em", textTransform: embedded ? "uppercase" : "none" }}>
             Market Breadth
           </span>
           <BreadthTagTip
@@ -1972,9 +1972,9 @@ export default function MarketBreadthCard({
             <span
               tabIndex={0}
               style={{
-                fontSize: 9,
+                fontSize: 10,
                 fontWeight: 700,
-                fontFamily: "monospace",
+                fontFamily: MONO,
                 padding: "1px 6px",
                 borderRadius: 4,
                 background: `${tapeTag.color}20`,
@@ -2004,9 +2004,9 @@ export default function MarketBreadthCard({
                   type="button"
                   onClick={() => openSignalChart(sig)}
                   style={{
-                    fontSize: 9,
+                    fontSize: 10,
                     fontWeight: 800,
-                    fontFamily: "monospace",
+                    fontFamily: MONO,
                     padding: "1px 6px",
                     borderRadius: 6,
                     background: `${c}1f`,
@@ -2021,9 +2021,9 @@ export default function MarketBreadthCard({
             );
           })}
         </div>
-        <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6, fontSize: 10, fontFamily: "monospace", color: A.textMuted }}>
+        <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6, fontSize: 10.5, color: A.textMuted }}>
           {!embedded && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: isLive ? A.green : A.textMuted }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: isLive ? A.green : A.textMuted, fontFamily: MONO, fontSize: 10 }}>
               {isLive && <span className="tp-livedot" style={{ width: 6, height: 6, borderRadius: 3, background: A.green, display: "inline-block" }} />}
               {isLive ? `LIVE${liveAt ? ` · ${liveAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}` : `EOD${breadth?.date ? ` · ${breadth.date}` : ""}`}
             </span>
@@ -2050,8 +2050,8 @@ export default function MarketBreadthCard({
                 color: A.textDim,
                 borderRadius: 6,
                 padding: "2px 7px",
-                fontSize: 10,
-                fontFamily: "monospace",
+                fontSize: 10.5,
+                fontWeight: 600,
                 cursor: "pointer",
               }}
             >
@@ -2075,9 +2075,9 @@ export default function MarketBreadthCard({
       >
         {cardTab === "themes" ? (
           <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 8, fontSize: 10, color: A.textMuted, fontFamily: "monospace" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 8, fontSize: 10.5, color: A.textMuted }}>
               <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 4 }}>
-                <span style={{ color: A.textMuted, marginRight: 2 }}>SORT</span>
+                <span style={{ color: A.textMuted, marginRight: 2, fontWeight: 600, letterSpacing: 0.4 }}>SORT</span>
                 {[
                   ["rank", "RS Rank", A.green, "Best overall RS rank"],
                   ["hold", "Holding Up", A.cyan, "Consistent RS ≥ 80 over last 20 sessions"],
@@ -2095,7 +2095,7 @@ export default function MarketBreadthCard({
                   <button
                     type="button"
                     onClick={() => setSelThemeId(null)}
-                    style={{ background: "transparent", border: `1px solid ${A.border}`, color: A.cyan, borderRadius: 6, padding: "1px 6px", fontSize: 10, fontFamily: "monospace", cursor: "pointer" }}
+                    style={{ background: "transparent", border: `1px solid ${A.border}`, color: A.cyan, borderRadius: 6, padding: "1px 6px", fontSize: 10.5, fontWeight: 600, cursor: "pointer" }}
                   >
                     {selThemeObj.theme} ✕
                   </button>
@@ -2103,7 +2103,7 @@ export default function MarketBreadthCard({
                     <button
                       type="button"
                       onClick={() => onTheme(selThemeObj.themeId)}
-                      style={{ background: `${A.green}18`, border: `1px solid ${A.green}66`, color: A.green, borderRadius: 6, padding: "1px 6px", fontSize: 10, fontFamily: "monospace", fontWeight: 700, cursor: "pointer" }}
+                      style={{ background: `${A.green}18`, border: `1px solid ${A.green}66`, color: A.green, borderRadius: 6, padding: "1px 6px", fontSize: 10.5, fontWeight: 600, cursor: "pointer" }}
                     >
                       Open Stocks
                     </button>
@@ -2132,12 +2132,12 @@ export default function MarketBreadthCard({
                 ]}
               />
               {selThemeObj && (
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, fontFamily: "monospace" }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10.5 }}>
                   <button
                     type="button"
                     onClick={() => setSelThemeId(null)}
                     title="Clear theme filter"
-                    style={{ background: `${A.cyan}18`, border: `1px solid ${A.cyan}66`, color: A.cyan, borderRadius: 6, padding: "1px 6px", fontSize: 10, fontFamily: "monospace", fontWeight: 700, cursor: "pointer" }}
+                    style={{ background: `${A.cyan}18`, border: `1px solid ${A.cyan}66`, color: A.cyan, borderRadius: 6, padding: "1px 6px", fontSize: 10.5, fontWeight: 600, cursor: "pointer" }}
                   >
                     Theme: {selThemeObj.theme} ✕
                   </button>
@@ -2145,7 +2145,7 @@ export default function MarketBreadthCard({
                     <button
                       type="button"
                       onClick={() => onTheme(selThemeObj.themeId)}
-                      style={{ background: "transparent", border: `1px solid ${A.border}`, color: A.green, borderRadius: 6, padding: "1px 6px", fontSize: 10, fontFamily: "monospace", cursor: "pointer" }}
+                      style={{ background: "transparent", border: `1px solid ${A.border}`, color: A.green, borderRadius: 6, padding: "1px 6px", fontSize: 10.5, fontWeight: 600, cursor: "pointer" }}
                     >
                       All Stocks
                     </button>
@@ -2154,8 +2154,8 @@ export default function MarketBreadthCard({
               )}
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
-              <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 4, fontSize: 10, fontFamily: "monospace" }}>
-                <span style={{ color: A.textMuted, marginRight: 2 }}>SORT</span>
+              <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 4, fontSize: 10.5 }}>
+                <span style={{ color: A.textMuted, marginRight: 2, fontWeight: 600, letterSpacing: 0.4 }}>SORT</span>
                 {[
                   ["rank", "RS Rank", A.green, "Best overall layer RS rank"],
                   ["held20", "Holding Up", A.cyan, "Most sessions at RS ≥ 80 over last 20 (ties by current RS)"],
@@ -2283,12 +2283,12 @@ export default function MarketBreadthCard({
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, color: A.text, letterSpacing: -0.1 }}>
                     <span>Stage Analysis</span>
-                    <span style={{ fontSize: 10, fontWeight: 500, color: A.textMuted, fontFamily: "monospace" }}>
+                    <span style={{ fontSize: 10.5, fontWeight: 500, color: A.textMuted }}>
                       {openChart === "stage" ? "▾ hide" : "▸ chart"}
                     </span>
                   </span>
-                  <span style={{ fontSize: 10, color: A.textMuted, fontFamily: "monospace" }}>
-                    {stageDist.total.toLocaleString()} stocks · Weinstein 1–4
+                  <span style={{ fontSize: 10.5, color: A.textMuted }}>
+                    <span style={{ fontFamily: MONO }}>{stageDist.total.toLocaleString()}</span> stocks · Weinstein 1–4
                   </span>
                 </div>
                 <div style={{ display: "flex", height: 8, width: "100%", borderRadius: 999, background: trackBg, overflow: "hidden" }}>
@@ -2347,11 +2347,11 @@ export default function MarketBreadthCard({
                             <span style={{ width: 7, height: 7, borderRadius: "50%", background: c, flexShrink: 0 }} />
                             <span>{st.label}</span>
                           </span>
-                          <span style={{ fontSize: 9, color: active ? c : A.textMuted, fontFamily: "monospace" }}>
+                          <span style={{ fontSize: 10, color: active ? c : A.textMuted }}>
                             {active ? "▾" : "▸"}
                           </span>
                         </div>
-                        <div style={{ fontSize: 11, color: A.textMuted, marginTop: 2, fontVariantNumeric: "tabular-nums" }}>
+                        <div style={{ fontSize: 11, color: A.textMuted, marginTop: 2, fontFamily: MONO, fontVariantNumeric: "tabular-nums" }}>
                           {st.count.toLocaleString()} · <strong style={{ color: A.textDim }}>{st.pct}%</strong>
                         </div>
                       </div>
@@ -2485,9 +2485,9 @@ export default function MarketBreadthCard({
 
             {(maStats.t2108 != null || maStats.mcclellan != null || mcclellanSeries.length > 0) && (
               <div>
-                <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 12, fontSize: 11, fontFamily: "monospace", color: A.textMuted }}>
+                <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 12, fontSize: 11, color: A.textMuted }}>
                   {maStats.t2108 != null && (
-                    <span>T2108 <strong style={{ color: A.text }}>{maStats.t2108}%</strong></span>
+                    <span>T2108 <strong style={{ color: A.text, fontFamily: MONO }}>{maStats.t2108}%</strong></span>
                   )}
                   {(maStats.mcclellan != null || mcclellanSeries.length > 0) && (
                     <button
@@ -2503,18 +2503,18 @@ export default function MarketBreadthCard({
                         borderRadius: 6,
                         padding: "2px 8px",
                         fontSize: 11,
-                        fontFamily: "monospace",
+                        fontWeight: 600,
                         color: A.textMuted,
                         cursor: "pointer",
                       }}
                     >
                       <span>
                         McClellan Osc{" "}
-                        <strong style={{ color: (maStats.mcclellan ?? 0) >= 0 ? COLORS.blue : COLORS.pink }}>
+                        <strong style={{ color: (maStats.mcclellan ?? 0) >= 0 ? COLORS.blue : COLORS.pink, fontFamily: MONO }}>
                           {maStats.mcclellan != null ? fmtSigned(maStats.mcclellan, 1) : "—"}
                         </strong>
                       </span>
-                      <span style={{ fontSize: 10, color: A.textMuted }}>
+                      <span style={{ fontSize: 10.5, fontWeight: 500, color: A.textMuted }}>
                         {openChart === "mcclellan" ? "▾ hide" : "▸ chart"}
                       </span>
                     </button>

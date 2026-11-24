@@ -25,6 +25,8 @@ import {
 } from "./math.js";
 export * from "./math.js";
 
+export const MONO = "'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace";
+
 const _jsonCache = new Map();
 const _jsonInflight = new Map();
 
@@ -75,13 +77,14 @@ export function Spark({ vals, color, A, w = 90, h = 22 }) {
 }
 
 export function Delta({ v, A }) {
-  if (v == null || !Number.isFinite(v)) return <span style={{ color: A.textMuted }}>—</span>;
+  if (v == null || !Number.isFinite(v)) return <span style={{ color: A.textMuted, fontFamily: MONO }}>—</span>;
   const c = v > 0 ? A.green : v < 0 ? A.red : A.textMuted;
-  return <span style={{ color: c }}>{v > 0 ? "+" : ""}{Math.round(v)}</span>;
+  return <span style={{ color: c, fontFamily: MONO }}>{v > 0 ? "+" : ""}{Math.round(v)}</span>;
 }
 
 export function Card({ title, sub, kicker, right, children, A, id, style }) {
   const hasBody = children != null && children !== false && !(Array.isArray(children) && children.every((c) => c == null || c === false));
+  const cardShadow = [A.cardSheen, A.shadow].filter(Boolean).join(", ") || undefined;
   return (
     <div
       id={id}
@@ -91,6 +94,7 @@ export function Card({ title, sub, kicker, right, children, A, id, style }) {
         borderRadius: 10,
         padding: "12px 14px",
         marginBottom: 12,
+        boxShadow: cardShadow,
         ...style,
       }}
     >
@@ -107,17 +111,17 @@ export function Card({ title, sub, kicker, right, children, A, id, style }) {
       >
         <div style={{ display: "flex", alignItems: "baseline", gap: "4px 10px", flexWrap: "wrap", minWidth: 0 }}>
           {kicker && (
-            <div style={{ width: "100%", fontSize: 9.5, fontWeight: 700, letterSpacing: 0.65, textTransform: "uppercase", color: A.textMuted }}>
+            <div style={{ width: "100%", fontSize: 10, fontWeight: 700, letterSpacing: 0.65, textTransform: "uppercase", color: A.textMuted }}>
               {kicker}
             </div>
           )}
-          <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.25, color: A.text, lineHeight: 1.25 }}>{title}</div>
+          <div style={{ fontSize: 13.5, fontWeight: 700, letterSpacing: "-0.01em", color: A.text, lineHeight: 1.25 }}>{title}</div>
           {sub && (
             <div
               style={{
-                fontSize: 10.5,
+                fontSize: 11,
                 fontWeight: 500,
-                letterSpacing: 0.2,
+                letterSpacing: 0.1,
                 color: A.textMuted,
                 lineHeight: 1.35,
               }}
@@ -135,16 +139,25 @@ export function Card({ title, sub, kicker, right, children, A, id, style }) {
 
 export const th = (A, align = "left") => ({
   textAlign: align,
-  fontSize: 10,
+  fontSize: 10.5,
   fontWeight: 600,
   color: A.textMuted,
-  padding: "5px 6px",
+  padding: "6px 7px",
   borderBottom: `1px solid ${A.border}`,
   whiteSpace: "nowrap",
   letterSpacing: 0.45,
   textTransform: "uppercase",
 });
-export const td = (A, align = "left") => ({ textAlign: align, fontSize: 12, color: A.textDim, padding: "5px 6px", borderBottom: `1px solid ${A.border}`, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" });
+export const td = (A, align = "left") => ({
+  textAlign: align,
+  fontSize: 12,
+  color: A.textDim,
+  padding: "6px 7px",
+  borderBottom: `1px solid ${A.border}`,
+  whiteSpace: "nowrap",
+  fontVariantNumeric: "tabular-nums",
+  ...(align === "right" ? { fontFamily: MONO } : {}),
+});
 
 export function TickerChip({ t, onClick, active, A, dim }) {
   return (
@@ -152,7 +165,7 @@ export function TickerChip({ t, onClick, active, A, dim }) {
       style={{
         background: active ? A.glowGreen : "transparent", border: `1px solid ${active ? A.green : A.border}`,
         color: dim ? A.textMuted : A.text, borderRadius: 4, padding: "1px 5px", fontSize: 11, cursor: "pointer",
-        fontFamily: "monospace", marginRight: 3, marginBottom: 2,
+        fontFamily: MONO, marginRight: 3, marginBottom: 2,
       }}>{t}</button>
   );
 }
@@ -213,9 +226,8 @@ export function CopyTickersBtn({ tickers = [], A, label = "Copy Tickers", title 
         color: active ? A.green : A.textDim,
         borderRadius: 6,
         padding: "3px 9px",
-        fontSize: 10,
+        fontSize: 11,
         fontWeight: active ? 700 : 600,
-        fontFamily: "monospace",
         cursor: disabled ? "default" : "pointer",
         opacity: disabled ? 0.45 : 1,
         whiteSpace: "nowrap",
@@ -243,13 +255,13 @@ export function ThemeBoard({ themes, A, selected, onSelect }) {
             }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
               <span style={{ fontSize: 12, fontWeight: 700 }}>{t.theme}</span>
-              <span style={{ marginLeft: "auto", fontSize: 16, fontWeight: 700, color: c, fontVariantNumeric: "tabular-nums" }}>{Math.round(t.now)}</span>
+              <span style={{ marginLeft: "auto", fontSize: 16, fontWeight: 700, color: c, fontFamily: MONO, fontVariantNumeric: "tabular-nums" }}>{Math.round(t.now)}</span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
               <Spark vals={t.hist} color={c} A={A} w={96} h={20} />
               <div style={{ fontSize: 10, color: A.textMuted, lineHeight: 1.35 }}>
                 <div>1w <Delta v={t.now - t.w1} A={A} /> · 1m <Delta v={t.now - t.m1} A={A} /></div>
-                <div>
+                <div style={{ fontFamily: MONO, fontVariantNumeric: "tabular-nums" }}>
                   <span style={{ color: A.green }}>{t.counts.lead}▲</span>{" "}
                   <span style={{ color: A.yellow }}>{t.counts.weak}</span>{" "}
                   <span style={{ color: A.red }}>{t.counts.brk}▼</span>{" "}
@@ -259,7 +271,7 @@ export function ThemeBoard({ themes, A, selected, onSelect }) {
             </div>
             {t.stats && (
               <div title="Today's median move (green/total), Day Thrust (median % × $Vol× × dollar-flow alignment), and relative $Vol"
-                style={{ fontSize: 10, color: A.textMuted, marginTop: 3, fontVariantNumeric: "tabular-nums", display: "flex", flexWrap: "wrap", gap: 6, alignItems: "baseline" }}>
+                style={{ fontSize: 10, color: A.textMuted, marginTop: 3, fontFamily: MONO, fontVariantNumeric: "tabular-nums", display: "flex", flexWrap: "wrap", gap: 6, alignItems: "baseline" }}>
                 {t.dayFlow?.today != null && (
                   <span style={{ color: t.dayFlow.today >= 0 ? A.green : A.red, fontWeight: 700 }}>
                     {t.dayFlow.today > 0 ? "+" : ""}{t.dayFlow.today.toFixed(1)}%
@@ -346,7 +358,7 @@ export function LayerTable({ rows: rowsIn, A, onTicker, chartTicker, stockMap, s
   return (
     <div style={{ overflowX: "auto", maxHeight, overflowY: "auto" }}>
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead style={{ position: "sticky", top: 0, background: A.bg, zIndex: 2 }}>
+        <thead style={{ position: "sticky", top: 0, background: A.bgCard || A.bg, zIndex: 2 }}>
           <tr>
             {sh("name", "Layer", "left")}
             {sh("rank", "Rank", "right", "Layer RS rank among all layers (0–100)")}
@@ -392,12 +404,12 @@ export function LayerTable({ rows: rowsIn, A, onTicker, chartTicker, stockMap, s
               >
                 <td style={compact ? { ...td(A), whiteSpace: "normal", minWidth: 120 } : td(A)}>
                   <div style={{ color: A.text, fontWeight: 600 }}>
-                    {inlineExpand && <span style={{ color: open ? c : A.textMuted, fontSize: 10, marginRight: 5, fontFamily: "monospace" }}>{open ? "▾" : "▸"}</span>}
+                    {inlineExpand && <span style={{ color: open ? c : A.textMuted, fontSize: 10, marginRight: 5, fontFamily: MONO }}>{open ? "▾" : "▸"}</span>}
                     {l.name}
                   </div>
                   <div style={{ fontSize: 10, color: A.textMuted }}>{l.theme}
                     {flags.map(([k, why]) => (
-                      <span key={k} title={why} style={{ marginLeft: 5, padding: "0 4px", borderRadius: 3, fontSize: 9, fontWeight: 700,
+                      <span key={k} title={why} style={{ marginLeft: 5, padding: "0 4px", borderRadius: 3, fontSize: 10, fontWeight: 700, fontFamily: MONO,
                         border: `1px solid ${k === "confirmed" || k === "steady" ? A.green : k === "unconfirmed" || k === "spiky" ? A.textMuted : k === "exiting" ? A.red : A.yellow}`,
                         color: k === "confirmed" || k === "steady" ? A.green : k === "unconfirmed" || k === "spiky" ? A.textMuted : k === "exiting" ? A.red : A.yellow }}>{k}</span>
                     ))}
@@ -405,7 +417,7 @@ export function LayerTable({ rows: rowsIn, A, onTicker, chartTicker, stockMap, s
                 </td>
                 <td title={l.rankLive ? `Live — ${l.now_close} at the close, ${l.now - l.now_close >= 0 ? "+" : ""}${l.now - l.now_close} today` : undefined}
                   style={{ ...td(A, "right"), color: c, fontWeight: 700 }}>{l.now}{l.rankLive && l.now !== l.now_close
-                    ? <span style={{ fontSize: 9, color: l.now > l.now_close ? A.green : A.red }}>{l.now > l.now_close ? "▲" : "▼"}</span> : null}</td>
+                    ? <span style={{ fontSize: 9.5, color: l.now > l.now_close ? A.green : A.red }}>{l.now > l.now_close ? "▲" : "▼"}</span> : null}</td>
                 <td style={{ ...td(A, "right"), color: b?.rsMed == null ? A.textMuted : b.rsMed >= 80 ? A.green : b.rsMed >= 60 ? A.yellow : A.red }}>{b?.rsMed ?? "—"}</td>
                 <td style={td(A, "right")}><Delta v={l.now - l.w1} A={A} /></td>
                 <td style={td(A, "right")}><Delta v={l.now - l.m1} A={A} /></td>
@@ -414,16 +426,16 @@ export function LayerTable({ rows: rowsIn, A, onTicker, chartTicker, stockMap, s
                     {l.today == null ? "—" : `${l.today > 0 ? "+" : ""}${l.today.toFixed(1)}%`}
                   </span>
                   {df?.n > 0 && (
-                    <span style={{ color: A.textMuted, fontSize: 9, marginLeft: 4 }}>{df.green}/{df.n}</span>
+                    <span style={{ color: A.textMuted, fontSize: 10, marginLeft: 4 }}>{df.green}/{df.n}</span>
                   )}
                 </td>
-                <td style={{ ...td(A, "right"), color: A.textDim, fontFamily: "monospace", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+                <td style={{ ...td(A, "right"), color: A.textDim, fontFamily: MONO, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
                   {fmtDollarVol(df?.dv)}
                 </td>
-                <td style={{ ...td(A, "right"), color: df?.thrust == null ? A.textMuted : df.thrust > 0 ? A.green : df.thrust < 0 ? A.red : A.textMuted, fontWeight: df?.thrust != null && Math.abs(df.thrust) >= 5 ? 700 : 500, fontFamily: "monospace", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+                <td style={{ ...td(A, "right"), color: df?.thrust == null ? A.textMuted : df.thrust > 0 ? A.green : df.thrust < 0 ? A.red : A.textMuted, fontWeight: df?.thrust != null && Math.abs(df.thrust) >= 5 ? 700 : 500, fontFamily: MONO, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
                   {df?.thrust != null ? `${df.thrust > 0 ? "+" : ""}${df.thrust.toFixed(1)}` : "—"}
                 </td>
-                <td className="tp-hide-sm" style={{ ...td(A, "right"), color: df?.rvol == null ? A.textMuted : df.rvol >= 2.0 ? "#fbbf24" : df.rvol >= 1.35 ? A.green : A.textDim, fontWeight: (df?.rvol ?? 0) >= 1.35 ? 700 : 400, fontFamily: "monospace", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+                <td className="tp-hide-sm" style={{ ...td(A, "right"), color: df?.rvol == null ? A.textMuted : df.rvol >= 2.0 ? "#fbbf24" : df.rvol >= 1.35 ? A.green : A.textDim, fontWeight: (df?.rvol ?? 0) >= 1.35 ? 700 : 400, fontFamily: MONO, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
                   {df?.rvol != null ? `${df.rvol.toFixed(2)}×` : "—"}
                 </td>
                 {showPeak && <td style={td(A, "right")}>{l.peak}</td>}
@@ -509,7 +521,7 @@ export function StockTable({ rows, A, onTicker, chartTicker, mode, onLayer }) {
   return (
     <div style={{ overflowX: "auto", maxHeight: 520, overflowY: "auto" }}>
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead style={{ position: "sticky", top: 0, background: A.bg }}>
+        <thead style={{ position: "sticky", top: 0, background: A.bgCard || A.bg, zIndex: 1 }}>
           <tr>
             <th style={th(A)}>Ticker</th>
             <th style={th(A, "right")}>RS</th>
@@ -538,13 +550,13 @@ export function StockTable({ rows, A, onTicker, chartTicker, mode, onLayer }) {
                 }}
               >
                 <td style={td(A)}>
-                  <FlagButton t={r.ticker} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.ticker}</span>
+                  <FlagButton t={r.ticker} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: MONO }}>{r.ticker}</span>
                   {r.inLead && mode === "lead" && <span title="In a leading layer" style={{ color: A.green, marginLeft: 4 }}>●</span>}
                   <RslDot tip={r.rsl} A={A} />
-                  {r.pin && <span title={r.pin} style={{ color: A.yellow, marginLeft: 4, fontSize: 9, fontWeight: 700, border: `1px solid ${A.yellow}`, borderRadius: 3, padding: "0 3px" }}>PIN</span>}
+                  {r.pin && <span title={r.pin} style={{ color: A.yellow, marginLeft: 4, fontSize: 10, fontWeight: 700, fontFamily: MONO, border: `1px solid ${A.yellow}`, borderRadius: 3, padding: "0 3px" }}>PIN</span>}
                 </td>
                 <td style={{ ...td(A, "right"), color: r.rs >= 90 ? A.green : r.rs < 70 ? A.red : A.yellow, fontWeight: 700 }}>{r.rs ?? "—"}</td>
-                <td title={r.epsTip || ""} style={{ ...td(A, "right"), color: r.eps >= 80 ? A.green : r.eps >= 50 ? A.yellow : r.eps != null ? A.red : A.textMuted }}>{r.eps ?? "—"}{r.epsAcc ? <span style={{ color: A.green, fontSize: 9 }}>▲</span> : null}</td>
+                <td title={r.epsTip || ""} style={{ ...td(A, "right"), color: r.eps >= 80 ? A.green : r.eps >= 50 ? A.yellow : r.eps != null ? A.red : A.textMuted }}>{r.eps ?? "—"}{r.epsAcc ? <span style={{ color: A.green, fontSize: 9.5 }}>▲</span> : null}</td>
                 {mode === "brk" && <td style={td(A, "right")}>{r.persist}%</td>}
                 <td style={{ ...td(A, "right"), color: (r.sma50 ?? 0) >= 0 ? A.green : A.red }}>{pct(r.sma50)}</td>
                 <td style={td(A, "right")}>{pct(r.off)}</td>
@@ -589,7 +601,7 @@ export function Tabs({ value, onChange, items, A }) {
             }}
           >
             <span>{label}</span>
-            {n != null && <span style={{ opacity: active ? 0.9 : 0.65, fontSize: 10 }}>{n}</span>}
+            {n != null && <span style={{ opacity: active ? 0.9 : 0.65, fontSize: 10, fontFamily: MONO }}>{n}</span>}
           </button>
         );
       })}
@@ -672,20 +684,20 @@ export function IndexPanel({ A, liveQuotes, onTicker, chartTicker, bars }) {
         : <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 10 }}>
             {ready.map(({ t, s }) => (
               <span key={t} onClick={() => onTicker(t)} title={`${t} · ${s.trend}`} style={{ cursor: "pointer", whiteSpace: "nowrap" }}>
-                <b style={{ color: chartTicker === t ? A.green : A.text }}>{t}</b> <span style={pc(s.day)}>{fmt(s.day, 2)}</span>
+                <b style={{ color: chartTicker === t ? A.green : A.text, fontFamily: MONO }}>{t}</b> <span style={{ ...pc(s.day), fontFamily: MONO }}>{fmt(s.day, 2)}</span>
                 <span style={{ color: toneC(s.tone), fontSize: 10 }}> {s.trend}</span>
               </span>
             ))}
           </span>}
-      right={<button type="button" onClick={toggle} style={{ background: "transparent", border: `1px solid ${A.border}`, color: A.textMuted, borderRadius: 6, padding: "3px 9px", fontSize: 11, cursor: "pointer", transition: "border-color 140ms ease, color 140ms ease" }}>{open ? "Hide" : "Show"}</button>}>
+      right={<button type="button" onClick={toggle} style={{ background: "transparent", border: `1px solid ${A.border}`, color: A.textMuted, borderRadius: 6, padding: "3px 9px", fontSize: 11, fontWeight: 600, cursor: "pointer", transition: "border-color 140ms ease, color 140ms ease" }}>{open ? "Hide" : "Show"}</button>}>
       {open && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(215px, 1fr))", gap: 8 }}>
         {rows.map(({ t, name, s }) => {
           const on = chartTicker === t;
           const col = s ? toneC(s.tone) : A.textMuted;
           const stat = (label, v, title) => (
             <div title={title}>
-              <div style={{ fontSize: 9, color: A.textMuted, letterSpacing: 0.3 }}>{label}</div>
-              <div style={{ fontSize: 11, fontVariantNumeric: "tabular-nums", ...pc(v) }}>{fmt(v)}</div>
+              <div style={{ fontSize: 10, color: A.textMuted, letterSpacing: 0.3 }}>{label}</div>
+              <div style={{ fontSize: 11, fontFamily: MONO, fontVariantNumeric: "tabular-nums", ...pc(v) }}>{fmt(v)}</div>
             </div>
           );
           return (
@@ -697,16 +709,16 @@ export function IndexPanel({ A, liveQuotes, onTicker, chartTicker, bars }) {
                 borderRadius: 6, padding: "7px 9px",
               }}>
               <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                <span style={{ fontWeight: 700, fontFamily: "monospace", fontSize: 13 }}>{t}</span>
+                <span style={{ fontWeight: 700, fontFamily: MONO, fontSize: 13 }}>{t}</span>
                 <span style={{ color: A.textMuted, fontSize: 10 }}>{name}</span>
                 {s && <span style={{ marginLeft: "auto", fontSize: 10, fontWeight: 700, color: col }}>{s.trend.toUpperCase()}</span>}
               </div>
               {s ? (
                 <>
                   <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 2 }}>
-                    <span style={{ fontSize: 15, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{s.px.toFixed(2)}</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, ...pc(s.day) }}>{fmt(s.day, 2)}</span>
-                    <span style={{ marginLeft: "auto", fontSize: 10, color: s.dd >= 6 ? A.red : s.dd >= 4 ? A.yellow : A.textMuted, fontWeight: s.dd >= 4 ? 700 : 400 }}
+                    <span style={{ fontSize: 15, fontWeight: 700, fontFamily: MONO, fontVariantNumeric: "tabular-nums" }}>{s.px.toFixed(2)}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, fontFamily: MONO, ...pc(s.day) }}>{fmt(s.day, 2)}</span>
+                    <span style={{ marginLeft: "auto", fontSize: 10, fontFamily: MONO, color: s.dd >= 6 ? A.red : s.dd >= 4 ? A.yellow : A.textMuted, fontWeight: s.dd >= 4 ? 700 : 400 }}
                       title="Distribution days, last 25 sessions (down ≥ 0.2% on higher volume; drops off after a 5% rally)">
                       {s.dd} dist
                     </span>
@@ -762,7 +774,7 @@ export function MarketGate({ A, gate, liveQuotes }) {
     return (
       <span key={t} title={`Recent events (as of ${g.asof}):\n${ev}\n\nDistribution days (25 sessions): ${(g.dist_dates || []).join(", ") || "none"}`}
         style={{ fontSize: 11, color: A.textDim, whiteSpace: "nowrap" }}>
-        <b style={{ color: A.text }}>{t}</b> <span style={{ color: GATE_COLOR(g.state, A) }}>{GATE_NAME[g.state]}</span>
+        <b style={{ color: A.text, fontFamily: MONO }}>{t}</b> <span style={{ color: GATE_COLOR(g.state, A) }}>{GATE_NAME[g.state]}</span>
         {detail ? ` · ${detail}` : ""} · {g.dist_days} dist · {g.off_high}% off high
       </span>
     );
@@ -775,8 +787,8 @@ export function MarketGate({ A, gate, liveQuotes }) {
       </div>
       <div title="Suggested total exposure for the market state — a guide, not a rule"
         style={{ border: `1px solid ${GATE_COLOR(o.state, A)}`, borderRadius: 6, padding: "3px 10px", textAlign: "center" }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: GATE_COLOR(o.state, A), lineHeight: 1.1 }}>{o.exposure}</div>
-        <div style={{ fontSize: 9, color: A.textMuted }}>exposure</div>
+        <div style={{ fontSize: 15, fontWeight: 700, fontFamily: MONO, color: GATE_COLOR(o.state, A), lineHeight: 1.1 }}>{o.exposure}</div>
+        <div style={{ fontSize: 10, color: A.textMuted }}>exposure</div>
       </div>
       <div style={{ flex: "1 1 260px", minWidth: 0, fontSize: 11, color: A.textDim, lineHeight: 1.45 }}>{o.note}</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>{idx("SPY")}{idx("QQQ")}</div>
@@ -827,7 +839,7 @@ export function ChangesPanel({ A, layers, themes, bars, liveQuotes, date, onTick
         background: "transparent", border: `1px solid ${A.border}`, borderRadius: 4, padding: "2px 7px",
         fontSize: 11, color: A.text, cursor: "pointer", marginRight: 4, marginBottom: 4, whiteSpace: "nowrap",
       }}>
-      {label} <span style={{ color, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{sub}</span>
+      {label} <span style={{ color, fontWeight: 700, fontFamily: MONO, fontVariantNumeric: "tabular-nums" }}>{sub}</span>
     </button>
   );
   const row = (label, color, items) => items.length ? (
@@ -844,7 +856,7 @@ export function ChangesPanel({ A, layers, themes, bars, liveQuotes, date, onTick
       sub={open ? `vs the prior session${date ? ` · layers as of ${date}` : ""} · click a layer to jump to it`
         : empty ? "No notable changes" : [idxEvents.length && `${idxEvents.length} index event${idxEvents.length > 1 ? "s" : ""}`, gained.length && `${gained.length} new leaders`,
             lost.length && `${lost.length} lost leadership`, broke.length && `${broke.length} broke down`].filter(Boolean).join(" · ") || "Rank moves only"}
-      right={<button type="button" onClick={toggle} style={{ background: "transparent", border: `1px solid ${A.border}`, color: A.textMuted, borderRadius: 6, padding: "3px 9px", fontSize: 11, cursor: "pointer", transition: "border-color 140ms ease, color 140ms ease" }}>{open ? "Hide" : "Show"}</button>}>
+      right={<button type="button" onClick={toggle} style={{ background: "transparent", border: `1px solid ${A.border}`, color: A.textMuted, borderRadius: 6, padding: "3px 9px", fontSize: 11, fontWeight: 600, cursor: "pointer", transition: "border-color 140ms ease, color 140ms ease" }}>{open ? "Hide" : "Show"}</button>}>
       {open && <>
       {empty && <div style={{ fontSize: 11, color: A.textMuted }}>No notable changes.</div>}
       {row("INDEXES", A.text, idxEvents.map((e, i) => chip(`${e.t}${i}`, e.t, e.text, e.good ? A.green : A.red, () => onTicker(e.t))))}
@@ -916,8 +928,8 @@ export function AdrFilter({ A, value, onChange }) {
       <input value={draft} inputMode="decimal" aria-label="Minimum ADR percent" placeholder="—"
         onChange={(e) => setDraft(e.target.value.replace(/[^0-9.]/g, ""))}
         onBlur={() => commit(draft)} onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
-        style={{ width: 30, background: "transparent", border: "none", color: on ? A.cyan : A.textDim, fontSize: 11, fontWeight: 600, textAlign: "right", padding: "3px 0", outline: "none" }} />
-      <span style={{ color: on ? A.cyan : A.textMuted, fontSize: 11, padding: "0 7px 0 1px" }}>%</span>
+        style={{ width: 30, background: "transparent", border: "none", color: on ? A.cyan : A.textDim, fontSize: 11, fontWeight: 600, fontFamily: MONO, textAlign: "right", padding: "3px 0", outline: "none" }} />
+      <span style={{ color: on ? A.cyan : A.textMuted, fontSize: 11, fontFamily: MONO, padding: "0 7px 0 1px" }}>%</span>
     </span>
   );
 }
@@ -996,7 +1008,7 @@ export function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, 
       {!rows.length ? <div style={{ fontSize: 11, color: A.textMuted, padding: "6px 2px" }}>{at ? "Nothing passes right now." : ""}</div> : (
         <div style={{ overflowX: "auto", maxHeight: 520, overflowY: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead style={{ position: "sticky", top: 0, background: A.bg }}>
+            <thead style={{ position: "sticky", top: 0, background: A.bgCard || A.bg, zIndex: 1 }}>
               <tr>
                 <th style={th(A)}>Ticker</th>
                 {col("zvr", "ZVR", "right", "Relative volume at time (TradingView-style): today's volume ÷ the 10-session average × the share of a normal day's volume done by now. 1.00 = normal pace. After hours: the last value from the session")}{col("chg", "Chg")}{col("fromOpen", "From open")}
@@ -1019,14 +1031,14 @@ export function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, 
                     boxShadow: on ? `inset 2px 0 0 ${A.green}` : "none",
                   }}
                 >
-                  <td style={td(A)}><FlagButton t={r.t} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span><TierMark t={r.t} /></td>
+                  <td style={td(A)}><FlagButton t={r.t} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: MONO }}>{r.t}</span><TierMark t={r.t} /></td>
                   <td style={{ ...td(A, "right"), color: r.zvr >= 1.5 ? A.green : r.zvr >= 1 ? A.text : A.textMuted, fontWeight: r.zvr >= 1.5 ? 700 : 400 }}>{r.zvr == null ? "—" : r.zvr.toFixed(2)}</td>
                   <td style={{ ...td(A, "right"), color: A.green }}>{pct(r.chg, 2)}</td>
                   <td style={{ ...td(A, "right"), color: (r.fromOpen ?? 0) >= 0 ? A.green : A.red, fontWeight: 700 }}>{pct(r.fromOpen, 2)}</td>
                   <td style={td(A, "right")}>{r.adr == null ? "—" : `${r.adr.toFixed(1)}%`}</td>
                   <td style={td(A, "right")}>{pct(r.offHi)}</td>
                   <td style={{ ...td(A, "right"), color: r.rs >= 90 ? A.green : r.rs >= 70 ? A.yellow : A.red }}>{r.rs ?? "—"}</td>
-                  <td title={r.epsTip || ""} style={{ ...td(A, "right"), color: r.eps >= 80 ? A.green : r.eps >= 50 ? A.yellow : r.eps != null ? A.red : A.textMuted }}>{r.eps ?? "—"}{r.epsAcc ? <span style={{ color: A.green, fontSize: 9 }}>▲</span> : null}</td>
+                  <td title={r.epsTip || ""} style={{ ...td(A, "right"), color: r.eps >= 80 ? A.green : r.eps >= 50 ? A.yellow : r.eps != null ? A.red : A.textMuted }}>{r.eps ?? "—"}{r.epsAcc ? <span style={{ color: A.green, fontSize: 9.5 }}>▲</span> : null}</td>
                   <td style={{ ...td(A), fontSize: 11, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis" }}>
                     <LayerLink r={r} A={A} onLayer={onLayer} />
                   </td>
@@ -1114,7 +1126,7 @@ export function ExtHoursMovers({ A, pipeline, stockMap, tickerLayer, onTicker, c
       {!rows.length ? <div style={{ fontSize: 11, color: A.textMuted, padding: "4px 2px" }}>No movers{uOnly ? " in the universe (≥ $5)" : ""}.</div> : (
         <div style={{ overflowX: "auto", maxHeight: 340, overflowY: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead style={{ position: "sticky", top: 0, background: A.bg }}>
+            <thead style={{ position: "sticky", top: 0, background: A.bgCard || A.bg, zIndex: 1 }}>
               <tr>
                 {hdr("t", "Ticker")}{hdr("chg", "Chg", "right", "Default order is biggest move either way; click to sort high → low")}{hdr("price", "Price", "right")}
                 {hdr("vol", "Vol", "right")}{hdr("rs", "RS", "right")}{hdr("eps", "EPS", "right", EPS_TIP)}{hdr("layer", "Layer")}{hdr("catalyst", "Catalyst")}
@@ -1136,14 +1148,14 @@ export function ExtHoursMovers({ A, pipeline, stockMap, tickerLayer, onTicker, c
                   }}
                 >
                   <td style={td(A)}>
-                    <FlagButton t={r.t} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span><TierMark t={r.t} />
-                    {r.er && <span title={r.grade ? `Earnings · EP quality ${r.grade}` : "Earnings"} style={{ marginLeft: 5, fontSize: 9, fontWeight: 700, color: A.cyan, border: `1px solid ${A.cyan}`, borderRadius: 4, padding: "0 3px" }}>ER</span>}
+                    <FlagButton t={r.t} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: MONO }}>{r.t}</span><TierMark t={r.t} />
+                    {r.er && <span title={r.grade ? `Earnings · EP quality ${r.grade}` : "Earnings"} style={{ marginLeft: 5, fontSize: 10, fontWeight: 700, fontFamily: MONO, color: A.cyan, border: `1px solid ${A.cyan}`, borderRadius: 4, padding: "0 3px" }}>ER</span>}
                   </td>
                   <td style={{ ...td(A, "right"), color: r.chg >= 0 ? A.green : A.red, fontWeight: 700 }}>{r.chg > 0 ? "+" : ""}{r.chg.toFixed(2)}%</td>
                   <td style={td(A, "right")}>{r.price ? r.price.toFixed(2) : "—"}</td>
                   <td style={td(A, "right")}>{fmtVol(r.vol)}</td>
                   <td style={{ ...td(A, "right"), color: r.rs >= 90 ? A.green : r.rs >= 70 ? A.yellow : r.rs != null ? A.red : A.textMuted }}>{r.rs ?? "—"}</td>
-                  <td title={r.epsTip || ""} style={{ ...td(A, "right"), color: r.eps >= 80 ? A.green : r.eps >= 50 ? A.yellow : r.eps != null ? A.red : A.textMuted }}>{r.eps ?? "—"}{r.epsAcc ? <span style={{ color: A.green, fontSize: 9 }}>▲</span> : null}</td>
+                  <td title={r.epsTip || ""} style={{ ...td(A, "right"), color: r.eps >= 80 ? A.green : r.eps >= 50 ? A.yellow : r.eps != null ? A.red : A.textMuted }}>{r.eps ?? "—"}{r.epsAcc ? <span style={{ color: A.green, fontSize: 9.5 }}>▲</span> : null}</td>
                   <td style={{ ...td(A), fontSize: 11, maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis" }}>
                     <LayerLink r={r} A={A} onLayer={onLayer} />
                   </td>
@@ -1351,9 +1363,9 @@ export function FlaggedTab({ A, stockMap, tickerLayer, onTicker, chartTicker, on
         {[null, ...FLAG_ORDER].map((k) => (
           <button key={k || "all"} type="button" onClick={() => setOnly(k)}
             style={{ display: "flex", alignItems: "center", gap: 5, background: only === k ? A.bgHover : "transparent",
-              border: `1px solid ${only === k ? A.borderLight : A.border}`, borderRadius: 6, padding: "3px 9px", fontSize: 11, color: A.text, cursor: "pointer", transition: "background-color 140ms ease, border-color 140ms ease" }}>
+              border: `1px solid ${only === k ? A.borderLight : A.border}`, borderRadius: 6, padding: "3px 9px", fontSize: 11, fontWeight: only === k ? 700 : 600, color: A.text, cursor: "pointer", transition: "background-color 140ms ease, border-color 140ms ease" }}>
             {k ? <span style={{ width: 9, height: 9, borderRadius: "50%", background: flagHex(k, A) }} /> : null}
-            {k ? k[0].toUpperCase() + k.slice(1) : "All"} <span style={{ color: A.textMuted }}>{k ? counts[k] : tickers.length}</span>
+            {k ? k[0].toUpperCase() + k.slice(1) : "All"} <span style={{ color: A.textMuted, fontFamily: MONO, fontSize: 10 }}>{k ? counts[k] : tickers.length}</span>
           </button>
         ))}
         <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 8 }}>
@@ -1368,7 +1380,7 @@ export function FlaggedTab({ A, stockMap, tickerLayer, onTicker, chartTicker, on
       ) : (
         <div style={{ overflowX: "auto", maxHeight: 520, overflowY: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead style={{ position: "sticky", top: 0, background: A.bg }}>
+            <thead style={{ position: "sticky", top: 0, background: A.bgCard || A.bg, zIndex: 1 }}>
               <tr>
                 {col("flag", "Ticker", "left", "Click to group by flag colour")}
                 {col("zvr", "ZVR", "right", "Relative volume at time: today's volume ÷ the stock's average volume by this time of day. 1.00 = normal pace. After hours: the last value from the session")}{col("chg", "Chg")}{col("fromOpen", "From open")}
@@ -1391,14 +1403,14 @@ export function FlaggedTab({ A, stockMap, tickerLayer, onTicker, chartTicker, on
                     boxShadow: on ? `inset 2px 0 0 ${A.green}` : "none",
                   }}
                 >
-                  <td style={td(A)}><FlagButton t={r.t} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span><TierMark t={r.t} /></td>
+                  <td style={td(A)}><FlagButton t={r.t} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: MONO }}>{r.t}</span><TierMark t={r.t} /></td>
                   <td style={{ ...td(A, "right"), color: r.zvr >= 1.5 ? A.green : r.zvr >= 1 ? A.text : A.textMuted, fontWeight: r.zvr >= 1.5 ? 700 : 400 }}>{r.zvr == null ? "—" : r.zvr.toFixed(2)}</td>
                   <td style={{ ...td(A, "right"), color: (r.chg ?? 0) >= 0 ? A.green : A.red }}>{pct(r.chg, 2)}</td>
                   <td style={{ ...td(A, "right"), color: (r.fromOpen ?? 0) >= 0 ? A.green : A.red, fontWeight: 700 }}>{pct(r.fromOpen, 2)}</td>
                   <td style={td(A, "right")}>{r.adr == null ? "—" : `${r.adr.toFixed(1)}%`}</td>
                   <td style={td(A, "right")}>{pct(r.offHi)}</td>
                   <td style={{ ...td(A, "right"), color: r.rs >= 90 ? A.green : r.rs >= 70 ? A.yellow : r.rs != null ? A.red : A.textMuted }}>{r.rs ?? "—"}</td>
-                  <td title={r.epsTip || ""} style={{ ...td(A, "right"), color: r.eps >= 80 ? A.green : r.eps >= 50 ? A.yellow : r.eps != null ? A.red : A.textMuted }}>{r.eps ?? "—"}{r.epsAcc ? <span style={{ color: A.green, fontSize: 9 }}>▲</span> : null}</td>
+                  <td title={r.epsTip || ""} style={{ ...td(A, "right"), color: r.eps >= 80 ? A.green : r.eps >= 50 ? A.yellow : r.eps != null ? A.red : A.textMuted }}>{r.eps ?? "—"}{r.epsAcc ? <span style={{ color: A.green, fontSize: 9.5 }}>▲</span> : null}</td>
                   <td style={{ ...td(A), fontSize: 11, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis" }}>
                     <LayerLink r={r} A={A} onLayer={onLayer} />
                   </td>
@@ -1583,13 +1595,13 @@ export function WatchlistPortfolioTab({
               padding: "3px 9px",
               fontSize: 11,
               color: only === k && dot ? dot : A.text,
-              fontWeight: only === k ? 700 : 500,
+              fontWeight: only === k ? 700 : 600,
               cursor: "pointer",
               transition: "background-color 140ms ease, border-color 140ms ease, color 140ms ease",
             }}
           >
             {dot && <span style={{ width: 7, height: 7, borderRadius: "50%", background: dot }} />}
-            {label} <span style={{ color: A.textMuted }}>{n}</span>
+            {label} <span style={{ color: A.textMuted, fontFamily: MONO, fontSize: 10 }}>{n}</span>
           </button>
         ))}
 
@@ -1607,7 +1619,7 @@ export function WatchlistPortfolioTab({
               borderRadius: 4,
               padding: "2px 7px",
               fontSize: 11,
-              fontFamily: "monospace",
+              fontFamily: MONO,
               color: A.text,
               width: 155,
               outline: "none",
@@ -1625,7 +1637,7 @@ export function WatchlistPortfolioTab({
               padding: "2px 7px",
               fontSize: 10,
               fontWeight: 700,
-              fontFamily: "monospace",
+              fontFamily: MONO,
               cursor: "pointer",
             }}
           >
@@ -1643,7 +1655,7 @@ export function WatchlistPortfolioTab({
               padding: "2px 7px",
               fontSize: 10,
               fontWeight: 700,
-              fontFamily: "monospace",
+              fontFamily: MONO,
               cursor: "pointer",
             }}
           >
@@ -1668,7 +1680,7 @@ export function WatchlistPortfolioTab({
       ) : (
         <div style={{ overflowX: "auto", maxHeight: 520, overflowY: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead style={{ position: "sticky", top: 0, background: A.bg, zIndex: 1 }}>
+            <thead style={{ position: "sticky", top: 0, background: A.bgCard || A.bg, zIndex: 1 }}>
               <tr>
                 {col("group", "List", "left", "Grouped by Portfolio then Watchlist")}
                 <th style={th(A, "left")}>Ticker</th>
@@ -1702,12 +1714,12 @@ export function WatchlistPortfolioTab({
                   <td style={td(A)}>
                     <span style={{ display: "inline-flex", gap: 3 }}>
                       {r.inPf && (
-                        <span style={{ fontSize: 9, fontWeight: 800, fontFamily: "monospace", padding: "1px 4px", borderRadius: 3, background: `${pfColor}22`, color: pfColor, border: `1px solid ${pfColor}66` }}>
+                        <span style={{ fontSize: 10, fontWeight: 800, fontFamily: MONO, padding: "1px 4px", borderRadius: 3, background: `${pfColor}22`, color: pfColor, border: `1px solid ${pfColor}66` }}>
                           PF
                         </span>
                       )}
                       {r.inWl && (
-                        <span style={{ fontSize: 9, fontWeight: 800, fontFamily: "monospace", padding: "1px 4px", borderRadius: 3, background: `${wlColor}22`, color: wlColor, border: `1px solid ${wlColor}66` }}>
+                        <span style={{ fontSize: 10, fontWeight: 800, fontFamily: MONO, padding: "1px 4px", borderRadius: 3, background: `${wlColor}22`, color: wlColor, border: `1px solid ${wlColor}66` }}>
                           WL
                         </span>
                       )}
@@ -1715,13 +1727,13 @@ export function WatchlistPortfolioTab({
                   </td>
                   <td style={td(A)}>
                     <FlagButton t={r.t} A={A} />
-                    <span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span>
+                    <span style={{ color: A.text, fontWeight: 700, fontFamily: MONO }}>{r.t}</span>
                     <TierMark t={r.t} />
                     <RslDot tip={r.rslTip} A={A} />
                     {r.erDays != null && r.erDays >= 0 && r.erDays <= 5 && (
                       <span
                         title={`Earnings in ${r.erDays === 0 ? "today" : `${r.erDays} days`}`}
-                        style={{ marginLeft: 4, fontSize: 9, fontWeight: 700, fontFamily: "monospace", padding: "0px 4px", borderRadius: 3, background: "rgba(245,158,11,0.18)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.45)" }}
+                        style={{ marginLeft: 4, fontSize: 10, fontWeight: 700, fontFamily: MONO, padding: "0px 4px", borderRadius: 3, background: "rgba(245,158,11,0.18)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.45)" }}
                       >
                         ER {r.erDays}d
                       </span>
@@ -1745,7 +1757,7 @@ export function WatchlistPortfolioTab({
                     {r.rs ?? "—"}
                   </td>
                   <td title={r.epsTip || ""} style={{ ...td(A, "right"), color: r.eps >= 80 ? A.green : r.eps >= 50 ? A.yellow : r.eps != null ? A.red : A.textMuted }}>
-                    {r.eps ?? "—"}{r.epsAcc ? <span style={{ color: A.green, fontSize: 9 }}>▲</span> : null}
+                    {r.eps ?? "—"}{r.epsAcc ? <span style={{ color: A.green, fontSize: 9.5 }}>▲</span> : null}
                   </td>
                   <td style={{ ...td(A), fontSize: 11, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>
                     <LayerLink r={r} A={A} onLayer={onLayer} />
@@ -1761,8 +1773,8 @@ export function WatchlistPortfolioTab({
                           color: r.inPf ? pfColor : A.textMuted,
                           borderRadius: 3,
                           padding: "1px 4px",
-                          fontSize: 9,
-                          fontFamily: "monospace",
+                          fontSize: 10,
+                          fontFamily: MONO,
                           cursor: "pointer",
                         }}
                       >
@@ -1777,8 +1789,8 @@ export function WatchlistPortfolioTab({
                           color: r.inWl ? wlColor : A.textMuted,
                           borderRadius: 3,
                           padding: "1px 4px",
-                          fontSize: 9,
-                          fontFamily: "monospace",
+                          fontSize: 10,
+                          fontFamily: MONO,
                           cursor: "pointer",
                         }}
                       >
@@ -1826,7 +1838,7 @@ export function TierMark({ t, label }) {
   if (!L && !E) return null;
   return <span title={L ? "⭐ Leader — passes the Leaders screen (RS 90+, above 50d, within 25% of high)"
     : "🌱 Emerging — RS 75+ in a leading/emerging layer, near its high or RS line at a new high; not a leader yet"}
-    style={{ marginLeft: label ? 0 : 4, fontSize: 9, color: L ? "#f59e0b" : "#4ade80", fontWeight: 700 }}>{L ? "⭐" : "🌱"}{label ? (L ? " Leader" : " Emerging") : ""}</span>;
+    style={{ marginLeft: label ? 0 : 4, fontSize: 10, color: L ? "#f59e0b" : "#4ade80", fontWeight: 700 }}>{L ? "⭐" : "🌱"}{label ? (L ? " Leader" : " Emerging") : ""}</span>;
 }
 export const RslDot = ({ tip, A }) => (tip ? <span title={tip} style={{ color: A.blue || "#3b82f6", marginLeft: 4 }}>●</span> : null);
 
@@ -1913,10 +1925,10 @@ export function LayerMembers({ A, layer, tickers, stockMap, onTicker, chartTicke
                   boxShadow: on ? `inset 2px 0 0 ${A.green}` : "none",
                 }}
               >
-                <td style={td(A)}><FlagButton t={r.t} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span><TierMark t={r.t} />
+                <td style={td(A)}><FlagButton t={r.t} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: MONO }}>{r.t}</span><TierMark t={r.t} />
                   {r.top && <span title="Fastest EPS grower in this layer" style={{ color: A.green, marginLeft: 4 }}>★</span>}
-                  {r.nh && <span title="Closed at a 20-session high" style={{ color: A.cyan, marginLeft: 4, fontSize: 9 }}>NH</span>}</td>
-                <td style={{ ...td(A, "right"), color: r.zvr == null ? A.textMuted : r.zvr >= 2.0 ? "#fbbf24" : r.zvr >= 1.5 ? A.green : A.textDim, fontWeight: (r.zvr ?? 0) >= 1.5 ? 700 : 400, fontFamily: "monospace" }}>{r.zvr != null ? `${r.zvr.toFixed(2)}×` : "—"}</td>
+                  {r.nh && <span title="Closed at a 20-session high" style={{ color: A.cyan, marginLeft: 4, fontSize: 10, fontFamily: MONO }}>NH</span>}</td>
+                <td style={{ ...td(A, "right"), color: r.zvr == null ? A.textMuted : r.zvr >= 2.0 ? "#fbbf24" : r.zvr >= 1.5 ? A.green : A.textDim, fontWeight: (r.zvr ?? 0) >= 1.5 ? 700 : 400, fontFamily: MONO }}>{r.zvr != null ? `${r.zvr.toFixed(2)}×` : "—"}</td>
                 <td style={{ ...td(A, "right"), color: pc(r.chg), fontWeight: 700 }}>{pct(r.chg, 2)}</td>
                 <td style={{ ...td(A, "right"), color: pc(r.r1w) }}>{pct(r.r1w)}</td>
                 <td style={{ ...td(A, "right"), color: pc(r.r1m) }}>{pct(r.r1m)}</td>
@@ -1925,7 +1937,7 @@ export function LayerMembers({ A, layer, tickers, stockMap, onTicker, chartTicke
                 <td style={{ ...td(A, "right"), color: pc(r.s50) }}>{pct(r.s50)}</td>
                 <td style={td(A, "right")}>{pct(r.off)}</td>
                 <td style={{ ...td(A, "right"), color: r.rs >= 90 ? A.green : r.rs >= 70 ? A.yellow : r.rs != null ? A.red : A.textMuted, fontWeight: 700 }}>{r.rs ?? "—"}</td>
-                <td title={r.epsTip || ""} style={{ ...td(A, "right"), color: r.eps >= 80 ? A.green : r.eps >= 50 ? A.yellow : r.eps != null ? A.red : A.textMuted }}>{r.eps ?? "—"}{r.epsAcc ? <span style={{ color: A.green, fontSize: 9 }}>▲</span> : null}</td>
+                <td title={r.epsTip || ""} style={{ ...td(A, "right"), color: r.eps >= 80 ? A.green : r.eps >= 50 ? A.yellow : r.eps != null ? A.red : A.textMuted }}>{r.eps ?? "—"}{r.epsAcc ? <span style={{ color: A.green, fontSize: 9.5 }}>▲</span> : null}</td>
               </tr>
               );
             })}

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { CONF_LABEL, Card, Delta, EPS_TIP, ExtHoursMovers, FlagButton, LayerLink, LayerMembers, StockTable, TierMark, closingRange, statusColor, td, th, useRvolProfiles, useScanQuotes, zvrFor } from "./core.jsx";
+import { CONF_LABEL, Card, Delta, EPS_TIP, ExtHoursMovers, FlagButton, LayerLink, LayerMembers, MONO, StockTable, TierMark, closingRange, statusColor, td, th, useRvolProfiles, useScanQuotes, zvrFor } from "./core.jsx";
 import { authFetch } from "../utils.js";
 import { collectBriefTickers, evalPivotStatus, matchMacroLive } from "./briefLive.js";
 import RotationView from "./Rotation.jsx";
@@ -77,9 +77,18 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
   const pc = (v) => (typeof v !== "number" ? A.textMuted : v >= 0 ? A.green : A.red);
   const rsC = (v) => (v >= 90 ? A.green : v >= 70 ? A.yellow : typeof v === "number" ? A.red : A.textMuted);
   const arr = (x) => (Array.isArray(x) ? x : []);
-  const td = (align = "left") => ({ padding: "5px 6px", fontSize: 11, color: A.text, borderBottom: `1px solid ${A.border}`, textAlign: align, verticalAlign: "top", fontVariantNumeric: "tabular-nums" });
+  const td = (align = "left") => ({
+    padding: "6px 7px",
+    fontSize: 11.5,
+    color: A.text,
+    borderBottom: `1px solid ${A.border}`,
+    textAlign: align,
+    verticalAlign: "top",
+    fontVariantNumeric: "tabular-nums",
+    ...(align === "right" ? { fontFamily: MONO } : {}),
+  });
   const Tk = ({ t }) => (typeof t === "string" && t
-    ? <><span onClick={() => onTicker(t)} style={{ cursor: "pointer", fontFamily: "monospace", fontWeight: 700, color: chartTicker === t ? A.green : A.text }}>{t}</span><TierMark t={t} /></>
+    ? <><span onClick={() => onTicker(t)} style={{ cursor: "pointer", fontFamily: MONO, fontWeight: 700, color: chartTicker === t ? A.green : A.text }}>{t}</span><TierMark t={t} /></>
     : null);
   const Src = ({ u }) => { const h = safeUrl(u); return h ? <a href={h} target="_blank" rel="noopener noreferrer" style={{ color: A.cyan, fontSize: 10, marginLeft: 4 }}>src</a> : null; };
   const label = (b) => `${b.label || b.date || b.id}${b.session ? ` · ${SESSION_LABEL[b.session] || b.session}` : ""}`;
@@ -156,9 +165,9 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
           color: liveOn ? A.green : A.textMuted,
           borderRadius: 6,
           padding: "3px 8px",
-          fontSize: 10,
-          fontWeight: 700,
-          fontFamily: "monospace",
+          fontSize: liveOn ? 10.5 : 11,
+          fontWeight: liveOn ? 700 : 600,
+          fontFamily: liveOn ? MONO : undefined,
           fontVariantNumeric: "tabular-nums",
           cursor: "pointer",
           transition: "background 0.15s, border-color 0.15s, color 0.15s",
@@ -227,13 +236,13 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             {rg.posture && <div style={{ fontSize: 12, fontWeight: 700, color: /correction|defensive|risk off/i.test(rg.posture) ? A.red : A.green }}>{String(rg.posture)}</div>}
             {collapsed && inBuyCount > 0 && (
-              <span style={{ fontSize: 10, fontWeight: 700, fontFamily: "monospace", fontVariantNumeric: "tabular-nums", padding: "1px 6px", borderRadius: 4, background: "rgba(34,197,94,0.16)", border: `1px solid ${A.green}`, color: A.green }}>
+              <span style={{ fontSize: 10, fontWeight: 700, fontFamily: MONO, fontVariantNumeric: "tabular-nums", padding: "1px 6px", borderRadius: 4, background: "rgba(34,197,94,0.16)", border: `1px solid ${A.green}`, color: A.green }}>
                 {inBuyCount} IN BUY ZONE
               </span>
             )}
             {collapsed && arr(brief.focusSetups).length > 0 && (
               <span style={{ fontSize: 10, fontWeight: 600, fontVariantNumeric: "tabular-nums", padding: "1px 6px", borderRadius: 4, border: `1px solid ${A.borderLight || A.border}`, color: A.textMuted }}>
-                {arr(brief.focusSetups).length} focus setups
+                <span style={{ fontFamily: MONO }}>{arr(brief.focusSetups).length}</span> focus setups
               </span>
             )}
           </div>
@@ -252,12 +261,12 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
                 <div key={x.symbol} title={snapTip} style={{ minWidth: 130 }}>
                   <div style={{ fontSize: 11, color: A.textMuted, display: "flex", alignItems: "center", gap: 4 }}>
                     <Tk t={x.symbol} />
-                    {li && <span style={{ padding: "0 4px", borderRadius: 4, background: A.glowGreen, fontSize: 9, fontWeight: 700, color: A.green, fontFamily: "monospace" }}>LIVE</span>}
+                    {li && <span style={{ padding: "0 4px", borderRadius: 4, background: A.glowGreen, fontSize: 10, fontWeight: 700, color: A.green, fontFamily: MONO }}>LIVE</span>}
                   </div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: pc(chg), fontVariantNumeric: "tabular-nums" }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: pc(chg), fontFamily: MONO, fontVariantNumeric: "tabular-nums" }}>
                     {num(px)} <span style={{ fontSize: 11 }}>{pct(chg, 2)}</span>
                   </div>
-                  <div style={{ fontSize: 10, color: A.textMuted, fontVariantNumeric: "tabular-nums" }}>
+                  <div style={{ fontSize: 10, color: A.textMuted, fontFamily: MONO, fontVariantNumeric: "tabular-nums" }}>
                     off high {pct(offHi)} · CR {typeof cr === "number" ? `${cr.toFixed(0)}%` : "—"}
                     {!li && typeof x.afterHours === "number" ? ` · AH ${num(x.afterHours)}` : ""}
                   </div>
@@ -266,8 +275,8 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
             })}
             {Object.keys(br).length > 0 && (
               <div style={{ fontSize: 11, color: A.textDim, lineHeight: 1.6, fontVariantNumeric: "tabular-nums" }}>
-                <span style={{ color: A.green }}>{br.leadingLayers ?? "—"} leading</span> · <span style={{ color: A.cyan }}>{br.emergingLayers ?? "—"} emerging</span><br />
-                <span style={{ color: A.yellow }}>{br.weakeningLayers ?? "—"} weakening</span> · <span style={{ color: A.red }}>{br.breakingDownLayers ?? "—"} breaking down</span> · {br.laggingLayers ?? "—"} lagging
+                <span style={{ color: A.green }}><span style={{ fontFamily: MONO }}>{br.leadingLayers ?? "—"}</span> leading</span> · <span style={{ color: A.cyan }}><span style={{ fontFamily: MONO }}>{br.emergingLayers ?? "—"}</span> emerging</span><br />
+                <span style={{ color: A.yellow }}><span style={{ fontFamily: MONO }}>{br.weakeningLayers ?? "—"}</span> weakening</span> · <span style={{ color: A.red }}><span style={{ fontFamily: MONO }}>{br.breakingDownLayers ?? "—"}</span> breaking down</span> · <span style={{ fontFamily: MONO }}>{br.laggingLayers ?? "—"}</span> lagging
               </div>
             )}
           </div>
@@ -283,15 +292,15 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
               const chg = liveM?.change ?? m.change ?? "";
               return (
                 <div key={i} title={liveM ? `Brief snapshot: ${m.value} (${m.change})` : undefined}>
-                  <div style={{ fontSize: 10, color: A.textMuted, display: "flex", alignItems: "center", gap: 4 }}>
+                  <div style={{ fontSize: 10.5, fontWeight: 600, color: A.textMuted, display: "flex", alignItems: "center", gap: 4 }}>
                     <span>{String(m.name ?? "")}</span>
-                    {liveM && <span style={{ padding: "0 4px", borderRadius: 4, background: A.glowGreen, fontSize: 9, fontWeight: 700, color: A.green, fontFamily: "monospace" }}>LIVE</span>}
+                    {liveM && <span style={{ padding: "0 4px", borderRadius: 4, background: A.glowGreen, fontSize: 10, fontWeight: 700, color: A.green, fontFamily: MONO }}>LIVE</span>}
                   </div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: A.text, fontVariantNumeric: "tabular-nums" }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: A.text, fontFamily: MONO, fontVariantNumeric: "tabular-nums" }}>
                     {String(val)}{" "}
                     <span style={{ fontSize: 11, color: /^\+/.test(chg) ? A.green : /^-/.test(chg) ? A.red : A.textDim }}>{String(chg)}</span>
                   </div>
-                  <div style={{ fontSize: 10, color: A.textDim, lineHeight: 1.4, marginTop: 2 }}>{String(m.impact ?? "")}</div>
+                  <div style={{ fontSize: 11, color: A.textDim, lineHeight: 1.4, marginTop: 2 }}>{String(m.impact ?? "")}</div>
                 </div>
               );
             })}
@@ -306,7 +315,7 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
             <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
               <span>Focus setups</span>
               {inBuyCount > 0 && (
-                <span style={{ fontSize: 10, fontWeight: 800, fontFamily: "monospace", fontVariantNumeric: "tabular-nums", padding: "1px 7px", borderRadius: 4, background: "rgba(34,197,94,0.18)", border: `1px solid ${A.green}`, color: A.green }}>
+                <span style={{ fontSize: 10, fontWeight: 800, fontFamily: MONO, fontVariantNumeric: "tabular-nums", padding: "1px 7px", borderRadius: 4, background: "rgba(34,197,94,0.18)", border: `1px solid ${A.green}`, color: A.green }}>
                   {inBuyCount} IN BUY ZONE
                 </span>
               )}
@@ -316,7 +325,7 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
         >
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead><tr>
+              <thead style={{ position: "sticky", top: 0, background: A.bgCard, zIndex: 1 }}><tr>
                 {focusTh("ticker", "Ticker", "left", true)}
                 {focusTh("layer", "Layer", "left", true)}
                 {focusTh("rs", "RS")}
@@ -393,9 +402,9 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
                             style={{
                               display: "inline-block",
                               whiteSpace: "nowrap",
-                              fontSize: 9,
+                              fontSize: 10,
                               fontWeight: 800,
-                              fontFamily: "monospace",
+                              fontFamily: MONO,
                               fontVariantNumeric: "tabular-nums",
                               padding: "2px 6px",
                               borderRadius: 4,
@@ -424,7 +433,7 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
         <Card A={A} title="Pre / after-market movers" sub={liveOn ? "Showing live intraday Chg% / Price / ZVR vs original brief gap" : undefined}>
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead><tr>
+              <thead style={{ position: "sticky", top: 0, background: A.bgCard, zIndex: 1 }}><tr>
                 {extTh("ticker", "Ticker", "left", true)}
                 {extTh("session", "Session", "left", true)}
                 {extTh("chg", liveOn ? "Live Chg" : "Chg")}
@@ -467,7 +476,7 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
                     <td style={{ ...td("right"), color: pc(chg), fontWeight: li ? 700 : 400 }}>
                       {pct(chg, 2)}
                       {li && typeof m.chgPct === "number" && (
-                        <div style={{ fontSize: 9, color: A.textMuted }}>was {pct(m.chgPct, 1)}</div>
+                        <div style={{ fontSize: 10, color: A.textMuted }}>was {pct(m.chgPct, 1)}</div>
                       )}
                     </td>
                     <td style={td("right")}>{num(px)}</td>
@@ -489,7 +498,7 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
         <Card A={A} title="Breakdowns">
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead><tr>
+              <thead style={{ position: "sticky", top: 0, background: A.bgCard, zIndex: 1 }}><tr>
                 {brkTh("ticker", "Ticker", "left", true)}
                 {brkTh("layer", "Layer", "left", true)}
                 {liveOn && brkTh("chg", "Live Chg")}
@@ -545,7 +554,7 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
               <Card A={A} title="Radar">
                 {arr(brief.radar).map((r, i) => (
                   <div key={i} style={{ display: "flex", gap: 10, fontSize: 11, padding: "4px 0", borderBottom: `1px solid ${A.border}` }}>
-                    <span style={{ color: A.cyan, fontFamily: "monospace", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{String(r.date ?? "")}</span>
+                    <span style={{ color: A.cyan, fontFamily: MONO, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{String(r.date ?? "")}</span>
                     <span style={{ color: A.text }}>{String(r.event ?? "")}</span>
                   </div>
                 ))}
@@ -629,7 +638,7 @@ function BriefPanel(props) {
               border: "none",
               padding: "3px 10px",
               fontSize: 11,
-              fontWeight: active ? 700 : 500,
+              fontWeight: active ? 700 : 600,
               cursor: "pointer",
               transition: "background 0.15s, color 0.15s",
             }}
@@ -655,7 +664,7 @@ function BriefPanel(props) {
           gap: 8,
           padding: "6px 10px",
           marginBottom: 10,
-          background: A.bgCard,
+          background: A.bgCardGlass || A.bgCard,
           backdropFilter: "blur(10px)",
           WebkitBackdropFilter: "blur(10px)",
           border: `1px solid ${A.border}`,
@@ -779,12 +788,12 @@ function LiveBrief({ A, themes, layers, stockMap, tickerLayer, members, brk, pip
 
   const H = ({ children, sub }) => (
     <div style={{ margin: "4px 0 8px" }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: A.text, letterSpacing: 0.3 }}>{children}</div>
-      {sub && <div style={{ fontSize: 10, color: A.textMuted, marginTop: 2 }}>{sub}</div>}
+      <div style={{ fontSize: 13.5, fontWeight: 700, color: A.text, letterSpacing: "-0.01em" }}>{children}</div>
+      {sub && <div style={{ fontSize: 11, color: A.textMuted, marginTop: 2 }}>{sub}</div>}
     </div>
   );
   const Tk = ({ t }) => (
-    <><span onClick={(e) => { e.stopPropagation(); onTicker(t); }} style={{ cursor: "pointer", fontFamily: "monospace", fontWeight: 700,
+    <><span onClick={(e) => { e.stopPropagation(); onTicker(t); }} style={{ cursor: "pointer", fontFamily: MONO, fontWeight: 700,
       color: chartTicker === t ? A.green : A.text }}>{t}</span><TierMark t={t} /></>
   );
   const Metric = ({ big, color, label, sub }) => (
@@ -815,7 +824,7 @@ function LiveBrief({ A, themes, layers, stockMap, tickerLayer, members, brk, pip
       <Card A={A} title="Strongest stocks in the strongest themes" sub="Top 5 themes by rank · members with RS ≥ 80 and EPS ≥ 80 · click a ticker to chart, a theme or layer to open its stocks">
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead><tr>
+            <thead style={{ position: "sticky", top: 0, background: A.bgCard, zIndex: 1 }}><tr>
               <th style={th(A)}>Ticker</th><th style={th(A)}>Layer</th>
               <th style={th(A, "right")}>RS</th><th style={th(A, "right")} title={EPS_TIP}>EPS</th>
               <th style={th(A, "right")}>vs 50d</th><th style={th(A, "right")}>Off high</th><th style={th(A, "right")}>1M</th>
@@ -825,8 +834,8 @@ function LiveBrief({ A, themes, layers, stockMap, tickerLayer, members, brk, pip
                 <React.Fragment key={t.themeId}>
                   <tr className="tp-click-row" onClick={() => onTheme(t.themeId)} style={{ cursor: "pointer" }} title="Show every stock in this theme">
                     <td colSpan={7} style={{ ...td(A), paddingTop: 10, color: A.text, fontWeight: 700, borderBottom: `1px solid ${A.textDim}` }}>
-                      {t.theme} <span style={{ color: statusColor(t.st, A) }}>{Math.round(t.now)}</span>
-                      <span style={{ color: A.textMuted, fontWeight: 400, fontSize: 11 }}> · {leading} of {t.layers.length} layers leading · 1m <Delta v={t.now - t.m1} A={A} /></span>
+                      {t.theme} <span style={{ color: statusColor(t.st, A), fontFamily: MONO }}>{Math.round(t.now)}</span>
+                      <span style={{ color: A.textMuted, fontWeight: 400, fontSize: 11 }}> · <span style={{ fontFamily: MONO }}>{leading}/{t.layers.length}</span> layers leading · 1m <Delta v={t.now - t.m1} A={A} /></span>
                     </td>
                   </tr>
                   {rows.length ? rows.map((s) => {
@@ -847,7 +856,7 @@ function LiveBrief({ A, themes, layers, stockMap, tickerLayer, members, brk, pip
                         <td style={td(A)}><FlagButton t={s.ticker} A={A} /><Tk t={s.ticker} /></td>
                         <td style={{ ...td(A), fontSize: 11 }}><LayerLink r={{ t: s.ticker, layer: L?.name, layerSt: L?.st }} A={A} onLayer={layerOfTicker} /></td>
                         <td style={{ ...td(A, "right"), color: rsC(s.rs_rank), fontWeight: 700 }}>{s.rs_rank}</td>
-                        <td title={s.eps_tip || ""} style={{ ...td(A, "right"), color: epsC(s.eps_rating) }}>{s.eps_rating}{s.eps_accel ? <span style={{ color: A.green, fontSize: 9 }}>▲</span> : null}</td>
+                        <td title={s.eps_tip || ""} style={{ ...td(A, "right"), color: epsC(s.eps_rating) }}>{s.eps_rating}{s.eps_accel ? <span style={{ color: A.green, fontSize: 9.5 }}>▲</span> : null}</td>
                         <td style={{ ...td(A, "right"), color: pc(s.sma50_pct) }}>{pct(s.sma50_pct)}</td>
                         <td style={td(A, "right")}>{pct(s.off_52w_high)}</td>
                         <td style={{ ...td(A, "right"), color: pc(s.return_1m) }}>{pct(s.return_1m)}</td>
@@ -882,16 +891,16 @@ function LiveBrief({ A, themes, layers, stockMap, tickerLayer, members, brk, pip
               <div onClick={() => toggleInlineLayer(l)} title={open ? "Collapse members" : "Expand members below"}
                 style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap", padding: "6px 0", cursor: "pointer", background: open ? A.bgHover : "transparent", boxShadow: open ? `inset 3px 0 0 ${c}` : "none", paddingLeft: open ? 8 : 0 }}>
                 <span style={{ minWidth: 170, color: A.text, fontWeight: 600, fontSize: 12 }}>
-                  <span style={{ color: open ? c : A.textMuted, fontSize: 10, marginRight: 5, fontFamily: "monospace" }}>{open ? "▾" : "▸"}</span>
+                  <span style={{ color: open ? c : A.textMuted, fontSize: 10, marginRight: 5, fontFamily: MONO }}>{open ? "▾" : "▸"}</span>
                   {l.name} <span style={{ color: A.textMuted, fontWeight: 400, fontSize: 10 }}>{l.theme}</span>
                 </span>
-                <span style={{ fontSize: 11, color: c, fontWeight: 700, minWidth: 70, fontVariantNumeric: "tabular-nums" }}>{l.now} <span style={{ color: A.textMuted, fontWeight: 400 }}>1m</span> <Delta v={l.now - l.m1} A={A} /></span>
-                <span style={{ fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 4, border: `1px solid ${ok ? A.green : A.textMuted}`, color: ok ? A.green : A.textMuted }}>
+                <span style={{ fontSize: 11, color: c, fontWeight: 700, minWidth: 70, fontVariantNumeric: "tabular-nums" }}><span style={{ fontFamily: MONO }}>{l.now}</span> <span style={{ color: A.textMuted, fontWeight: 400 }}>1m</span> <Delta v={l.now - l.m1} A={A} /></span>
+                <span style={{ fontSize: 10, fontWeight: 700, fontFamily: MONO, padding: "1px 6px", borderRadius: 4, border: `1px solid ${ok ? A.green : A.textMuted}`, color: ok ? A.green : A.textMuted }}>
                   {cf ? (ok ? "confirmed" : "unconfirmed") : "no volume data"}
                 </span>
                 {cf?.passed.length ? <span style={{ fontSize: 10, color: A.textMuted }}>{cf.passed.map((k) => CONF_LABEL[k]).join(" · ")}</span> : null}
                 <span style={{ fontSize: 11, marginLeft: "auto", fontVariantNumeric: "tabular-nums" }}>
-                  {names.map((s) => <span key={s.ticker} style={{ marginLeft: 8 }}><Tk t={s.ticker} /> <span style={{ color: rsC(s.rs_rank), fontSize: 10 }}>{s.rs_rank}</span></span>)}
+                  {names.map((s) => <span key={s.ticker} style={{ marginLeft: 8 }}><Tk t={s.ticker} /> <span style={{ color: rsC(s.rs_rank), fontSize: 10, fontFamily: MONO }}>{s.rs_rank}</span></span>)}
                 </span>
               </div>
               {open && (
@@ -915,10 +924,10 @@ function LiveBrief({ A, themes, layers, stockMap, tickerLayer, members, brk, pip
                   <div onClick={() => toggleInlineLayer(l)} title={open ? "Collapse members" : "Expand members below"}
                     style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap", padding: "5px 0", cursor: "pointer", background: open ? A.bgHover : "transparent", boxShadow: open ? `inset 3px 0 0 ${c}` : "none", paddingLeft: open ? 8 : 0 }}>
                     <span style={{ minWidth: 170, color: A.text, fontWeight: 600, fontSize: 12 }}>
-                      <span style={{ color: open ? c : A.textMuted, fontSize: 10, marginRight: 5, fontFamily: "monospace" }}>{open ? "▾" : "▸"}</span>
+                      <span style={{ color: open ? c : A.textMuted, fontSize: 10, marginRight: 5, fontFamily: MONO }}>{open ? "▾" : "▸"}</span>
                       {l.name} <span style={{ color: A.textMuted, fontWeight: 400, fontSize: 10 }}>{l.theme}</span>
                     </span>
-                    <span style={{ fontSize: 11, color: A.red, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{l.conf.lx} out</span>
+                    <span style={{ fontSize: 11, color: A.red, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}><span style={{ fontFamily: MONO }}>{l.conf.lx}</span> out</span>
                     <span style={{ fontSize: 11 }}>{l.conf.lxT.slice(0, 10).map((t) => <span key={t} style={{ marginRight: 8 }}><Tk t={t} /></span>)}</span>
                   </div>
                   {open && (

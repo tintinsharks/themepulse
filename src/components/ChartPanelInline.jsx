@@ -15,6 +15,8 @@ import { ErrorBoundary } from "./ErrorBoundary.jsx";
 import { DailyChartSVG } from "./DailyChartSVG.jsx";
 import { EarningsBox } from "./EarningsBox.jsx";
 
+const MONO = "'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace";
+
 // ── Minervini Trend Template helpers — 7 price criteria arrive from the
 // pipeline as a bitmask (tt_mask); the 8th (RS rank ≥ 70) is applied here
 // where the cross-sectional rank lives. ttCount → 0-8 or null (no data yet).
@@ -42,9 +44,10 @@ function useChainLayers() { return useJson("/data/chain_layers.json"); }
 
 // Aria-style colored mini-badge (used in chart header for 9M / VOL / HI / Grade)
 const badgeStyle = (color) => ({
-  fontSize: 9,
-  padding: "0 3px",
-  borderRadius: 2,
+  fontSize: 10,
+  fontFamily: MONO,
+  padding: "0 4px",
+  borderRadius: 3,
   fontWeight: 700,
   color,
   border: `1px solid ${color}`,
@@ -499,10 +502,10 @@ export function ChartPanelInline({
       </div>
 
       {/* Thin header bar — ticker · stage · layer · ADR · Next ER (left), controls & ticker input (right) */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "5px 12px", borderTop: `1px solid ${ARIA.border}`, borderBottom: `1px solid ${ARIA.border}`, flexShrink: 0, fontFamily: "monospace", overflowX: "auto", whiteSpace: "nowrap" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "5px 12px", borderTop: `1px solid ${ARIA.border}`, borderBottom: `1px solid ${ARIA.border}`, flexShrink: 0, overflowX: "auto", whiteSpace: "nowrap" }}>
         <img key={ticker} src={`https://images.financialmodelingprep.com/symbol/${ticker}.png`} alt="" onError={(e) => { e.target.style.display = "none"; }}
           style={{ width: 20, height: 20, borderRadius: 4, background: "#ffffff", objectFit: "contain", padding: 1.5, flexShrink: 0 }} />
-        <span style={{ fontSize: 12, fontWeight: 800, color: ARIA.text, flexShrink: 0 }}>{ticker}</span>
+        <span style={{ fontSize: 13, fontWeight: 800, fontFamily: MONO, color: ARIA.text, flexShrink: 0 }}>{ticker}</span>
         {weinsteinStage != null && (() => {
           const stMeta = {
             1: { tag: "S1 · Base", color: "#64748b", tip: "Weinstein Stage 1 — Basing / Accumulation near or stabilizing below the 200d MA" },
@@ -514,8 +517,9 @@ export function ChartPanelInline({
             <span
               title={stMeta.tip}
               style={{
-                fontSize: 8.5,
+                fontSize: 10,
                 fontWeight: 800,
+                fontFamily: MONO,
                 padding: "1px 6px",
                 borderRadius: 4,
                 background: `${stMeta.color}22`,
@@ -532,42 +536,42 @@ export function ChartPanelInline({
         {tickerLayers.length > 0 ? (
           <span onClick={() => { try { window.dispatchEvent(new CustomEvent("tp-open-layer", { detail: { themeId: tickerLayers[0].themeId, layer: tickerLayers[0].layer } })); } catch {} }}
             title={`${tickerLayers[0].theme} — click to view layer members${tickerLayers.length > 1 ? ` (+${tickerLayers.length - 1} more layer${tickerLayers.length - 1 > 1 ? "s" : ""})` : ""}`}
-            style={{ fontSize: 8, fontWeight: 700, padding: "1px 7px", borderRadius: 4, background: "rgba(251,191,36,0.12)", border: "1px solid #a07a1f", color: "#fbbf24", textTransform: "uppercase", letterSpacing: 0.4, cursor: "pointer", flexShrink: 0 }}>
+            style={{ fontSize: 10, fontWeight: 600, padding: "1px 7px", borderRadius: 4, background: "rgba(251,191,36,0.12)", border: "1px solid #a07a1f", color: "#fbbf24", textTransform: "uppercase", letterSpacing: 0.4, cursor: "pointer", flexShrink: 0 }}>
             {tickerLayers[0].theme} • {tickerLayers[0].layer}{tickerLayers.length > 1 ? ` +${tickerLayers.length - 1}` : ""}
           </span>
         ) : stockInfo.sector ? (
-          <span style={{ fontSize: 8, fontWeight: 700, padding: "1px 7px", borderRadius: 4, background: "rgba(108,213,232,0.12)", border: "1px solid #3a8a9e", color: "#6cd5e8", textTransform: "uppercase", letterSpacing: 0.4, flexShrink: 0 }}>{stockInfo.sector}</span>
+          <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 7px", borderRadius: 4, background: "rgba(108,213,232,0.12)", border: "1px solid #3a8a9e", color: "#6cd5e8", textTransform: "uppercase", letterSpacing: 0.4, flexShrink: 0 }}>{stockInfo.sector}</span>
         ) : null}
-        <span style={{ fontSize: 9, display: "inline-flex", alignItems: "baseline", gap: 3, flexShrink: 0 }}>
-          <span style={{ color: ARIA.textMuted }}>ADR</span>
-          <span style={{ color: adr != null && adr >= 4 ? ARIA.cyan : ARIA.textDim, fontWeight: adr != null && adr >= 4 ? 700 : 400 }}>{adr != null ? `${adr.toFixed(1)}%` : "\u2014"}</span>
+        <span style={{ fontSize: 10, display: "inline-flex", alignItems: "baseline", gap: 3, flexShrink: 0 }}>
+          <span style={{ color: ARIA.textMuted, fontWeight: 600 }}>ADR</span>
+          <span style={{ fontFamily: MONO, color: adr != null && adr >= 4 ? ARIA.cyan : ARIA.textDim, fontWeight: adr != null && adr >= 4 ? 700 : 400 }}>{adr != null ? `${adr.toFixed(1)}%` : "\u2014"}</span>
         </span>
         {(nextErDisp) && (
-          <span style={{ fontSize: 9, display: "inline-flex", alignItems: "baseline", gap: 3, flexShrink: 0 }} title="Next earnings date">
-            <span style={{ color: ARIA.textMuted }}>ER</span>
-            <span style={{ color: (erDaysRaw != null && erDaysRaw >= 0 && erDaysRaw <= 21) ? ARIA.red : ARIA.textDim, fontWeight: (erDaysRaw != null && erDaysRaw >= 0 && erDaysRaw <= 21) ? 700 : 400 }}>{nextErDisp}{erTimingRaw ? ` ${erTimingRaw}` : ""}</span>
+          <span style={{ fontSize: 10, display: "inline-flex", alignItems: "baseline", gap: 3, flexShrink: 0 }} title="Next earnings date">
+            <span style={{ color: ARIA.textMuted, fontWeight: 600 }}>ER</span>
+            <span style={{ fontFamily: MONO, color: (erDaysRaw != null && erDaysRaw >= 0 && erDaysRaw <= 21) ? ARIA.red : ARIA.textDim, fontWeight: (erDaysRaw != null && erDaysRaw >= 0 && erDaysRaw <= 21) ? 700 : 400 }}>{nextErDisp}{erTimingRaw ? ` ${erTimingRaw}` : ""}</span>
           </span>
         )}
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
           {["D", "W"].map(tfOpt => (
             <button key={tfOpt} onClick={() => { setTf(tfOpt); try { localStorage.setItem("themepulse-chart-tf", tfOpt); } catch {} }}
-              style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, cursor: "pointer", background: tf === tfOpt ? "#0d9163" : "transparent", border: "1px solid #0d9163", color: tf === tfOpt ? "#fff" : "#0d9163", fontFamily: "monospace", fontWeight: 700, minWidth: 18 }}>
+              style={{ fontSize: 10.5, padding: "2px 7px", borderRadius: 4, cursor: "pointer", background: tf === tfOpt ? "#0d9163" : "transparent", border: "1px solid #0d9163", color: tf === tfOpt ? "#fff" : "#0d9163", fontWeight: 600, minWidth: 22 }}>
               {tfOpt}
             </button>
           ))}
           <button onClick={() => setShowTrade(prev => !prev)}
-            style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, cursor: "pointer", background: showTrade ? "#0d9163" : "transparent", border: "1px solid #0d9163", color: showTrade ? "#fff" : "#0d9163", fontFamily: "monospace", fontWeight: 700 }}>
+            style={{ fontSize: 10.5, padding: "2px 7px", borderRadius: 4, cursor: "pointer", background: showTrade ? "#0d9163" : "transparent", border: "1px solid #0d9163", color: showTrade ? "#fff" : "#0d9163", fontWeight: 600 }}>
             TRADE
           </button>
-          <button onClick={togglePF} title={inPF ? "Remove from Portfolio" : "Add to Portfolio"} style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, border: `1px solid ${ARIA.yellow}80`, color: inPF ? ARIA.bg : ARIA.yellow, background: inPF ? ARIA.yellow : "transparent", cursor: "pointer", fontFamily: "monospace", fontWeight: 700 }}>{inPF ? "✓PF" : "+PF"}</button>
-          <button onClick={toggleFC} title={inFC ? "Remove from Focus" : "Add to Focus (high-priority recent setups)"} style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, border: `1px solid ${ARIA.cyan}80`, color: inFC ? ARIA.bg : ARIA.cyan, background: inFC ? ARIA.cyan : "transparent", cursor: "pointer", fontFamily: "monospace", fontWeight: 700 }}>{inFC ? "✓FC" : "⚡FC"}</button>
-          <button onClick={toggleWL} title={inWL ? "Remove from Watchlist" : "Add to Watchlist"} style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, border: `1px solid ${ARIA.green}80`, color: inWL ? ARIA.bg : ARIA.green, background: inWL ? ARIA.green : "transparent", cursor: "pointer", fontFamily: "monospace", fontWeight: 700 }}>{inWL ? "✓WL" : "+WL"}</button>
-          <input ref={tickerInputRef} value={tickerInput} onChange={(e) => setTickerInput(e.target.value.toUpperCase())} onKeyDown={(e) => { if (e.key === "Enter") { submitTicker(); e.currentTarget.blur(); } else if (e.key === "Escape") { e.currentTarget.blur(); } }} placeholder="Ticker (/)" title="Jump to ticker (press /)" style={{ width: 70, fontSize: 9, padding: "2px 6px", background: ARIA.bg, border: `1px solid ${ARIA.border}`, borderRadius: 3, color: ARIA.textDim, fontFamily: "monospace", textTransform: "uppercase", outline: "none" }} />
+          <button onClick={togglePF} title={inPF ? "Remove from Portfolio" : "Add to Portfolio"} style={{ fontSize: 10.5, padding: "2px 7px", borderRadius: 4, border: `1px solid ${ARIA.yellow}80`, color: inPF ? ARIA.bg : ARIA.yellow, background: inPF ? ARIA.yellow : "transparent", cursor: "pointer", fontWeight: 600 }}>{inPF ? "✓PF" : "+PF"}</button>
+          <button onClick={toggleFC} title={inFC ? "Remove from Focus" : "Add to Focus (high-priority recent setups)"} style={{ fontSize: 10.5, padding: "2px 7px", borderRadius: 4, border: `1px solid ${ARIA.cyan}80`, color: inFC ? ARIA.bg : ARIA.cyan, background: inFC ? ARIA.cyan : "transparent", cursor: "pointer", fontWeight: 600 }}>{inFC ? "✓FC" : "⚡FC"}</button>
+          <button onClick={toggleWL} title={inWL ? "Remove from Watchlist" : "Add to Watchlist"} style={{ fontSize: 10.5, padding: "2px 7px", borderRadius: 4, border: `1px solid ${ARIA.green}80`, color: inWL ? ARIA.bg : ARIA.green, background: inWL ? ARIA.green : "transparent", cursor: "pointer", fontWeight: 600 }}>{inWL ? "✓WL" : "+WL"}</button>
+          <input ref={tickerInputRef} value={tickerInput} onChange={(e) => setTickerInput(e.target.value.toUpperCase())} onKeyDown={(e) => { if (e.key === "Enter") { submitTicker(); e.currentTarget.blur(); } else if (e.key === "Escape") { e.currentTarget.blur(); } }} placeholder="Ticker (/)" title="Jump to ticker (press /)" style={{ width: 78, fontSize: 10.5, padding: "2px 6px", background: ARIA.bg, border: `1px solid ${ARIA.border}`, borderRadius: 4, color: ARIA.textDim, fontFamily: MONO, textTransform: "uppercase", outline: "none" }} />
         </div>
       </div>
 
       {/* Second thin row — grade · perf · 52W · RS · ATR× · Base · TT (left), IPO (right) */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "4px 12px", flexShrink: 0, fontFamily: "monospace", overflowX: "auto", whiteSpace: "nowrap" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "4px 12px", flexShrink: 0, fontFamily: MONO, overflowX: "auto", whiteSpace: "nowrap" }}>
       {(() => {
         const csColor = (l) => (l === "A+" || l === "A") ? ARIA.green : l === "B" ? ARIA.blue : l === "C" ? ARIA.yellow : l === "D" ? "#f59e0b" : l === "F" ? ARIA.red : ARIA.textMuted;
         const pctColor = (v) => v == null ? ARIA.textMuted : v >= 80 ? ARIA.green : v >= 50 ? ARIA.blue : v >= 30 ? ARIA.yellow : ARIA.textDim;
@@ -584,14 +588,14 @@ export function ChartPanelInline({
           { label: "6M", val: stockInfo?.return_6m },
         ];
         const stat = (label, node, title) => (
-          <span title={title} style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 3, flexShrink: 0 }}>
+          <span title={title} style={{ fontSize: 10, fontFamily: MONO, display: "inline-flex", alignItems: "baseline", gap: 3, flexShrink: 0 }}>
             <span style={{ color: ARIA.textMuted }}>{label}</span>{node}
           </span>
         );
         return (
           <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "nowrap", flexShrink: 0 }}>
             {grade && (
-              <span title="Overall grade" style={{ fontSize: 9, fontFamily: "monospace", fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: gradeColor + "22", border: `1px solid ${gradeColor}55`, color: gradeColor }}>
+              <span title="Overall grade" style={{ fontSize: 10, fontFamily: MONO, fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: gradeColor + "22", border: `1px solid ${gradeColor}55`, color: gradeColor }}>
                 {grade}
               </span>
             )}
@@ -599,7 +603,7 @@ export function ChartPanelInline({
             {stat("EPS", <span style={{ color: pctColor(epsPct), fontWeight: 700 }}>{epsPct != null ? `${epsPct}` : "—"}</span>, "EPS growth (YoY) percentile vs the full universe")}
             {stat("Rev", <span style={{ color: pctColor(revPct), fontWeight: 700 }}>{revPct != null ? `${revPct}` : "—"}</span>, "Revenue growth (YoY) percentile vs the full universe")}
             {perfs.map(({ label, val }) => (
-              <span key={label} style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 3, flexShrink: 0 }}>
+              <span key={label} style={{ fontSize: 10, fontFamily: MONO, display: "inline-flex", alignItems: "baseline", gap: 3, flexShrink: 0 }}>
                 <span style={{ color: ARIA.textMuted }}>{label}</span>
                 <span style={{ color: ARIA.textDim, fontWeight: val != null && Math.abs(val) >= 20 ? 700 : 400 }}>
                   {val != null ? `${val >= 0 ? "+" : ""}${val.toFixed(1)}%` : "—"}
@@ -607,7 +611,7 @@ export function ChartPanelInline({
               </span>
             ))}
             {fromHi != null && (
-              <span style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 3, flexShrink: 0 }}>
+              <span style={{ fontSize: 10, fontFamily: MONO, display: "inline-flex", alignItems: "baseline", gap: 3, flexShrink: 0 }}>
                 <span style={{ color: ARIA.textMuted }}>52W</span>
                 <span style={{ color: fromHi >= -20 ? ARIA.green : ARIA.textDim, fontWeight: fromHi >= -20 ? 700 : 400 }}>
                   {fromHi > 0 ? "+" : ""}{fromHi.toFixed(1)}%
@@ -626,7 +630,7 @@ export function ChartPanelInline({
                 return stat("Ext", <span style={{ color: extColor, fontWeight: 700 }}>{ext != null ? `${ext.toFixed(1)}×` : "—"}</span>, "Extension from the 20-day MA in ATR multiples.");
               }
               return (
-                <span style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 6, flexShrink: 0 }}>
+                <span style={{ fontSize: 10, fontFamily: MONO, display: "inline-flex", alignItems: "baseline", gap: 6, flexShrink: 0 }}>
                   <span style={{ color: ARIA.textMuted }}>ATR×</span>
                   {items.map(([lbl, v, goodMax, warnMax]) => {
                     if (v?.atrX == null) return null;
@@ -661,8 +665,8 @@ export function ChartPanelInline({
         );
       })()}
         {stockInfo.ipo_date && (
-          <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "baseline", gap: 3, fontFamily: "monospace", fontSize: 9, flexShrink: 0 }}>
-            <span style={{ color: ARIA.textMuted, fontSize: 8 }}>IPO</span>
+          <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "baseline", gap: 3, fontFamily: MONO, fontSize: 10, flexShrink: 0 }}>
+            <span style={{ color: ARIA.textMuted, fontSize: 10 }}>IPO</span>
             <span title="Recent IPO (< 5 years)" style={{ fontWeight: 700, color: (Date.now() - new Date(stockInfo.ipo_date).getTime()) < 157788000000 ? ARIA.green : ARIA.textDim }}>{stockInfo.ipo_date}</span>
           </span>
         )}
@@ -680,11 +684,11 @@ export function ChartPanelInline({
               {!!stockInfo.de_ready && <span style={badgeStyle("#fb923c")} title={`Delayed Entry ready (2-7d post-gap, tight + narrowing, holding 4-EMA). Entry = break of ${stockInfo.de_trigger ?? "recent highs"}${stockInfo.de_hold ? ` · gap ${stockInfo.de_hold} (${stockInfo.de_hold_score}/5)` : ""}${stockInfo._epq ? ` · EP quality ${stockInfo._epq}` : ""}${stockInfo._newsPipe ? `\nCatalyst: ${stockInfo._newsPipe[0]}` : ""}`}>DE{stockInfo.de_trigger ? ` ${stockInfo.de_trigger}` : ""}{stockInfo.de_hold === "HELD" ? " ✓" : ""}</span>}
             </div>
           )}
-          <div style={{ fontSize: 9, color: "#9090a0", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 1 }}>
+          <div style={{ fontSize: 11, color: "#9090a0", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 1 }}>
             {stockInfo.company || ticker}
           </div>
           {liveQuote && (
-            <div style={{ display: "flex", gap: 12, fontSize: 9, fontFamily: "monospace", margin: "1px 0 3px", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 12, fontSize: 10, fontFamily: MONO, margin: "1px 0 3px", flexWrap: "wrap" }}>
               {[
                 ["Day", chgPct, "Change vs yesterday's close"],
                 ["From open", fromOpenPct, "Change since today's open"],
@@ -704,23 +708,23 @@ export function ChartPanelInline({
             </div>
           )}
           {description
-            ? <div style={{ fontSize: 8.5, color: "#6a6a7a", lineHeight: 1.4 }}>{description}</div>
-            : <div style={{ fontSize: 8.5, color: "#4a4a5a", fontStyle: "italic" }}>No description available.</div>}
+            ? <div style={{ fontSize: 10.5, color: "#6a6a7a", lineHeight: 1.4 }}>{description}</div>
+            : <div style={{ fontSize: 10, color: "#4a4a5a", fontStyle: "italic" }}>No description available.</div>}
         </div>
         {/* Right column — news */}
         <div style={{ flex: 1, minWidth: 0, borderLeft: `1px solid ${ARIA.border}`, paddingLeft: 14 }}>
           <div onClick={() => news.length > 0 && setNewsOpen(o => !o)}
-            style={{ display: "flex", alignItems: "center", gap: 5, cursor: news.length > 0 ? "pointer" : "default", userSelect: "none", fontSize: 8, fontWeight: 700, color: "#6a6a7a", textTransform: "uppercase", letterSpacing: 0.5, padding: "1px 0" }}
+            style={{ display: "flex", alignItems: "center", gap: 5, cursor: news.length > 0 ? "pointer" : "default", userSelect: "none", fontSize: 10, fontWeight: 700, color: "#6a6a7a", textTransform: "uppercase", letterSpacing: 0.5, padding: "1px 0" }}
             onMouseEnter={e => { if (news.length > 0) e.currentTarget.style.color = "#9090a0"; }}
             onMouseLeave={e => { e.currentTarget.style.color = "#6a6a7a"; }}>
-            {news.length > 0 && <span style={{ fontSize: 7 }}>{newsOpen ? "▼" : "▶"}</span>}
-            News <span style={{ color: "#4a4a5a", fontWeight: 400 }}>({news.length || stockInfo._newsPipe?.length || 0})</span>
+            {news.length > 0 && <span style={{ fontSize: 9 }}>{newsOpen ? "▼" : "▶"}</span>}
+            News <span style={{ color: "#4a4a5a", fontWeight: 400, fontFamily: MONO }}>({news.length || stockInfo._newsPipe?.length || 0})</span>
           </div>
-          {news.length === 0 && !(stockInfo._newsPipe?.length) && <div style={{ fontSize: 8.5, color: "#4a4a5a", fontStyle: "italic", marginTop: 2 }}>No recent headlines.</div>}
+          {news.length === 0 && !(stockInfo._newsPipe?.length) && <div style={{ fontSize: 10, color: "#4a4a5a", fontStyle: "italic", marginTop: 2 }}>No recent headlines.</div>}
           {news.length === 0 && stockInfo._newsPipe?.length > 0 && (
             <div style={{ maxHeight: 150, overflowY: "auto" }}>
               {stockInfo._newsPipe.map((h, i) => (
-                <div key={i} title={h} style={{ fontSize: 8.5, color: "#9090a0", padding: "2px 0", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
+                <div key={i} title={h} style={{ fontSize: 10, color: "#9090a0", padding: "2px 0", lineHeight: 1.35, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
                   <span style={{ color: "#5a5a6a", marginRight: 4 }}>⛭</span>{h}
                 </div>
               ))}
@@ -730,10 +734,10 @@ export function ChartPanelInline({
             <div style={{ maxHeight: 150, overflowY: "auto" }}>
               {news.slice(0, 8).map((a, i) => (
                 <a key={i} href={a.url} target="_blank" rel="noopener noreferrer"
-                  style={{ display: "block", fontSize: 8.5, color: "#9090a0", textDecoration: "none", padding: "2px 0", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderBottom: "1px solid rgba(255,255,255,0.03)" }}
+                  style={{ display: "block", fontSize: 10, color: "#9090a0", textDecoration: "none", padding: "2px 0", lineHeight: 1.35, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderBottom: "1px solid rgba(255,255,255,0.03)" }}
                   onMouseEnter={e => { e.currentTarget.style.color = "#c0c0d8"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
                   onMouseLeave={e => { e.currentTarget.style.color = "#9090a0"; e.currentTarget.style.background = "transparent"; }}>
-                  <span style={{ color: "#5a5a6a", marginRight: 4 }}>{agoLabel(a.date)}</span>
+                  <span style={{ color: "#5a5a6a", marginRight: 4, fontFamily: MONO }}>{agoLabel(a.date)}</span>
                   {a.headline}
                   <span style={{ color: "#6a6a7a", marginLeft: 4 }}>{a.source}</span>
                 </a>
@@ -747,16 +751,16 @@ export function ChartPanelInline({
       {/* Prior earnings responses — EPS/Sales surprise + 1d/10d reaction */}
       <div style={{ borderBottom: `1px solid ${ARIA.border}`, padding: "3px 14px 4px" }}>
         <div onClick={() => setErHistOpen((o) => { const n = !o; try { localStorage.setItem("tp-erhist-open", n ? "1" : "0"); } catch {} return n; })}
-          style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", userSelect: "none", fontSize: 8, fontWeight: 700, color: "#6a6a7a", textTransform: "uppercase", letterSpacing: 0.5, padding: "1px 0" }}
+          style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", userSelect: "none", fontSize: 10, fontWeight: 700, color: "#6a6a7a", textTransform: "uppercase", letterSpacing: 0.5, padding: "1px 0" }}
           onMouseEnter={(e) => { e.currentTarget.style.color = "#9090a0"; }}
           onMouseLeave={(e) => { e.currentTarget.style.color = "#6a6a7a"; }}
           title="Prior earnings responses: EPS/Sales surprise vs estimates + the price reaction (announcement day and 10 sessions incl. drift). How does this name treat its reports?">
-          <span style={{ fontSize: 7 }}>{erHistOpen ? "▼" : "▶"}</span>
-          Earnings History{erHist?.ticker === ticker && erHist.history.length ? ` (${erHist.history.length}q)` : ""}
+          <span style={{ fontSize: 9 }}>{erHistOpen ? "▼" : "▶"}</span>
+          Earnings History{erHist?.ticker === ticker && erHist.history.length ? <span style={{ fontFamily: MONO, fontWeight: 500 }}>({erHist.history.length}q)</span> : ""}
         </div>
         {erHistOpen && (() => {
-          if (erHist?.ticker !== ticker) return <div style={{ fontSize: 8.5, color: "#4a4a5a", fontStyle: "italic", padding: "2px 0" }}>loading…</div>;
-          if (!erHist.history.length) return <div style={{ fontSize: 8.5, color: "#4a4a5a", fontStyle: "italic", padding: "2px 0" }}>No reported quarters.</div>;
+          if (erHist?.ticker !== ticker) return <div style={{ fontSize: 10, color: "#4a4a5a", fontStyle: "italic", padding: "2px 0" }}>loading…</div>;
+          if (!erHist.history.length) return <div style={{ fontSize: 10, color: "#4a4a5a", fontStyle: "italic", padding: "2px 0" }}>No reported quarters.</div>;
           const fmtRev = (v) => v == null ? "—" : v >= 1e9 ? (v / 1e9).toFixed(1) + "B" : (v / 1e6).toFixed(0) + "M";
           const surpC = (v) => v == null ? ARIA.textMuted : v >= 0 ? ARIA.green : ARIA.red;
           const rxC = (v) => v == null ? ARIA.textMuted : Math.abs(v) < 2 ? ARIA.textDim : v > 0 ? ARIA.green : ARIA.red;
@@ -788,8 +792,8 @@ export function ChartPanelInline({
             return false;
           });
           const liveCode33 = accel[0] && accel[1] && accel[2];
-          const th = { padding: "2px 6px", fontSize: 7, fontWeight: 700, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.3, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, whiteSpace: "nowrap" };
-          const td = { padding: "1px 6px", fontSize: 8.5, fontFamily: "monospace", textAlign: "right", whiteSpace: "nowrap", borderBottom: `1px solid ${ARIA.border}40` };
+          const th = { padding: "3px 6px", fontSize: 10, fontWeight: 600, color: ARIA.textMuted, textTransform: "uppercase", letterSpacing: 0.35, textAlign: "right", borderBottom: `1px solid ${ARIA.border}`, whiteSpace: "nowrap" };
+          const td = { padding: "2px 6px", fontSize: 10, fontFamily: MONO, fontVariantNumeric: "tabular-nums", textAlign: "right", whiteSpace: "nowrap", borderBottom: `1px solid ${ARIA.border}40` };
           return (
             <div style={{ overflowX: "auto" }}>
               <table style={{ borderCollapse: "collapse", width: "100%" }}>
@@ -807,7 +811,7 @@ export function ChartPanelInline({
                 </tr></thead>
                 <tbody>
                   {liveCode33 ? (
-                    <tr><td colSpan={10} style={{ padding: "2px 6px", fontSize: 7.5, fontWeight: 800, color: ARIA.blue, background: `${ARIA.blue}14`, letterSpacing: 0.4 }} title="EPS YoY, Sales YoY and net margin have ALL accelerated for 3 straight quarters — Minervini's 'hitting on all cylinders' condition">CODE 33 — sales, earnings & margins accelerating 3 straight quarters</td></tr>
+                    <tr><td colSpan={10} style={{ padding: "2px 6px", fontSize: 10, fontWeight: 700, color: ARIA.blue, background: `${ARIA.blue}14`, letterSpacing: 0.3 }} title="EPS YoY, Sales YoY and net margin have ALL accelerated for 3 straight quarters — Minervini's 'hitting on all cylinders' condition">CODE 33 — sales, earnings & margins accelerating 3 straight quarters</td></tr>
                   ) : null}
                   {erHist.history.map((q, qi) => (
                     <tr key={q.date} style={{ background: code33[qi] ? `${ARIA.blue}1f` : "transparent" }} title={code33[qi] ? "Part of a Code 33 run — EPS YoY, Sales YoY and net margin all accelerating for 3+ consecutive quarters" : undefined}>
@@ -833,11 +837,11 @@ export function ChartPanelInline({
       {/* Risk Management Dashboard */}
       {showTrade && (() => {
         const inputStyle = {
-          width: 80, fontSize: 9, padding: "2px 5px", background: "#0a0a14",
-          border: "1px solid #2a2a3a", borderRadius: 3, color: "#c0c0d8",
-          fontFamily: "monospace", outline: "none",
+          width: 80, fontSize: 10.5, padding: "2px 5px", background: "#0a0a14",
+          border: "1px solid #2a2a3a", borderRadius: 4, color: "#c0c0d8",
+          fontFamily: MONO, outline: "none",
         };
-        const labelStyle = { fontSize: 8, color: "#6a6a7a", marginRight: 3 };
+        const labelStyle = { fontSize: 10, fontWeight: 600, color: "#6a6a7a", marginRight: 3 };
         const cols = [
           { key: "tight", label: "0.5× ATR" },
           { key: "base",  label: "1× ATR" },
@@ -854,7 +858,7 @@ export function ChartPanelInline({
           <div style={{ borderBottom: "1px solid #1a1a2e", background: "#0b0b18", padding: "8px 14px" }}>
             {/* Input row */}
             <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 8, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 9, fontFamily: "monospace", color: "#0d9163", fontWeight: 700 }}>
+              <span style={{ fontSize: 10.5, fontFamily: MONO, color: "#0d9163", fontWeight: 700 }}>
                 ATR({tradeSettings.atrLen}): ${dailyATR ? dailyATR.toFixed(2) : "—"}{atrPct ? ` (${atrPct}%)` : ""}
               </span>
               <label style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
@@ -880,12 +884,12 @@ export function ChartPanelInline({
             </div>
             {/* Table */}
             {riskScenarios && (
-              <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "monospace", fontSize: 9 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontVariantNumeric: "tabular-nums", fontSize: 10.5 }}>
                 <thead>
                   <tr>
-                    <th style={{ padding: "3px 8px", background: headBg, color: "#5a5a7a", textAlign: "left", fontWeight: 600, fontSize: 8, borderBottom: "1px solid #1a1a2e" }}></th>
+                    <th style={{ padding: "3px 8px", background: headBg, color: "#5a5a7a", textAlign: "left", fontWeight: 600, fontSize: 10, borderBottom: "1px solid #1a1a2e" }}></th>
                     {cols.map((col, ci) => (
-                      <th key={col.key} style={{ padding: "3px 8px", background: headBg, color: colColors[ci], textAlign: "right", fontWeight: 700, fontSize: 8, borderBottom: "1px solid #1a1a2e", whiteSpace: "nowrap" }}>
+                      <th key={col.key} style={{ padding: "3px 8px", background: headBg, color: colColors[ci], textAlign: "right", fontWeight: 600, fontSize: 10, borderBottom: "1px solid #1a1a2e", whiteSpace: "nowrap" }}>
                         {col.label}
                       </th>
                     ))}
@@ -900,13 +904,14 @@ export function ChartPanelInline({
                     { row: "Risk $",    fn: s => s ? `$${fmtN(s.risk)}` : "—" },
                   ].map(({ row, fn, cappedFn }) => (
                     <tr key={row}>
-                      <td style={{ padding: "3px 8px", background: headBg, color: "#6a6a7a", fontSize: 8, fontWeight: 600, borderBottom: "1px solid #111120" }}>{row}</td>
+                      <td style={{ padding: "3px 8px", background: headBg, color: "#6a6a7a", fontSize: 10, fontWeight: 600, borderBottom: "1px solid #111120" }}>{row}</td>
                       {cols.map((col, ci) => {
                         const s = riskScenarios[col.key];
                         const isCapped = cappedFn ? cappedFn(s) : false;
                         return (
                           <td key={col.key} style={{
                             padding: "3px 8px", textAlign: "right", borderBottom: "1px solid #111120",
+                            fontFamily: MONO,
                             background: isCapped ? "rgba(251,191,36,0.12)" : cellBg,
                             color: isCapped ? "#fbbf24" : colColors[ci],
                             fontWeight: row === "Stop $" || row === "Shares" ? 700 : 400,

@@ -4,6 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ThemePulse</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
     <link
       rel="icon"
       type="image/svg+xml"
@@ -12,12 +18,49 @@
     <style>
       html { scroll-behavior: smooth; }
       :root {
+        --tp-sans: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+        --tp-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
         --tp-row-hover: rgba(255, 255, 255, 0.045);
         --tp-row-active-hover: rgba(40, 40, 55, 0.65);
         --tp-row-active-bar: #22c55e;
+        --tp-btn-hover-bg: rgba(255, 255, 255, 0.06);
+        --tp-btn-hover-border: rgba(255, 255, 255, 0.22);
+        --tp-focus-ring: rgba(52, 211, 153, 0.55);
+        --tp-scroll-thumb: #2b2b3d;
+        --tp-scroll-thumb-hover: #3d3d54;
       }
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { background: #0a0a0a; }
+      html, body {
+        font-family: var(--tp-sans);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        text-rendering: optimizeLegibility;
+        font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+      }
+      body { background: #09090e; }
+      /* Tactile button, card & focus micro-interactions */
+      button:not(:disabled) {
+        transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, filter 120ms ease, transform 80ms ease;
+      }
+      button:hover:not(:disabled) {
+        filter: brightness(1.12);
+      }
+      button:active:not(:disabled) {
+        transform: translateY(0.5px);
+      }
+      button:focus-visible,
+      select:focus-visible,
+      input:focus-visible,
+      [tabindex]:focus-visible {
+        outline: 2px solid var(--tp-focus-ring);
+        outline-offset: 1px;
+      }
+      .tp-card-btn {
+        transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, filter 120ms ease, transform 80ms ease;
+      }
+      .tp-card-btn:hover {
+        border-color: var(--tp-btn-hover-border) !important;
+      }
       /* Clickable table rows & active chart highlight */
       tr[data-nav],
       .tp-click-row {
@@ -35,13 +78,13 @@
       tr.tp-row-active > td:first-child {
         box-shadow: inset 2px 0 0 var(--tp-row-active-bar, #22c55e);
       }
-      /* Thin, dark scrollbars */
+      /* Thin, theme-aware scrollbars */
       ::-webkit-scrollbar { width: 6px; height: 6px; }
       ::-webkit-scrollbar-track { background: transparent; }
-      ::-webkit-scrollbar-thumb { background: #2a2a3a; border-radius: 3px; }
-      ::-webkit-scrollbar-thumb:hover { background: #3a3a4a; }
+      ::-webkit-scrollbar-thumb { background: var(--tp-scroll-thumb, #2b2b3d); border-radius: 3px; }
+      ::-webkit-scrollbar-thumb:hover { background: var(--tp-scroll-thumb-hover, #3d3d54); }
       ::-webkit-scrollbar-corner { background: transparent; }
-      * { scrollbar-width: thin; scrollbar-color: #2a2a3a transparent; }
+      * { scrollbar-width: thin; scrollbar-color: var(--tp-scroll-thumb, #2b2b3d) transparent; }
     </style>
   </head>
   <body>

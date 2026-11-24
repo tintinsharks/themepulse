@@ -3,7 +3,7 @@
 // ════════════════════════════════════════════════════════════════════════════
 
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { ARIA_DARK, ARIA_LIGHT } from "./styles.js";
+import { ARIA_DARK, ARIA_LIGHT, FONT_SANS, FONT_MONO } from "./styles.js";
 import { isPipelineStale } from "./utils.js";
 import LeadershipView, { LEAD_INDEXES } from "./LeadershipView.jsx";
 import { AriaThemeContext, useAriaTheme, useAriaThemeControls } from "./themeContext.js";
@@ -250,7 +250,7 @@ function AppMain() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          fontFamily: "monospace",
+          fontFamily: FONT_MONO,
           fontSize: 12,
         }}
       >
@@ -267,11 +267,11 @@ function AppMain() {
           background: ARIA.bg,
           color: ARIA.red,
           padding: 24,
-          fontFamily: "monospace",
+          fontFamily: FONT_SANS,
         }}
       >
         <div style={{ fontSize: 14, fontWeight: 700 }}>{data.error}</div>
-        <div style={{ fontSize: 11, color: ARIA.textDim, marginTop: 6 }}>
+        <div style={{ fontSize: 12, color: ARIA.textDim, marginTop: 6 }}>
           Pipeline data is required. Check that /dashboard_data.json exists.
         </div>
         <button
@@ -279,14 +279,14 @@ function AppMain() {
           style={{
             marginTop: 12,
             padding: "6px 14px",
-            background: "rgba(13,145,99,0.14)",
+            background: ARIA.glowGreen || "rgba(13,145,99,0.14)",
             border: `1px solid ${ARIA.green}`,
             color: ARIA.green,
-            borderRadius: 4,
+            borderRadius: 6,
             cursor: "pointer",
-            fontFamily: "monospace",
+            fontFamily: FONT_SANS,
             fontSize: 11,
-            fontWeight: 700,
+            fontWeight: 600,
           }}
         >
           Retry
@@ -302,8 +302,7 @@ function AppMain() {
         background: ARIA.vignette || ARIA.bg,
         backgroundAttachment: "fixed",
         color: ARIA.text,
-        fontFamily:
-          "'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
+        fontFamily: FONT_SANS,
       }}
     >
       <AlertsBell alerts={tradeAlerts} onTicker={handleTickerClick} ARIA={ARIA} />
@@ -316,7 +315,7 @@ function AppMain() {
           rowGap: 6,
           alignItems: "center",
           padding: "10px 24px",
-          background: ARIA.bgCard,
+          background: ARIA.bgCardGlass || ARIA.bgCard,
           backdropFilter: "blur(20px) saturate(180%)",
           WebkitBackdropFilter: "blur(20px) saturate(180%)",
           borderBottom: `1px solid ${ARIA.border}`,
@@ -346,15 +345,15 @@ function AppMain() {
           </span>
         </div>
         {/* View switcher */}
-        <div style={{ display: "flex", gap: 2, marginLeft: 18 }}>
+        <div style={{ display: "flex", gap: 4, marginLeft: 18 }}>
           {[["brief", "BRIEF"], ["scanner", "SCANNER"]].map(([v, label]) => (
             <button key={v} onClick={() => switchView(v)}
               style={{
-                background: mainView === v ? "rgba(13,145,99,0.14)" : "transparent",
+                background: mainView === v ? (ARIA.glowGreen || "rgba(13,145,99,0.14)") : "transparent",
                 border: `1px solid ${mainView === v ? ARIA.green : ARIA.border}`,
                 color: mainView === v ? ARIA.green : ARIA.textDim,
-                padding: "3px 10px", borderRadius: 4, cursor: "pointer",
-                fontFamily: "monospace", fontSize: 9, fontWeight: 700, letterSpacing: 0.6,
+                padding: "4px 11px", borderRadius: 6, cursor: "pointer",
+                fontFamily: FONT_SANS, fontSize: 11, fontWeight: 600, letterSpacing: 0.3,
               }}>{label}</button>
           ))}
         </div>
@@ -367,7 +366,11 @@ function AppMain() {
           }}
         >
           <span
-            style={{ color: isPipelineStale(data.pipeline?.date) ? "#f59e0b" : ARIA.textMuted, fontSize: 10 }}
+            style={{
+              color: isPipelineStale(data.pipeline?.date) ? "#f59e0b" : ARIA.textMuted,
+              fontFamily: FONT_MONO,
+              fontSize: 10.5,
+            }}
             title={isPipelineStale(data.pipeline?.date) ? "Pipeline data is more than 2 trading days old — check GitHub Actions" : undefined}
           >
             {stocks.length.toLocaleString()} stocks · {data.pipeline?.date || ""}
@@ -376,12 +379,12 @@ function AppMain() {
                 style={{
                   marginLeft: 6,
                   padding: "1px 5px",
-                  borderRadius: 3,
+                  borderRadius: 4,
                   background: "rgba(245,158,11,0.16)",
                   border: "1px solid rgba(245,158,11,0.45)",
                   color: "#f59e0b",
-                  fontFamily: "monospace",
-                  fontSize: 9,
+                  fontFamily: FONT_MONO,
+                  fontSize: 10,
                   fontWeight: 700,
                 }}
               >
@@ -398,12 +401,12 @@ function AppMain() {
               border: `1px solid ${ARIA.border}`,
               color: ARIA.textDim,
               padding: "4px 10px",
-              borderRadius: 4,
+              borderRadius: 6,
               cursor: "pointer",
-              fontFamily: "monospace",
-              fontSize: 10,
-              textTransform: "uppercase",
-              letterSpacing: 1,
+              fontFamily: FONT_SANS,
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: 0.2,
             }}
           >
             {themeMode === "dark" ? "Light" : "Dark"}
@@ -418,12 +421,12 @@ function AppMain() {
                 border: `1px solid ${ARIA.border}`,
                 borderRight: "none",
                 color: ARIA.textDim,
-                padding: "4px 6px",
-                borderRadius: "4px 0 0 4px",
+                padding: "4px 7px",
+                borderRadius: "6px 0 0 6px",
                 cursor: "pointer",
-                fontFamily: "monospace",
-                fontSize: 10,
-                letterSpacing: 1,
+                fontFamily: FONT_SANS,
+                fontSize: 11,
+                fontWeight: 600,
               }}
             >
               A-
@@ -435,12 +438,12 @@ function AppMain() {
                 background: "transparent",
                 border: `1px solid ${ARIA.border}`,
                 color: ARIA.textDim,
-                padding: "4px 6px",
-                borderRadius: "0 4px 4px 0",
+                padding: "4px 7px",
+                borderRadius: "0 6px 6px 0",
                 cursor: "pointer",
-                fontFamily: "monospace",
-                fontSize: 10,
-                letterSpacing: 1,
+                fontFamily: FONT_SANS,
+                fontSize: 11,
+                fontWeight: 600,
               }}
             >
               A+
@@ -448,10 +451,10 @@ function AppMain() {
           </div>
           <span
             style={{
-              fontSize: 9,
+              fontSize: 10.5,
               color: ARIA.textMuted,
-              fontFamily: "monospace",
-              minWidth: 28,
+              fontFamily: FONT_MONO,
+              minWidth: 32,
               textAlign: "right",
             }}
             title="Current zoom level"
@@ -528,10 +531,17 @@ export default function App() {
   }, []);
 
   const ARIA = themeMode === "light" ? ARIA_LIGHT : ARIA_DARK;
-  // Set body bg so the area outside the maxWidth container also flips
+  // Set body bg & sync :root interactive/scrollbar CSS variables on theme switch
   useEffect(() => {
     document.body.style.background = ARIA.bg;
-  }, [ARIA.bg]);
+    const isLight = themeMode === "light";
+    const root = document.documentElement.style;
+    root.setProperty("--tp-btn-hover-bg", isLight ? "rgba(15, 23, 42, 0.05)" : "rgba(255, 255, 255, 0.06)");
+    root.setProperty("--tp-btn-hover-border", isLight ? "rgba(15, 23, 42, 0.26)" : "rgba(255, 255, 255, 0.22)");
+    root.setProperty("--tp-focus-ring", isLight ? "rgba(5, 150, 105, 0.50)" : "rgba(52, 211, 153, 0.55)");
+    root.setProperty("--tp-scroll-thumb", isLight ? "#cbd5e1" : "#2b2b3d");
+    root.setProperty("--tp-scroll-thumb-hover", isLight ? "#94a3b8" : "#3d3d54");
+  }, [ARIA.bg, themeMode]);
   const ctxValue = useMemo(
     () => ({ ARIA, themeMode, toggleTheme, zoom, changeZoom }),
     [ARIA, themeMode, toggleTheme, zoom, changeZoom]

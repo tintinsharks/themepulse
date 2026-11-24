@@ -26,6 +26,7 @@ import BreakoutFollowThroughCard from "./BreakoutFollowThroughCard.jsx";
 import MarketBreadthCard from "../components/MarketBreadthCard.jsx";
 
 const BRIEF_DIR = "/data/briefs/";
+const MONO = "'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace";
 const INDEX_TKS = LEAD_INDEXES.map((x) => x.t);
 const MACRO_PILL_TKS = ["UUP", "IBIT", "GLD"];
 const NEWS_TTL_MS = 5 * 60 * 1000;
@@ -113,7 +114,7 @@ function ZvrMeter({ zvr, A }) {
   const color = zvr >= 2.0 ? "#fbbf24" : zvr >= 1.5 ? A.green : A.textDim;
   return (
     <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", gap: 2, minWidth: 48 }}>
-      <span style={{ color, fontWeight: zvr >= 1.5 ? 800 : 500, fontFamily: "monospace", fontSize: 11 }}>{zvr.toFixed(2)}x</span>
+      <span style={{ color, fontWeight: zvr >= 1.5 ? 800 : 500, fontFamily: MONO, fontSize: 11 }}>{zvr.toFixed(2)}x</span>
       <div style={{ width: 44, height: 3, borderRadius: 2, background: A.border, overflow: "hidden" }}>
         <div style={{ width: `${pct}%`, height: "100%", background: color, borderRadius: 2 }} />
       </div>
@@ -126,7 +127,7 @@ function CrMeter({ cr, A }) {
   const color = cr >= 75 ? A.green : cr >= 60 ? A.cyan : cr >= 40 ? A.textDim : A.red;
   return (
     <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", gap: 2, minWidth: 40 }}>
-      <span style={{ color, fontWeight: cr >= 70 ? 700 : 400, fontFamily: "monospace", fontSize: 11 }}>{cr}%</span>
+      <span style={{ color, fontWeight: cr >= 70 ? 700 : 400, fontFamily: MONO, fontSize: 11 }}>{cr}%</span>
       <div style={{ width: 36, height: 3, borderRadius: 2, background: A.border, position: "relative" }}>
         <div style={{ position: "absolute", left: 0, top: 0, width: `${Math.max(4, Math.min(100, cr))}%`, height: "100%", background: color, borderRadius: 2 }} />
       </div>
@@ -444,7 +445,7 @@ export default function ZangerBriefSection({
   const Tk = ({ t }) => (
     <span
       onClick={(e) => { e.stopPropagation(); onTicker && onTicker(t); }}
-      style={{ cursor: "pointer", fontFamily: "monospace", fontWeight: 700, color: chartTicker === t ? A.green : A.text }}
+      style={{ cursor: "pointer", fontFamily: MONO, fontWeight: 700, color: chartTicker === t ? A.green : A.text }}
     >
       {t}
     </span>
@@ -464,9 +465,9 @@ export default function ZangerBriefSection({
           color: liveOn ? A.green : A.textMuted,
           borderRadius: 6,
           padding: "2px 8px",
-          fontSize: 10,
-          fontWeight: 700,
-          fontFamily: "monospace",
+          fontSize: liveOn ? 10 : 11,
+          fontWeight: liveOn ? 700 : 600,
+          fontFamily: liveOn ? MONO : "inherit",
           cursor: "pointer",
         }}
       >
@@ -483,9 +484,9 @@ export default function ZangerBriefSection({
             border: `1px solid ${A.border}`,
             borderRadius: 6,
             fontSize: 11,
+            fontWeight: 600,
             padding: "2px 8px",
             maxWidth: 280,
-            fontFamily: "monospace",
           }}
         >
           {index.map((b) => (
@@ -629,9 +630,8 @@ export default function ZangerBriefSection({
     padding: "2px 7px",
     borderRadius: 6,
     cursor: "pointer",
-    fontFamily: "monospace",
-    fontSize: 10,
-    fontWeight: active ? 700 : 500,
+    fontSize: 11,
+    fontWeight: active ? 700 : 600,
     whiteSpace: "nowrap",
     flexShrink: 0,
   });
@@ -795,12 +795,12 @@ export default function ZangerBriefSection({
       <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
         {epMovers.map((e) => (
           <div key={e.ticker} style={{ fontSize: 11, display: "flex", gap: 6, alignItems: "baseline", flexWrap: "wrap", borderBottom: `1px solid ${A.border}`, paddingBottom: 4 }}>
-            <span style={{ fontSize: 9, fontWeight: 800, fontFamily: "monospace", padding: "1px 5px", borderRadius: 4, background: e.category === "LAVA" ? "rgba(239,68,68,0.18)" : "rgba(245,158,11,0.18)", color: e.category === "LAVA" ? A.red : "#f59e0b" }}>
+            <span style={{ fontSize: 10, fontWeight: 800, fontFamily: MONO, padding: "1px 5px", borderRadius: 4, background: e.category === "LAVA" ? "rgba(239,68,68,0.18)" : "rgba(245,158,11,0.18)", color: e.category === "LAVA" ? A.red : "#f59e0b" }}>
               {e.category}
             </span>
             <Tk t={e.ticker} />
-            <span style={{ color: A.green, fontFamily: "monospace", fontWeight: 700 }}>{fmtPct(e.chg, 1)}</span>
-            {e.volume ? <span style={{ color: A.textMuted, fontFamily: "monospace", fontSize: 10 }}>vol {fmtVol(e.volume)}</span> : null}
+            <span style={{ color: A.green, fontFamily: MONO, fontWeight: 700 }}>{fmtPct(e.chg, 1)}</span>
+            {e.volume ? <span style={{ color: A.textMuted, fontFamily: MONO, fontSize: 10 }}>vol {fmtVol(e.volume)}</span> : null}
             {e.headline ? <span style={{ color: A.textDim }}>— {e.headline}</span> : null}
           </div>
         ))}
@@ -818,7 +818,7 @@ export default function ZangerBriefSection({
           <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <span>Market Breadth &amp; Leadership Briefing</span>
             {dec && (
-              <span style={{ fontSize: 9, fontWeight: 800, fontFamily: "monospace", padding: "2px 7px", borderRadius: 4, background: `${decColor}22`, border: `1px solid ${decColor}`, color: decColor }}>
+              <span style={{ fontSize: 10, fontWeight: 800, fontFamily: MONO, padding: "2px 7px", borderRadius: 4, background: `${decColor}22`, border: `1px solid ${decColor}`, color: decColor }}>
                 {dec}{mktScore != null ? ` · ${mktScore}/100` : ""}{posSize ? ` · ${posSize}` : ""}
               </span>
             )}
@@ -830,8 +830,8 @@ export default function ZangerBriefSection({
         {liveIndices.length > 0 && (
           <div style={{ marginBottom: 10 }}>
             {readyIndices.length > 0 && (
-              <div style={{ fontSize: 10, color: A.textMuted, fontFamily: "monospace", marginBottom: 6 }}>
-                <strong style={{ color: A.text }}>{uptrendCount} of {readyIndices.length}</strong> major indexes in an uptrend (above rising 21e &gt; 50d &gt; 200d) · line = price, blue = 21e, dashed = 50d
+              <div style={{ fontSize: 11, color: A.textMuted, marginBottom: 6 }}>
+                <strong style={{ color: A.text, fontFamily: MONO }}>{uptrendCount} of {readyIndices.length}</strong> major indexes in an uptrend (above rising 21e &gt; 50d &gt; 200d) · line = price, blue = 21e, dashed = 50d
               </div>
             )}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(215px, 1fr))", gap: 8 }}>
@@ -841,14 +841,15 @@ export default function ZangerBriefSection({
                 const col = s ? idxToneC(s.tone) : A.border;
                 const statCell = (label, v, tip) => (
                   <div key={label} title={tip}>
-                    <div style={{ fontSize: 9, color: A.textMuted, letterSpacing: 0.3 }}>{label}</div>
-                    <div style={{ fontSize: 11, fontFamily: "monospace", fontVariantNumeric: "tabular-nums", color: pc(v) }}>{fmtPct(v, 1)}</div>
+                    <div style={{ fontSize: 10, color: A.textMuted, letterSpacing: 0.3 }}>{label}</div>
+                    <div style={{ fontSize: 11, fontFamily: MONO, fontVariantNumeric: "tabular-nums", color: pc(v) }}>{fmtPct(v, 1)}</div>
                   </div>
                 );
                 return (
                   <button
                     key={idx.ticker}
                     type="button"
+                    className="tp-card-btn"
                     onClick={() => onTicker && onTicker(idx.ticker)}
                     style={{
                       textAlign: "left",
@@ -863,11 +864,11 @@ export default function ZangerBriefSection({
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                      <span style={{ fontWeight: 800, fontFamily: "monospace", fontSize: 13 }}>{idx.ticker}</span>
+                      <span style={{ fontWeight: 800, fontFamily: MONO, fontSize: 13 }}>{idx.ticker}</span>
                       <span style={{ color: A.textMuted, fontSize: 10 }}>{idx.name}</span>
                       {s && <span style={{ marginLeft: "auto", fontSize: 10, fontWeight: 700, color: col }}>{s.trend.toUpperCase()}</span>}
                     </div>
-                    <div style={{ display: "flex", alignItems: "baseline", gap: 7, marginTop: 2, fontFamily: "monospace", fontVariantNumeric: "tabular-nums" }}>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 7, marginTop: 2, fontFamily: MONO, fontVariantNumeric: "tabular-nums" }}>
                       <span style={{ fontSize: 15, fontWeight: 700 }}>{typeof idx.price === "number" ? idx.price.toFixed(2) : "—"}</span>
                       <span style={{ fontSize: 13, fontWeight: 700, color: pc(idx.change) }}>{fmtPct(idx.change, 2)}</span>
                       <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "baseline", gap: 6, fontSize: 10 }}>
@@ -923,6 +924,7 @@ export default function ZangerBriefSection({
                 <button
                   key={p.id}
                   type="button"
+                  className="tp-card-btn"
                   onClick={() => onTicker && onTicker(p.chartTicker)}
                   title={p.tip}
                   style={{
@@ -930,7 +932,7 @@ export default function ZangerBriefSection({
                     alignItems: "center",
                     gap: 6,
                     fontSize: 11,
-                    fontFamily: "monospace",
+                    fontFamily: MONO,
                     fontVariantNumeric: "tabular-nums",
                     padding: "4px 10px",
                     borderRadius: 6,
@@ -952,7 +954,7 @@ export default function ZangerBriefSection({
 
         {/* Overnight Futures Strip */}
         {futures.length > 0 && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8, padding: "6px 8px", background: A.bg, border: `1px solid ${A.border}`, borderRadius: 6, fontSize: 10, fontFamily: "monospace" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8, padding: "6px 8px", background: A.bg, border: `1px solid ${A.border}`, borderRadius: 6, fontSize: 10, fontFamily: MONO }}>
             <span style={{ color: A.textMuted, fontWeight: 700 }}>FUTURES:</span>
             {futures.map((f) => (
               <span key={f.name} style={{ color: A.textDim }}>
@@ -964,7 +966,7 @@ export default function ZangerBriefSection({
         )}
 
         {/* Macro / Breadth / Sector Rotation Strip */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, fontSize: 11, color: A.textDim, fontFamily: "monospace", marginBottom: 6 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, fontSize: 11, color: A.textDim, fontFamily: MONO, marginBottom: 6 }}>
           {liveVix && <span>VIX <strong style={{ color: A.text }}>{liveVix.price.toFixed(2)}</strong> ({fmtPct(liveVix.change, 1)})</span>}
           {liveTnx && <span>10Y <strong style={{ color: A.text }}>{liveTnx.price.toFixed(2)}%</strong></span>}
           {baseMkt.breadth?.pctAbove50 != null && <span>&gt;50MA <strong style={{ color: A.text }}>{baseMkt.breadth.pctAbove50}%</strong></span>}
@@ -983,7 +985,7 @@ export default function ZangerBriefSection({
 
         {/* Market Commentary Bullets */}
         {Array.isArray(baseMkt.commentary) && baseMkt.commentary.length > 0 && (
-          <ul style={{ margin: "6px 0 0", paddingLeft: 18, fontSize: 11, color: A.text, lineHeight: 1.5 }}>
+          <ul style={{ margin: "6px 0 0", paddingLeft: 18, fontSize: 11.5, color: A.text, lineHeight: 1.55 }}>
             {baseMkt.commentary.map((c, i) => <li key={i} style={{ marginBottom: 3 }}>{c}</li>)}
           </ul>
         )}
@@ -1005,9 +1007,9 @@ export default function ZangerBriefSection({
                   {portAlerts.isLive && (
                     <span
                       style={{
-                        fontSize: 9,
+                        fontSize: 10,
                         fontWeight: 800,
-                        fontFamily: "monospace",
+                        fontFamily: MONO,
                         padding: "1px 5px",
                         borderRadius: 4,
                         background: "rgba(34,197,94,0.14)",
@@ -1037,7 +1039,7 @@ export default function ZangerBriefSection({
                     onClick={() => setPortFilter(k)}
                     style={chipStyle(portFilter === k, accent)}
                   >
-                    {lbl} <span style={{ opacity: 0.75 }}>{cnt}</span>
+                    {lbl} <span style={{ opacity: 0.75, fontFamily: MONO }}>{cnt}</span>
                   </button>
                 ))}
               </div>
@@ -1074,7 +1076,7 @@ export default function ZangerBriefSection({
                             boxShadow: chartTicker === a.ticker ? `inset 2px 0 0 ${A.green}` : "none",
                           }}
                         >
-                          <td style={{ ...td(A), fontSize: 10, fontFamily: "monospace", fontWeight: 700, color: a.list === "PORT" ? A.green : A.cyan }}>
+                          <td style={{ ...td(A), fontSize: 10, fontFamily: MONO, fontWeight: 700, color: a.list === "PORT" ? A.green : A.cyan }}>
                             {a.inPf && a.inWl ? "PF·WL" : a.list === "PORT" ? "PF" : "WL"}
                           </td>
                           <td style={td(A)}>
@@ -1082,10 +1084,10 @@ export default function ZangerBriefSection({
                             <Tk t={a.ticker} />
                             <TierMark t={a.ticker} />
                           </td>
-                          <td style={{ ...td(A, "right"), color: pc(a.chg), fontFamily: "monospace", fontWeight: 700 }}>{fmtPct(a.chg, 2)}</td>
-                          <td style={{ ...td(A, "right"), fontFamily: "monospace", color: (a.zvr ?? 0) >= 1.5 ? A.green : A.textDim }}>{a.zvr != null ? `${a.zvr.toFixed(1)}x` : "—"}</td>
-                          <td style={{ ...td(A, "right"), fontFamily: "monospace", color: a.cr == null ? A.textMuted : a.cr >= 70 ? A.green : a.cr <= 30 ? A.red : A.textDim }}>{a.cr != null ? `${a.cr}%` : "—"}</td>
-                          <td style={{ ...td(A, "right"), fontFamily: "monospace", fontWeight: 700, color: rsC(a.rs) }}>{a.rs ?? "—"}</td>
+                          <td style={{ ...td(A, "right"), color: pc(a.chg), fontFamily: MONO, fontWeight: 700 }}>{fmtPct(a.chg, 2)}</td>
+                          <td style={{ ...td(A, "right"), fontFamily: MONO, color: (a.zvr ?? 0) >= 1.5 ? A.green : A.textDim }}>{a.zvr != null ? `${a.zvr.toFixed(1)}x` : "—"}</td>
+                          <td style={{ ...td(A, "right"), fontFamily: MONO, color: a.cr == null ? A.textMuted : a.cr >= 70 ? A.green : a.cr <= 30 ? A.red : A.textDim }}>{a.cr != null ? `${a.cr}%` : "—"}</td>
+                          <td style={{ ...td(A, "right"), fontFamily: MONO, fontWeight: 700, color: rsC(a.rs) }}>{a.rs ?? "—"}</td>
                           <td style={{ ...td(A), fontSize: 10 }}>
                             {(a.tags || []).length > 0 ? (
                               a.tags.map((t, i) => (
@@ -1110,9 +1112,9 @@ export default function ZangerBriefSection({
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 {portEarnings.map((e) => (
                   <div key={e.ticker} style={{ fontSize: 11, display: "flex", gap: 8, alignItems: "center", borderBottom: `1px solid ${A.border}`, paddingBottom: 4 }}>
-                    <span style={{ fontSize: 9, fontWeight: 700, fontFamily: "monospace", color: e.list === "PORT" ? A.green : A.cyan }}>{e.list}</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, fontFamily: MONO, color: e.list === "PORT" ? A.green : A.cyan }}>{e.list}</span>
                     <Tk t={e.ticker} />
-                    <span style={{ color: A.textDim, fontFamily: "monospace", marginLeft: "auto" }}>
+                    <span style={{ color: A.textDim, fontFamily: MONO, marginLeft: "auto" }}>
                       {e.display || "—"} {e.timing ? `(${e.timing})` : ""} · <strong style={{ color: e.days <= 2 ? "#f59e0b" : A.text }}>{e.days === 0 ? "Today" : `${e.days}d`}</strong>
                     </span>
                   </div>
@@ -1162,13 +1164,12 @@ export default function ZangerBriefSection({
                   borderRadius: 6,
                   padding: "4px 10px",
                   fontSize: 11,
-                  fontWeight: active ? 800 : 600,
-                  fontFamily: "monospace",
+                  fontWeight: active ? 700 : 600,
                   cursor: "pointer",
                 }}
               >
                 <span>{label}</span>
-                <span style={{ opacity: 0.85, fontSize: 11 }}>{catCounts[id]}</span>
+                <span style={{ opacity: 0.85, fontSize: 11, fontFamily: MONO }}>{catCounts[id]}</span>
               </button>
             );
           })}
@@ -1203,7 +1204,7 @@ export default function ZangerBriefSection({
               borderRadius: 6,
             }}
           >
-            <span style={{ fontSize: 9, fontWeight: 700, color: A.textMuted, fontFamily: "monospace", letterSpacing: 0.5, marginRight: 2, flexShrink: 0 }}>THEMES</span>
+            <span style={{ fontSize: 10, fontWeight: 700, color: A.textMuted, letterSpacing: 0.5, marginRight: 2, flexShrink: 0 }}>THEMES</span>
             <button onClick={() => setThemeFilter(null)} style={chipStyle(!themeFilter, A.green)}>All</button>
             {topThemes.map((t) => {
               const active = themeFilter === t.theme;
@@ -1216,7 +1217,7 @@ export default function ZangerBriefSection({
                   style={chipStyle(active, c)}
                 >
                   {t.theme}
-                  <span style={{ opacity: 0.75, marginLeft: 4 }}>{t.hits}</span>
+                  <span style={{ opacity: 0.75, marginLeft: 4, fontFamily: MONO }}>{t.hits}</span>
                   {t.hasWarn && <span style={{ color: "#f59e0b", marginLeft: 3 }}>•</span>}
                 </button>
               );
@@ -1234,12 +1235,12 @@ export default function ZangerBriefSection({
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
             {showZvrFilter ? (
               <div style={{ display: "inline-flex", flexWrap: "wrap", alignItems: "center", gap: 4 }}>
-                <span style={{ fontSize: 9, color: A.textMuted, fontFamily: "monospace" }}>TYPE</span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: A.textMuted, letterSpacing: 0.4 }}>TYPE</span>
                 <button onClick={() => setBoFilter(null)} style={chipStyle(!boFilter, A.green)}>All</button>
                 {BO_KEYS.map((k) => {
                   const bm = BO_META[k];
                   return (
-                    <button key={k} onClick={() => setBoFilter(boFilter === k ? null : k)} title={bm.tip} style={chipStyle(boFilter === k, bm.color)}>
+                    <button key={k} onClick={() => setBoFilter(boFilter === k ? null : k)} title={bm.tip} style={{ ...chipStyle(boFilter === k, bm.color), fontFamily: MONO, fontSize: 10.5 }}>
                       {bm.label} <span style={{ opacity: 0.75 }}>{boTypeCounts[k]}</span>
                     </button>
                   );
@@ -1248,7 +1249,7 @@ export default function ZangerBriefSection({
                 <button
                   onClick={() => setOnly9M((v) => !v)}
                   title="Secondary filter: ≥ 8.9M shares traded on the day (combines with ZNG / 4% / $BO / QMAG)"
-                  style={chipStyle(only9M, "#f97316")}
+                  style={{ ...chipStyle(only9M, "#f97316"), fontFamily: MONO, fontSize: 10.5 }}
                 >
                   9M <span style={{ opacity: 0.75 }}>{count9M}</span>
                 </button>
@@ -1257,7 +1258,7 @@ export default function ZangerBriefSection({
               <button
                 onClick={() => setOnly9M((v) => !v)}
                 title="Secondary filter: ≥ 8.9M shares traded on the day"
-                style={chipStyle(only9M, "#f97316")}
+                style={{ ...chipStyle(only9M, "#f97316"), fontFamily: MONO, fontSize: 10.5 }}
               >
                 9M <span style={{ opacity: 0.75 }}>{count9M}</span>
               </button>
@@ -1271,8 +1272,8 @@ export default function ZangerBriefSection({
                     background: "none",
                     border: "none",
                     color: A.textMuted,
-                    fontSize: 10,
-                    fontFamily: "monospace",
+                    fontSize: 11,
+                    fontWeight: 600,
                     textDecoration: "underline",
                     cursor: "pointer",
                     padding: "1px 4px",
@@ -1288,7 +1289,7 @@ export default function ZangerBriefSection({
                 title="Toggle ZVR, RS, EPS and Clean layers filters"
                 style={chipStyle(filtersOpen || activeFilterCount > 0, activeFilterCount > 0 ? A.cyan : A.text)}
               >
-                Filters{activeFilterCount > 0 ? ` · ${activeFilterCount}` : ""} {filtersOpen ? "▴" : "▾"}
+                Filters{activeFilterCount > 0 ? <> · <span style={{ fontFamily: MONO }}>{activeFilterCount}</span></> : ""} {filtersOpen ? "▴" : "▾"}
               </button>
             </div>
           </div>
@@ -1309,16 +1310,16 @@ export default function ZangerBriefSection({
             >
               {showZvrFilter && (
                 <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                  <span style={{ fontSize: 9, color: A.textMuted, fontFamily: "monospace" }}>ZVR</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: A.textMuted, letterSpacing: 0.4 }}>ZVR</span>
                   {[1.0, 1.5, 2.0, 2.5].map((v) => (
-                    <button key={v} onClick={() => setMinZvr(v)} style={chipStyle(minZvr === v, "#fbbf24")}>{v === 1.0 ? "Any" : `≥${v.toFixed(1)}x`}</button>
+                    <button key={v} onClick={() => setMinZvr(v)} style={{ ...chipStyle(minZvr === v, "#fbbf24"), fontFamily: v === 1.0 ? undefined : MONO }}>{v === 1.0 ? "Any" : `≥${v.toFixed(1)}x`}</button>
                   ))}
                 </div>
               )}
               <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                <span style={{ fontSize: 9, color: A.textMuted, fontFamily: "monospace" }}>RS</span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: A.textMuted, letterSpacing: 0.4 }}>RS</span>
                 {[70, 80, 90].map((v) => (
-                  <button key={v} onClick={() => setMinRs(v)} style={chipStyle(minRs === v, A.cyan)}>≥{v}</button>
+                  <button key={v} onClick={() => setMinRs(v)} style={{ ...chipStyle(minRs === v, A.cyan), fontFamily: MONO }}>≥{v}</button>
                 ))}
               </div>
               <button onClick={() => setEpsOnly((v) => !v)} style={chipStyle(epsOnly, A.green)} title="Require O'Neil EPS Rating ≥ 50">EPS ≥ 50</button>
@@ -1333,8 +1334,8 @@ export default function ZangerBriefSection({
             {catTab !== "leaders" && (
               <>
                 {" "}
-                <button onClick={() => pickCatTab("leaders")} style={{ background: "none", border: "none", color: A.green, textDecoration: "underline", cursor: "pointer", fontSize: 11, fontFamily: "monospace" }}>
-                  View Core Leaders ({catCounts.leaders})
+                <button onClick={() => pickCatTab("leaders")} style={{ background: "none", border: "none", color: A.green, textDecoration: "underline", cursor: "pointer", fontSize: 11, fontWeight: 600 }}>
+                  View Core Leaders (<span style={{ fontFamily: MONO }}>{catCounts.leaders}</span>)
                 </button>
               </>
             )}
@@ -1392,22 +1393,22 @@ export default function ZangerBriefSection({
                     <td style={td(A)}>
                       <span style={{ display: "inline-flex", gap: 3, flexWrap: "wrap" }}>
                         {m.isNew && (
-                          <span style={{ fontSize: 9, fontWeight: 800, fontFamily: "monospace", padding: "1px 4px", borderRadius: 4, background: "rgba(56,189,248,0.2)", color: A.cyan, border: `1px solid ${A.cyan}` }}>NEW</span>
+                          <span style={{ fontSize: 10, fontWeight: 800, fontFamily: MONO, padding: "1px 4px", borderRadius: 4, background: "rgba(56,189,248,0.2)", color: A.cyan, border: `1px solid ${A.cyan}` }}>NEW</span>
                         )}
                         {m.breakoutTypes?.length ? m.breakoutTypes.map((k) => {
                           const c = BO_COLORS[k] || "#fbbf24";
                           return (
-                            <span key={k} style={{ fontSize: 9, fontWeight: 700, fontFamily: "monospace", padding: "1px 4px", borderRadius: 4, background: `${c}20`, color: c, border: `1px solid ${c}66` }}>{k}</span>
+                            <span key={k} style={{ fontSize: 10, fontWeight: 700, fontFamily: MONO, padding: "1px 4px", borderRadius: 4, background: `${c}20`, color: c, border: `1px solid ${c}66` }}>{k}</span>
                           );
                         }) : (
-                          <span style={{ fontSize: 9, fontWeight: 700, fontFamily: "monospace", padding: "1px 4px", borderRadius: 4, background: m.rsl ? "rgba(56,189,248,0.16)" : m.qualifiesZanger ? "rgba(34,197,94,0.16)" : "transparent", color: m.rsl ? A.cyan : m.qualifiesZanger ? A.green : A.textDim, border: m.rsl || m.qualifiesZanger ? "none" : `1px solid ${A.border}` }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, fontFamily: MONO, padding: "1px 4px", borderRadius: 4, background: m.rsl ? "rgba(56,189,248,0.16)" : m.qualifiesZanger ? "rgba(34,197,94,0.16)" : "transparent", color: m.rsl ? A.cyan : m.qualifiesZanger ? A.green : A.textDim, border: m.rsl || m.qualifiesZanger ? "none" : `1px solid ${A.border}` }}>
                             {m.rsl ? "RSL" : m.qualifiesZanger ? "VOL" : "LEAD"}
                           </span>
                         )}
                         {isRow9M(m) && (
                           <span
                             title={`${fmtVol(getRowVol(m))} shares traded today (≥ 8.9M)`}
-                            style={{ fontSize: 9, fontWeight: 800, fontFamily: "monospace", padding: "1px 4px", borderRadius: 4, background: "rgba(249,115,22,0.18)", color: "#f97316", border: "1px solid rgba(249,115,22,0.6)" }}
+                            style={{ fontSize: 10, fontWeight: 800, fontFamily: MONO, padding: "1px 4px", borderRadius: 4, background: "rgba(249,115,22,0.18)", color: "#f97316", border: "1px solid rgba(249,115,22,0.6)" }}
                           >
                             9M
                           </span>
@@ -1421,13 +1422,13 @@ export default function ZangerBriefSection({
                         <TierMark t={m.ticker} />
                         <RslDot tip={m.rslTip} A={A} />
                         {m.earningsDays != null && m.earningsDays >= 0 && m.earningsDays <= 5 && (
-                          <span title={m.earningsDisplay || ""} style={{ marginLeft: 3, fontSize: 9, fontWeight: 700, fontFamily: "monospace", padding: "0 4px", borderRadius: 4, background: "rgba(245,158,11,0.18)", color: "#f59e0b" }}>
+                          <span title={m.earningsDisplay || ""} style={{ marginLeft: 3, fontSize: 10, fontWeight: 700, fontFamily: MONO, padding: "0 4px", borderRadius: 4, background: "rgba(245,158,11,0.18)", color: "#f59e0b" }}>
                             ER {m.earningsDays}d
                           </span>
                         )}
                       </div>
                       {company && (
-                        <div style={{ fontSize: 9, color: A.textMuted, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <div style={{ fontSize: 10, color: A.textMuted, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {company}
                         </div>
                       )}
@@ -1471,22 +1472,22 @@ export default function ZangerBriefSection({
                         )}
                       </button>
                     </td>
-                    <td style={{ ...td(A, "right"), fontFamily: "monospace", color: (m.adr ?? 0) >= 4 ? A.cyan : A.textDim }}>{m.adr != null ? `${m.adr.toFixed(1)}%` : "—"}</td>
-                    <td style={{ ...td(A, "right"), fontFamily: "monospace", fontWeight: 700, color: pc(m.chg) }}>
+                    <td style={{ ...td(A, "right"), fontFamily: MONO, color: (m.adr ?? 0) >= 4 ? A.cyan : A.textDim }}>{m.adr != null ? `${m.adr.toFixed(1)}%` : "—"}</td>
+                    <td style={{ ...td(A, "right"), fontFamily: MONO, fontWeight: 700, color: pc(m.chg) }}>
                       {fmtPct(m.chg, 2)}
                       {m.dollarMove != null && m.dollarMove >= 0.9 && (
-                        <span style={{ display: "block", fontSize: 9, fontWeight: 500, color: A.cyan }}>+${m.dollarMove.toFixed(2)}</span>
+                        <span style={{ display: "block", fontSize: 10, fontWeight: 500, color: A.cyan }}>+${m.dollarMove.toFixed(2)}</span>
                       )}
                     </td>
-                    <td style={{ ...td(A, "right"), fontFamily: "monospace", color: pc(m.fromOpen) }}>
+                    <td style={{ ...td(A, "right"), fontFamily: MONO, color: pc(m.fromOpen) }}>
                       {fmtPct(m.fromOpen, 1)}
                     </td>
                     <td style={td(A, "right")}><ZvrMeter zvr={m.zvr} A={A} /></td>
                     <td style={td(A, "right")}><CrMeter cr={m.cr} A={A} /></td>
-                    <td style={{ ...td(A, "right"), fontFamily: "monospace", fontWeight: 700, color: rsC(m.rs) }}>{m.rs}</td>
-                    <td style={{ ...td(A, "right"), fontFamily: "monospace", color: epsC(m.eps) }}>{m.eps ?? "—"}{m.epsAccel ? <span style={{ color: A.green, fontSize: 9 }}>▲</span> : null}</td>
-                    <td style={{ ...td(A, "right"), fontFamily: "monospace", color: (m.off52 ?? -99) >= -5 ? A.green : A.textDim }}>{fmtPct(m.off52, 1)}</td>
-                    <td style={{ ...td(A, "right"), fontFamily: "monospace", fontWeight: 800, color: (m.score ?? 0) >= 70 ? "#fbbf24" : A.text }}>{m.score != null ? m.score.toFixed(1) : "—"}</td>
+                    <td style={{ ...td(A, "right"), fontFamily: MONO, fontWeight: 700, color: rsC(m.rs) }}>{m.rs}</td>
+                    <td style={{ ...td(A, "right"), fontFamily: MONO, color: epsC(m.eps) }}>{m.eps ?? "—"}{m.epsAccel ? <span style={{ color: A.green, fontSize: 10 }}>▲</span> : null}</td>
+                    <td style={{ ...td(A, "right"), fontFamily: MONO, color: (m.off52 ?? -99) >= -5 ? A.green : A.textDim }}>{fmtPct(m.off52, 1)}</td>
+                    <td style={{ ...td(A, "right"), fontFamily: MONO, fontWeight: 800, color: (m.score ?? 0) >= 70 ? "#fbbf24" : A.text }}>{m.score != null ? m.score.toFixed(1) : "—"}</td>
                     {(setPortfolio || setWatchlist) && (
                       <td style={td(A, "right")} onClick={(e) => e.stopPropagation()}>
                         <span style={{ display: "inline-flex", gap: 3 }}>
@@ -1494,7 +1495,7 @@ export default function ZangerBriefSection({
                             <button
                               title={inPf ? "Remove from Portfolio" : "Add to Portfolio"}
                               onClick={() => toggleList(m.ticker, "pf")}
-                              style={{ background: inPf ? `${A.green}22` : "transparent", border: `1px solid ${inPf ? A.green : A.border}`, color: inPf ? A.green : A.textMuted, borderRadius: 4, padding: "1px 4px", fontSize: 9, fontFamily: "monospace", fontWeight: inPf ? 700 : 500, cursor: "pointer" }}
+                              style={{ background: inPf ? `${A.green}22` : "transparent", border: `1px solid ${inPf ? A.green : A.border}`, color: inPf ? A.green : A.textMuted, borderRadius: 4, padding: "1px 4px", fontSize: 10, fontFamily: MONO, fontWeight: inPf ? 700 : 500, cursor: "pointer" }}
                             >
                               PF
                             </button>
@@ -1503,7 +1504,7 @@ export default function ZangerBriefSection({
                             <button
                               title={inWl ? "Remove from Watchlist" : "Add to Watchlist"}
                               onClick={() => toggleList(m.ticker, "wl")}
-                              style={{ background: inWl ? `${A.cyan}22` : "transparent", border: `1px solid ${inWl ? A.cyan : A.border}`, color: inWl ? A.cyan : A.textMuted, borderRadius: 4, padding: "1px 4px", fontSize: 9, fontFamily: "monospace", fontWeight: inWl ? 700 : 500, cursor: "pointer" }}
+                              style={{ background: inWl ? `${A.cyan}22` : "transparent", border: `1px solid ${inWl ? A.cyan : A.border}`, color: inWl ? A.cyan : A.textMuted, borderRadius: 4, padding: "1px 4px", fontSize: 10, fontFamily: MONO, fontWeight: inWl ? 700 : 500, cursor: "pointer" }}
                             >
                               WL
                             </button>
@@ -1551,7 +1552,7 @@ export default function ZangerBriefSection({
                 const loadingNews = liveOn && !hasLive && !items.length;
                 return (
                   <li key={m.ticker} style={{ marginBottom: 4 }}>
-                    <Tk t={m.ticker} /> <span style={{ color: A.textMuted }}>({m.theme}, {fmtPct(m.chg)}, ZVR {m.zvr != null ? `${m.zvr.toFixed(2)}x` : "—"}):</span>{" "}
+                    <Tk t={m.ticker} /> <span style={{ color: A.textMuted }}>({m.theme}, <span style={{ fontFamily: MONO }}>{fmtPct(m.chg)}</span>, ZVR <span style={{ fontFamily: MONO }}>{m.zvr != null ? `${m.zvr.toFixed(2)}x` : "—"}</span>):</span>{" "}
                     {loadingNews ? (
                       <em style={{ color: A.textMuted }}>Fetching live headlines…</em>
                     ) : items.length ? (
@@ -1627,26 +1628,25 @@ export default function ZangerBriefSection({
           }}
         >
           <div style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.4, color: A.text }}>
+            <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: "-0.01em", color: A.text }}>
               Additional Briefing Signals
             </span>
-            <span style={{ fontSize: 11, fontFamily: "monospace", color: A.textDim }}>
-              Theme Flow{sortedFlow.length > 0 ? ` (${sortedFlow.length})` : ""}
+            <span style={{ fontSize: 11, color: A.textDim }}>
+              Theme Flow{sortedFlow.length > 0 ? <> (<span style={{ fontFamily: MONO }}>{sortedFlow.length}</span>)</> : ""}
               {" · "}
               <span style={{ color: damagedLeaders.length > 0 ? A.red : A.green, fontWeight: damagedLeaders.length > 0 ? 700 : 500 }}>
-                {damagedLeaders.length} Damaged {damagedLeaders.length === 1 ? "Leader" : "Leaders"}
+                <span style={{ fontFamily: MONO }}>{damagedLeaders.length}</span> Damaged {damagedLeaders.length === 1 ? "Leader" : "Leaders"}
               </span>
               {" · "}
               <span style={{ color: onDeck.length > 0 ? A.cyan : A.textMuted }}>
-                {onDeck.length} On Deck RSL
+                <span style={{ fontFamily: MONO }}>{onDeck.length}</span> On Deck RSL
               </span>
             </span>
           </div>
           <span
             style={{
-              fontSize: 10,
-              fontFamily: "monospace",
-              fontWeight: 700,
+              fontSize: 11,
+              fontWeight: 600,
               color: A.textDim,
               border: `1px solid ${A.border}`,
               borderRadius: 6,
@@ -1691,9 +1691,9 @@ export default function ZangerBriefSection({
                           }}
                         >
                           <td style={{ ...td(A), fontWeight: selected || !isCold ? 600 : 400, color: selected ? A.cyan : isCold ? A.textDim : A.text }}>{isCold ? `❄️ ${t.theme}` : t.theme}</td>
-                          <td style={{ ...td(A, "right"), fontFamily: "monospace", fontWeight: 700, color: pc(t.avgChg) }}>{fmtPct(t.avgChg, 2)}</td>
-                          <td style={{ ...td(A, "right"), fontFamily: "monospace", color: isCold ? A.textMuted : A.textDim }}>{t.pctGreen}%</td>
-                          <td style={{ ...td(A, "right"), fontFamily: "monospace", color: t.breakouts ? "#fbbf24" : A.textMuted }}>{t.breakouts || "—"}</td>
+                          <td style={{ ...td(A, "right"), fontFamily: MONO, fontWeight: 700, color: pc(t.avgChg) }}>{fmtPct(t.avgChg, 2)}</td>
+                          <td style={{ ...td(A, "right"), fontFamily: MONO, color: isCold ? A.textMuted : A.textDim }}>{t.pctGreen}%</td>
+                          <td style={{ ...td(A, "right"), fontFamily: MONO, color: t.breakouts ? "#fbbf24" : A.textMuted }}>{t.breakouts || "—"}</td>
                         </tr>
                       );
                     })}
@@ -1730,8 +1730,8 @@ export default function ZangerBriefSection({
                     >
                       <Tk t={d.ticker} />
                       <span style={{ color: A.textMuted, fontSize: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.theme}</span>
-                      <span style={{ marginLeft: "auto", fontFamily: "monospace", fontWeight: 700, color: A.red }}>{fmtPct(d.chg, 2)}</span>
-                      <span style={{ fontFamily: "monospace", fontSize: 10, color: A.textDim }}>{d.zvr != null ? `${d.zvr.toFixed(1)}x` : "—"}</span>
+                      <span style={{ marginLeft: "auto", fontFamily: MONO, fontWeight: 700, color: A.red }}>{fmtPct(d.chg, 2)}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 10, color: A.textDim }}>{d.zvr != null ? `${d.zvr.toFixed(1)}x` : "—"}</span>
                     </div>
                   ))}
                 </div>
@@ -1770,8 +1770,8 @@ export default function ZangerBriefSection({
                     >
                       <Tk t={r.ticker} />
                       <span style={{ color: A.textMuted, fontSize: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.theme}</span>
-                      <span style={{ marginLeft: "auto", fontFamily: "monospace", color: A.green, fontWeight: 700 }}>RS {r.rs}</span>
-                      <span style={{ fontFamily: "monospace", fontSize: 10, color: A.textDim }}>{fmtPct(r.off52, 1)}</span>
+                      <span style={{ marginLeft: "auto", fontFamily: MONO, color: A.green, fontWeight: 700 }}>RS {r.rs}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 10, color: A.textDim }}>{fmtPct(r.off52, 1)}</span>
                     </div>
                   ))}
                 </div>

@@ -4,9 +4,12 @@
 
 // ── Typography ──
 
-export const monoTiny = { fontSize: 9, fontFamily: "monospace" };       // ~15 occurrences
-export const monoSmall = { fontSize: 10, fontFamily: "monospace" };     // ~25 occurrences
-export const monoMedium = { fontSize: 11, fontFamily: "monospace" };    // ~20 occurrences
+export const FONT_SANS = "'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif";
+export const FONT_MONO = "'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace";
+
+export const monoTiny = { fontSize: 10, fontFamily: FONT_MONO };       // ~15 occurrences
+export const monoSmall = { fontSize: 10.5, fontFamily: FONT_MONO };    // ~25 occurrences
+export const monoMedium = { fontSize: 11.5, fontFamily: FONT_MONO };   // ~20 occurrences
 
 // ── Colors ──
 
@@ -32,15 +35,17 @@ export const COLOR = {
 // via useAriaTheme() in App.jsx.
 
 export const ARIA_DARK = {
-  bg:           "#0a0a0f",
-  bgCard:       "rgba(22, 22, 30, 0.8)",
-  bgRow:        "rgba(28, 28, 38, 0.6)",
-  bgHover:      "rgba(40, 40, 55, 0.5)",
-  border:       "rgba(255, 255, 255, 0.06)",
-  borderLight:  "rgba(255, 255, 255, 0.1)",
-  text:         "#eeeef0",
-  textDim:      "#9d9daa",
-  textMuted:    "#5c5c6e",
+  bg:           "#09090e",
+  bgCard:       "#12121a",
+  bgCardGlass:  "rgba(18, 18, 26, 0.88)",
+  bgRow:        "#181823",
+  bgHover:      "rgba(44, 44, 62, 0.62)",
+  border:       "rgba(255, 255, 255, 0.085)",
+  borderLight:  "rgba(255, 255, 255, 0.14)",
+  text:         "#f1f1f4",
+  textDim:      "#b2b2c2",
+  textMuted:    "#84849a",
+  cardSheen:    "inset 0 1px 0 rgba(255, 255, 255, 0.04)",
   green:        "#34d399",
   red:          "#f87171",
   yellow:       "#fbbf24",
@@ -50,7 +55,7 @@ export const ARIA_DARK = {
   gold:         "#e3b341",
   glowGreen:    "rgba(52, 211, 153, 0.15)",
   glass:        "rgba(255, 255, 255, 0.03)",
-  vignette:     "radial-gradient(1100px 700px at 18% -8%, #14141d 0%, #0a0a0f 60%)",
+  vignette:     "radial-gradient(1100px 700px at 18% -8%, #14141d 0%, #09090e 60%)",
   shadow:       "0 4px 24px rgba(0, 0, 0, 0.35)",
   brand1:       "#6ee7b7",
   brand2:       "#67e8f9",
@@ -58,16 +63,18 @@ export const ARIA_DARK = {
 
 export const ARIA_LIGHT = {
   bg:           "#f8f9fc",
-  bgCard:       "rgba(255, 255, 255, 0.85)",
+  bgCard:       "#ffffff",
+  bgCardGlass:  "rgba(255, 255, 255, 0.90)",
   bgRow:        "rgba(241, 243, 249, 0.7)",
   bgHover:      "rgba(228, 231, 240, 0.6)",
-  border:       "rgba(0, 0, 0, 0.06)",
-  borderLight:  "rgba(0, 0, 0, 0.1)",
+  border:       "rgba(15, 23, 42, 0.09)",
+  borderLight:  "rgba(15, 23, 42, 0.16)",
   text:         "#0f0f14",
   // Light-mode data values read near-black (gray washes out on white);
   // labels/headers stay gray so the hierarchy holds.
   textDim:      "#26262f",
-  textMuted:    "#6d6d80",
+  textMuted:    "#5e6275",
+  cardSheen:    "inset 0 1px 0 rgba(255, 255, 255, 0.9)",
   green:        "#059669",
   red:          "#dc2626",
   yellow:       "#d97706",
@@ -104,15 +111,15 @@ export const PAD_INPUT = { padding: "8px 10px" };        // ~10x — input field
 /** Muted monospace text (most common in data cells) */
 export const mutedMono = {
   color: COLOR.textDim,
-  fontSize: 9,
-  fontFamily: "monospace",
+  fontSize: 10,
+  fontFamily: FONT_MONO,
 };
 
 /** Standard table header cell */
 export const thCell = {
   padding: "3px 8px",
-  fontSize: 9,
-  fontFamily: "monospace",
+  fontSize: 10,
+  fontFamily: FONT_MONO,
   color: COLOR.textMuted,
   textAlign: "left",
 };
@@ -123,7 +130,7 @@ export const tagSmall = {
   borderRadius: 3,
   fontSize: 11,
   fontWeight: 700,
-  fontFamily: "monospace",
+  fontFamily: FONT_MONO,
 };
 
 /** Clickable row hover base */
