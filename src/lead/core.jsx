@@ -1084,33 +1084,53 @@ export function extRows(snap, stockMap, tickerLayer, universeOnly) {
     .sort((a, b) => Math.abs(b.chg) - Math.abs(a.chg));
 }
 
+const FROZEN_AH_KEY = "tp-frozen-ah-v1";
+
 export function ExtHoursMovers({ A, pipeline, stockMap, tickerLayer, onTicker, chartTicker, onLayer, keep }) {
   const [uOnly, setUOnly] = useState(true);
   const clock = etClock();
   const today = clock.today;
   const pmSnap = useMemo(() => pipeline?.last_pm || (pipeline?.pm_sip_movers?.length || pipeline?.pm_earnings_movers?.length
     ? { session: null, earnings: pipeline.pm_earnings_movers, movers: pipeline.pm_sip_movers, top: pipeline.pm_top_movers } : null), [pipeline]);
-  const ahSnap = useMemo(() => pipeline?.last_ah || (pipeline?.ah_sip_movers?.length || pipeline?.ah_earnings_movers?.length
+  const rawAhSnap = useMemo(() => pipeline?.last_ah || (pipeline?.ah_sip_movers?.length || pipeline?.ah_earnings_movers?.length
     ? { session: null, earnings: pipeline.ah_earnings_movers, movers: pipeline.ah_sip_movers, top: pipeline.ah_top_movers } : null), [pipeline]);
+  // After-hours movers stay strictly frozen at end of post-market (prior evening).
+  // Cache genuine post-market snapshots (scanned >= 16:00 ET with movers) so a morning
+  // pipeline run with empty ah_sip_movers doesn't clobber the prior evening's close.
+  const ahSnap = useMemo(() => {
+    const scanHr = Number(String(rawAhSnap?.scanned || "").slice(11, 13));
+    const hasMovers = (rawAhSnap?.movers?.length || 0) > 0 || (rawAhSnap?.top?.length || 0) > 0;
+    const isGenuinePost = Boolean(rawAhSnap && Number.isFinite(scanHr) && scanHr >= 16 && (hasMovers || (rawAhSnap?.earnings?.length || 0) > 0));
+    if (isGenuinePost) {
+      try { localStorage.setItem(FROZEN_AH_KEY, JSON.stringify(rawAhSnap)); } catch { /* ignore */ }
+      return rawAhSnap;
+    }
+    if (rawAhSnap && !hasMovers && Number.isFinite(scanHr) && scanHr < 16) {
+      try {
+        const cached = JSON.parse(localStorage.getItem(FROZEN_AH_KEY) || "null");
+        if (cached && ((cached.movers?.length || 0) > 0 || (cached.top?.length || 0) > 0)) return cached;
+      } catch { /* ignore */ }
+    }
+    return rawAhSnap;
+  }, [rawAhSnap]);
   const basePmRows = useMemo(() => extRows(pmSnap, stockMap, tickerLayer, uOnly).filter((r) => !keep || keep(r.t)), [pmSnap, stockMap, tickerLayer, uOnly, keep]);
-  const baseAhRows = useMemo(() => extRows(ahSnap, stockMap, tickerLayer, uOnly).filter((r) => !keep || keep(r.t)), [ahSnap, stockMap, tickerLayer, uOnly, keep]);
+  const ahRows = useMemo(() => extRows(ahSnap, stockMap, tickerLayer, uOnly).filter((r) => !keep || keep(r.t)), [ahSnap, stockMap, tickerLayer, uOnly, keep]);
 
-  // Overlay live pre-market / after-hours Chg%, Price, and Vol during extended hours
-  const extTickers = useMemo(
-    () => (!clock.rth ? [...new Set([...basePmRows.map((r) => r.t), ...baseAhRows.map((r) => r.t)])] : []),
-    [clock.rth, basePmRows, baseAhRows]
+  // Overlay live pre-market Chg%, Price, and Vol during pre-market ONLY.
+  // After-hours rows remain strictly frozen at the end-of-postmarket snapshot.
+  const pmTickers = useMemo(
+    () => (!clock.rth ? [...new Set(basePmRows.map((r) => r.t))] : []),
+    [clock.rth, basePmRows]
   );
-  const { quotes: extQuotes, at: extAt } = useScanQuotes(extTickers, !clock.rth && extTickers.length > 0);
-  const overlayLive = (rows, targetSession) => rows.map((r) => {
+  const { quotes: extQuotes, at: extAt } = useScanQuotes(pmTickers, !clock.rth && pmTickers.length > 0);
+  const pmRows = useMemo(() => basePmRows.map((r) => {
     const q = extQuotes.get(r.t);
-    if (!q || q.ext_session !== targetSession) return r;
+    if (!q || q.ext_session !== "premarket") return r;
     const chg = q.ext_change != null ? q.ext_change : r.chg;
     const price = q.ext_change != null && q.price != null ? q.price : r.price;
     const vol = q.ext_volume != null ? q.ext_volume : r.vol;
     return { ...r, chg, price, vol, isLiveExt: q.ext_change != null };
-  });
-  const pmRows = useMemo(() => overlayLive(basePmRows, "premarket"), [basePmRows, extQuotes]); // eslint-disable-line react-hooks/exhaustive-deps
-  const ahRows = useMemo(() => overlayLive(baseAhRows, "aftermarket"), [baseAhRows, extQuotes]); // eslint-disable-line react-hooks/exhaustive-deps
+  }), [basePmRows, extQuotes]);
   const fmtVol = (v) => (v == null ? "—" : v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `${Math.round(v / 1e3)}K` : String(v));
   // Click-to-sort, shared by both tables. Default: biggest move either way.
   const [sort, setSort] = useState({ k: "absChg", d: -1 });
@@ -1188,12 +1208,13 @@ export function ExtHoursMovers({ A, pipeline, stockMap, tickerLayer, onTicker, c
     </div>
   ); };
   const pmLiveCount = pmRows.filter((r) => r.isLiveExt).length;
-  const ahLiveCount = ahRows.filter((r) => r.isLiveExt).length;
   const liveStamp = extAt ? ` · live ${extAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "";
   const pmSub = (pmSnap?.session
     ? (pmSnap.session === today ? `today · scanned ${String(pmSnap.scanned || "").slice(11)} ET` : `no scan yet today — last: ${pmSnap.session}`)
     : "today") + (pmLiveCount > 0 ? liveStamp : "");
-  const ahSub = (ahSnap?.session ? `${ahSnap.session} close · scanned ${String(ahSnap.scanned || "").slice(5)} ET` : (ahSnap ? "last session" : "no after-hours scan saved yet")) + (ahLiveCount > 0 ? liveStamp : "");
+  const ahSub = ahSnap?.session
+    ? `${ahSnap.session} post-market · frozen ${String(ahSnap.scanned || "").slice(5)} ET`
+    : (ahSnap ? "prior post-market (frozen)" : "no after-hours scan saved yet");
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
