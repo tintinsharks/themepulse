@@ -117,6 +117,8 @@ export default function ZangerBriefSection({
   chartTicker,
   onLayer,
   onTheme,
+  breadthFocus = null,
+  onBreadthTabChange,
 }) {
   const [index, setIndex] = useState(null);
   const [sel, setSel] = useState(null);
@@ -480,6 +482,12 @@ export default function ZangerBriefSection({
     ];
   }, [mq, snap, liveOn, quotes, stockMap]);
 
+  const mergedBreadthFocus = useMemo(() => {
+    if (!breadthFocus) return breadthChartFocus;
+    if (!breadthChartFocus) return breadthFocus;
+    return (breadthFocus.seq || 0) >= (breadthChartFocus.seq || 0) ? breadthFocus : breadthChartFocus;
+  }, [breadthFocus, breadthChartFocus]);
+
   const breadthEmbedded = (
     <MarketBreadthCard
       A={A}
@@ -495,7 +503,8 @@ export default function ZangerBriefSection({
       members={members}
       onTheme={onTheme}
       embedded
-      chartFocus={breadthChartFocus}
+      chartFocus={mergedBreadthFocus}
+      onCardTabChange={onBreadthTabChange}
     />
   );
 

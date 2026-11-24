@@ -616,26 +616,31 @@ function BriefPanel(props) {
   const { A } = props;
   const [mode, setMode] = useState("written");
   const [activeSec, setActiveSec] = useState("sec-written");
+  const [breadthTab, setBreadthTab] = useState("breadth");
+  const [breadthFocus, setBreadthFocus] = useState(null);
 
   const jumpSections = useMemo(() => [
-    { id: "sec-written", label: mode === "live" ? "Live Brief" : "Written" },
-    { id: "sec-breadth", label: "Breadth" },
-    { id: "sec-portfolio", label: "Portfolio" },
-    { id: "sec-breakouts", label: "Breakouts" },
-    { id: "sec-followthrough", label: "Follow-Through" },
+    { id: "sec-written", scrollId: "sec-written", label: mode === "live" ? "Live Brief" : "Written" },
+    { id: "sec-breadth", scrollId: "sec-breadth", label: "Breadth", cardTab: "breadth" },
+    { id: "sec-layers", scrollId: "sec-breadth", label: "Layers", cardTab: "layers" },
+    { id: "sec-portfolio", scrollId: "sec-portfolio", label: "Portfolio" },
+    { id: "sec-breakouts", scrollId: "sec-breakouts", label: "Breakouts" },
+    { id: "sec-followthrough", scrollId: "sec-followthrough", label: "Follow-Through" },
   ], [mode]);
 
   useEffect(() => {
     let raf = 0;
+    const scrollTargets = ["sec-written", "sec-breadth", "sec-portfolio", "sec-breakouts", "sec-followthrough"];
     const updateActive = () => {
       raf = 0;
       const threshold = 116;
       let current = "sec-written";
-      for (const s of jumpSections) {
-        const el = document.getElementById(s.id);
+      for (const domId of scrollTargets) {
+        const el = document.getElementById(domId);
         if (!el) continue;
-        if (el.getBoundingClientRect().top <= threshold) current = s.id;
+        if (el.getBoundingClientRect().top <= threshold) current = domId;
       }
+      if (current === "sec-breadth" && breadthTab === "layers") current = "sec-layers";
       setActiveSec((prev) => (prev === current ? prev : current));
     };
     const onScroll = () => {
@@ -647,11 +652,15 @@ function BriefPanel(props) {
       window.removeEventListener("scroll", onScroll);
       if (raf) window.cancelAnimationFrame(raf);
     };
-  }, [jumpSections]);
+  }, [jumpSections, breadthTab]);
 
-  const scrollToSec = (id) => {
-    setActiveSec(id);
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const jumpTo = (sec) => {
+    setActiveSec(sec.id);
+    if (sec.cardTab) {
+      setBreadthTab(sec.cardTab);
+      setBreadthFocus({ tab: sec.cardTab, seq: Date.now() });
+    }
+    document.getElementById(sec.scrollId || sec.id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   const modeSwitch = (
@@ -711,7 +720,7 @@ function BriefPanel(props) {
               <button
                 key={s.id}
                 type="button"
-                onClick={() => scrollToSec(s.id)}
+                onClick={() => jumpTo(s)}
                 style={{
                   background: active ? A.glowGreen : "transparent",
                   border: `1px solid ${active ? A.green : "transparent"}`,
@@ -762,6 +771,8 @@ function BriefPanel(props) {
         chartTicker={props.chartTicker}
         onLayer={props.layerOfTicker}
         onTheme={props.onTheme}
+        breadthFocus={breadthFocus}
+        onBreadthTabChange={setBreadthTab}
       />
     </>
   );

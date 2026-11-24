@@ -1947,6 +1947,7 @@ export default function MarketBreadthCard({
   onTheme,
   embedded = false,
   chartFocus = null,
+  onCardTabChange,
 }) {
   const [cardTab, setCardTab] = useState("breadth"); // "breadth" | "themes" | "layers"
   const [selThemeId, setSelThemeId] = useState(null);
@@ -1973,13 +1974,20 @@ export default function MarketBreadthCard({
   const [stageMinRs, setStageMinRs] = useState(0); // 0 | 80 | 90
   const todayStr = etClock().today;
 
-  // Allow external pills (e.g. "4% Movers" under Major Indexes) to jump straight to a specific chart
+  // Allow external pills/jump links (e.g. "4% Movers" or "Layers") to jump straight to a tab or chart
   useEffect(() => {
-    if (!chartFocus?.chart) return;
-    setCardTab("breadth");
-    if (chartFocus.slide != null) setSlide(chartFocus.slide);
-    setOpenChart(chartFocus.chart);
+    if (!chartFocus) return;
+    if (chartFocus.tab) setCardTab(chartFocus.tab);
+    if (chartFocus.chart) {
+      setCardTab("breadth");
+      if (chartFocus.slide != null) setSlide(chartFocus.slide);
+      setOpenChart(chartFocus.chart);
+    }
   }, [chartFocus]);
+
+  useEffect(() => {
+    onCardTabChange?.(cardTab);
+  }, [cardTab, onCardTabChange]);
 
   // Load daily SPX (^GSPC, fallback SPY) closes once on mount (10m module cache) for chart overlays & divergence detection
   useEffect(() => {
