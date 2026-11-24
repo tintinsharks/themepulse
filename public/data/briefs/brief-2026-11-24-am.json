@@ -1,0 +1,374 @@
+{
+  "id": "brief-2026-11-24-am",
+  "date": "2026-11-24",
+  "session": "am",
+  "label": "Premarket Brief — Tue Nov 24, 2026",
+  "headline": "FTD Day-2 Sorting Test: Chips Digest (QQQ -2.02%, NVDA -4.80%) While Sanofi's $41B INSM Buyout & Retail Earnings Beats (DKS +14.5%, ANF +9.7%, DLTR +7.0%) Bid Healthcare & Consumer Leaders",
+  "regime": {
+    "status": "Confirmed FTD Day-2 Pullback Test — Selective / Disciplined Scaling",
+    "exposurePosture": "45%-55% Gross Exposure",
+    "breadth": {
+      "leadingLayers": 20,
+      "emergingLayers": 4,
+      "breakingDownLayers": 21,
+      "intradayScanPassers": 133
+    },
+    "indexes": [
+      {
+        "ticker": "SPY",
+        "priorClose": 722.29,
+        "premarket": 713.98,
+        "changePct": -1.15,
+        "ma21": 716.5,
+        "ma50": 718.2,
+        "status": "Testing 21d & 50d MAs; holding above Mon low ($713.53)"
+      },
+      {
+        "ticker": "QQQ",
+        "priorClose": 651.03,
+        "premarket": 637.88,
+        "changePct": -2.02,
+        "ma21": 644,
+        "ma50": 646.8,
+        "status": "Pulling back below 21d & 50d MAs on NVDA/ADI/HPE chip profit-taking"
+      },
+      {
+        "ticker": "IWM",
+        "priorClose": 265.74,
+        "premarket": 263.5,
+        "changePct": -0.84,
+        "ma21": 266.2,
+        "ma50": 261.4,
+        "status": "Relative outperformer holding above 50d SMA on Biotech M&A and Retail beats"
+      }
+    ]
+  },
+  "macroTape": {
+    "vix": {
+      "value": 29.57,
+      "changePct": 11.08,
+      "note": "Up from 26.62 close ahead of Wed Core PCE; enforce -7% stops"
+    },
+    "us10yYieldPct": {
+      "value": 4.92,
+      "changeBps": -4,
+      "note": "Easing 4 bps from 4.96%, supporting Healthcare & Consumer"
+    },
+    "wtiCrude": {
+      "value": 80.38,
+      "changePct": 0.27,
+      "note": "Down 21% over 1M on 2027 supply glut; tailwind for Consumer margins"
+    },
+    "dxy": {
+      "value": 103.41,
+      "changePct": -0.39,
+      "note": "Pulling back from 103.81, easing multinational FX headwinds"
+    }
+  },
+  "focusSetups": [
+    {
+      "ticker": "AMRX",
+      "grade": "A+",
+      "theme": "Healthcare / Specialty Pharma",
+      "rs": 96,
+      "eps": 86,
+      "stageTag": "Stage 1 Flat Base / W+D Aligned / RS Line New High",
+      "groupConfirmation": "Confirmed with ETON (+1.41% PM), XERS (+0.17% PM) & $41B INSM deal",
+      "dollarVolM": 34.6,
+      "shortInterestPct": 3.1,
+      "dtc": 2.8,
+      "priorClose": 21.9,
+      "premarket": 22,
+      "premarketChangePct": 0.46,
+      "pivot": 22.13,
+      "buyZoneMax": 23.24,
+      "ma10": 21.4,
+      "ma21": 21.15,
+      "ma50": 20.45,
+      "stop": 20.58,
+      "adrPct": 3.1,
+      "rvol": 1.15,
+      "closingRangePct": 80
+    },
+    {
+      "ticker": "ETON",
+      "grade": "A",
+      "theme": "Healthcare / Specialty Pharma",
+      "rs": 95,
+      "eps": 91,
+      "stageTag": "Early Stage 2 CwH Breakout / W+D Aligned / Strongest Stock 5",
+      "groupConfirmation": "Confirmed with AMRX, XERS & Sanofi/INSM M&A",
+      "dollarVolM": 16.9,
+      "shortInterestPct": 6.2,
+      "dtc": 5.4,
+      "priorClose": 63.65,
+      "premarket": 64.54,
+      "premarketChangePct": 1.41,
+      "pivot": 62.5,
+      "buyZoneMax": 65.63,
+      "ma10": 61.4,
+      "ma21": 60.2,
+      "ma50": 57.8,
+      "stop": 58.13,
+      "adrPct": 4.1,
+      "rvol": 1.15,
+      "closingRangePct": 92
+    },
+    {
+      "ticker": "LFST",
+      "grade": "A",
+      "theme": "Healthcare / Healthcare Services",
+      "rs": 98,
+      "eps": 91,
+      "stageTag": "Early Stage 2 Breakout / W+D Aligned / RS Line New High",
+      "groupConfirmation": "Confirmed with CDNA ($75.75) & A (+6.16% PM)",
+      "dollarVolM": 55.1,
+      "shortInterestPct": 3.4,
+      "dtc": 2.1,
+      "priorClose": 14.44,
+      "premarket": 14.6,
+      "premarketChangePct": 1.11,
+      "pivot": 14,
+      "buyZoneMax": 14.7,
+      "ma10": 13.85,
+      "ma21": 13.55,
+      "ma50": 12.9,
+      "stop": 13.02,
+      "adrPct": 3.9,
+      "rvol": 2.1,
+      "closingRangePct": 59
+    },
+    {
+      "ticker": "XERS",
+      "grade": "A-",
+      "theme": "Healthcare / Specialty Pharma",
+      "rs": 99,
+      "eps": 74,
+      "stageTag": "Stage 2 52W High Breakout / W+D Aligned / RS Line New High",
+      "groupConfirmation": "Confirmed with ETON (+1.41% PM) & AMRX (+0.46% PM)",
+      "dollarVolM": 43.7,
+      "shortInterestPct": 5.6,
+      "dtc": 3.4,
+      "priorClose": 17.52,
+      "premarket": 17.55,
+      "premarketChangePct": 0.17,
+      "pivot": 17.04,
+      "buyZoneMax": 17.89,
+      "ma10": 16.65,
+      "ma21": 16.1,
+      "ma50": 14.95,
+      "stop": 16.29,
+      "adrPct": 3.8,
+      "rvol": 2.15,
+      "closingRangePct": 71
+    },
+    {
+      "ticker": "CDNA",
+      "grade": "A",
+      "theme": "Healthcare / Diagnostics",
+      "rs": 98,
+      "eps": 80,
+      "stageTag": "Stage 2 Base Breakout / W+D Aligned / RS Line New High",
+      "groupConfirmation": "Confirmed with A (+6.16% PM) & LFST (+1.11% PM)",
+      "dollarVolM": 58.7,
+      "shortInterestPct": 7.4,
+      "dtc": 4.1,
+      "priorClose": 75.75,
+      "premarket": 75.75,
+      "premarketChangePct": 0,
+      "pivot": 72.5,
+      "buyZoneMax": 76.13,
+      "ma10": 71.2,
+      "ma21": 70.1,
+      "ma50": 69.85,
+      "stop": 67.43,
+      "adrPct": 4.4,
+      "rvol": 1.45,
+      "closingRangePct": 91
+    },
+    {
+      "ticker": "CBRL",
+      "grade": "B+",
+      "theme": "Consumer / Restaurants + QSR",
+      "rs": 89,
+      "eps": 84,
+      "stageTag": "Early Stage 2 52W High Breakout / W+D Aligned / RS Line New High",
+      "groupConfirmation": "Confirmed with BLMN (+3.81%) & Retail wave (DLTR +6.97%, DKS +14.48%)",
+      "dollarVolM": 44.8,
+      "shortInterestPct": 11.8,
+      "dtc": 4.6,
+      "priorClose": 74.82,
+      "premarket": 75,
+      "premarketChangePct": 0.24,
+      "pivot": 72.8,
+      "buyZoneMax": 76.44,
+      "ma10": 71.4,
+      "ma21": 69.85,
+      "ma50": 64.5,
+      "stop": 67.7,
+      "adrPct": 3.8,
+      "rvol": 1.35,
+      "closingRangePct": 95
+    },
+    {
+      "ticker": "A",
+      "grade": "A-",
+      "theme": "Healthcare / Life Sciences & Diagnostics",
+      "rs": 88,
+      "eps": 86,
+      "stageTag": "Stage 2 52W High Earnings Episodic Pivot / W+D Aligned / RS Line New High",
+      "groupConfirmation": "Confirmed with CDNA & LFST on Q4 beat ($2.04B rev) & FY27 guide",
+      "dollarVolM": 285,
+      "shortInterestPct": 1.6,
+      "dtc": 2.1,
+      "priorClose": 176.04,
+      "premarket": 186.89,
+      "premarketChangePct": 6.16,
+      "pivot": 182.99,
+      "buyZoneMax": 192.14,
+      "ma10": 174.5,
+      "ma21": 172.8,
+      "ma50": 168.4,
+      "stop": 173.8,
+      "adrPct": 2.6,
+      "rvol": 2.4,
+      "closingRangePct": 68
+    },
+    {
+      "ticker": "APPN",
+      "grade": "B+",
+      "theme": "Software / Enterprise AI & Low-Code",
+      "rs": 94,
+      "eps": 78,
+      "stageTag": "Stage 2 Handle Coiling / W+D Aligned / Strongest Stock 5",
+      "groupConfirmation": "Confirmed with PRCH (+6.74%) & FROG (+5.64%)",
+      "dollarVolM": 24.5,
+      "shortInterestPct": 9.8,
+      "dtc": 6.1,
+      "priorClose": 54.69,
+      "premarket": 54.75,
+      "premarketChangePct": 0.11,
+      "pivot": 55,
+      "buyZoneMax": 57.75,
+      "ma10": 53.1,
+      "ma21": 52.2,
+      "ma50": 49.8,
+      "stop": 50.95,
+      "adrPct": 4,
+      "rvol": 1.4,
+      "closingRangePct": 98
+    }
+  ],
+  "extendedMovers": [
+    {
+      "ticker": "KYMR",
+      "premarket": 157.4,
+      "changePct": 4.68,
+      "note": "Extending Monday's +30.40% Phase 2b KT-621 eczema breakout on partner Sanofi's $41B INSM deal; >38% above 50d SMA"
+    },
+    {
+      "ticker": "DKS",
+      "premarket": 152.78,
+      "changePct": 14.48,
+      "note": "Q3 EPS beat by $0.52 (+2.6% comp sales on $5.06B rev) & FY26 guidance upgrade"
+    },
+    {
+      "ticker": "ANF",
+      "premarket": 154,
+      "changePct": 9.69,
+      "note": "Q3 EPS beat by $0.73 on record Q3 sales (+11% YoY) & full-year outlook raise"
+    },
+    {
+      "ticker": "DLTR",
+      "premarket": 148.8,
+      "changePct": 6.97,
+      "note": "Q3 adj EPS $1.16 vs $0.93 est, rev +6.9% to $5.1B, raised FY26 EPS guide to $8.05-$8.25; new 52W high"
+    }
+  ],
+  "breakdowns": [
+    {
+      "ticker": "ADI",
+      "premarket": 329.81,
+      "changePct": -12.92,
+      "note": "Selling off below 21d/50d MAs despite Q4 beat ($4.06 EPS, $4.4B rev) amid broad chip pullback"
+    },
+    {
+      "ticker": "HPE",
+      "premarket": 42,
+      "changePct": -12.54,
+      "note": "#1 S&P 500 premarket loser as 38.2% gross margin compression erases Monday's +17.38% bounce"
+    },
+    {
+      "ticker": "SMTC",
+      "premarket": 94.56,
+      "changePct": -9.19,
+      "note": "Post-earnings sell-the-news pullback after +18.83% pre-earnings run"
+    },
+    {
+      "ticker": "DELL",
+      "premarket": 310,
+      "changePct": -7.44,
+      "note": "Extending yesterday's -11.20% fade ahead of tonight's AMC Q3 earnings on HPE margin read-through"
+    },
+    {
+      "ticker": "SYM",
+      "premarket": 32.85,
+      "changePct": -6.05,
+      "note": "Sliding toward $32.30 52W low on soft Q1 FY27 sequential revenue guide ($750M-$770M)"
+    },
+    {
+      "ticker": "NVDA",
+      "premarket": 157.13,
+      "changePct": -4.8,
+      "note": "Digesting Monday's +31.48% CEO-return surge on 21.98M premarket shares"
+    }
+  ],
+  "radar": [
+    {
+      "date": "2026-11-24",
+      "event": "Earnings AMC: DELL (±9.8% implied move), ADSK (±6.8%), WDAY (±7.5%), HPQ (±6.2%), NTNX; Macro: 9:00 AM ET FHFA House Price Index, 11:30 AM ET 52-Week Bill Auction"
+    },
+    {
+      "date": "2026-11-25",
+      "event": "8:30 AM ET Core PCE Inflation, Q3 GDP Second Estimate & Initial Jobless Claims; FOMC Minutes; DE (Deere) BMO Earnings"
+    },
+    {
+      "date": "2026-11-26",
+      "event": "U.S. Stock & Bond Markets Closed (Thanksgiving Day)"
+    },
+    {
+      "date": "2026-11-27",
+      "event": "U.S. Stock Market Early Close at 10:00 AM PT (1:00 PM ET) + Weekly Post-Mortem Scorecard in ThemePulse Performance Journal"
+    },
+    {
+      "date": "2026-12-01",
+      "event": "OKTA Q3 FY27 Earnings AMC (Within 5 Trading Days — Options-Implied Move ±15.4% to ±19.8%)"
+    }
+  ],
+  "skipTraps": [
+    {
+      "ticker": "INSM",
+      "reason": "Buyout-capped at $175.00/sh cash by Sanofi's $41.0B acquisition ($170.60 PM, ~2.6% arb spread left)"
+    },
+    {
+      "ticker": "ZS",
+      "reason": "Buyout-pinned to CrowdStrike's stock exchange ratio under $43.9B all-stock acquisition ($226.92 PM)"
+    },
+    {
+      "ticker": "KYMR",
+      "reason": "Extended climax risk >38% above 50-day SMA at $157.40 PM (+36% in 2 sessions) — wait for 3-5 day flag"
+    },
+    {
+      "ticker": "DELL",
+      "reason": "Binary Q3 earnings tonight AMC (±9.8% implied move) after -11.2% intraday fade and -7.44% PM drop"
+    },
+    {
+      "ticker": "HPE",
+      "reason": "Post-earnings gross-margin reversal trap (-12.54% PM to $42.00 after spiking to $51.70 AH)"
+    },
+    {
+      "ticker": "FLNC",
+      "reason": "Stage 4 low-priced laggard ($4.58 PM, +20.55%) with -5.0% Q4 gross margin and $273.9M FY26 net loss"
+    }
+  ]
+}
