@@ -21,6 +21,7 @@ import {
   closingRange,
   rsLeads,
   fmtDollarVol,
+  zvrFor,
 } from "./math.js";
 export * from "./math.js";
 
@@ -1698,12 +1699,14 @@ export function LayerMembers({ A, layer, tickers, stockMap, onTicker, chartTicke
   const [sort, setSort] = useState({ k: "rs", d: -1 });
   const list = useMemo(() => tickers.filter((t) => stockMap[t] && (!keep || keep(t))), [tickers, stockMap, keep]);
   const { quotes, at } = useScanQuotes(list, true);
+  const profiles = useRvolProfiles();
   const rows = useMemo(() => {
     const topEps = Math.max(-1, ...list.map((t) => stockMap[t]?.eps_rating ?? -1));
     const out = list.map((t) => {
       const s = stockMap[t], q = quotes.get(t);
+      const zvr = zvrFor(s, q, profiles) ?? (s.rel_volume > 0 ? +s.rel_volume.toFixed(2) : null);
       return {
-        t, px: q?.price ?? s.close, chg: q?.change ?? s.change_pct ?? null,
+        t, zvr, chg: q?.change ?? s.change_pct ?? null,
         r1w: s.return_1w, r1m: s.return_1m, r3m: s.return_3m,
         adr: s.adr20 ?? s.adr_pct, s50: s.sma50_pct, off: s.off_52w_high ?? s.pct_from_high,
         rs: s.rs_rank, eps: s.eps_rating ?? null, epsTip: s.eps_tip, epsAcc: s.eps_accel,
@@ -1719,7 +1722,7 @@ export function LayerMembers({ A, layer, tickers, stockMap, onTicker, chartTicke
       return (a - b) * d || x.t.localeCompare(y.t);
     });
     return out;
-  }, [list, quotes, sort, stockMap]);
+  }, [list, quotes, profiles, sort, stockMap]);
   const col = (k, label, title) => (
     <th key={k} style={{ ...th(A, "right"), cursor: "pointer", userSelect: "none", color: sort.k === k ? A.text : A.textMuted }} title={title}
       onClick={() => setSort((p) => ({ k, d: p.k === k ? -p.d : -1 }))}>{label}{sort.k === k ? (sort.d < 0 ? " ▼" : " ▲") : ""}</th>
@@ -1752,7 +1755,7 @@ export function LayerMembers({ A, layer, tickers, stockMap, onTicker, chartTicke
           <thead style={{ position: "sticky", top: 0, background: A.bg, zIndex: 1 }}>
             <tr>
               <th style={th(A)}>Ticker</th>
-              {col("px", "Price")}{col("chg", "Chg")}
+              {col("zvr", "ZVR", "Zanger Volume Ratio vs 10-day intraday volume profile (falls back to EOD relative volume)")}{col("chg", "Chg")}
               {col("r1w", "1W")}{col("r1m", "1M")}{col("r3m", "3M")}
               {col("adr", "ADR")}{col("s50", "vs 50d")}{col("off", "Off high")}{col("rs", "RS")}{col("eps", "EPS", EPS_TIP)}
             </tr>
@@ -1763,7 +1766,7 @@ export function LayerMembers({ A, layer, tickers, stockMap, onTicker, chartTicke
                 <td style={td(A)}><FlagButton t={r.t} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span><TierMark t={r.t} />
                   {r.top && <span title="Fastest EPS grower in this layer" style={{ color: A.green, marginLeft: 4 }}>★</span>}
                   {r.nh && <span title="Closed at a 20-session high" style={{ color: A.cyan, marginLeft: 4, fontSize: 9 }}>NH</span>}</td>
-                <td style={{ ...td(A, "right"), color: A.text }}>{r.px != null ? r.px.toFixed(2) : "—"}</td>
+                <td style={{ ...td(A, "right"), color: r.zvr == null ? A.textMuted : r.zvr >= 2.0 ? "#fbbf24" : r.zvr >= 1.5 ? A.green : A.textDim, fontWeight: (r.zvr ?? 0) >= 1.5 ? 700 : 400, fontFamily: "monospace" }}>{r.zvr != null ? `${r.zvr.toFixed(2)}×` : "—"}</td>
                 <td style={{ ...td(A, "right"), color: pc(r.chg), fontWeight: 700 }}>{pct(r.chg, 2)}</td>
                 <td style={{ ...td(A, "right"), color: pc(r.r1w) }}>{pct(r.r1w)}</td>
                 <td style={{ ...td(A, "right"), color: pc(r.r1m) }}>{pct(r.r1m)}</td>
