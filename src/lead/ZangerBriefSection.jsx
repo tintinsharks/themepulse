@@ -124,6 +124,7 @@ export default function ZangerBriefSection({
   const [moverSort, setMoverSort] = useState(() => (catTab === "leaders" || catTab === "rsl" ? { k: "rs", d: -1 } : { k: "score", d: -1 }));
   const [flowSort, setFlowSort] = useState({ k: "avgChg", d: -1 });
   const [portSort, setPortSort] = useState({ k: "list", d: 1 });
+  const [portFilter, setPortFilter] = useState("all"); // "all" | "pf" | "wl" | "alerts"
   const [liveNews, setLiveNews] = useState({});
   const profiles = useRvolProfiles();
 
@@ -185,16 +186,17 @@ export default function ZangerBriefSection({
   const { quotes, at } = useScanQuotes(quoteTickers, liveOn && quoteTickers.length > 0);
 
   const livePortAlerts = useMemo(() => {
-    if (!liveOn || (!portfolio.length && !watchlist.length)) return null;
-    return computeLivePortfolioPulse({
+    if (!portfolio.length && !watchlist.length) return null;
+    const res = computeLivePortfolioPulse({
       portfolio,
       watchlist,
       stockMap,
-      quotes,
+      quotes: liveOn ? quotes : new Map(),
       profiles,
       tickerLayer,
       tiers,
     });
+    return { ...res, isLive: liveOn };
   }, [liveOn, portfolio, watchlist, stockMap, quotes, profiles, tickerLayer, tiers]);
 
   // Poll /api/market-quality every 60s when liveOn is active
@@ -518,11 +520,15 @@ export default function ZangerBriefSection({
   const extraThemeChip = themeFilter && !topThemes.some((t) => t.theme === themeFilter) ? themeFilter : null;
   const ph = snap?.phase || { id: "midday", label: "INTRADAY UPDATE", subtitle: "", accent: A.green };
   const portAlerts = livePortAlerts || snap?.portfolioAlerts || {};
+  const portItems = Array.isArray(portAlerts.items) ? portAlerts.items : (portAlerts.alerts || []);
   const showPortPulse = Boolean(
-    portAlerts.alerts?.length > 0 ||
-    (portAlerts.isLive && (portAlerts.portfolioCount > 0 || portAlerts.watchlistCount > 0))
+    portItems.length > 0 ||
+    portAlerts.portfolioCount > 0 ||
+    portAlerts.watchlistCount > 0
   );
-  const portEarnings = snap?.portfolioEarnings || [];
+  const portEarnings = livePortAlerts
+    ? (livePortAlerts.upcomingEarnings || [])
+    : (snap?.portfolioEarnings || []);
   const epMovers = liveOn && Array.isArray(mq?.epCandidates) && mq.epCandidates.length
     ? mq.epCandidates.filter((e) => (e.chg ?? 0) >= 3).slice(0, 6).map((e) => ({
         ticker: e.ticker,
@@ -615,7 +621,14 @@ export default function ZangerBriefSection({
     });
   }).slice(0, 60);
 
-  const sortedPortAlerts = [...(portAlerts.alerts || [])].sort((a, b) =>
+  const filteredPortRows = portItems.filter((r) => {
+    if (portFilter === "pf") return r.inPf ?? r.list === "PORT";
+    if (portFilter === "wl") return r.inWl ?? r.list === "WATCH";
+    if (portFilter === "alerts") return (r.tags || []).length > 0;
+    return true;
+  });
+
+  const sortedPortAlerts = [...filteredPortRows].sort((a, b) =>
     cmpSort(a, b, portSort, (r, k) => (k === "list" ? (r.list === "PORT" ? 0 : 1) : r[k]))
   );
 
@@ -733,8 +746,8 @@ export default function ZangerBriefSection({
               A={A}
               title="Portfolio & Watchlist Pulse"
               sub={
-                portAlerts.isLive ? (
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                  {portAlerts.isLive && (
                     <span
                       style={{
                         fontSize: 9,
@@ -749,50 +762,86 @@ export default function ZangerBriefSection({
                     >
                       LIVE 60s
                     </span>
-                    <span>
-                      {portAlerts.alerts?.length || 0} active across {portAlerts.portfolioCount} holdings / {portAlerts.watchlistCount} watchlist
-                    </span>
+                  )}
+                  <span>
+                    {portAlerts.portfolioCount || 0} holdings / {portAlerts.watchlistCount || 0} watchlist · {portAlerts.alerts?.length || 0} alerts
                   </span>
-                ) : (
-                  `${portAlerts.alerts.length} active across ${portAlerts.portfolioCount} holdings / ${portAlerts.watchlistCount} watchlist`
-                )
+                </span>
               }
+              right={sortedPortAlerts.length > 0 ? <CopyTickersBtn A={A} tickers={sortedPortAlerts.map((a) => a.ticker)} label="Copy" /> : null}
             >
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 8 }}>
+                {[
+                  ["all", "All", portItems.length, A.text],
+                  ["pf", "PF", portAlerts.portfolioCount || 0, A.green],
+                  ["wl", "WL", portAlerts.watchlistCount || 0, A.cyan],
+                  ["alerts", "Alerts", portAlerts.alerts?.length || 0, "#f59e0b"],
+                ].map(([k, lbl, cnt, accent]) => (
+                  <button
+                    key={k}
+                    onClick={() => setPortFilter(k)}
+                    style={chipStyle(portFilter === k, accent)}
+                  >
+                    {lbl} <span style={{ opacity: 0.75 }}>{cnt}</span>
+                  </button>
+                ))}
+              </div>
               {sortedPortAlerts.length === 0 ? (
-                <div style={{ fontSize: 11, color: A.green }}>
-                  ✅ All {portAlerts.portfolioCount} holdings / {portAlerts.watchlistCount} watchlist quiet — no breakdowns or volume alerts.
+                <div style={{ fontSize: 11, color: portFilter === "alerts" ? A.green : A.textMuted }}>
+                  {portFilter === "alerts"
+                    ? `✅ All ${portAlerts.portfolioCount || 0} holdings / ${portAlerts.watchlistCount || 0} watchlist quiet — no breakdowns or volume alerts.`
+                    : "No tickers in this filter."}
                 </div>
               ) : (
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <thead>
-                    <tr>
-                      {portTh("list", "List", "left", undefined, true)}
-                      {portTh("ticker", "Ticker", "left", undefined, true)}
-                      {portTh("chg", "Chg")}
-                      {portTh("zvr", "ZVR")}
-                      {portTh("cr", "CR%")}
-                      <th style={th(A)}>Alert</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedPortAlerts.map((a) => (
-                      <tr key={a.ticker} onClick={() => onTicker && onTicker(a.ticker)} style={{ cursor: "pointer" }}>
-                        <td style={{ ...td(A), fontSize: 10, fontFamily: "monospace", fontWeight: 700, color: a.list === "PORT" ? A.green : A.cyan }}>{a.list}</td>
-                        <td style={td(A)}><Tk t={a.ticker} /></td>
-                        <td style={{ ...td(A, "right"), color: pc(a.chg), fontFamily: "monospace", fontWeight: 700 }}>{fmtPct(a.chg, 2)}</td>
-                        <td style={{ ...td(A, "right"), fontFamily: "monospace" }}>{a.zvr != null ? `${a.zvr.toFixed(1)}x` : "—"}</td>
-                        <td style={{ ...td(A, "right"), fontFamily: "monospace" }}>{a.cr != null ? `${a.cr}%` : "—"}</td>
-                        <td style={{ ...td(A), fontSize: 10 }}>
-                          {(a.tags || []).map((t, i) => (
-                            <span key={i} style={{ marginRight: 4, padding: "1px 5px", borderRadius: 3, fontWeight: 700, color: t.tone === "bad" ? A.red : t.tone === "warn" ? "#f59e0b" : A.green, background: A.bg, border: `1px solid ${A.border}` }}>
-                              {t.label}
-                            </span>
-                          ))}
-                        </td>
+                <div style={{ overflowX: "auto", maxHeight: 340, overflowY: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead style={{ position: "sticky", top: 0, background: A.bgCard, zIndex: 1 }}>
+                      <tr>
+                        {portTh("list", "List", "left", undefined, true)}
+                        {portTh("ticker", "Ticker", "left", undefined, true)}
+                        {portTh("chg", "Chg")}
+                        {portTh("zvr", "ZVR")}
+                        {portTh("cr", "CR%")}
+                        {portTh("rs", "RS")}
+                        <th style={th(A)}>Alert</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {sortedPortAlerts.map((a) => (
+                        <tr
+                          key={a.ticker}
+                          data-nav={a.ticker}
+                          onClick={() => onTicker && onTicker(a.ticker)}
+                          style={{ cursor: "pointer", background: chartTicker === a.ticker ? A.bgHover : "transparent" }}
+                        >
+                          <td style={{ ...td(A), fontSize: 10, fontFamily: "monospace", fontWeight: 700, color: a.list === "PORT" ? A.green : A.cyan }}>
+                            {a.inPf && a.inWl ? "PF·WL" : a.list === "PORT" ? "PF" : "WL"}
+                          </td>
+                          <td style={td(A)}>
+                            <FlagButton t={a.ticker} A={A} />
+                            <Tk t={a.ticker} />
+                            <TierMark t={a.ticker} />
+                          </td>
+                          <td style={{ ...td(A, "right"), color: pc(a.chg), fontFamily: "monospace", fontWeight: 700 }}>{fmtPct(a.chg, 2)}</td>
+                          <td style={{ ...td(A, "right"), fontFamily: "monospace", color: (a.zvr ?? 0) >= 1.5 ? A.green : A.textDim }}>{a.zvr != null ? `${a.zvr.toFixed(1)}x` : "—"}</td>
+                          <td style={{ ...td(A, "right"), fontFamily: "monospace", color: a.cr == null ? A.textMuted : a.cr >= 70 ? A.green : a.cr <= 30 ? A.red : A.textDim }}>{a.cr != null ? `${a.cr}%` : "—"}</td>
+                          <td style={{ ...td(A, "right"), fontFamily: "monospace", fontWeight: 700, color: rsC(a.rs) }}>{a.rs ?? "—"}</td>
+                          <td style={{ ...td(A), fontSize: 10 }}>
+                            {(a.tags || []).length > 0 ? (
+                              a.tags.map((t, i) => (
+                                <span key={i} style={{ marginRight: 4, padding: "1px 5px", borderRadius: 3, fontWeight: 700, color: t.tone === "bad" ? A.red : t.tone === "warn" ? "#f59e0b" : A.green, background: A.bg, border: `1px solid ${A.border}` }}>
+                                  {t.label}
+                                </span>
+                              ))
+                            ) : (
+                              <span style={{ color: A.textMuted }}>—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </Card>
           )}

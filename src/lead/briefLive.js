@@ -181,6 +181,9 @@ export function computeLivePortfolioPulse({
   const portTickers = [...new Set((Array.isArray(portfolio) ? portfolio : []).map(normTicker).filter(Boolean))];
   const watchTickers = [...new Set((Array.isArray(watchlist) ? watchlist : []).map(normTicker).filter(Boolean))];
 
+  const portSet = new Set(portTickers);
+  const watchSet = new Set(watchTickers);
+
   const seen = new Set();
   const entries = [];
   for (const t of portTickers) {
@@ -195,6 +198,9 @@ export function computeLivePortfolioPulse({
   }
 
   const scoredAlerts = [];
+  const allItems = [];
+  const upcomingEarnings = [];
+
   for (const [t, list] of entries) {
     const rawS = stockMap?.[t] || null;
     const s = rawS ? (rawS.ticker ? rawS : { ...rawS, ticker: t }) : null;
@@ -228,7 +234,21 @@ export function computeLivePortfolioPulse({
       }
     }
 
+    const rs = r?.rs ?? s?.rs_rank ?? null;
+    const off52 = r?.off52 ?? s?.off_52w_high ?? s?.pct_from_high ?? null;
     const earningsDays = r?.earningsDays ?? s?.earnings_days ?? null;
+    const earningsDisplay = r?.earningsDisplay || s?.earnings_display || "";
+
+    if (earningsDays != null && earningsDays >= 0 && earningsDays <= 10) {
+      const timingMatch = String(earningsDisplay).match(/\b(BMO|AMC)\b/i);
+      upcomingEarnings.push({
+        ticker: t,
+        list,
+        display: earningsDisplay,
+        timing: timingMatch ? timingMatch[1].toUpperCase() : (s?.earnings_timing || ""),
+        days: earningsDays,
+      });
+    }
 
     const tags = [];
     const isBo = Boolean(r?.isBreakout);
@@ -259,16 +279,30 @@ export function computeLivePortfolioPulse({
       });
     }
 
-    if (!tags.length) continue;
-
     const hasBad = tags.some((x) => x.tone === "bad");
     const hasWarn = tags.some((x) => x.tone === "warn");
-    const severity = hasBad ? 4 : isBo ? 3 : hasWarn ? 2 : 1;
+    const severity = !tags.length ? 0 : hasBad ? 4 : isBo ? 3 : hasWarn ? 2 : 1;
 
-    scoredAlerts.push({
-      severity,
-      alert: { ticker: t, list, chg, zvr, cr, tags },
-    });
+    const item = {
+      ticker: t,
+      list,
+      inPf: portSet.has(t),
+      inWl: watchSet.has(t),
+      chg,
+      zvr,
+      cr,
+      rs,
+      off52,
+      tags,
+    };
+    allItems.push({ severity, item });
+
+    if (tags.length) {
+      scoredAlerts.push({
+        severity,
+        alert: { ticker: t, list, chg, zvr, cr, tags },
+      });
+    }
   }
 
   scoredAlerts.sort(
@@ -278,8 +312,20 @@ export function computeLivePortfolioPulse({
       a.alert.ticker.localeCompare(b.alert.ticker)
   );
 
+  allItems.sort(
+    (a, b) =>
+      (a.item.list === b.item.list ? 0 : a.item.list === "PORT" ? -1 : 1) ||
+      b.severity - a.severity ||
+      (b.item.chg ?? -999) - (a.item.chg ?? -999) ||
+      a.item.ticker.localeCompare(b.item.ticker)
+  );
+
+  upcomingEarnings.sort((a, b) => a.days - b.days || a.ticker.localeCompare(b.ticker));
+
   return {
+    items: allItems.map((x) => x.item),
     alerts: scoredAlerts.map((x) => x.alert),
+    upcomingEarnings,
     portfolioCount: portTickers.length,
     watchlistCount: watchTickers.length,
     isLive: true,
