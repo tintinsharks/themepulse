@@ -127,14 +127,20 @@ export function computeLayerDayFlow(tickers, stockMap, { isLive = false, volFrac
   chgs.sort((a, b) => a - b);
   const m = chgs.length >> 1;
   const today = chgs.length ? (chgs.length % 2 ? chgs[m] : (chgs[m - 1] + chgs[m]) / 2) : null;
+  const netDv = dv > 0 ? upDv - dnDv : null;
+  const rvol = expectedDv > 0 ? +(measuredDv / expectedDv).toFixed(2) : null;
+  const netDir = dv > 0 && netDv != null ? netDv / dv : 0;
+  const align = today == null || today === 0 ? 0.5 : (1 + Math.sign(today) * netDir) / 2;
+  const thrust = today != null && rvol != null ? +(today * rvol * align).toFixed(1) : null;
   return {
     today,
     green,
     n: chgs.length,
     pctGreen: chgs.length ? Math.round((green / chgs.length) * 100) : null,
     dv: dv > 0 ? dv : null,
-    netDv: dv > 0 ? upDv - dnDv : null,
-    rvol: expectedDv > 0 ? +(measuredDv / expectedDv).toFixed(2) : null,
+    netDv,
+    rvol,
+    thrust,
   };
 }
 

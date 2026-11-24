@@ -275,6 +275,26 @@ test("computeLayerDayFlow and fmtDollarVol compute EOD and pace-adjusted live do
   assert.equal(eod.dv, 4e9);
   assert.equal(eod.netDv, 1e9); // 2.5B - 1.5B
   assert.equal(eod.rvol, 1.6);  // 4B / 2.5B
+  // align = (1 + 1 * (1/4)) / 2 = 0.625 => 2.0 * 1.6 * 0.625 = 2.0
+  assert.equal(eod.thrust, 2.0);
+
+  // Broad heavy selloff: negative median + negative net dollar flow MUST stay strongly negative
+  const selloff = computeLayerDayFlow(["D", "E"], {
+    D: { close: 100, change_pct: -6.0, avg_dollar_vol_raw: 1e9, rel_volume: 2.0 },
+    E: { close: 50, change_pct: -4.0, avg_dollar_vol_raw: 1e9, rel_volume: 2.0 },
+  }, { isLive: false });
+  assert.equal(selloff.today, -5.0);
+  assert.equal(selloff.rvol, 2.0);
+  assert.equal(selloff.thrust, -10.0);
+
+  // Divergent: slight positive median but heavy selling in large-cap member dampens thrust toward 0
+  const div = computeLayerDayFlow(["S1", "S2", "BIG"], {
+    S1: { close: 10, change_pct: 1.0, avg_dollar_vol_raw: 1e7, rel_volume: 1.0 },
+    S2: { close: 10, change_pct: 1.0, avg_dollar_vol_raw: 1e7, rel_volume: 1.0 },
+    BIG: { close: 100, change_pct: -5.0, avg_dollar_vol_raw: 1e9, rel_volume: 2.0 },
+  }, { isLive: false });
+  assert.ok(div.today > 0 && div.netDv < 0);
+  assert.ok(div.thrust >= 0 && div.thrust < 0.2);
 
   const smLive = {
     A: { close: 100, px_live: 105, vol_live: 10e6, chg_live: 5.0, avg_dollar_vol_raw: 1e9 }, // $1.05B at 50% of session => 2.1x

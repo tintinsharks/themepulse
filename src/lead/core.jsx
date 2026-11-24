@@ -208,7 +208,7 @@ export function ThemeBoard({ themes, A, selected, onSelect }) {
               </div>
             </div>
             {t.stats && (
-              <div title="Rank trend (5d slope, up/10 sessions) and today's median move + net dollar volume"
+              <div title="Today's median move (green/total), Day Thrust (median % × $Vol× × dollar-flow alignment), and relative $Vol"
                 style={{ fontSize: 10, color: A.textMuted, marginTop: 3, fontVariantNumeric: "tabular-nums", display: "flex", flexWrap: "wrap", gap: 6, alignItems: "baseline" }}>
                 {t.dayFlow?.today != null && (
                   <span style={{ color: t.dayFlow.today >= 0 ? A.green : A.red, fontWeight: 700 }}>
@@ -216,9 +216,9 @@ export function ThemeBoard({ themes, A, selected, onSelect }) {
                     {t.dayFlow.n > 0 && <span style={{ color: A.textMuted, fontWeight: 400 }}> ({t.dayFlow.green}/{t.dayFlow.n})</span>}
                   </span>
                 )}
-                {t.dayFlow?.netDv != null && (
-                  <span style={{ color: t.dayFlow.netDv >= 0 ? A.green : A.red }}>
-                    {fmtDollarVol(t.dayFlow.netDv, true)}
+                {t.dayFlow?.thrust != null && (
+                  <span style={{ color: t.dayFlow.thrust > 0 ? A.green : t.dayFlow.thrust < 0 ? A.red : A.textMuted, fontWeight: Math.abs(t.dayFlow.thrust) >= 5 ? 700 : 500 }}>
+                    T {t.dayFlow.thrust > 0 ? "+" : ""}{t.dayFlow.thrust.toFixed(1)}
                   </span>
                 )}
                 {t.dayFlow?.rvol != null && (
@@ -253,7 +253,7 @@ export const LAYER_SORT = {
   trend: (l) => l.trend?.slope,
   today: (l) => l.today,
   dvol: (l) => l.dayFlow?.dv,
-  netDvol: (l) => l.dayFlow?.netDv,
+  thrust: (l) => l.dayFlow?.thrust,
   rvol: (l) => l.dayFlow?.rvol,
   vol: (l) => (l.conf?.acc != null ? l.conf.acc - l.conf.dist : null),
   rs90: (l) => l.conf?.l90,
@@ -305,7 +305,7 @@ export function LayerTable({ rows: rowsIn, A, onTicker, chartTicker, stockMap, s
             {sh("m1", "1m", "right", "Rank change over a month")}
             {sh("today", "Today", "right", "Median move of the layer's members today + green/total breadth — live during the session (hourly), otherwise the last close")}
             {sh("dvol", "$Vol", "right", "Total daily dollar volume traded across the layer's members today")}
-            {sh("netDvol", "Net $Vol", "right", "Directional daily dollar flow: green members' $Vol minus red members' $Vol — surfaces the strongest institutional buying on the day")}
+            {sh("thrust", "Day Thrust", "right", "Today's strength: median % move × pace-adjusted $Vol× × dollar-flow alignment — removes mega-cap bias while requiring broad move + real volume")}
             {sh("rvol", "$Vol×", "right", "Today's layer $Vol ÷ 20-day average $Vol (pace-adjusted intraday) — spots thematic volume surges regardless of market cap", "tp-hide-sm")}
             {showPeak && sh("peak", "Peak", "right")}
             {!compact && sh("spark", `${SPARK_N}d`, "left", `Rank change over ${SPARK_N} sessions`, "tp-hide-sm")}
@@ -361,8 +361,8 @@ export function LayerTable({ rows: rowsIn, A, onTicker, chartTicker, stockMap, s
                 <td style={{ ...td(A, "right"), color: A.textDim, fontFamily: "monospace", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
                   {fmtDollarVol(df?.dv)}
                 </td>
-                <td style={{ ...td(A, "right"), color: df?.netDv == null ? A.textMuted : df.netDv > 0 ? A.green : df.netDv < 0 ? A.red : A.textMuted, fontWeight: df?.netDv != null && Math.abs(df.netDv) >= 1e9 ? 700 : 500, fontFamily: "monospace", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
-                  {fmtDollarVol(df?.netDv, true)}
+                <td style={{ ...td(A, "right"), color: df?.thrust == null ? A.textMuted : df.thrust > 0 ? A.green : df.thrust < 0 ? A.red : A.textMuted, fontWeight: df?.thrust != null && Math.abs(df.thrust) >= 5 ? 700 : 500, fontFamily: "monospace", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+                  {df?.thrust != null ? `${df.thrust > 0 ? "+" : ""}${df.thrust.toFixed(1)}` : "—"}
                 </td>
                 <td className="tp-hide-sm" style={{ ...td(A, "right"), color: df?.rvol == null ? A.textMuted : df.rvol >= 2.0 ? "#fbbf24" : df.rvol >= 1.35 ? A.green : A.textDim, fontWeight: (df?.rvol ?? 0) >= 1.35 ? 700 : 400, fontFamily: "monospace", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
                   {df?.rvol != null ? `${df.rvol.toFixed(2)}×` : "—"}

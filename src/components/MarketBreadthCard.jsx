@@ -1618,8 +1618,13 @@ export default function MarketBreadthCard({
   const [selThemeId, setSelThemeId] = useState(null);
   const [layerTab, setLayerTab] = useState("all"); // "all" | "lead" | "weak" | "brk" | "emerg" | "lag"
   const [expandedLayerKey, setExpandedLayerKey] = useState(null);
-  const [layerSort, setLayerSort] = useState(() => { try { return JSON.parse(localStorage.getItem("tp_layer_sort")) || null; } catch { return null; } });
-  const [themeSort, setThemeSort] = useState("rank"); // "rank" | "hold" | "today" | "netDvol" | "rvol"
+  const [layerSort, setLayerSort] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("tp_layer_sort")) || null;
+      return saved?.k === "netDvol" ? { ...saved, k: "thrust" } : saved;
+    } catch { return null; }
+  });
+  const [themeSort, setThemeSort] = useState("rank"); // "rank" | "hold" | "today" | "thrust" | "rvol"
   const [slide, setSlide] = useState(0); // 0 = Breadth + Stage Analysis (Deepvue view), 1 = MA Breadth + 4% Movers
   const [openChart, setOpenChart] = useState(null); // null | "nhnl" | "ad" | "stage" | "p20" | "p50" | "p200" | "mcclellan"
   const [adMode, setAdMode] = useState("daily"); // "daily" | "cum"
@@ -1880,7 +1885,7 @@ export default function MarketBreadthCard({
     const keyVal = (t) => {
       if (themeSort === "hold") return (t.heldAvg ?? 0) * 1000 + (t.now ?? 0);
       if (themeSort === "today") return t.dayFlow?.today ?? null;
-      if (themeSort === "netDvol") return t.dayFlow?.netDv ?? null;
+      if (themeSort === "thrust") return t.dayFlow?.thrust ?? null;
       if (themeSort === "rvol") return t.dayFlow?.rvol ?? null;
       return t.now ?? 0;
     };
@@ -2075,7 +2080,7 @@ export default function MarketBreadthCard({
                   ["rank", "RS Rank", A.green, "Best overall RS rank"],
                   ["hold", "Holding Up", A.cyan, "Consistent RS ≥ 80 over last 20 sessions"],
                   ["today", "Today %", COLORS.blue, "Strongest median % move today"],
-                  ["netDvol", "Net $Vol", "#fbbf24", "Strongest net institutional buying ($Vol) today"],
+                  ["thrust", "Day Thrust", "#fbbf24", "Today's strength: median % × $Vol× × dollar-flow alignment (no mega-cap bias)"],
                   ["rvol", "$Vol×", "#c084fc", "Biggest volume surge vs 20d avg $Vol today"],
                 ].map(([k, lbl, acc, tip]) => (
                   <button key={k} type="button" onClick={() => setThemeSort(k)} title={tip} style={sortPillStyle(themeSort === k, acc)}>
@@ -2154,7 +2159,7 @@ export default function MarketBreadthCard({
                   ["held20", "Holding Up", A.cyan, "Most sessions at RS ≥ 80 over last 20 (ties by current RS)"],
                   ["mbr", "Mbr RS", A.green, "Highest median member stock RS"],
                   ["today", "Today %", COLORS.blue, "Strongest median % move today"],
-                  ["netDvol", "Net $Vol", "#fbbf24", "Strongest net institutional buying ($Vol) today"],
+                  ["thrust", "Day Thrust", "#fbbf24", "Today's strength: median % × $Vol× × dollar-flow alignment (no mega-cap bias)"],
                   ["rvol", "$Vol×", "#c084fc", "Biggest volume surge vs 20d avg $Vol today"],
                 ].map(([k, lbl, acc, tip]) => {
                   const active = k === "rank" ? (!layerSort || (layerSort.k === "rank" && layerSort.d === "desc")) : (layerSort?.k === k && layerSort?.d === "desc");
