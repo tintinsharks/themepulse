@@ -126,7 +126,7 @@ test("buildMcClellanSeries aligns with public/data/breadth.json qulla.mcclellan"
   assert.equal(series.length, breadth.ad_history.length);
 
   const last = series[series.length - 1];
-  assert.equal(last.date, breadth.date);
+  assert.equal(last.date, breadth.ad_history[breadth.ad_history.length - 1].date);
   assert.equal(last.osc, expected.osc);
   assert.equal(last.summation, expected.summation);
 

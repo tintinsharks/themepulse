@@ -123,6 +123,29 @@ test("scoreZangerCandidate rejects low-volume, weak-close, or buyout-pinned name
     now: sat,
   });
   assert.equal(pinned, null);
+
+  // 9M share threshold (>= 8.9M shares traded on the day)
+  const under9M = scoreZangerCandidate({
+    s: base,
+    q: { price: 100, dayHigh: 101, dayLow: 96, change: 3.5, volume: 8_899_999 },
+    layer,
+    tier: "lead",
+    profiles: null,
+    now: sat,
+  });
+  assert.equal(under9M.volume, 8_899_999);
+  assert.equal(under9M.is9M, false);
+
+  const hit9M = scoreZangerCandidate({
+    s: base,
+    q: { price: 100, dayHigh: 101, dayLow: 96, change: 3.5, volume: 8_900_000 },
+    layer,
+    tier: "lead",
+    profiles: null,
+    now: sat,
+  });
+  assert.equal(hit9M.volume, 8_900_000);
+  assert.equal(hit9M.is9M, true);
 });
 
 test("isUsMarketHoliday detects NYSE holidays including Good Friday and weekend observations", () => {

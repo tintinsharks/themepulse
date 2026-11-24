@@ -115,6 +115,7 @@ export default function ZangerBriefSection({
     return "zanger";
   });
   const [boFilter, setBoFilter] = useState(null); // null | "ZANGER" | "SB4%" | "SB$" | "QMAG"
+  const [only9M, setOnly9M] = useState(false); // secondary filter: day share volume >= 8.9M
   const [themeFilter, setThemeFilter] = useState(null);
   const [minZvr, setMinZvr] = useState(1.0);
   const [minRs, setMinRs] = useState(70);
@@ -574,12 +575,24 @@ export default function ZangerBriefSection({
   const flowTh = makeSortTh(flowSort, setFlowSort);
   const portTh = makeSortTh(portSort, setPortSort);
 
-  const filteredRows = allPool.filter((r) => {
+  const getRowVol = (r) => {
+    const v = r?.volume ?? stockMap?.[r?.ticker]?.volume ?? null;
+    return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : null;
+  };
+  const isRow9M = (r) => Boolean(r?.is9M || (getRowVol(r) ?? 0) >= 8_900_000);
+
+  const tabBaseRows = allPool.filter((r) => {
     if (catTab === "bo" && !r.isBreakout) return false;
     if (catTab === "zanger" && !r.qualifiesZanger) return false;
     if (catTab === "rsl" && !r.rsl) return false;
     if (catTab === "leaders" && !(r.tier === "lead" && r.layerStatus === "lead")) return false;
     if (boFilter && !(r.breakoutTypes || []).includes(boFilter)) return false;
+    return true;
+  });
+  const count9M = tabBaseRows.filter(isRow9M).length;
+
+  const filteredRows = tabBaseRows.filter((r) => {
+    if (only9M && !isRow9M(r)) return false;
     if (themeFilter && r.theme !== themeFilter) return false;
     if ((catTab === "zanger" || catTab === "bo") && minZvr > 1.0 && (r.zvr ?? 0) < minZvr) return false;
     if (minRs > 70 && (r.rs ?? 0) < minRs) return false;
@@ -884,7 +897,24 @@ export default function ZangerBriefSection({
                   </button>
                 );
               })}
+              <span style={{ color: A.border, fontSize: 10, userSelect: "none" }}>+</span>
+              <button
+                onClick={() => setOnly9M((v) => !v)}
+                title="Secondary filter: ≥ 8.9M shares traded on the day (combines with ZNG / 4% / $BO / QMAG)"
+                style={chipStyle(only9M, "#f97316")}
+              >
+                9M <span style={{ opacity: 0.75 }}>{count9M}</span>
+              </button>
             </div>
+          )}
+          {catTab !== "bo" && catTab !== "zanger" && (
+            <button
+              onClick={() => setOnly9M((v) => !v)}
+              title="Secondary filter: ≥ 8.9M shares traded on the day"
+              style={chipStyle(only9M, "#f97316")}
+            >
+              9M <span style={{ opacity: 0.75 }}>{count9M}</span>
+            </button>
           )}
           {(catTab === "bo" || catTab === "zanger") && (
             <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
@@ -974,6 +1004,14 @@ export default function ZangerBriefSection({
                         }) : (
                           <span style={{ fontSize: 9, fontWeight: 700, fontFamily: "monospace", padding: "1px 4px", borderRadius: 3, background: m.rsl ? "rgba(56,189,248,0.16)" : m.qualifiesZanger ? "rgba(34,197,94,0.16)" : "transparent", color: m.rsl ? A.cyan : m.qualifiesZanger ? A.green : A.textDim, border: m.rsl || m.qualifiesZanger ? "none" : `1px solid ${A.border}` }}>
                             {m.rsl ? "RSL" : m.qualifiesZanger ? "VOL" : "LEAD"}
+                          </span>
+                        )}
+                        {isRow9M(m) && (
+                          <span
+                            title={`${fmtVol(getRowVol(m))} shares traded today (≥ 8.9M)`}
+                            style={{ fontSize: 9, fontWeight: 800, fontFamily: "monospace", padding: "1px 4px", borderRadius: 3, background: "rgba(249,115,22,0.18)", color: "#f97316", border: "1px solid rgba(249,115,22,0.6)" }}
+                          >
+                            9M
                           </span>
                         )}
                       </span>

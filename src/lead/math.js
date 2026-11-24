@@ -432,6 +432,10 @@ export function scoreZangerCandidate({ s, q, layer, tier, profiles, now = new Da
 
   const px = q?.price ?? s.price ?? s.close ?? null;
   const chg = q?.change ?? s.change_pct ?? null;
+  const volume = (typeof q?.volume === "number" && Number.isFinite(q.volume) && q.volume > 0)
+    ? q.volume
+    : (typeof s.volume === "number" && Number.isFinite(s.volume) && s.volume > 0 ? s.volume : null);
+  const is9M = volume != null && volume >= 8_900_000;
   const cr = closingRange(q, s);
   const adr = s.adr20 ?? s.adr_pct ?? null;
   const off52 = s.off_52w_high ?? s.pct_from_high ?? null;
@@ -537,6 +541,8 @@ export function scoreZangerCandidate({ s, q, layer, tier, profiles, now = new Da
     tier,
     price: px,
     chg,
+    volume,
+    is9M,
     dollarMove: dollarMove != null ? Math.round(dollarMove * 100) / 100 : null,
     fromOpen,
     zvr: zvr != null ? Math.round(zvr * 100) / 100 : null,
