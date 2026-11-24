@@ -25,6 +25,19 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
   const [focusSort, setFocusSort] = useState({ k: null, d: -1 });
   const [extSort, setExtSort] = useState({ k: null, d: -1 });
   const [brkSort, setBrkSort] = useState({ k: null, d: -1 });
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      const v = localStorage.getItem("tp-written-collapsed");
+      return v === "true" || v === "1";
+    } catch {
+      return false;
+    }
+  });
+  const toggleCollapsed = () => setCollapsed((v) => {
+    const next = !v;
+    try { localStorage.setItem("tp-written-collapsed", String(next)); } catch { /* ignore */ }
+    return next;
+  });
   const profiles = useRvolProfiles();
 
   useEffect(() => {
@@ -131,6 +144,7 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
   const picker = (
     <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
       <button
+        type="button"
         onClick={() => setLiveOn((v) => !v)}
         title={liveOn ? "Showing live intraday prices & pivot status — click for frozen brief snapshot" : "Showing original brief snapshot — click to overlay live intraday data"}
         style={{
@@ -138,14 +152,16 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
           alignItems: "center",
           gap: 5,
           background: liveOn ? "rgba(34,197,94,0.14)" : "transparent",
-          border: `1px solid ${liveOn ? A.green : A.border}`,
+          border: `1px solid ${liveOn ? A.green : (A.borderLight || A.border)}`,
           color: liveOn ? A.green : A.textMuted,
-          borderRadius: 4,
-          padding: "2px 8px",
+          borderRadius: 6,
+          padding: "3px 8px",
           fontSize: 10,
           fontWeight: 700,
           fontFamily: "monospace",
+          fontVariantNumeric: "tabular-nums",
           cursor: "pointer",
+          transition: "background 0.15s, border-color 0.15s, color 0.15s",
         }}
       >
         <span className={liveOn && at ? "tp-livedot" : undefined} style={{ width: 6, height: 6, borderRadius: 3, background: liveOn ? A.green : A.textMuted, display: "inline-block" }} />
@@ -153,9 +169,33 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
       </button>
       {index && index.length > 0 && (
         <select value={sel || ""} onChange={(e) => setSel(e.target.value)}
-          style={{ background: A.bg, color: A.text, border: `1px solid ${A.border}`, borderRadius: 4, fontSize: 11, padding: "2px 4px", maxWidth: 260 }}>
+          style={{ background: A.bg, color: A.text, border: `1px solid ${A.borderLight || A.border}`, borderRadius: 6, fontSize: 11, padding: "3px 6px", maxWidth: 260, fontVariantNumeric: "tabular-nums" }}>
           {index.map((b) => <option key={b.id || b.file} value={b.file}>{label(b)}</option>)}
         </select>
+      )}
+      {brief && (
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          title={collapsed ? "Expand full Written Brief" : "Collapse Written Brief to compact summary"}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            background: collapsed ? A.glowGreen : "transparent",
+            border: `1px solid ${collapsed ? A.green : (A.borderLight || A.border)}`,
+            color: collapsed ? A.green : A.textDim,
+            borderRadius: 6,
+            padding: "3px 9px",
+            fontSize: 11,
+            fontWeight: 600,
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+            transition: "background 0.15s, border-color 0.15s, color 0.15s",
+          }}
+        >
+          {collapsed ? "Expand full brief ▾" : "Collapse ▴"}
+        </button>
       )}
       {modeSwitch}
     </div>
@@ -182,43 +222,59 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
         sub={`${SESSION_LABEL[brief.session] || brief.session || ""} · ${brief.date || ""}${brief.dataAsOf ? ` · written ${brief.dataAsOf}` : ""}${liveOn && at ? ` · intraday overlay active (60s refresh)` : ""}`}
         right={picker}
       >
-        {brief.headline && <div style={{ fontSize: 16, fontWeight: 700, color: A.text, lineHeight: 1.35, marginBottom: 6 }}>{String(brief.headline)}</div>}
-        {rg.posture && <div style={{ fontSize: 12, fontWeight: 700, color: /correction|defensive|risk off/i.test(rg.posture) ? A.red : A.green }}>{String(rg.posture)}</div>}
-        {rg.note && <div style={{ fontSize: 11, color: A.textDim, marginTop: 3, lineHeight: 1.45 }}>{String(rg.note)}</div>}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginTop: 10, borderTop: `1px solid ${A.border}`, paddingTop: 10 }}>
-          {arr(rg.indexes).map((x) => {
-            const li = liveInfo(x.symbol);
-            const px = li?.px ?? x.price;
-            const chg = li?.chg ?? x.chgPct;
-            const cr = li?.cr ?? x.closingRangePct;
-            const offHi = li?.offHi ?? x.offHighPct;
-            const snapTip = li ? `Brief snapshot: ${num(x.price)} (${pct(x.chgPct, 2)})` : undefined;
-            return (
-              <div key={x.symbol} title={snapTip} style={{ minWidth: 130 }}>
-                <div style={{ fontSize: 11, color: A.textMuted }}>
-                  <Tk t={x.symbol} />
-                  {li && <span style={{ marginLeft: 5, fontSize: 9, color: A.green, fontFamily: "monospace" }}>LIVE</span>}
+        {brief.headline && <div style={{ fontSize: 16, fontWeight: 700, color: A.text, lineHeight: 1.35, marginBottom: collapsed ? 4 : 6 }}>{String(brief.headline)}</div>}
+        {(rg.posture || (collapsed && (inBuyCount > 0 || arr(brief.focusSetups).length > 0))) && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            {rg.posture && <div style={{ fontSize: 12, fontWeight: 700, color: /correction|defensive|risk off/i.test(rg.posture) ? A.red : A.green }}>{String(rg.posture)}</div>}
+            {collapsed && inBuyCount > 0 && (
+              <span style={{ fontSize: 10, fontWeight: 700, fontFamily: "monospace", fontVariantNumeric: "tabular-nums", padding: "1px 6px", borderRadius: 4, background: "rgba(34,197,94,0.16)", border: `1px solid ${A.green}`, color: A.green }}>
+                {inBuyCount} IN BUY ZONE
+              </span>
+            )}
+            {collapsed && arr(brief.focusSetups).length > 0 && (
+              <span style={{ fontSize: 10, fontWeight: 600, fontVariantNumeric: "tabular-nums", padding: "1px 6px", borderRadius: 4, border: `1px solid ${A.borderLight || A.border}`, color: A.textMuted }}>
+                {arr(brief.focusSetups).length} focus setups
+              </span>
+            )}
+          </div>
+        )}
+        {!collapsed && rg.note && <div style={{ fontSize: 11, color: A.textDim, marginTop: 3, lineHeight: 1.45 }}>{String(rg.note)}</div>}
+        {!collapsed && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginTop: 10, borderTop: `1px solid ${A.border}`, paddingTop: 10 }}>
+            {arr(rg.indexes).map((x) => {
+              const li = liveInfo(x.symbol);
+              const px = li?.px ?? x.price;
+              const chg = li?.chg ?? x.chgPct;
+              const cr = li?.cr ?? x.closingRangePct;
+              const offHi = li?.offHi ?? x.offHighPct;
+              const snapTip = li ? `Brief snapshot: ${num(x.price)} (${pct(x.chgPct, 2)})` : undefined;
+              return (
+                <div key={x.symbol} title={snapTip} style={{ minWidth: 130 }}>
+                  <div style={{ fontSize: 11, color: A.textMuted, display: "flex", alignItems: "center", gap: 4 }}>
+                    <Tk t={x.symbol} />
+                    {li && <span style={{ padding: "0 4px", borderRadius: 4, background: A.glowGreen, fontSize: 9, fontWeight: 700, color: A.green, fontFamily: "monospace" }}>LIVE</span>}
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: pc(chg), fontVariantNumeric: "tabular-nums" }}>
+                    {num(px)} <span style={{ fontSize: 11 }}>{pct(chg, 2)}</span>
+                  </div>
+                  <div style={{ fontSize: 10, color: A.textMuted, fontVariantNumeric: "tabular-nums" }}>
+                    off high {pct(offHi)} · CR {typeof cr === "number" ? `${cr.toFixed(0)}%` : "—"}
+                    {!li && typeof x.afterHours === "number" ? ` · AH ${num(x.afterHours)}` : ""}
+                  </div>
                 </div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: pc(chg), fontVariantNumeric: "tabular-nums" }}>
-                  {num(px)} <span style={{ fontSize: 11 }}>{pct(chg, 2)}</span>
-                </div>
-                <div style={{ fontSize: 10, color: A.textMuted }}>
-                  off high {pct(offHi)} · CR {typeof cr === "number" ? `${cr.toFixed(0)}%` : "—"}
-                  {!li && typeof x.afterHours === "number" ? ` · AH ${num(x.afterHours)}` : ""}
-                </div>
+              );
+            })}
+            {Object.keys(br).length > 0 && (
+              <div style={{ fontSize: 11, color: A.textDim, lineHeight: 1.6, fontVariantNumeric: "tabular-nums" }}>
+                <span style={{ color: A.green }}>{br.leadingLayers ?? "—"} leading</span> · <span style={{ color: A.cyan }}>{br.emergingLayers ?? "—"} emerging</span><br />
+                <span style={{ color: A.yellow }}>{br.weakeningLayers ?? "—"} weakening</span> · <span style={{ color: A.red }}>{br.breakingDownLayers ?? "—"} breaking down</span> · {br.laggingLayers ?? "—"} lagging
               </div>
-            );
-          })}
-          {Object.keys(br).length > 0 && (
-            <div style={{ fontSize: 11, color: A.textDim, lineHeight: 1.6 }}>
-              <span style={{ color: A.green }}>{br.leadingLayers ?? "—"} leading</span> · <span style={{ color: A.cyan }}>{br.emergingLayers ?? "—"} emerging</span><br />
-              <span style={{ color: A.yellow }}>{br.weakeningLayers ?? "—"} weakening</span> · <span style={{ color: A.red }}>{br.breakingDownLayers ?? "—"} breaking down</span> · {br.laggingLayers ?? "—"} lagging
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </Card>
 
-      {arr(brief.macroTape).length > 0 && (
+      {!collapsed && arr(brief.macroTape).length > 0 && (
         <Card A={A} title="Macro tape" sub={liveOn && mq ? "Live VIX / 10Y / Crude / DXY overlaid from /api/market-quality" : undefined}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
             {arr(brief.macroTape).map((m, i) => {
@@ -227,11 +283,11 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
               const chg = liveM?.change ?? m.change ?? "";
               return (
                 <div key={i} title={liveM ? `Brief snapshot: ${m.value} (${m.change})` : undefined}>
-                  <div style={{ fontSize: 10, color: A.textMuted }}>
-                    {String(m.name ?? "")}
-                    {liveM && <span style={{ marginLeft: 5, fontSize: 9, color: A.green, fontFamily: "monospace" }}>LIVE</span>}
+                  <div style={{ fontSize: 10, color: A.textMuted, display: "flex", alignItems: "center", gap: 4 }}>
+                    <span>{String(m.name ?? "")}</span>
+                    {liveM && <span style={{ padding: "0 4px", borderRadius: 4, background: A.glowGreen, fontSize: 9, fontWeight: 700, color: A.green, fontFamily: "monospace" }}>LIVE</span>}
                   </div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: A.text }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: A.text, fontVariantNumeric: "tabular-nums" }}>
                     {String(val)}{" "}
                     <span style={{ fontSize: 11, color: /^\+/.test(chg) ? A.green : /^-/.test(chg) ? A.red : A.textDim }}>{String(chg)}</span>
                   </div>
@@ -243,14 +299,14 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
         </Card>
       )}
 
-      {arr(brief.focusSetups).length > 0 && (
+      {!collapsed && arr(brief.focusSetups).length > 0 && (
         <Card
           A={A}
           title={
             <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
               <span>Focus setups</span>
               {inBuyCount > 0 && (
-                <span style={{ fontSize: 10, fontWeight: 800, fontFamily: "monospace", padding: "1px 7px", borderRadius: 999, background: "rgba(34,197,94,0.18)", border: `1px solid ${A.green}`, color: A.green }}>
+                <span style={{ fontSize: 10, fontWeight: 800, fontFamily: "monospace", fontVariantNumeric: "tabular-nums", padding: "1px 7px", borderRadius: 4, background: "rgba(34,197,94,0.18)", border: `1px solid ${A.green}`, color: A.green }}>
                   {inBuyCount} IN BUY ZONE
                 </span>
               )}
@@ -298,15 +354,26 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
                 const px = f._px;
                 const status = f._status;
                 const stColor = status ? toneColor(status.tone) : A.textMuted;
+                const isCharted = chartTicker === f.ticker;
                 const rowBg = status?.state === "buy_zone"
                   ? "rgba(34,197,94,0.08)"
                   : status?.state === "stopped"
                     ? "rgba(239,68,68,0.08)"
-                    : chartTicker === f.ticker
+                    : isCharted
                       ? A.bgHover
                       : "transparent";
                 return (
-                  <tr key={`${f.ticker}-${i}`} data-nav={f.ticker} onClick={() => onTicker(f.ticker)} style={{ cursor: "pointer", background: rowBg }}>
+                  <tr
+                    key={`${f.ticker}-${i}`}
+                    data-nav={f.ticker}
+                    className={isCharted ? "tp-click-row tp-row-active" : "tp-click-row"}
+                    onClick={() => onTicker(f.ticker)}
+                    style={{
+                      cursor: "pointer",
+                      background: rowBg,
+                      boxShadow: isCharted ? `inset 2px 0 0 ${A.green}` : "none",
+                    }}
+                  >
                     <td style={td()}><FlagButton t={f.ticker} A={A} /><Tk t={f.ticker} /><div style={{ fontSize: 10, color: A.textMuted }}>{String(f.company ?? "")}</div></td>
                     <td style={td()}>{String(f.layer ?? "")}<div style={{ fontSize: 10, color: A.textMuted }}>{String(f.theme ?? "")}</div></td>
                     <td style={{ ...td("right"), color: rsC(f.rs) }}>{f.rs ?? "—"}</td>
@@ -329,8 +396,9 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
                               fontSize: 9,
                               fontWeight: 800,
                               fontFamily: "monospace",
+                              fontVariantNumeric: "tabular-nums",
                               padding: "2px 6px",
-                              borderRadius: 3,
+                              borderRadius: 4,
                               background: status.tone === "muted" ? "transparent" : `${stColor}20`,
                               border: `1px solid ${status.tone === "muted" ? A.border : stColor}`,
                               color: stColor,
@@ -352,7 +420,7 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
         </Card>
       )}
 
-      {arr(brief.extendedMovers).length > 0 && (
+      {!collapsed && arr(brief.extendedMovers).length > 0 && (
         <Card A={A} title="Pre / after-market movers" sub={liveOn ? "Showing live intraday Chg% / Price / ZVR vs original brief gap" : undefined}>
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -381,8 +449,19 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
                 const li = m._li;
                 const chg = m._chg;
                 const px = m._px;
+                const isCharted = chartTicker === m.ticker;
                 return (
-                  <tr key={`${m.ticker}-${i}`} onClick={() => onTicker(m.ticker)} style={{ cursor: "pointer", background: chartTicker === m.ticker ? A.bgHover : "transparent" }}>
+                  <tr
+                    key={`${m.ticker}-${i}`}
+                    data-nav={m.ticker}
+                    className={isCharted ? "tp-click-row tp-row-active" : "tp-click-row"}
+                    onClick={() => onTicker(m.ticker)}
+                    style={{
+                      cursor: "pointer",
+                      background: isCharted ? A.bgHover : "transparent",
+                      boxShadow: isCharted ? `inset 2px 0 0 ${A.green}` : "none",
+                    }}
+                  >
                     <td style={td()}><FlagButton t={m.ticker} A={A} /><Tk t={m.ticker} /></td>
                     <td style={td()}>{String(m.session ?? "")}</td>
                     <td style={{ ...td("right"), color: pc(chg), fontWeight: li ? 700 : 400 }}>
@@ -406,7 +485,7 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
         </Card>
       )}
 
-      {arr(brief.breakdowns).length > 0 && (
+      {!collapsed && arr(brief.breakdowns).length > 0 && (
         <Card A={A} title="Breakdowns">
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -432,8 +511,19 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
               ).map((b, i) => {
                 const li = b._li;
                 const vs50 = b._vs50;
+                const isCharted = chartTicker === b.ticker;
                 return (
-                  <tr key={`${b.ticker}-${i}`} onClick={() => onTicker(b.ticker)} style={{ cursor: "pointer", background: chartTicker === b.ticker ? A.bgHover : "transparent" }}>
+                  <tr
+                    key={`${b.ticker}-${i}`}
+                    data-nav={b.ticker}
+                    className={isCharted ? "tp-click-row tp-row-active" : "tp-click-row"}
+                    onClick={() => onTicker(b.ticker)}
+                    style={{
+                      cursor: "pointer",
+                      background: isCharted ? A.bgHover : "transparent",
+                      boxShadow: isCharted ? `inset 2px 0 0 ${A.green}` : "none",
+                    }}
+                  >
                     <td style={td()}><FlagButton t={b.ticker} A={A} /><Tk t={b.ticker} /></td>
                     <td style={td()}>{String(b.layer ?? "")}</td>
                     {liveOn && <td style={{ ...td("right"), color: pc(li?.chg), fontWeight: 700 }}>{pct(li?.chg, 2)}</td>}
@@ -448,14 +538,14 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
         </Card>
       )}
 
-      {(arr(brief.radar).length > 0 || Object.keys(st).length > 0) && (
+      {!collapsed && (arr(brief.radar).length > 0 || Object.keys(st).length > 0) && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
           {arr(brief.radar).length > 0 && (
             <div style={{ flex: "1 1 300px", minWidth: 0 }}>
               <Card A={A} title="Radar">
                 {arr(brief.radar).map((r, i) => (
                   <div key={i} style={{ display: "flex", gap: 10, fontSize: 11, padding: "4px 0", borderBottom: `1px solid ${A.border}` }}>
-                    <span style={{ color: A.cyan, fontFamily: "monospace", whiteSpace: "nowrap" }}>{String(r.date ?? "")}</span>
+                    <span style={{ color: A.cyan, fontFamily: "monospace", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{String(r.date ?? "")}</span>
                     <span style={{ color: A.text }}>{String(r.event ?? "")}</span>
                   </div>
                 ))}
@@ -485,19 +575,132 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
 function BriefPanel(props) {
   const { A } = props;
   const [mode, setMode] = useState("written");
+  const [activeSec, setActiveSec] = useState("sec-written");
+
+  const jumpSections = useMemo(() => [
+    { id: "sec-written", label: mode === "live" ? "Live Brief" : "Written" },
+    { id: "sec-breadth", label: "Breadth" },
+    { id: "sec-portfolio", label: "Portfolio" },
+    { id: "sec-breakouts", label: "Breakouts" },
+    { id: "sec-followthrough", label: "Follow-Through" },
+  ], [mode]);
+
+  useEffect(() => {
+    let raf = 0;
+    const updateActive = () => {
+      raf = 0;
+      const threshold = 116;
+      let current = "sec-written";
+      for (const s of jumpSections) {
+        const el = document.getElementById(s.id);
+        if (!el) continue;
+        if (el.getBoundingClientRect().top <= threshold) current = s.id;
+      }
+      setActiveSec((prev) => (prev === current ? prev : current));
+    };
+    const onScroll = () => {
+      if (!raf) raf = window.requestAnimationFrame(updateActive);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    updateActive();
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (raf) window.cancelAnimationFrame(raf);
+    };
+  }, [jumpSections]);
+
+  const scrollToSec = (id) => {
+    setActiveSec(id);
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   const modeSwitch = (
-    <div style={{ display: "inline-flex", border: `1px solid ${A.border}`, borderRadius: 4, overflow: "hidden" }}>
-      {[["written", "Written"], ["live", "Live"]].map(([k, l]) => (
-        <button key={k} onClick={() => setMode(k)} style={{ background: mode === k ? A.border : "transparent", color: mode === k ? A.text : A.textMuted,
-          border: "none", padding: "2px 10px", fontSize: 11, cursor: "pointer" }}>{l}</button>
-      ))}
+    <div style={{ display: "inline-flex", border: `1px solid ${A.borderLight || A.border}`, borderRadius: 6, overflow: "hidden", background: A.bgRow }}>
+      {[["written", "Written"], ["live", "Live"]].map(([k, l]) => {
+        const active = mode === k;
+        return (
+          <button
+            key={k}
+            type="button"
+            onClick={() => setMode(k)}
+            style={{
+              background: active ? A.bgHover : "transparent",
+              color: active ? A.text : A.textMuted,
+              border: "none",
+              padding: "3px 10px",
+              fontSize: 11,
+              fontWeight: active ? 700 : 500,
+              cursor: "pointer",
+              transition: "background 0.15s, color 0.15s",
+            }}
+          >
+            {l}
+          </button>
+        );
+      })}
     </div>
   );
+
   return (
     <>
-      {mode === "written"
-        ? <WrittenBrief A={A} stockMap={props.stockMap} onTicker={props.onTicker} chartTicker={props.chartTicker} modeSwitch={modeSwitch} />
-        : <LiveBrief {...props} modeSwitch={modeSwitch} />}
+      <div
+        role="navigation"
+        aria-label="Brief sections"
+        style={{
+          position: "sticky",
+          top: 48,
+          zIndex: 20,
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "6px 10px",
+          marginBottom: 10,
+          background: A.bgCard,
+          backdropFilter: "blur(10px)",
+          WebkitBackdropFilter: "blur(10px)",
+          border: `1px solid ${A.border}`,
+          borderBottom: `1px solid ${A.borderLight || A.border}`,
+          borderRadius: 8,
+          boxShadow: A.shadow,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 4, overflowX: "auto", flexWrap: "nowrap", minWidth: 0 }}>
+          {jumpSections.map((s) => {
+            const active = activeSec === s.id;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => scrollToSec(s.id)}
+                style={{
+                  background: active ? A.glowGreen : "transparent",
+                  border: `1px solid ${active ? A.green : "transparent"}`,
+                  color: active ? A.green : A.textDim,
+                  borderRadius: 6,
+                  padding: "3px 9px",
+                  fontSize: 11,
+                  fontWeight: active ? 700 : 600,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
+                  fontVariantNumeric: "tabular-nums",
+                  transition: "background 0.15s, border-color 0.15s, color 0.15s",
+                }}
+              >
+                {s.label}
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ marginLeft: "auto", flexShrink: 0 }}>
+          {modeSwitch}
+        </div>
+      </div>
+      <div id="sec-written" style={{ scrollMarginTop: 96 }}>
+        {mode === "written"
+          ? <WrittenBrief A={A} stockMap={props.stockMap} onTicker={props.onTicker} chartTicker={props.chartTicker} />
+          : <LiveBrief {...props} />}
+      </div>
       <ZangerBriefSection
         A={A}
         stockMap={props.stockMap}
@@ -620,7 +823,7 @@ function LiveBrief({ A, themes, layers, stockMap, tickerLayer, members, brk, pip
             <tbody>
               {strongest.map(({ t, rows, leading }) => (
                 <React.Fragment key={t.themeId}>
-                  <tr onClick={() => onTheme(t.themeId)} style={{ cursor: "pointer" }} title="Show every stock in this theme">
+                  <tr className="tp-click-row" onClick={() => onTheme(t.themeId)} style={{ cursor: "pointer" }} title="Show every stock in this theme">
                     <td colSpan={7} style={{ ...td(A), paddingTop: 10, color: A.text, fontWeight: 700, borderBottom: `1px solid ${A.textDim}` }}>
                       {t.theme} <span style={{ color: statusColor(t.st, A) }}>{Math.round(t.now)}</span>
                       <span style={{ color: A.textMuted, fontWeight: 400, fontSize: 11 }}> · {leading} of {t.layers.length} layers leading · 1m <Delta v={t.now - t.m1} A={A} /></span>
@@ -628,8 +831,19 @@ function LiveBrief({ A, themes, layers, stockMap, tickerLayer, members, brk, pip
                   </tr>
                   {rows.length ? rows.map((s) => {
                     const L = tickerLayer[s.ticker];
+                    const isCharted = chartTicker === s.ticker;
                     return (
-                      <tr key={s.ticker} data-nav={s.ticker} onClick={() => onTicker(s.ticker)} style={{ cursor: "pointer", background: chartTicker === s.ticker ? A.bgHover : "transparent" }}>
+                      <tr
+                        key={s.ticker}
+                        data-nav={s.ticker}
+                        className={isCharted ? "tp-click-row tp-row-active" : "tp-click-row"}
+                        onClick={() => onTicker(s.ticker)}
+                        style={{
+                          cursor: "pointer",
+                          background: isCharted ? A.bgHover : "transparent",
+                          boxShadow: isCharted ? `inset 2px 0 0 ${A.green}` : "none",
+                        }}
+                      >
                         <td style={td(A)}><FlagButton t={s.ticker} A={A} /><Tk t={s.ticker} /></td>
                         <td style={{ ...td(A), fontSize: 11 }}><LayerLink r={{ t: s.ticker, layer: L?.name, layerSt: L?.st }} A={A} onLayer={layerOfTicker} /></td>
                         <td style={{ ...td(A, "right"), color: rsC(s.rs_rank), fontWeight: 700 }}>{s.rs_rank}</td>
@@ -671,12 +885,12 @@ function LiveBrief({ A, themes, layers, stockMap, tickerLayer, members, brk, pip
                   <span style={{ color: open ? c : A.textMuted, fontSize: 10, marginRight: 5, fontFamily: "monospace" }}>{open ? "▾" : "▸"}</span>
                   {l.name} <span style={{ color: A.textMuted, fontWeight: 400, fontSize: 10 }}>{l.theme}</span>
                 </span>
-                <span style={{ fontSize: 11, color: c, fontWeight: 700, minWidth: 70 }}>{l.now} <span style={{ color: A.textMuted, fontWeight: 400 }}>1m</span> <Delta v={l.now - l.m1} A={A} /></span>
-                <span style={{ fontSize: 10, fontWeight: 700, padding: "0 5px", borderRadius: 3, border: `1px solid ${ok ? A.green : A.textMuted}`, color: ok ? A.green : A.textMuted }}>
+                <span style={{ fontSize: 11, color: c, fontWeight: 700, minWidth: 70, fontVariantNumeric: "tabular-nums" }}>{l.now} <span style={{ color: A.textMuted, fontWeight: 400 }}>1m</span> <Delta v={l.now - l.m1} A={A} /></span>
+                <span style={{ fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 4, border: `1px solid ${ok ? A.green : A.textMuted}`, color: ok ? A.green : A.textMuted }}>
                   {cf ? (ok ? "confirmed" : "unconfirmed") : "no volume data"}
                 </span>
                 {cf?.passed.length ? <span style={{ fontSize: 10, color: A.textMuted }}>{cf.passed.map((k) => CONF_LABEL[k]).join(" · ")}</span> : null}
-                <span style={{ fontSize: 11, marginLeft: "auto" }}>
+                <span style={{ fontSize: 11, marginLeft: "auto", fontVariantNumeric: "tabular-nums" }}>
                   {names.map((s) => <span key={s.ticker} style={{ marginLeft: 8 }}><Tk t={s.ticker} /> <span style={{ color: rsC(s.rs_rank), fontSize: 10 }}>{s.rs_rank}</span></span>)}
                 </span>
               </div>
@@ -704,7 +918,7 @@ function LiveBrief({ A, themes, layers, stockMap, tickerLayer, members, brk, pip
                       <span style={{ color: open ? c : A.textMuted, fontSize: 10, marginRight: 5, fontFamily: "monospace" }}>{open ? "▾" : "▸"}</span>
                       {l.name} <span style={{ color: A.textMuted, fontWeight: 400, fontSize: 10 }}>{l.theme}</span>
                     </span>
-                    <span style={{ fontSize: 11, color: A.red, fontWeight: 700 }}>{l.conf.lx} out</span>
+                    <span style={{ fontSize: 11, color: A.red, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{l.conf.lx} out</span>
                     <span style={{ fontSize: 11 }}>{l.conf.lxT.slice(0, 10).map((t) => <span key={t} style={{ marginRight: 8 }}><Tk t={t} /></span>)}</span>
                   </div>
                   {open && (

@@ -64,6 +64,48 @@ const fmtVol = (v) => {
   return String(Math.round(v));
 };
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function formatSnapLabel(b) {
+  if (!b) return "";
+  const raw = String(b.label || b.et || b.id || "");
+  const countStr = `(${b.breakoutCount ?? 0} BO)`;
+
+  const dateSrc = String(b.date || b.et || raw);
+  const dateMatch = dateSrc.match(/(\d{4})-(\d{2})-(\d{2})/);
+  let datePart = "";
+  if (dateMatch) {
+    const mon = MONTHS[Number(dateMatch[2]) - 1];
+    const day = Number(dateMatch[3]);
+    if (mon && day) datePart = `${mon} ${day}`;
+  }
+
+  const timeSrc = String(b.et || raw);
+  const timeMatch = timeSrc.match(/(\d{1,2}:\d{2})(?:\s*ET)?/i);
+  const timePart = timeMatch ? `${timeMatch[1]} ET` : "";
+
+  const phaseRaw = String(b.phase || (raw.includes("·") ? raw.split("·").slice(1).join("·") : ""))
+    .trim()
+    .toUpperCase();
+  let phasePart = "";
+  if (phaseRaw.includes("PRE-MARKET") || phaseRaw.includes("PREMARKET") || phaseRaw === "PRE") {
+    phasePart = "Pre";
+  } else if (phaseRaw.includes("OPEN")) {
+    phasePart = "Open";
+  } else if (phaseRaw.includes("POWER")) {
+    phasePart = "Power Hr";
+  } else if (phaseRaw.includes("CLOSE") || phaseRaw.includes("CLOSING")) {
+    phasePart = "Close";
+  } else if (phaseRaw.includes("MIDDAY") || phaseRaw.includes("INTRADAY")) {
+    phasePart = "Midday";
+  } else if (phaseRaw) {
+    phasePart = phaseRaw.length > 12 ? phaseRaw.slice(0, 12).trim() : phaseRaw;
+  }
+
+  const head = [datePart, timePart, phasePart].filter(Boolean).join(" · ");
+  return head ? `${head} ${countStr}` : `${raw} ${countStr}`;
+}
+
 function ZvrMeter({ zvr, A }) {
   if (zvr == null) return <span style={{ color: A.textMuted }}>—</span>;
   const pct = Math.min(100, Math.round((zvr / 3.5) * 100));
@@ -135,6 +177,21 @@ export default function ZangerBriefSection({
   const [minRs, setMinRs] = useState(70);
   const [epsOnly, setEpsOnly] = useState(false);
   const [cleanOnly, setCleanOnly] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [extrasOpen, setExtrasOpen] = useState(() => {
+    try {
+      return localStorage.getItem("tp-brief-extras-open") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const toggleExtras = () => {
+    setExtrasOpen((prev) => {
+      const next = !prev;
+      try { localStorage.setItem("tp-brief-extras-open", next ? "1" : "0"); } catch { /* ignore */ }
+      return next;
+    });
+  };
   const [moverSort, setMoverSort] = useState(() => (catTab === "leaders" || catTab === "rsl" ? { k: "rs", d: -1 } : { k: "score", d: -1 }));
   const [flowSort, setFlowSort] = useState({ k: "avgChg", d: -1 });
   const [portSort, setPortSort] = useState({ k: "list", d: 1 });
@@ -404,7 +461,7 @@ export default function ZangerBriefSection({
           background: liveOn ? "rgba(34,197,94,0.14)" : "transparent",
           border: `1px solid ${liveOn ? A.green : A.border}`,
           color: liveOn ? A.green : A.textMuted,
-          borderRadius: 4,
+          borderRadius: 6,
           padding: "2px 8px",
           fontSize: 10,
           fontWeight: 700,
@@ -423,16 +480,16 @@ export default function ZangerBriefSection({
             background: A.bg,
             color: A.text,
             border: `1px solid ${A.border}`,
-            borderRadius: 4,
+            borderRadius: 6,
             fontSize: 11,
-            padding: "2px 6px",
-            maxWidth: 270,
+            padding: "2px 8px",
+            maxWidth: 280,
             fontFamily: "monospace",
           }}
         >
           {index.map((b) => (
             <option key={b.id || b.file} value={b.file}>
-              {b.label || b.et || b.id} ({b.breakoutCount ?? 0} BO)
+              {formatSnapLabel(b)}
             </option>
           ))}
         </select>
@@ -460,18 +517,22 @@ export default function ZangerBriefSection({
 
   if (err && !snap && !liveComputed) {
     return (
-      <Card A={A} title="Market Breadth & Leadership Briefing" sub="Auto-updated hourly during market hours + live intraday overlay" right={picker}>
-        <div style={{ fontSize: 11, color: A.textMuted }}>{err}</div>
-        {breadthEmbedded}
-      </Card>
+      <div id="sec-breadth" style={{ scrollMarginTop: 96 }}>
+        <Card A={A} title="Market Breadth & Leadership Briefing" sub="Auto-updated hourly during market hours + live intraday overlay" right={picker}>
+          <div style={{ fontSize: 11, color: A.textMuted }}>{err}</div>
+          {breadthEmbedded}
+        </Card>
+      </div>
     );
   }
   if (!snap && !liveComputed) {
     return (
-      <Card A={A} title="Market Breadth & Leadership Briefing" right={picker}>
-        <div style={{ fontSize: 11, color: A.textMuted }}>Loading latest Zanger briefing…</div>
-        {breadthEmbedded}
-      </Card>
+      <div id="sec-breadth" style={{ scrollMarginTop: 96 }}>
+        <Card A={A} title="Market Breadth & Leadership Briefing" right={picker}>
+          <div style={{ fontSize: 11, color: A.textMuted }}>Loading latest Zanger briefing…</div>
+          {breadthEmbedded}
+        </Card>
+      </div>
     );
   }
 
@@ -532,12 +593,13 @@ export default function ZangerBriefSection({
     border: `1px solid ${active ? (accent || A.green) : A.border}`,
     color: active ? (accent || A.green) : A.textDim,
     padding: "2px 7px",
-    borderRadius: 4,
+    borderRadius: 6,
     cursor: "pointer",
     fontFamily: "monospace",
     fontSize: 10,
     fontWeight: active ? 700 : 500,
     whiteSpace: "nowrap",
+    flexShrink: 0,
   });
   const pickCatTab = (t) => {
     setCatTab(t);
@@ -593,8 +655,6 @@ export default function ZangerBriefSection({
   const headlines = snap?.headlines || {};
   const warnLayers = (layers || []).filter((l) => l.st === "lead" && (l.flags || []).some(([k]) => k === "distrib" || k === "exiting"));
 
-  const boTickers = bos.map((m) => m.ticker);
-  const allMoverTickers = movers.map((m) => m.ticker);
   const onDeckTickers = onDeck.map((r) => r.ticker);
 
   const cmpSort = (a, b, { k, d }, getVal, tie = (x) => x.ticker || x.theme || "") => {
@@ -683,12 +743,25 @@ export default function ZangerBriefSection({
     cmpSort(a, b, flowSort, (r, k) => r[k], (r) => r.theme)
   );
 
+  const showZvrFilter = catTab === "bo" || catTab === "zanger";
+  const activeFilterCount =
+    (showZvrFilter && minZvr > 1.0 ? 1 : 0) +
+    (minRs > 70 ? 1 : 0) +
+    (epsOnly ? 1 : 0) +
+    (cleanOnly ? 1 : 0);
+  const resetSecondaryFilters = () => {
+    setMinZvr(1.0);
+    setMinRs(70);
+    setEpsOnly(false);
+    setCleanOnly(false);
+  };
+
   const EpCard = epMovers.length > 0 ? (
     <Card A={A} title="EP / Gap-and-Go Movers" sub="High-momentum catalyst gaps ≥ +3%">
       <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
         {epMovers.map((e) => (
           <div key={e.ticker} style={{ fontSize: 11, display: "flex", gap: 6, alignItems: "baseline", flexWrap: "wrap", borderBottom: `1px solid ${A.border}`, paddingBottom: 4 }}>
-            <span style={{ fontSize: 9, fontWeight: 800, fontFamily: "monospace", padding: "1px 5px", borderRadius: 3, background: e.category === "LAVA" ? "rgba(239,68,68,0.18)" : "rgba(245,158,11,0.18)", color: e.category === "LAVA" ? A.red : "#f59e0b" }}>
+            <span style={{ fontSize: 9, fontWeight: 800, fontFamily: "monospace", padding: "1px 5px", borderRadius: 4, background: e.category === "LAVA" ? "rgba(239,68,68,0.18)" : "rgba(245,158,11,0.18)", color: e.category === "LAVA" ? A.red : "#f59e0b" }}>
               {e.category}
             </span>
             <Tk t={e.ticker} />
@@ -704,13 +777,14 @@ export default function ZangerBriefSection({
   return (
     <div>
       {/* Unified Market Breadth & Leadership Briefing */}
+      <div id="sec-breadth" style={{ scrollMarginTop: 96 }}>
       <Card
         A={A}
         title={
           <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <span>Market Breadth &amp; Leadership Briefing</span>
             {dec && (
-              <span style={{ fontSize: 9, fontWeight: 800, fontFamily: "monospace", padding: "2px 7px", borderRadius: 999, background: `${decColor}22`, border: `1px solid ${decColor}`, color: decColor }}>
+              <span style={{ fontSize: 9, fontWeight: 800, fontFamily: "monospace", padding: "2px 7px", borderRadius: 4, background: `${decColor}22`, border: `1px solid ${decColor}`, color: decColor }}>
                 {dec}{mktScore != null ? ` · ${mktScore}/100` : ""}{posSize ? ` · ${posSize}` : ""}
               </span>
             )}
@@ -840,10 +914,11 @@ export default function ZangerBriefSection({
         {/* Embedded Market Breadth, Stages, Themes/Layers & Market Gate */}
         {breadthEmbedded}
       </Card>
+      </div>
 
       {/* Portfolio & Watchlist Pulse + Upcoming 10d Earnings */}
       {(showPortPulse || portEarnings.length > 0) && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 10 }}>
+        <div id="sec-portfolio" style={{ scrollMarginTop: 96, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 10 }}>
           {showPortPulse && (
             <Card
               A={A}
@@ -857,7 +932,7 @@ export default function ZangerBriefSection({
                         fontWeight: 800,
                         fontFamily: "monospace",
                         padding: "1px 5px",
-                        borderRadius: 3,
+                        borderRadius: 4,
                         background: "rgba(34,197,94,0.14)",
                         border: `1px solid ${A.green}66`,
                         color: A.green,
@@ -914,8 +989,13 @@ export default function ZangerBriefSection({
                         <tr
                           key={a.ticker}
                           data-nav={a.ticker}
+                          className="tp-click-row"
                           onClick={() => onTicker && onTicker(a.ticker)}
-                          style={{ cursor: "pointer", background: chartTicker === a.ticker ? A.bgHover : "transparent" }}
+                          style={{
+                            cursor: "pointer",
+                            background: chartTicker === a.ticker ? A.bgHover : "transparent",
+                            boxShadow: chartTicker === a.ticker ? `inset 2px 0 0 ${A.green}` : "none",
+                          }}
                         >
                           <td style={{ ...td(A), fontSize: 10, fontFamily: "monospace", fontWeight: 700, color: a.list === "PORT" ? A.green : A.cyan }}>
                             {a.inPf && a.inWl ? "PF·WL" : a.list === "PORT" ? "PF" : "WL"}
@@ -932,7 +1012,7 @@ export default function ZangerBriefSection({
                           <td style={{ ...td(A), fontSize: 10 }}>
                             {(a.tags || []).length > 0 ? (
                               a.tags.map((t, i) => (
-                                <span key={i} style={{ marginRight: 4, padding: "1px 5px", borderRadius: 3, fontWeight: 700, color: t.tone === "bad" ? A.red : t.tone === "warn" ? "#f59e0b" : A.green, background: A.bg, border: `1px solid ${A.border}` }}>
+                                <span key={i} style={{ marginRight: 4, padding: "1px 5px", borderRadius: 4, fontWeight: 700, color: t.tone === "bad" ? A.red : t.tone === "warn" ? "#f59e0b" : A.green, background: A.bg, border: `1px solid ${A.border}` }}>
                                   {t.label}
                                 </span>
                               ))
@@ -969,6 +1049,7 @@ export default function ZangerBriefSection({
       {(ph.id === "premarket" || ph.id === "open") && EpCard}
 
       {/* Breakouts & Volume Movers Table */}
+      <div id="sec-breakouts" style={{ scrollMarginTop: 96 }}>
       <Card
         A={A}
         title="Breakouts & Intraday Volume Movers"
@@ -1028,10 +1109,24 @@ export default function ZangerBriefSection({
           />
         ) : (
         <>
-        {/* Leading & Emerging Themes Filter Strip */}
+        {/* Leading & Emerging Themes Filter Strip (single-row horizontal scroll) */}
         {(topThemes.length > 0 || extraThemeChip) && (
-          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 5, marginBottom: 8, padding: "6px 8px", background: A.bg, border: `1px solid ${A.border}`, borderRadius: 6 }}>
-            <span style={{ fontSize: 9, fontWeight: 700, color: A.textMuted, fontFamily: "monospace", letterSpacing: 0.5, marginRight: 2 }}>THEMES</span>
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "nowrap",
+              alignItems: "center",
+              gap: 5,
+              overflowX: "auto",
+              scrollbarWidth: "thin",
+              marginBottom: 8,
+              padding: "5px 8px",
+              background: A.bg,
+              border: `1px solid ${A.border}`,
+              borderRadius: 6,
+            }}
+          >
+            <span style={{ fontSize: 9, fontWeight: 700, color: A.textMuted, fontFamily: "monospace", letterSpacing: 0.5, marginRight: 2, flexShrink: 0 }}>THEMES</span>
             <button onClick={() => setThemeFilter(null)} style={chipStyle(!themeFilter, A.green)}>All</button>
             {topThemes.map((t) => {
               const active = themeFilter === t.theme;
@@ -1057,55 +1152,102 @@ export default function ZangerBriefSection({
           </div>
         )}
 
-        {/* Sub-filters: Breakout type, ZVR, RS, EPS, Clean layers */}
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, marginBottom: 8, paddingBottom: 8, borderBottom: `1px solid ${A.border}` }}>
-          {(catTab === "bo" || catTab === "zanger") && (
-            <div style={{ display: "inline-flex", flexWrap: "wrap", alignItems: "center", gap: 4 }}>
-              <span style={{ fontSize: 9, color: A.textMuted, fontFamily: "monospace" }}>TYPE</span>
-              <button onClick={() => setBoFilter(null)} style={chipStyle(!boFilter, A.green)}>All</button>
-              {BO_KEYS.map((k) => {
-                const bm = BO_META[k];
-                return (
-                  <button key={k} onClick={() => setBoFilter(boFilter === k ? null : k)} title={bm.tip} style={chipStyle(boFilter === k, bm.color)}>
-                    {bm.label} <span style={{ opacity: 0.75 }}>{boTypeCounts[k]}</span>
-                  </button>
-                );
-              })}
-              <span style={{ color: A.border, fontSize: 10, userSelect: "none" }}>+</span>
+        {/* Sub-filters: TYPE + 9M directly visible, secondary filters tucked behind Filters toggle */}
+        <div style={{ marginBottom: 8, paddingBottom: 8, borderBottom: `1px solid ${A.border}` }}>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
+            {showZvrFilter ? (
+              <div style={{ display: "inline-flex", flexWrap: "wrap", alignItems: "center", gap: 4 }}>
+                <span style={{ fontSize: 9, color: A.textMuted, fontFamily: "monospace" }}>TYPE</span>
+                <button onClick={() => setBoFilter(null)} style={chipStyle(!boFilter, A.green)}>All</button>
+                {BO_KEYS.map((k) => {
+                  const bm = BO_META[k];
+                  return (
+                    <button key={k} onClick={() => setBoFilter(boFilter === k ? null : k)} title={bm.tip} style={chipStyle(boFilter === k, bm.color)}>
+                      {bm.label} <span style={{ opacity: 0.75 }}>{boTypeCounts[k]}</span>
+                    </button>
+                  );
+                })}
+                <span style={{ color: A.border, fontSize: 10, userSelect: "none" }}>+</span>
+                <button
+                  onClick={() => setOnly9M((v) => !v)}
+                  title="Secondary filter: ≥ 8.9M shares traded on the day (combines with ZNG / 4% / $BO / QMAG)"
+                  style={chipStyle(only9M, "#f97316")}
+                >
+                  9M <span style={{ opacity: 0.75 }}>{count9M}</span>
+                </button>
+              </div>
+            ) : (
               <button
                 onClick={() => setOnly9M((v) => !v)}
-                title="Secondary filter: ≥ 8.9M shares traded on the day (combines with ZNG / 4% / $BO / QMAG)"
+                title="Secondary filter: ≥ 8.9M shares traded on the day"
                 style={chipStyle(only9M, "#f97316")}
               >
                 9M <span style={{ opacity: 0.75 }}>{count9M}</span>
               </button>
+            )}
+            <div style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6 }}>
+              {filtersOpen && activeFilterCount > 0 && (
+                <button
+                  type="button"
+                  onClick={resetSecondaryFilters}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: A.textMuted,
+                    fontSize: 10,
+                    fontFamily: "monospace",
+                    textDecoration: "underline",
+                    cursor: "pointer",
+                    padding: "1px 4px",
+                  }}
+                >
+                  Reset
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setFiltersOpen((v) => !v)}
+                aria-expanded={filtersOpen}
+                title="Toggle ZVR, RS, EPS and Clean layers filters"
+                style={chipStyle(filtersOpen || activeFilterCount > 0, activeFilterCount > 0 ? A.cyan : A.text)}
+              >
+                Filters{activeFilterCount > 0 ? ` · ${activeFilterCount}` : ""} {filtersOpen ? "▴" : "▾"}
+              </button>
             </div>
-          )}
-          {catTab !== "bo" && catTab !== "zanger" && (
-            <button
-              onClick={() => setOnly9M((v) => !v)}
-              title="Secondary filter: ≥ 8.9M shares traded on the day"
-              style={chipStyle(only9M, "#f97316")}
-            >
-              9M <span style={{ opacity: 0.75 }}>{count9M}</span>
-            </button>
-          )}
-          {(catTab === "bo" || catTab === "zanger") && (
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-              <span style={{ fontSize: 9, color: A.textMuted, fontFamily: "monospace" }}>ZVR</span>
-              {[1.0, 1.5, 2.0, 2.5].map((v) => (
-                <button key={v} onClick={() => setMinZvr(v)} style={chipStyle(minZvr === v, "#fbbf24")}>{v === 1.0 ? "Any" : `≥${v.toFixed(1)}x`}</button>
-              ))}
-            </div>
-          )}
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-            <span style={{ fontSize: 9, color: A.textMuted, fontFamily: "monospace" }}>RS</span>
-            {[70, 80, 90].map((v) => (
-              <button key={v} onClick={() => setMinRs(v)} style={chipStyle(minRs === v, A.cyan)}>≥{v}</button>
-            ))}
           </div>
-          <button onClick={() => setEpsOnly((v) => !v)} style={chipStyle(epsOnly, A.green)} title="Require O'Neil EPS Rating ≥ 50">EPS ≥ 50</button>
-          <button onClick={() => setCleanOnly((v) => !v)} style={chipStyle(cleanOnly, A.green)} title="Hide layers with distribution or exiting-leader warnings">Clean layers</button>
+
+          {filtersOpen && (
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                alignItems: "center",
+                gap: 8,
+                marginTop: 7,
+                padding: "6px 8px",
+                background: A.bg,
+                border: `1px solid ${A.border}`,
+                borderRadius: 6,
+              }}
+            >
+              {showZvrFilter && (
+                <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ fontSize: 9, color: A.textMuted, fontFamily: "monospace" }}>ZVR</span>
+                  {[1.0, 1.5, 2.0, 2.5].map((v) => (
+                    <button key={v} onClick={() => setMinZvr(v)} style={chipStyle(minZvr === v, "#fbbf24")}>{v === 1.0 ? "Any" : `≥${v.toFixed(1)}x`}</button>
+                  ))}
+                </div>
+              )}
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                <span style={{ fontSize: 9, color: A.textMuted, fontFamily: "monospace" }}>RS</span>
+                {[70, 80, 90].map((v) => (
+                  <button key={v} onClick={() => setMinRs(v)} style={chipStyle(minRs === v, A.cyan)}>≥{v}</button>
+                ))}
+              </div>
+              <button onClick={() => setEpsOnly((v) => !v)} style={chipStyle(epsOnly, A.green)} title="Require O'Neil EPS Rating ≥ 50">EPS ≥ 50</button>
+              <button onClick={() => setCleanOnly((v) => !v)} style={chipStyle(cleanOnly, A.green)} title="Hide layers with distribution or exiting-leader warnings">Clean layers</button>
+            </div>
+          )}
         </div>
 
         {sortedMovers.length === 0 ? (
@@ -1162,28 +1304,33 @@ export default function ZangerBriefSection({
                   <tr
                     key={m.ticker}
                     data-nav={m.ticker}
+                    className="tp-click-row"
                     onClick={() => onTicker && onTicker(m.ticker)}
-                    style={{ cursor: "pointer", background: chartTicker === m.ticker ? A.bgHover : m.isNew ? "rgba(56,189,248,0.06)" : "transparent" }}
+                    style={{
+                      cursor: "pointer",
+                      background: chartTicker === m.ticker ? A.bgHover : m.isNew ? "rgba(56,189,248,0.06)" : "transparent",
+                      boxShadow: chartTicker === m.ticker ? `inset 2px 0 0 ${A.green}` : "none",
+                    }}
                   >
                     <td style={td(A)}>
                       <span style={{ display: "inline-flex", gap: 3, flexWrap: "wrap" }}>
                         {m.isNew && (
-                          <span style={{ fontSize: 9, fontWeight: 800, fontFamily: "monospace", padding: "1px 4px", borderRadius: 3, background: "rgba(56,189,248,0.2)", color: A.cyan, border: `1px solid ${A.cyan}` }}>NEW</span>
+                          <span style={{ fontSize: 9, fontWeight: 800, fontFamily: "monospace", padding: "1px 4px", borderRadius: 4, background: "rgba(56,189,248,0.2)", color: A.cyan, border: `1px solid ${A.cyan}` }}>NEW</span>
                         )}
                         {m.breakoutTypes?.length ? m.breakoutTypes.map((k) => {
                           const c = BO_COLORS[k] || "#fbbf24";
                           return (
-                            <span key={k} style={{ fontSize: 9, fontWeight: 700, fontFamily: "monospace", padding: "1px 4px", borderRadius: 3, background: `${c}20`, color: c, border: `1px solid ${c}66` }}>{k}</span>
+                            <span key={k} style={{ fontSize: 9, fontWeight: 700, fontFamily: "monospace", padding: "1px 4px", borderRadius: 4, background: `${c}20`, color: c, border: `1px solid ${c}66` }}>{k}</span>
                           );
                         }) : (
-                          <span style={{ fontSize: 9, fontWeight: 700, fontFamily: "monospace", padding: "1px 4px", borderRadius: 3, background: m.rsl ? "rgba(56,189,248,0.16)" : m.qualifiesZanger ? "rgba(34,197,94,0.16)" : "transparent", color: m.rsl ? A.cyan : m.qualifiesZanger ? A.green : A.textDim, border: m.rsl || m.qualifiesZanger ? "none" : `1px solid ${A.border}` }}>
+                          <span style={{ fontSize: 9, fontWeight: 700, fontFamily: "monospace", padding: "1px 4px", borderRadius: 4, background: m.rsl ? "rgba(56,189,248,0.16)" : m.qualifiesZanger ? "rgba(34,197,94,0.16)" : "transparent", color: m.rsl ? A.cyan : m.qualifiesZanger ? A.green : A.textDim, border: m.rsl || m.qualifiesZanger ? "none" : `1px solid ${A.border}` }}>
                             {m.rsl ? "RSL" : m.qualifiesZanger ? "VOL" : "LEAD"}
                           </span>
                         )}
                         {isRow9M(m) && (
                           <span
                             title={`${fmtVol(getRowVol(m))} shares traded today (≥ 8.9M)`}
-                            style={{ fontSize: 9, fontWeight: 800, fontFamily: "monospace", padding: "1px 4px", borderRadius: 3, background: "rgba(249,115,22,0.18)", color: "#f97316", border: "1px solid rgba(249,115,22,0.6)" }}
+                            style={{ fontSize: 9, fontWeight: 800, fontFamily: "monospace", padding: "1px 4px", borderRadius: 4, background: "rgba(249,115,22,0.18)", color: "#f97316", border: "1px solid rgba(249,115,22,0.6)" }}
                           >
                             9M
                           </span>
@@ -1197,7 +1344,7 @@ export default function ZangerBriefSection({
                         <TierMark t={m.ticker} />
                         <RslDot tip={m.rslTip} A={A} />
                         {m.earningsDays != null && m.earningsDays >= 0 && m.earningsDays <= 5 && (
-                          <span title={m.earningsDisplay || ""} style={{ marginLeft: 3, fontSize: 9, fontWeight: 700, fontFamily: "monospace", padding: "0 4px", borderRadius: 3, background: "rgba(245,158,11,0.18)", color: "#f59e0b" }}>
+                          <span title={m.earningsDisplay || ""} style={{ marginLeft: 3, fontSize: 9, fontWeight: 700, fontFamily: "monospace", padding: "0 4px", borderRadius: 4, background: "rgba(245,158,11,0.18)", color: "#f59e0b" }}>
                             ER {m.earningsDays}d
                           </span>
                         )}
@@ -1270,7 +1417,7 @@ export default function ZangerBriefSection({
                             <button
                               title={inPf ? "Remove from Portfolio" : "Add to Portfolio"}
                               onClick={() => toggleList(m.ticker, "pf")}
-                              style={{ background: inPf ? `${A.green}22` : "transparent", border: `1px solid ${inPf ? A.green : A.border}`, color: inPf ? A.green : A.textMuted, borderRadius: 3, padding: "1px 4px", fontSize: 9, fontFamily: "monospace", fontWeight: inPf ? 700 : 500, cursor: "pointer" }}
+                              style={{ background: inPf ? `${A.green}22` : "transparent", border: `1px solid ${inPf ? A.green : A.border}`, color: inPf ? A.green : A.textMuted, borderRadius: 4, padding: "1px 4px", fontSize: 9, fontFamily: "monospace", fontWeight: inPf ? 700 : 500, cursor: "pointer" }}
                             >
                               PF
                             </button>
@@ -1279,7 +1426,7 @@ export default function ZangerBriefSection({
                             <button
                               title={inWl ? "Remove from Watchlist" : "Add to Watchlist"}
                               onClick={() => toggleList(m.ticker, "wl")}
-                              style={{ background: inWl ? `${A.cyan}22` : "transparent", border: `1px solid ${inWl ? A.cyan : A.border}`, color: inWl ? A.cyan : A.textMuted, borderRadius: 3, padding: "1px 4px", fontSize: 9, fontFamily: "monospace", fontWeight: inWl ? 700 : 500, cursor: "pointer" }}
+                              style={{ background: inWl ? `${A.cyan}22` : "transparent", border: `1px solid ${inWl ? A.cyan : A.border}`, color: inWl ? A.cyan : A.textMuted, borderRadius: 4, padding: "1px 4px", fontSize: 9, fontFamily: "monospace", fontWeight: inWl ? 700 : 500, cursor: "pointer" }}
                             >
                               WL
                             </button>
@@ -1360,121 +1507,202 @@ export default function ZangerBriefSection({
         </>
         )}
       </Card>
+      </div>
 
-      <BreakoutFollowThroughCard
-        A={A}
-        index={index}
-        quotes={quotes}
-        stockMap={stockMap}
-        liveOn={liveOn}
-        onTicker={onTicker}
-        chartTicker={chartTicker}
-      />
+      <div id="sec-followthrough" style={{ scrollMarginTop: 96 }}>
+        <BreakoutFollowThroughCard
+          A={A}
+          index={index}
+          quotes={quotes}
+          stockMap={stockMap}
+          liveOn={liveOn}
+          onTicker={onTicker}
+          chartTicker={chartTicker}
+        />
+      </div>
 
       {ph.id !== "premarket" && ph.id !== "open" && EpCard}
 
-      {/* Intraday Theme Money Flow + Leader Damage + On Deck */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 10 }}>
-        {sortedFlow.length > 0 && (
-          <Card A={A} title="Today's Theme Money Flow" sub="Click a theme to filter movers above">
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  {flowTh("theme", "Theme", "left", undefined, true)}
-                  {flowTh("avgChg", "Avg")}
-                  {flowTh("pctGreen", "% Grn")}
-                  {flowTh("breakouts", "BO")}
-                </tr>
-              </thead>
-              <tbody>
-                {sortedFlow.map((t) => {
-                  const isCold = (themeFlow.coldest || []).some((c) => c.theme === t.theme);
-                  const selected = themeFilter === t.theme;
-                  return (
-                    <tr
-                      key={t.theme}
-                      onClick={() => setThemeFilter((cur) => (cur === t.theme ? null : t.theme))}
-                      title={selected ? "Click to clear theme filter" : `Filter movers by ${t.theme}`}
-                      style={{ cursor: "pointer", background: selected ? A.bgHover : "transparent" }}
-                    >
-                      <td style={{ ...td(A), fontWeight: selected || !isCold ? 600 : 400, color: selected ? A.cyan : isCold ? A.textDim : A.text }}>{isCold ? `❄️ ${t.theme}` : t.theme}</td>
-                      <td style={{ ...td(A, "right"), fontFamily: "monospace", fontWeight: 700, color: pc(t.avgChg) }}>{fmtPct(t.avgChg, 2)}</td>
-                      <td style={{ ...td(A, "right"), fontFamily: "monospace", color: isCold ? A.textMuted : A.textDim }}>{t.pctGreen}%</td>
-                      <td style={{ ...td(A, "right"), fontFamily: "monospace", color: t.breakouts ? "#fbbf24" : A.textMuted }}>{t.breakouts || "—"}</td>
+      {/* Consolidated Collapsible Additional Briefing Signals (Theme Flow + Leader Damage + On Deck RSL) */}
+      <div
+        style={{
+          background: A.bgCard,
+          border: `1px solid ${A.border}`,
+          borderRadius: 8,
+          padding: extrasOpen ? "10px 12px" : "8px 12px",
+          marginBottom: 10,
+        }}
+      >
+        <div
+          role="button"
+          tabIndex={0}
+          aria-expanded={extrasOpen}
+          onClick={toggleExtras}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleExtras(); } }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+            flexWrap: "wrap",
+            cursor: "pointer",
+            userSelect: "none",
+          }}
+        >
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.4, color: A.text }}>
+              Additional Briefing Signals
+            </span>
+            <span style={{ fontSize: 11, fontFamily: "monospace", color: A.textDim }}>
+              Theme Flow{sortedFlow.length > 0 ? ` (${sortedFlow.length})` : ""}
+              {" · "}
+              <span style={{ color: damagedLeaders.length > 0 ? A.red : A.green, fontWeight: damagedLeaders.length > 0 ? 700 : 500 }}>
+                {damagedLeaders.length} Damaged {damagedLeaders.length === 1 ? "Leader" : "Leaders"}
+              </span>
+              {" · "}
+              <span style={{ color: onDeck.length > 0 ? A.cyan : A.textMuted }}>
+                {onDeck.length} On Deck RSL
+              </span>
+            </span>
+          </div>
+          <span
+            style={{
+              fontSize: 10,
+              fontFamily: "monospace",
+              fontWeight: 700,
+              color: A.textDim,
+              border: `1px solid ${A.border}`,
+              borderRadius: 6,
+              padding: "2px 8px",
+            }}
+          >
+            {extrasOpen ? "Collapse ▴" : "Expand ▾"}
+          </span>
+        </div>
+
+        {extrasOpen && (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 10, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${A.border}` }}>
+            {sortedFlow.length > 0 && (
+              <div style={{ background: A.bg, border: `1px solid ${A.border}`, borderRadius: 6, padding: "8px 10px" }}>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: A.text }}>Today&apos;s Theme Money Flow</div>
+                  <div style={{ fontSize: 10, color: A.textMuted }}>Click a theme to filter movers above</div>
+                </div>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr>
+                      {flowTh("theme", "Theme", "left", undefined, true)}
+                      {flowTh("avgChg", "Avg")}
+                      {flowTh("pctGreen", "% Grn")}
+                      {flowTh("breakouts", "BO")}
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </Card>
-        )}
-
-        <Card A={A} title="Leader Damage Watch" sub="RS 90+ leaders hit hard on volume">
-          {!damagedLeaders.length ? (
-            <div style={{ fontSize: 11, color: A.green }}>✅ 0 RS 90+ leaders down ≥3% on heavy volume.</div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              {damagedLeaders.map((d) => (
-                <div key={d.ticker} onClick={() => onTicker && onTicker(d.ticker)} style={{ cursor: "pointer", fontSize: 11, display: "flex", gap: 8, alignItems: "center", borderBottom: `1px solid ${A.border}`, paddingBottom: 4 }}>
-                  <Tk t={d.ticker} />
-                  <span style={{ color: A.textMuted, fontSize: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.theme}</span>
-                  <span style={{ marginLeft: "auto", fontFamily: "monospace", fontWeight: 700, color: A.red }}>{fmtPct(d.chg, 2)}</span>
-                  <span style={{ fontFamily: "monospace", fontSize: 10, color: A.textDim }}>{d.zvr != null ? `${d.zvr.toFixed(1)}x` : "—"}</span>
-                </div>
-              ))}
-            </div>
-          )}
-          {warnLayers.length > 0 && (
-            <div style={{ marginTop: 6, fontSize: 10, color: "#f59e0b" }}>
-              Distrib/Exiting: {warnLayers.slice(0, 4).map((l) => l.name).join(" · ")}
-            </div>
-          )}
-        </Card>
-
-        {onDeck.length > 0 && (
-          <Card A={A} title="On Deck (🔵 RSL Basing)" sub="RS-line 52w highs consolidating near highs" right={<CopyTickersBtn A={A} tickers={onDeckTickers} label="Copy" />}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              {onDeck.map((r) => (
-                <div key={r.ticker} onClick={() => onTicker && onTicker(r.ticker)} style={{ cursor: "pointer", fontSize: 11, display: "flex", gap: 8, alignItems: "center", borderBottom: `1px solid ${A.border}`, paddingBottom: 4 }}>
-                  <Tk t={r.ticker} />
-                  <span style={{ color: A.textMuted, fontSize: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.theme}</span>
-                  <span style={{ marginLeft: "auto", fontFamily: "monospace", color: A.green, fontWeight: 700 }}>RS {r.rs}</span>
-                  <span style={{ fontFamily: "monospace", fontSize: 10, color: A.textDim }}>{fmtPct(r.off52, 1)}</span>
-                </div>
-              ))}
-            </div>
-          </Card>
-        )}
-      </div>
-
-      {/* Quick Copy TradingView Strip */}
-      {(boTickers.length > 0 || allMoverTickers.length > 0 || onDeckTickers.length > 0) && (
-        <Card A={A} title="Quick Copy (TradingView)">
-          <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 11, fontFamily: "monospace" }}>
-            {boTickers.length > 0 && (
-              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                <span style={{ color: "#fbbf24", fontWeight: 700, minWidth: 85 }}>Breakouts:</span>
-                <code style={{ color: A.text, background: A.bg, padding: "2px 6px", borderRadius: 4, border: `1px solid ${A.border}` }}>{boTickers.join(",")}</code>
-                <CopyTickersBtn A={A} tickers={boTickers} label="Copy" />
+                  </thead>
+                  <tbody>
+                    {sortedFlow.map((t) => {
+                      const isCold = (themeFlow.coldest || []).some((c) => c.theme === t.theme);
+                      const selected = themeFilter === t.theme;
+                      return (
+                        <tr
+                          key={t.theme}
+                          className="tp-click-row"
+                          onClick={() => setThemeFilter((cur) => (cur === t.theme ? null : t.theme))}
+                          title={selected ? "Click to clear theme filter" : `Filter movers by ${t.theme}`}
+                          style={{
+                            cursor: "pointer",
+                            background: selected ? A.bgHover : "transparent",
+                            boxShadow: selected ? `inset 2px 0 0 ${A.cyan}` : "none",
+                          }}
+                        >
+                          <td style={{ ...td(A), fontWeight: selected || !isCold ? 600 : 400, color: selected ? A.cyan : isCold ? A.textDim : A.text }}>{isCold ? `❄️ ${t.theme}` : t.theme}</td>
+                          <td style={{ ...td(A, "right"), fontFamily: "monospace", fontWeight: 700, color: pc(t.avgChg) }}>{fmtPct(t.avgChg, 2)}</td>
+                          <td style={{ ...td(A, "right"), fontFamily: "monospace", color: isCold ? A.textMuted : A.textDim }}>{t.pctGreen}%</td>
+                          <td style={{ ...td(A, "right"), fontFamily: "monospace", color: t.breakouts ? "#fbbf24" : A.textMuted }}>{t.breakouts || "—"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
-            {allMoverTickers.length > boTickers.length && (
-              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                <span style={{ color: A.green, fontWeight: 700, minWidth: 85 }}>All Movers:</span>
-                <code style={{ color: A.text, background: A.bg, padding: "2px 6px", borderRadius: 4, border: `1px solid ${A.border}` }}>{allMoverTickers.join(",")}</code>
-                <CopyTickersBtn A={A} tickers={allMoverTickers} label="Copy" />
+
+            <div style={{ background: A.bg, border: `1px solid ${A.border}`, borderRadius: 6, padding: "8px 10px" }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: A.text }}>Leader Damage Watch</div>
+                <div style={{ fontSize: 10, color: A.textMuted }}>RS 90+ leaders hit hard on volume</div>
               </div>
-            )}
-            {onDeckTickers.length > 0 && (
-              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                <span style={{ color: A.cyan, fontWeight: 700, minWidth: 85 }}>On Deck:</span>
-                <code style={{ color: A.text, background: A.bg, padding: "2px 6px", borderRadius: 4, border: `1px solid ${A.border}` }}>{onDeckTickers.join(",")}</code>
-                <CopyTickersBtn A={A} tickers={onDeckTickers} label="Copy" />
+              {!damagedLeaders.length ? (
+                <div style={{ fontSize: 11, color: A.green }}>✅ 0 RS 90+ leaders down ≥3% on heavy volume.</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  {damagedLeaders.map((d) => (
+                    <div
+                      key={d.ticker}
+                      className="tp-click-row"
+                      onClick={() => onTicker && onTicker(d.ticker)}
+                      style={{
+                        cursor: "pointer",
+                        fontSize: 11,
+                        display: "flex",
+                        gap: 8,
+                        alignItems: "center",
+                        borderBottom: `1px solid ${A.border}`,
+                        padding: "4px 4px",
+                        background: chartTicker === d.ticker ? A.bgHover : "transparent",
+                        boxShadow: chartTicker === d.ticker ? `inset 2px 0 0 ${A.green}` : "none",
+                      }}
+                    >
+                      <Tk t={d.ticker} />
+                      <span style={{ color: A.textMuted, fontSize: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.theme}</span>
+                      <span style={{ marginLeft: "auto", fontFamily: "monospace", fontWeight: 700, color: A.red }}>{fmtPct(d.chg, 2)}</span>
+                      <span style={{ fontFamily: "monospace", fontSize: 10, color: A.textDim }}>{d.zvr != null ? `${d.zvr.toFixed(1)}x` : "—"}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {warnLayers.length > 0 && (
+                <div style={{ marginTop: 6, fontSize: 10, color: "#f59e0b" }}>
+                  Distrib/Exiting: {warnLayers.slice(0, 4).map((l) => l.name).join(" · ")}
+                </div>
+              )}
+            </div>
+
+            {onDeck.length > 0 && (
+              <div style={{ background: A.bg, border: `1px solid ${A.border}`, borderRadius: 6, padding: "8px 10px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: A.text }}>On Deck (🔵 RSL Basing)</div>
+                  <div style={{ fontSize: 10, color: A.textMuted }}>RS-line 52w highs consolidating</div>
+                  <div style={{ marginLeft: "auto" }}><CopyTickersBtn A={A} tickers={onDeckTickers} label="Copy" /></div>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  {onDeck.map((r) => (
+                    <div
+                      key={r.ticker}
+                      className="tp-click-row"
+                      onClick={() => onTicker && onTicker(r.ticker)}
+                      style={{
+                        cursor: "pointer",
+                        fontSize: 11,
+                        display: "flex",
+                        gap: 8,
+                        alignItems: "center",
+                        borderBottom: `1px solid ${A.border}`,
+                        padding: "4px 4px",
+                        background: chartTicker === r.ticker ? A.bgHover : "transparent",
+                        boxShadow: chartTicker === r.ticker ? `inset 2px 0 0 ${A.green}` : "none",
+                      }}
+                    >
+                      <Tk t={r.ticker} />
+                      <span style={{ color: A.textMuted, fontSize: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.theme}</span>
+                      <span style={{ marginLeft: "auto", fontFamily: "monospace", color: A.green, fontWeight: 700 }}>RS {r.rs}</span>
+                      <span style={{ fontFamily: "monospace", fontSize: 10, color: A.textDim }}>{fmtPct(r.off52, 1)}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
-        </Card>
-      )}
+        )}
+      </div>
     </div>
   );
 }

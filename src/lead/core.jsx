@@ -80,20 +80,70 @@ export function Delta({ v, A }) {
   return <span style={{ color: c }}>{v > 0 ? "+" : ""}{Math.round(v)}</span>;
 }
 
-export function Card({ title, sub, right, children, A }) {
+export function Card({ title, sub, kicker, right, children, A, id, style }) {
+  const hasBody = children != null && children !== false && !(Array.isArray(children) && children.every((c) => c == null || c === false));
   return (
-    <div style={{ background: A.bgCard, border: `1px solid ${A.border}`, borderRadius: 8, padding: "10px 12px", marginBottom: 10 }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
-        <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.4, color: A.text }}>{title}</div>
-        {sub && <div style={{ fontSize: 11, color: A.textMuted }}>{sub}</div>}
-        <div style={{ marginLeft: "auto" }}>{right}</div>
+    <div
+      id={id}
+      style={{
+        background: A.bgCard,
+        border: `1px solid ${A.border}`,
+        borderRadius: 10,
+        padding: "12px 14px",
+        marginBottom: 12,
+        ...style,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "4px 10px",
+          marginBottom: hasBody ? 10 : 0,
+          paddingBottom: hasBody ? 8 : 0,
+          borderBottom: hasBody ? `1px solid ${A.border}` : "none",
+          flexWrap: "wrap",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "baseline", gap: "4px 10px", flexWrap: "wrap", minWidth: 0 }}>
+          {kicker && (
+            <div style={{ width: "100%", fontSize: 9.5, fontWeight: 700, letterSpacing: 0.65, textTransform: "uppercase", color: A.textMuted }}>
+              {kicker}
+            </div>
+          )}
+          <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.25, color: A.text, lineHeight: 1.25 }}>{title}</div>
+          {sub && (
+            <div
+              style={{
+                fontSize: 10.5,
+                fontWeight: 500,
+                letterSpacing: 0.2,
+                color: A.textMuted,
+                lineHeight: 1.35,
+              }}
+            >
+              {sub}
+            </div>
+          )}
+        </div>
+        {right != null && <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>{right}</div>}
       </div>
       {children}
     </div>
   );
 }
 
-export const th = (A, align = "left") => ({ textAlign: align, fontSize: 10, fontWeight: 600, color: A.textMuted, padding: "4px 6px", borderBottom: `1px solid ${A.border}`, whiteSpace: "nowrap", letterSpacing: 0.3 });
+export const th = (A, align = "left") => ({
+  textAlign: align,
+  fontSize: 10,
+  fontWeight: 600,
+  color: A.textMuted,
+  padding: "5px 6px",
+  borderBottom: `1px solid ${A.border}`,
+  whiteSpace: "nowrap",
+  letterSpacing: 0.45,
+  textTransform: "uppercase",
+});
 export const td = (A, align = "left") => ({ textAlign: align, fontSize: 12, color: A.textDim, padding: "5px 6px", borderBottom: `1px solid ${A.border}`, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" });
 
 export function TickerChip({ t, onClick, active, A, dim }) {
@@ -161,15 +211,15 @@ export function CopyTickersBtn({ tickers = [], A, label = "Copy Tickers", title 
         background: active ? `${A.green}1f` : "transparent",
         border: `1px solid ${active ? A.green : A.border}`,
         color: active ? A.green : A.textDim,
-        borderRadius: 4,
-        padding: "2px 8px",
+        borderRadius: 6,
+        padding: "3px 9px",
         fontSize: 10,
         fontWeight: active ? 700 : 600,
         fontFamily: "monospace",
         cursor: disabled ? "default" : "pointer",
         opacity: disabled ? 0.45 : 1,
         whiteSpace: "nowrap",
-        transition: "border-color 0.15s, color 0.15s",
+        transition: "background-color 140ms ease, border-color 140ms ease, color 140ms ease",
       }}
     >
       {active ? `Copied ${copied} ✓` : label}
@@ -314,7 +364,7 @@ export function LayerTable({ rows: rowsIn, A, onTicker, chartTicker, stockMap, s
             {sh("rs90", "RS 90+", "right", "Members at stock RS 90+ (change vs 5 sessions ago) · leaders that cracked this week (were RS 90+, now below the 50-day or under RS 80)", "tp-hide-sm")}
             {sh("held20", "80+ of 20", "right", "Holding up: sessions of the last 20 the layer ranked 80 or higher (ties broken by current RS rank)", "tp-hide-sm")}
             {!compact && sh("held", "Held", "right", "Share of the trailing quarter this layer ranked ≥ 88", "tp-hide-sm")}
-            {!compact && <th style={th(A)}>Strongest names <span style={{ fontWeight: 400 }}>· click a row for every member</span></th>}
+            {!compact && <th style={th(A)}>Strongest names <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>· click a row for every member</span></th>}
           </tr>
         </thead>
         <tbody>
@@ -325,12 +375,21 @@ export function LayerTable({ rows: rowsIn, A, onTicker, chartTicker, stockMap, s
               .sort((a, b) => (stockMap[b]?.rs_rank ?? 0) - (stockMap[a]?.rs_rank ?? 0));
             const names = all.slice(0, 5).map((t) => ({ t }));
             const open = expanded === l.key;
+            const hasChartTicker = Boolean(chartTicker && all.includes(chartTicker));
             const b = l.stats, tr = l.trend, df = l.dayFlow;
             const flags = layerFlags(l);
             return (
               <React.Fragment key={l.key}>
-              <tr onClick={() => onToggle?.(l)} title={inlineExpand ? (open ? "Collapse members" : "Expand members below") : "Show every member in the Stocks box"}
-                style={{ cursor: "pointer", background: open ? A.bgHover : "transparent", boxShadow: open ? `inset 3px 0 0 ${c}` : "none" }}>
+              <tr
+                className={hasChartTicker && !open ? "tp-click-row tp-row-active" : "tp-click-row"}
+                onClick={() => onToggle?.(l)}
+                title={inlineExpand ? (open ? "Collapse members" : "Expand members below") : "Show every member in the Stocks box"}
+                style={{
+                  cursor: "pointer",
+                  background: open ? A.bgHover : "transparent",
+                  boxShadow: open ? `inset 3px 0 0 ${c}` : hasChartTicker ? `inset 2px 0 0 ${A.green}` : "none",
+                }}
+              >
                 <td style={compact ? { ...td(A), whiteSpace: "normal", minWidth: 120 } : td(A)}>
                   <div style={{ color: A.text, fontWeight: 600 }}>
                     {inlineExpand && <span style={{ color: open ? c : A.textMuted, fontSize: 10, marginRight: 5, fontFamily: "monospace" }}>{open ? "▾" : "▸"}</span>}
@@ -467,7 +526,17 @@ export function StockTable({ rows, A, onTicker, chartTicker, mode, onLayer }) {
             const on = chartTicker === r.ticker;
             const pct = (v) => (v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(1)}%`);
             return (
-              <tr key={r.ticker} data-nav={r.ticker} onClick={() => onTicker(r.ticker)} style={{ cursor: "pointer", background: on ? A.bgHover : "transparent" }}>
+              <tr
+                key={r.ticker}
+                data-nav={r.ticker}
+                className={on ? "tp-click-row tp-row-active" : "tp-click-row"}
+                onClick={() => onTicker(r.ticker)}
+                style={{
+                  cursor: "pointer",
+                  background: on ? A.bgHover : "transparent",
+                  boxShadow: on ? `inset 2px 0 0 ${A.green}` : "none",
+                }}
+              >
                 <td style={td(A)}>
                   <FlagButton t={r.ticker} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.ticker}</span>
                   {r.inLead && mode === "lead" && <span title="In a leading layer" style={{ color: A.green, marginLeft: 4 }}>●</span>}
@@ -494,16 +563,36 @@ export function StockTable({ rows, A, onTicker, chartTicker, mode, onLayer }) {
 
 export function Tabs({ value, onChange, items, A }) {
   return (
-    <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-      {items.map(([k, label, n, color]) => (
-        <button key={k} onClick={() => onChange(k)}
-          style={{
-            background: value === k ? A.bgHover : "transparent",
-            border: `1px solid ${value === k ? color : A.border}`,
-            color: value === k ? color : A.textDim, borderRadius: 4, padding: "3px 9px",
-            fontSize: 11, fontWeight: 600, cursor: "pointer",
-          }}>{label} <span style={{ opacity: 0.7 }}>{n}</span></button>
-      ))}
+    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+      {items.map(([k, label, n, color]) => {
+        const active = value === k;
+        return (
+          <button
+            key={k}
+            type="button"
+            onClick={() => onChange(k)}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
+              background: active ? A.bgHover : "transparent",
+              border: `1px solid ${active ? color : A.border}`,
+              color: active ? color : A.textDim,
+              borderRadius: 6,
+              padding: "4px 10px",
+              fontSize: 11,
+              fontWeight: active ? 700 : 600,
+              lineHeight: 1.25,
+              cursor: "pointer",
+              fontVariantNumeric: "tabular-nums",
+              transition: "background-color 140ms ease, border-color 140ms ease, color 140ms ease",
+            }}
+          >
+            <span>{label}</span>
+            {n != null && <span style={{ opacity: active ? 0.9 : 0.65, fontSize: 10 }}>{n}</span>}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -588,7 +677,7 @@ export function IndexPanel({ A, liveQuotes, onTicker, chartTicker, bars }) {
               </span>
             ))}
           </span>}
-      right={<button onClick={toggle} style={{ background: "transparent", border: `1px solid ${A.border}`, color: A.textMuted, borderRadius: 4, padding: "2px 8px", fontSize: 11, cursor: "pointer" }}>{open ? "Hide" : "Show"}</button>}>
+      right={<button type="button" onClick={toggle} style={{ background: "transparent", border: `1px solid ${A.border}`, color: A.textMuted, borderRadius: 6, padding: "3px 9px", fontSize: 11, cursor: "pointer", transition: "border-color 140ms ease, color 140ms ease" }}>{open ? "Hide" : "Show"}</button>}>
       {open && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(215px, 1fr))", gap: 8 }}>
         {rows.map(({ t, name, s }) => {
           const on = chartTicker === t;
@@ -755,7 +844,7 @@ export function ChangesPanel({ A, layers, themes, bars, liveQuotes, date, onTick
       sub={open ? `vs the prior session${date ? ` · layers as of ${date}` : ""} · click a layer to jump to it`
         : empty ? "No notable changes" : [idxEvents.length && `${idxEvents.length} index event${idxEvents.length > 1 ? "s" : ""}`, gained.length && `${gained.length} new leaders`,
             lost.length && `${lost.length} lost leadership`, broke.length && `${broke.length} broke down`].filter(Boolean).join(" · ") || "Rank moves only"}
-      right={<button onClick={toggle} style={{ background: "transparent", border: `1px solid ${A.border}`, color: A.textMuted, borderRadius: 4, padding: "2px 8px", fontSize: 11, cursor: "pointer" }}>{open ? "Hide" : "Show"}</button>}>
+      right={<button type="button" onClick={toggle} style={{ background: "transparent", border: `1px solid ${A.border}`, color: A.textMuted, borderRadius: 6, padding: "3px 9px", fontSize: 11, cursor: "pointer", transition: "border-color 140ms ease, color 140ms ease" }}>{open ? "Hide" : "Show"}</button>}>
       {open && <>
       {empty && <div style={{ fontSize: 11, color: A.textMuted }}>No notable changes.</div>}
       {row("INDEXES", A.text, idxEvents.map((e, i) => chip(`${e.t}${i}`, e.t, e.text, e.good ? A.green : A.red, () => onTicker(e.t))))}
@@ -821,7 +910,7 @@ export function AdrFilter({ A, value, onChange }) {
   const on = value != null;
   return (
     <span title="Show only stocks with a 20-day ADR at or above this — applies to every Stocks tab"
-      style={{ display: "inline-flex", alignItems: "center", border: `1px solid ${on ? A.cyan : A.border}`, borderRadius: 4, background: on ? A.bgHover : "transparent", marginRight: 4 }}>
+      style={{ display: "inline-flex", alignItems: "center", border: `1px solid ${on ? A.cyan : A.border}`, borderRadius: 6, background: on ? A.bgHover : "transparent", marginRight: 4, transition: "background-color 140ms ease, border-color 140ms ease" }}>
       <button onClick={() => (on ? onChange(null) : commit(last()))}
         style={{ background: "transparent", border: "none", color: on ? A.cyan : A.textDim, padding: "3px 4px 3px 8px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>ADR ≥</button>
       <input value={draft} inputMode="decimal" aria-label="Minimum ADR percent" placeholder="—"
@@ -916,8 +1005,20 @@ export function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, 
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
-                <tr key={r.t} data-nav={r.t} onClick={() => onTicker(r.t)} style={{ cursor: "pointer", background: chartTicker === r.t ? A.bgHover : "transparent" }}>
+              {rows.map((r) => {
+                const on = chartTicker === r.t;
+                return (
+                <tr
+                  key={r.t}
+                  data-nav={r.t}
+                  className={on ? "tp-click-row tp-row-active" : "tp-click-row"}
+                  onClick={() => onTicker(r.t)}
+                  style={{
+                    cursor: "pointer",
+                    background: on ? A.bgHover : "transparent",
+                    boxShadow: on ? `inset 2px 0 0 ${A.green}` : "none",
+                  }}
+                >
                   <td style={td(A)}><FlagButton t={r.t} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span><TierMark t={r.t} /></td>
                   <td style={{ ...td(A, "right"), color: r.zvr >= 1.5 ? A.green : r.zvr >= 1 ? A.text : A.textMuted, fontWeight: r.zvr >= 1.5 ? 700 : 400 }}>{r.zvr == null ? "—" : r.zvr.toFixed(2)}</td>
                   <td style={{ ...td(A, "right"), color: A.green }}>{pct(r.chg, 2)}</td>
@@ -930,7 +1031,8 @@ export function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, 
                     <LayerLink r={r} A={A} onLayer={onLayer} />
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -1006,7 +1108,7 @@ export function ExtHoursMovers({ A, pipeline, stockMap, tickerLayer, onTicker, c
   const section = (title, sub, rows0) => { const rows = sorted(rows0); return (
     <div style={{ marginBottom: 12 }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 8, margin: "2px 0 6px" }}>
-        <span style={{ fontSize: 12, fontWeight: 700, color: A.text }}>{title}</span>
+        <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: A.text }}>{title}</span>
         <span style={{ fontSize: 10, color: A.textMuted }}>{sub}</span>
       </div>
       {!rows.length ? <div style={{ fontSize: 11, color: A.textMuted, padding: "4px 2px" }}>No movers{uOnly ? " in the universe (≥ $5)" : ""}.</div> : (
@@ -1019,11 +1121,23 @@ export function ExtHoursMovers({ A, pipeline, stockMap, tickerLayer, onTicker, c
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
-                <tr key={r.t} data-nav={r.t} onClick={() => onTicker(r.t)} style={{ cursor: "pointer", background: chartTicker === r.t ? A.bgHover : "transparent" }}>
+              {rows.map((r) => {
+                const on = chartTicker === r.t;
+                return (
+                <tr
+                  key={r.t}
+                  data-nav={r.t}
+                  className={on ? "tp-click-row tp-row-active" : "tp-click-row"}
+                  onClick={() => onTicker(r.t)}
+                  style={{
+                    cursor: "pointer",
+                    background: on ? A.bgHover : "transparent",
+                    boxShadow: on ? `inset 2px 0 0 ${A.green}` : "none",
+                  }}
+                >
                   <td style={td(A)}>
                     <FlagButton t={r.t} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span><TierMark t={r.t} />
-                    {r.er && <span title={r.grade ? `Earnings · EP quality ${r.grade}` : "Earnings"} style={{ marginLeft: 5, fontSize: 9, fontWeight: 700, color: A.cyan, border: `1px solid ${A.cyan}`, borderRadius: 3, padding: "0 3px" }}>ER</span>}
+                    {r.er && <span title={r.grade ? `Earnings · EP quality ${r.grade}` : "Earnings"} style={{ marginLeft: 5, fontSize: 9, fontWeight: 700, color: A.cyan, border: `1px solid ${A.cyan}`, borderRadius: 4, padding: "0 3px" }}>ER</span>}
                   </td>
                   <td style={{ ...td(A, "right"), color: r.chg >= 0 ? A.green : A.red, fontWeight: 700 }}>{r.chg > 0 ? "+" : ""}{r.chg.toFixed(2)}%</td>
                   <td style={td(A, "right")}>{r.price ? r.price.toFixed(2) : "—"}</td>
@@ -1035,7 +1149,8 @@ export function ExtHoursMovers({ A, pipeline, stockMap, tickerLayer, onTicker, c
                   </td>
                   <td title={r.catalyst} style={{ ...td(A), fontSize: 11, color: A.textDim, maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis" }}>{r.catalyst || "—"}</td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -1234,9 +1349,9 @@ export function FlaggedTab({ A, stockMap, tickerLayer, onTicker, chartTicker, on
     <div>
       <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 6, flexWrap: "wrap" }}>
         {[null, ...FLAG_ORDER].map((k) => (
-          <button key={k || "all"} onClick={() => setOnly(k)}
+          <button key={k || "all"} type="button" onClick={() => setOnly(k)}
             style={{ display: "flex", alignItems: "center", gap: 5, background: only === k ? A.bgHover : "transparent",
-              border: `1px solid ${only === k ? A.borderLight : A.border}`, borderRadius: 4, padding: "2px 8px", fontSize: 11, color: A.text, cursor: "pointer" }}>
+              border: `1px solid ${only === k ? A.borderLight : A.border}`, borderRadius: 6, padding: "3px 9px", fontSize: 11, color: A.text, cursor: "pointer", transition: "background-color 140ms ease, border-color 140ms ease" }}>
             {k ? <span style={{ width: 9, height: 9, borderRadius: "50%", background: flagHex(k, A) }} /> : null}
             {k ? k[0].toUpperCase() + k.slice(1) : "All"} <span style={{ color: A.textMuted }}>{k ? counts[k] : tickers.length}</span>
           </button>
@@ -1262,8 +1377,20 @@ export function FlaggedTab({ A, stockMap, tickerLayer, onTicker, chartTicker, on
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
-                <tr key={r.t} data-nav={r.t} onClick={() => onTicker(r.t)} style={{ cursor: "pointer", background: chartTicker === r.t ? A.bgHover : "transparent" }}>
+              {rows.map((r) => {
+                const on = chartTicker === r.t;
+                return (
+                <tr
+                  key={r.t}
+                  data-nav={r.t}
+                  className={on ? "tp-click-row tp-row-active" : "tp-click-row"}
+                  onClick={() => onTicker(r.t)}
+                  style={{
+                    cursor: "pointer",
+                    background: on ? A.bgHover : "transparent",
+                    boxShadow: on ? `inset 2px 0 0 ${A.green}` : "none",
+                  }}
+                >
                   <td style={td(A)}><FlagButton t={r.t} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span><TierMark t={r.t} /></td>
                   <td style={{ ...td(A, "right"), color: r.zvr >= 1.5 ? A.green : r.zvr >= 1 ? A.text : A.textMuted, fontWeight: r.zvr >= 1.5 ? 700 : 400 }}>{r.zvr == null ? "—" : r.zvr.toFixed(2)}</td>
                   <td style={{ ...td(A, "right"), color: (r.chg ?? 0) >= 0 ? A.green : A.red }}>{pct(r.chg, 2)}</td>
@@ -1276,7 +1403,8 @@ export function FlaggedTab({ A, stockMap, tickerLayer, onTicker, chartTicker, on
                     <LayerLink r={r} A={A} onLayer={onLayer} />
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -1443,6 +1571,7 @@ export function WatchlistPortfolioTab({
         ].map(([k, label, n, dot]) => (
           <button
             key={k || "all"}
+            type="button"
             onClick={() => setOnly(k)}
             style={{
               display: "flex",
@@ -1450,12 +1579,13 @@ export function WatchlistPortfolioTab({
               gap: 5,
               background: only === k ? A.bgHover : "transparent",
               border: `1px solid ${only === k ? (dot || A.borderLight) : A.border}`,
-              borderRadius: 4,
-              padding: "2px 8px",
+              borderRadius: 6,
+              padding: "3px 9px",
               fontSize: 11,
               color: only === k && dot ? dot : A.text,
               fontWeight: only === k ? 700 : 500,
               cursor: "pointer",
+              transition: "background-color 140ms ease, border-color 140ms ease, color 140ms ease",
             }}
           >
             {dot && <span style={{ width: 7, height: 7, borderRadius: "50%", background: dot }} />}
@@ -1555,12 +1685,19 @@ export function WatchlistPortfolioTab({
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
+              {rows.map((r) => {
+                const on = chartTicker === r.t;
+                return (
                 <tr
                   key={r.t}
                   data-nav={r.t}
+                  className={on ? "tp-click-row tp-row-active" : "tp-click-row"}
                   onClick={() => onTicker(r.t)}
-                  style={{ cursor: "pointer", background: chartTicker === r.t ? A.bgHover : "transparent" }}
+                  style={{
+                    cursor: "pointer",
+                    background: on ? A.bgHover : "transparent",
+                    boxShadow: on ? `inset 2px 0 0 ${A.green}` : "none",
+                  }}
                 >
                   <td style={td(A)}>
                     <span style={{ display: "inline-flex", gap: 3 }}>
@@ -1664,7 +1801,8 @@ export function WatchlistPortfolioTab({
                     </span>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -1744,7 +1882,7 @@ export function LayerMembers({ A, layer, tickers, stockMap, onTicker, chartTicke
             type="button"
             onClick={(e) => { e.stopPropagation(); onClose(); }}
             title="Collapse layer"
-            style={{ background: "transparent", border: `1px solid ${A.border}`, color: A.textMuted, borderRadius: 4, padding: "1px 6px", fontSize: 10, cursor: "pointer", flexShrink: 0 }}
+            style={{ background: "transparent", border: `1px solid ${A.border}`, color: A.textMuted, borderRadius: 6, padding: "2px 7px", fontSize: 10, cursor: "pointer", flexShrink: 0, transition: "border-color 140ms ease, color 140ms ease" }}
           >
             ✕
           </button>
@@ -1761,8 +1899,20 @@ export function LayerMembers({ A, layer, tickers, stockMap, onTicker, chartTicke
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={r.t} data-nav={r.t} onClick={() => onTicker(r.t)} style={{ cursor: "pointer", background: chartTicker === r.t ? A.bgHover : "transparent" }}>
+            {rows.map((r) => {
+              const on = chartTicker === r.t;
+              return (
+              <tr
+                key={r.t}
+                data-nav={r.t}
+                className={on ? "tp-click-row tp-row-active" : "tp-click-row"}
+                onClick={() => onTicker(r.t)}
+                style={{
+                  cursor: "pointer",
+                  background: on ? A.bgHover : "transparent",
+                  boxShadow: on ? `inset 2px 0 0 ${A.green}` : "none",
+                }}
+              >
                 <td style={td(A)}><FlagButton t={r.t} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: "monospace" }}>{r.t}</span><TierMark t={r.t} />
                   {r.top && <span title="Fastest EPS grower in this layer" style={{ color: A.green, marginLeft: 4 }}>★</span>}
                   {r.nh && <span title="Closed at a 20-session high" style={{ color: A.cyan, marginLeft: 4, fontSize: 9 }}>NH</span>}</td>
@@ -1777,7 +1927,8 @@ export function LayerMembers({ A, layer, tickers, stockMap, onTicker, chartTicke
                 <td style={{ ...td(A, "right"), color: r.rs >= 90 ? A.green : r.rs >= 70 ? A.yellow : r.rs != null ? A.red : A.textMuted, fontWeight: 700 }}>{r.rs ?? "—"}</td>
                 <td title={r.epsTip || ""} style={{ ...td(A, "right"), color: r.eps >= 80 ? A.green : r.eps >= 50 ? A.yellow : r.eps != null ? A.red : A.textMuted }}>{r.eps ?? "—"}{r.epsAcc ? <span style={{ color: A.green, fontSize: 9 }}>▲</span> : null}</td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

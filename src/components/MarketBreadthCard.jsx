@@ -299,7 +299,7 @@ function HoverSignalPills({ signals, A }) {
           fontSize: 9,
           fontWeight: 800,
           padding: "0 5px",
-          borderRadius: 999,
+          borderRadius: 4,
           background: `${c}22`,
           border: `1px solid ${c}77`,
           color: c,
@@ -343,7 +343,7 @@ function ChartControls({ A, range, onRange, onResetHover, spxData, showSpx, onTo
                   background: active ? A.bgHover : "transparent",
                   border: `1px solid ${active ? COLORS.cyan : A.border}`,
                   color: active ? COLORS.cyan : A.textMuted,
-                  borderRadius: 4,
+                  borderRadius: 6,
                   padding: "1px 6px",
                   fontSize: 10,
                   fontWeight: 700,
@@ -365,7 +365,7 @@ function ChartControls({ A, range, onRange, onResetHover, spxData, showSpx, onTo
           background: showSpx ? A.bgHover : "transparent",
           border: `1px solid ${showSpx ? A.text : A.border}`,
           color: showSpx ? A.text : A.textMuted,
-          borderRadius: 4,
+          borderRadius: 6,
           padding: "1px 6px",
           fontSize: 10,
           fontWeight: 700,
@@ -384,7 +384,7 @@ function ChartControls({ A, range, onRange, onResetHover, spxData, showSpx, onTo
             background: range === days ? A.bgHover : "transparent",
             border: `1px solid ${range === days ? COLORS.blue : A.border}`,
             color: range === days ? COLORS.blue : A.textMuted,
-            borderRadius: 4,
+            borderRadius: 6,
             padding: "1px 6px",
             fontSize: 10,
             fontWeight: 700,
@@ -902,7 +902,7 @@ function MaBreadthHistoryChart({ A, title, series, range, onRange, spxData, show
                 fontSize: 9,
                 fontWeight: 700,
                 padding: "0 5px",
-                borderRadius: 999,
+                borderRadius: 4,
                 background: `${zoneTag.color}22`,
                 border: `1px solid ${zoneTag.color}66`,
                 color: zoneTag.color,
@@ -1105,7 +1105,7 @@ function McClellanHistoryChart({ A, series, range, onRange, spxData, showSpx, on
                 fontSize: 9,
                 fontWeight: 700,
                 padding: "0 5px",
-                borderRadius: 999,
+                borderRadius: 4,
                 background: `${zoneTag.color}22`,
                 border: `1px solid ${zoneTag.color}66`,
                 color: zoneTag.color,
@@ -1386,7 +1386,7 @@ function StageStockDrawer({
     background: active ? `${accent}22` : "transparent",
     border: `1px solid ${active ? accent : A.border}`,
     color: active ? accent : A.textMuted,
-    borderRadius: 4,
+    borderRadius: 6,
     padding: "1px 6px",
     fontSize: 10,
     fontWeight: 700,
@@ -1438,7 +1438,7 @@ function StageStockDrawer({
               fontWeight: 800,
               fontFamily: "monospace",
               padding: "2px 7px",
-              borderRadius: 999,
+              borderRadius: 4,
               background: `${color}22`,
               border: `1px solid ${color}77`,
               color,
@@ -1485,7 +1485,7 @@ function StageStockDrawer({
               background: "transparent",
               border: `1px solid ${A.border}`,
               color: A.textMuted,
-              borderRadius: 4,
+              borderRadius: 6,
               padding: "1px 6px",
               fontSize: 10,
               fontWeight: 700,
@@ -1507,7 +1507,7 @@ function StageStockDrawer({
             <button
               type="button"
               onClick={() => { if (leadingOnly) onToggleLeading(); if (minRs > 0) onSetMinRs(0); }}
-              style={{ background: "transparent", border: `1px solid ${A.border}`, color: A.text, borderRadius: 4, padding: "2px 7px", fontSize: 10, fontFamily: "monospace", cursor: "pointer" }}
+              style={{ background: "transparent", border: `1px solid ${A.border}`, color: A.text, borderRadius: 6, padding: "2px 7px", fontSize: 10, fontFamily: "monospace", cursor: "pointer" }}
             >
               Reset filters
             </button>
@@ -1544,10 +1544,12 @@ function StageStockDrawer({
                   return (
                     <tr
                       key={s.ticker}
+                      className={onTicker ? "tp-click-row" : undefined}
                       onClick={onTicker ? () => onTicker(s.ticker) : undefined}
                       style={{
                         cursor: onTicker ? "pointer" : "default",
                         background: active ? `${color}20` : "transparent",
+                        boxShadow: active ? `inset 2px 0 0 ${A.green}` : "none",
                       }}
                     >
                       <td style={{ ...tdStyle("left"), fontWeight: 800, color: active ? color : A.text }}>
@@ -1902,7 +1904,7 @@ export default function MarketBreadthCard({
     background: active ? `${accent || A.green}20` : "transparent",
     border: `1px solid ${active ? (accent || A.green) : A.border}`,
     color: active ? (accent || A.green) : A.textDim,
-    borderRadius: 4,
+    borderRadius: 6,
     padding: "2px 7px",
     fontSize: 10,
     fontFamily: "monospace",
@@ -1974,7 +1976,7 @@ export default function MarketBreadthCard({
                 fontWeight: 700,
                 fontFamily: "monospace",
                 padding: "1px 6px",
-                borderRadius: 999,
+                borderRadius: 4,
                 background: `${tapeTag.color}20`,
                 border: `1px solid ${tapeTag.color}66`,
                 color: tapeTag.color,
@@ -2006,7 +2008,7 @@ export default function MarketBreadthCard({
                     fontWeight: 800,
                     fontFamily: "monospace",
                     padding: "1px 6px",
-                    borderRadius: 999,
+                    borderRadius: 6,
                     background: `${c}1f`,
                     border: `1px solid ${c}77`,
                     color: c,
@@ -2046,7 +2048,7 @@ export default function MarketBreadthCard({
                 background: "transparent",
                 border: `1px solid ${A.border}`,
                 color: A.textDim,
-                borderRadius: 4,
+                borderRadius: 6,
                 padding: "2px 7px",
                 fontSize: 10,
                 fontFamily: "monospace",
@@ -2093,7 +2095,7 @@ export default function MarketBreadthCard({
                   <button
                     type="button"
                     onClick={() => setSelThemeId(null)}
-                    style={{ background: "transparent", border: `1px solid ${A.border}`, color: A.cyan, borderRadius: 4, padding: "1px 6px", fontSize: 10, fontFamily: "monospace", cursor: "pointer" }}
+                    style={{ background: "transparent", border: `1px solid ${A.border}`, color: A.cyan, borderRadius: 6, padding: "1px 6px", fontSize: 10, fontFamily: "monospace", cursor: "pointer" }}
                   >
                     {selThemeObj.theme} ✕
                   </button>
@@ -2101,7 +2103,7 @@ export default function MarketBreadthCard({
                     <button
                       type="button"
                       onClick={() => onTheme(selThemeObj.themeId)}
-                      style={{ background: `${A.green}18`, border: `1px solid ${A.green}66`, color: A.green, borderRadius: 4, padding: "1px 6px", fontSize: 10, fontFamily: "monospace", fontWeight: 700, cursor: "pointer" }}
+                      style={{ background: `${A.green}18`, border: `1px solid ${A.green}66`, color: A.green, borderRadius: 6, padding: "1px 6px", fontSize: 10, fontFamily: "monospace", fontWeight: 700, cursor: "pointer" }}
                     >
                       Open Stocks
                     </button>
@@ -2135,7 +2137,7 @@ export default function MarketBreadthCard({
                     type="button"
                     onClick={() => setSelThemeId(null)}
                     title="Clear theme filter"
-                    style={{ background: `${A.cyan}18`, border: `1px solid ${A.cyan}66`, color: A.cyan, borderRadius: 4, padding: "1px 6px", fontSize: 10, fontFamily: "monospace", fontWeight: 700, cursor: "pointer" }}
+                    style={{ background: `${A.cyan}18`, border: `1px solid ${A.cyan}66`, color: A.cyan, borderRadius: 6, padding: "1px 6px", fontSize: 10, fontFamily: "monospace", fontWeight: 700, cursor: "pointer" }}
                   >
                     Theme: {selThemeObj.theme} ✕
                   </button>
@@ -2143,7 +2145,7 @@ export default function MarketBreadthCard({
                     <button
                       type="button"
                       onClick={() => onTheme(selThemeObj.themeId)}
-                      style={{ background: "transparent", border: `1px solid ${A.border}`, color: A.green, borderRadius: 4, padding: "1px 6px", fontSize: 10, fontFamily: "monospace", cursor: "pointer" }}
+                      style={{ background: "transparent", border: `1px solid ${A.border}`, color: A.green, borderRadius: 6, padding: "1px 6px", fontSize: 10, fontFamily: "monospace", cursor: "pointer" }}
                     >
                       All Stocks
                     </button>
