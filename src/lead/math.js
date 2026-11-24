@@ -76,6 +76,78 @@ export function layerStats(tickers, stockMap) {
   };
 }
 
+// Daily price breadth & dollar-volume flow across a layer or theme's members.
+// Uses live intraday quotes (px_live, vol_live, chg_live) when isLive is true,
+// otherwise falls back to last-session EOD rel_volume × avg_dollar_vol_raw.
+export function computeLayerDayFlow(tickers, stockMap, { isLive = false, volFrac = 1 } = {}) {
+  const frac = Math.max(0.08, Math.min(1, Number.isFinite(volFrac) ? volFrac : 1));
+  const chgs = [];
+  let green = 0;
+  let dv = 0;
+  let upDv = 0;
+  let dnDv = 0;
+  let measuredDv = 0;
+  let expectedDv = 0;
+  for (const t of tickers || []) {
+    const s = stockMap?.[t];
+    if (!s) continue;
+    const chg = isLive && s.chg_live != null && Number.isFinite(s.chg_live)
+      ? s.chg_live
+      : (s.change_pct != null && Number.isFinite(s.change_pct) ? s.change_pct : null);
+    if (chg != null) {
+      chgs.push(chg);
+      if (chg > 0) green++;
+    }
+    const avgDv = s.avg_dollar_vol_raw > 0
+      ? s.avg_dollar_vol_raw
+      : (s.avg_volume_raw > 0 && s.close > 0 ? s.avg_volume_raw * s.close : 0);
+    let dayDv = 0;
+    let expDv = 0;
+    if (isLive && s.px_live > 0 && s.vol_live > 0) {
+      dayDv = s.px_live * s.vol_live;
+      if (avgDv > 0) expDv = avgDv * frac;
+    } else if (s.rel_volume > 0 && avgDv > 0) {
+      dayDv = s.rel_volume * avgDv;
+      expDv = avgDv;
+    } else if (avgDv > 0) {
+      dayDv = avgDv;
+    }
+    if (dayDv > 0) {
+      dv += dayDv;
+      if (chg != null) {
+        if (chg > 0) upDv += dayDv;
+        else if (chg < 0) dnDv += dayDv;
+      }
+    }
+    if (dayDv > 0 && expDv > 0) {
+      measuredDv += dayDv;
+      expectedDv += expDv;
+    }
+  }
+  chgs.sort((a, b) => a - b);
+  const m = chgs.length >> 1;
+  const today = chgs.length ? (chgs.length % 2 ? chgs[m] : (chgs[m - 1] + chgs[m]) / 2) : null;
+  return {
+    today,
+    green,
+    n: chgs.length,
+    pctGreen: chgs.length ? Math.round((green / chgs.length) * 100) : null,
+    dv: dv > 0 ? dv : null,
+    netDv: dv > 0 ? upDv - dnDv : null,
+    rvol: expectedDv > 0 ? +(measuredDv / expectedDv).toFixed(2) : null,
+  };
+}
+
+export function fmtDollarVol(v, signed = false) {
+  if (v == null || !Number.isFinite(v)) return "—";
+  const sign = signed ? (v > 0 ? "+" : v < 0 ? "-" : "") : (v < 0 ? "-" : "");
+  const a = Math.abs(v);
+  if (a >= 1e9) return `${sign}$${(a / 1e9).toFixed(a >= 100e9 ? 0 : 1)}B`;
+  if (a >= 1e6) return `${sign}$${(a / 1e6).toFixed(a >= 100e6 ? 0 : 1)}M`;
+  if (a >= 1e3) return `${sign}$${Math.round(a / 1e3)}K`;
+  return `${sign}$${Math.round(a)}`;
+}
+
 // Volume / participation confirmation for a layer, from layer_breadth.json
 // (pipeline 10f). Counts and ratios only.
 export function layerConfirm(lbRow) {

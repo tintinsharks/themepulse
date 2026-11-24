@@ -12,12 +12,14 @@ import {
   SPARK_N,
   TierCtx,
   classify,
+  computeLayerDayFlow,
   computeTiers,
   layerConfirm,
   layerRanksFrom,
   layerStats,
   rankHeld,
   rankTrend,
+  sessionElapsedFrac,
   useIndexBars,
   useJson,
   useLiveRS,
@@ -129,12 +131,7 @@ export default function LeadershipView({
     if (!rot?.layers) return [];
     const sparkDates = dates.slice(-SPARK_N);
     const peakDates = dates.slice(-PEAK_LOOKBACK);
-    const med = (a) => {
-      const v = a.filter((x) => x != null && isFinite(x)).sort((x, y) => x - y);
-      if (!v.length) return null;
-      const m = v.length >> 1;
-      return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2;
-    };
+    const volFrac = isLive ? sessionElapsedFrac() : 1;
     return rot.layers.map((l0) => {
       const key = `${l0.themeId}|${l0.name}`;
       const tks = members[key] || (l0.holds || []).map((x) => x.t);
@@ -157,8 +154,8 @@ export default function LeadershipView({
         const passed = conf.passed.filter((k) => k !== "leaders").concat(l90d != null && l90d >= 2 ? ["leaders"] : []);
         conf = { ...conf, l90, l90d, passed, l90Live: true };
       }
-      const today = med(tks.map((t) => (isLive ? stockMap[t]?.chg_live : stockMap[t]?.change_pct)));
-      return { ...l, key, hist: h, st, peak, trend: rankTrend(h), held: rankHeld(hClose), stats, conf, today, rankLive: dl != null };
+      const dayFlow = computeLayerDayFlow(tks, stockMap || {}, { isLive, volFrac });
+      return { ...l, key, hist: h, st, peak, trend: rankTrend(h), held: rankHeld(hClose), stats, conf, today: dayFlow.today, dayFlow, rankLive: dl != null };
     });
   }, [rot, hist, dates, members, stockMap, layerBreadth, liveRank, isLive]);
 
@@ -166,6 +163,7 @@ export default function LeadershipView({
     const by = {};
     layers.forEach((l) => { (by[l.themeId] ||= { themeId: l.themeId, theme: l.theme, layers: [] }).layers.push(l); });
     const avg = (arr) => arr.reduce((s, x) => s + x, 0) / (arr.length || 1);
+    const volFrac = isLive ? sessionElapsedFrac() : 1;
     return Object.values(by).map((t) => {
       const L = t.layers;
       const counts = { lead: 0, emerg: 0, weak: 0, brk: 0, lag: 0 };
@@ -182,9 +180,11 @@ export default function LeadershipView({
       else if (counts.weak + counts.brk >= 1 && now < m1) st = "weak";
       else if (now - m1 >= 15 && now >= 55) st = "emerg";
       const tks = [...new Set(L.flatMap((l) => members[l.key] || (l.holds || []).map((x) => x.t)))];
-      return { ...t, counts, now, w1, m1, hist: h, st, trend: rankTrend(h), stats: layerStats(tks, stockMap || {}) };
+      const dayFlow = computeLayerDayFlow(tks, stockMap || {}, { isLive, volFrac });
+      const heldAvg = avg(L.map((l) => l.held?.held ?? 0));
+      return { ...t, counts, now, w1, m1, hist: h, st, trend: rankTrend(h), stats: layerStats(tks, stockMap || {}), today: dayFlow.today, dayFlow, heldAvg };
     }).sort((a, b) => b.now - a.now);
-  }, [layers, members, stockMap]);
+  }, [layers, members, stockMap, isLive]);
 
   // ticker → best layer it sits in (leading layers win ties)
   const tickerLayer = useMemo(() => {

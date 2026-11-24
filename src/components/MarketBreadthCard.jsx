@@ -1618,6 +1618,8 @@ export default function MarketBreadthCard({
   const [selThemeId, setSelThemeId] = useState(null);
   const [layerTab, setLayerTab] = useState("all"); // "all" | "lead" | "weak" | "brk" | "emerg" | "lag"
   const [expandedLayerKey, setExpandedLayerKey] = useState(null);
+  const [layerSort, setLayerSort] = useState(() => { try { return JSON.parse(localStorage.getItem("tp_layer_sort")) || null; } catch { return null; } });
+  const [themeSort, setThemeSort] = useState("rank"); // "rank" | "hold" | "today" | "netDvol" | "rvol"
   const [slide, setSlide] = useState(0); // 0 = Breadth + Stage Analysis (Deepvue view), 1 = MA Breadth + 4% Movers
   const [openChart, setOpenChart] = useState(null); // null | "nhnl" | "ad" | "stage" | "p20" | "p50" | "p200" | "mcclellan"
   const [adMode, setAdMode] = useState("daily"); // "daily" | "cum"
@@ -1873,6 +1875,43 @@ export default function MarketBreadthCard({
       setCardTab("layers");
     }
   };
+  const sortedThemes = useMemo(() => {
+    const arr = [...(themes || [])];
+    const keyVal = (t) => {
+      if (themeSort === "hold") return (t.heldAvg ?? 0) * 1000 + (t.now ?? 0);
+      if (themeSort === "today") return t.dayFlow?.today ?? null;
+      if (themeSort === "netDvol") return t.dayFlow?.netDv ?? null;
+      if (themeSort === "rvol") return t.dayFlow?.rvol ?? null;
+      return t.now ?? 0;
+    };
+    return arr.sort((a, b) => {
+      const va = keyVal(a), vb = keyVal(b);
+      if (va == null && vb == null) return (b.now ?? 0) - (a.now ?? 0);
+      if (va == null) return 1;
+      if (vb == null) return -1;
+      return vb - va || (b.now ?? 0) - (a.now ?? 0);
+    });
+  }, [themes, themeSort]);
+
+  const sortPillStyle = (active, accent) => ({
+    background: active ? `${accent || A.green}20` : "transparent",
+    border: `1px solid ${active ? (accent || A.green) : A.border}`,
+    color: active ? (accent || A.green) : A.textDim,
+    borderRadius: 4,
+    padding: "2px 7px",
+    fontSize: 10,
+    fontFamily: "monospace",
+    fontWeight: active ? 700 : 500,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+  });
+
+  const pickLayerPreset = (k) => {
+    const next = k === "rank" ? null : { k, d: "desc" };
+    setLayerSort(next);
+    try { localStorage.setItem("tp_layer_sort", JSON.stringify(next)); } catch { /* ignore */ }
+  };
+
   const toggleInlineLayer = (l) => {
     if (!l) return;
     const next = expandedLayerKey === l.key ? null : l.key;
@@ -2030,7 +2069,20 @@ export default function MarketBreadthCard({
         {cardTab === "themes" ? (
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 8, fontSize: 10, color: A.textMuted, fontFamily: "monospace" }}>
-              <span>Average layer RS rank · click any theme to view its layers</span>
+              <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 4 }}>
+                <span style={{ color: A.textMuted, marginRight: 2 }}>SORT</span>
+                {[
+                  ["rank", "RS Rank", A.green, "Best overall RS rank"],
+                  ["hold", "Holding Up", A.cyan, "Consistent RS ≥ 80 over last 20 sessions"],
+                  ["today", "Today %", COLORS.blue, "Strongest median % move today"],
+                  ["netDvol", "Net $Vol", "#fbbf24", "Strongest net institutional buying ($Vol) today"],
+                  ["rvol", "$Vol×", "#c084fc", "Biggest volume surge vs 20d avg $Vol today"],
+                ].map(([k, lbl, acc, tip]) => (
+                  <button key={k} type="button" onClick={() => setThemeSort(k)} title={tip} style={sortPillStyle(themeSort === k, acc)}>
+                    {lbl}
+                  </button>
+                ))}
+              </div>
               {selThemeObj && (
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                   <button
@@ -2053,12 +2105,12 @@ export default function MarketBreadthCard({
               )}
             </div>
             <div style={{ maxHeight: 460, overflowY: "auto" }}>
-              <ThemeBoard themes={themes} A={A} selected={selThemeId} onSelect={pickTheme} />
+              <ThemeBoard themes={sortedThemes} A={A} selected={selThemeId} onSelect={pickTheme} />
             </div>
           </div>
         ) : cardTab === "layers" ? (
           <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
               <Tabs
                 A={A}
                 value={layerTab}
@@ -2094,8 +2146,28 @@ export default function MarketBreadthCard({
                 </span>
               )}
             </div>
-            <div style={{ fontSize: 10, color: A.textMuted, marginBottom: 6 }}>
-              {layerTab === "all" ? "All layers ranked by RS score · click any layer to expand its members below" : STATUS[layerTab]?.hint}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 4, fontSize: 10, fontFamily: "monospace" }}>
+                <span style={{ color: A.textMuted, marginRight: 2 }}>SORT</span>
+                {[
+                  ["rank", "RS Rank", A.green, "Best overall layer RS rank"],
+                  ["held20", "Holding Up", A.cyan, "Most sessions at RS ≥ 80 over last 20 (ties by current RS)"],
+                  ["mbr", "Mbr RS", A.green, "Highest median member stock RS"],
+                  ["today", "Today %", COLORS.blue, "Strongest median % move today"],
+                  ["netDvol", "Net $Vol", "#fbbf24", "Strongest net institutional buying ($Vol) today"],
+                  ["rvol", "$Vol×", "#c084fc", "Biggest volume surge vs 20d avg $Vol today"],
+                ].map(([k, lbl, acc, tip]) => {
+                  const active = k === "rank" ? (!layerSort || (layerSort.k === "rank" && layerSort.d === "desc")) : (layerSort?.k === k && layerSort?.d === "desc");
+                  return (
+                    <button key={k} type="button" onClick={() => pickLayerPreset(k)} title={tip} style={sortPillStyle(active, acc)}>
+                      {lbl}
+                    </button>
+                  );
+                })}
+              </div>
+              <span style={{ fontSize: 10, color: A.textMuted }}>
+                {layerTab === "all" ? "Click any layer to expand members below" : STATUS[layerTab]?.hint}
+              </span>
             </div>
             <LayerTable
               rows={layerBuckets[layerTab] || []}
@@ -2107,6 +2179,8 @@ export default function MarketBreadthCard({
               members={members}
               expanded={expandedLayerKey}
               onToggle={toggleInlineLayer}
+              sort={layerSort}
+              onSort={setLayerSort}
               inlineExpand
               maxHeight={expandedLayerKey ? 620 : 460}
               compact

@@ -22,6 +22,8 @@ import {
   classifyWeinsteinStage,
   computeStageDistribution,
   estimateStageHistory,
+  computeLayerDayFlow,
+  fmtDollarVol,
 } from "../src/lead/math.js";
 
 test("rankHeld counts sessions at or above threshold in trailing window", () => {
@@ -258,4 +260,35 @@ test("classifyWeinsteinStage and computeStageDistribution classify Stages 1-4 ac
   assert.ok(hist[0].s2 > 55); // strong bull day
   assert.equal(hist[1].exact, true);
   assert.equal(hist[1].s2, 25); // anchored to exact currentDist
+});
+
+test("computeLayerDayFlow and fmtDollarVol compute EOD and pace-adjusted live dollar flow", () => {
+  const sm = {
+    A: { close: 100, change_pct: 4.0, avg_dollar_vol_raw: 1e9, rel_volume: 2.0 }, // $2B up
+    B: { close: 50, change_pct: 2.0, avg_dollar_vol_raw: 5e8, rel_volume: 1.0 },  // $0.5B up
+    C: { close: 80, change_pct: -3.0, avg_dollar_vol_raw: 1e9, rel_volume: 1.5 }, // $1.5B down
+  };
+  const eod = computeLayerDayFlow(["A", "B", "C"], sm, { isLive: false });
+  assert.equal(eod.today, 2.0);
+  assert.equal(eod.green, 2);
+  assert.equal(eod.n, 3);
+  assert.equal(eod.dv, 4e9);
+  assert.equal(eod.netDv, 1e9); // 2.5B - 1.5B
+  assert.equal(eod.rvol, 1.6);  // 4B / 2.5B
+
+  const smLive = {
+    A: { close: 100, px_live: 105, vol_live: 10e6, chg_live: 5.0, avg_dollar_vol_raw: 1e9 }, // $1.05B at 50% of session => 2.1x
+    B: { close: 50, px_live: 49, vol_live: 5e6, chg_live: -2.0, avg_dollar_vol_raw: 5e8 },   // $0.245B at 50% of session => 0.98x
+  };
+  const live = computeLayerDayFlow(["A", "B"], smLive, { isLive: true, volFrac: 0.5 });
+  assert.equal(live.green, 1);
+  assert.equal(live.dv, 1.05e9 + 0.245e9);
+  assert.equal(live.netDv, 1.05e9 - 0.245e9);
+  assert.equal(live.rvol, +(1.295e9 / (1.5e9 * 0.5)).toFixed(2));
+
+  assert.equal(fmtDollarVol(93.34e9), "$93.3B");
+  assert.equal(fmtDollarVol(125e9), "$125B");
+  assert.equal(fmtDollarVol(-4.2e9, true), "-$4.2B");
+  assert.equal(fmtDollarVol(420e6, true), "+$420M");
+  assert.equal(fmtDollarVol(null), "—");
 });
