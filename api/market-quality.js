@@ -39,6 +39,85 @@ async function fetchQuotes(tickers, apiKey) {
   } catch { return {}; }
 }
 
+// ── Yahoo Finance v7 live CME futures & DXY (24/5) ──
+let _yhCrumb = null;
+let _yhCookies = null;
+let _yhExpiry = 0;
+
+async function getYahooCrumb() {
+  if (_yhCrumb && _yhCookies && Date.now() < _yhExpiry) {
+    return { crumb: _yhCrumb, cookies: _yhCookies };
+  }
+  const initResp = await fetch("https://fc.yahoo.com", {
+    headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" },
+    redirect: "manual",
+    signal: AbortSignal.timeout(6000),
+  });
+  const setCookies = initResp.headers.getSetCookie?.() || [];
+  const cookies = setCookies.map((c) => c.split(";")[0]).join("; ");
+  const crumbResp = await fetch("https://query2.finance.yahoo.com/v1/test/getcrumb", {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+      Cookie: cookies,
+    },
+    signal: AbortSignal.timeout(6000),
+  });
+  if (!crumbResp.ok) throw new Error(`Yahoo crumb ${crumbResp.status}`);
+  const crumb = await crumbResp.text();
+  _yhCrumb = crumb;
+  _yhCookies = cookies;
+  _yhExpiry = Date.now() + 10 * 60 * 1000;
+  return { crumb, cookies };
+}
+
+async function fetchYahooLiveQuotes(symbols) {
+  try {
+    const { crumb, cookies } = await getYahooCrumb();
+    const fields = "symbol,regularMarketPrice,regularMarketChange,regularMarketChangePercent,preMarketPrice,preMarketChangePercent,postMarketPrice,postMarketChangePercent";
+    const url = `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols.join(","))}&crumb=${encodeURIComponent(crumb)}&fields=${fields}`;
+    const r = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+        Cookie: cookies,
+      },
+      signal: AbortSignal.timeout(7000),
+    });
+    if (!r.ok) return {};
+    const d = await r.json();
+    const out = {};
+    for (const q of d?.quoteResponse?.result || []) {
+      if (q?.symbol) out[q.symbol] = q;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+function isRthNowEt() {
+  const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const day = et.getDay();
+  if (day === 0 || day === 6) return false;
+  const mins = et.getHours() * 60 + et.getMinutes();
+  return mins >= 570 && mins < 960;
+}
+
+async function fetchFmpAftermarket(symbols, apiKey) {
+  try {
+    const url = `https://financialmodelingprep.com/stable/batch-aftermarket-trade?symbols=${symbols.join(",")}&apikey=${apiKey}`;
+    const r = await fetch(url, { signal: AbortSignal.timeout(6000) });
+    if (!r.ok) return {};
+    const data = await r.json();
+    const out = {};
+    for (const q of Array.isArray(data) ? data : []) {
+      if (q?.symbol && q.price > 0) out[q.symbol] = q;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
 // ── Fetch JSON from own origin ──
 async function fetchJson(origin, path) {
   try {
@@ -406,8 +485,9 @@ export default async function handler(req, res) {
     const origin = `https://${req.headers.host}`;
 
     // Parallel fetches
-    const [quotes, monitor, dashData, userData] = await Promise.all([
+    const [quotes, yhLive, monitor, dashData, userData] = await Promise.all([
       fetchQuotes([...INDEX_TICKERS, ...SECTOR_ETFS, "VIXY", "UUP"], fmpKey),
+      fetchYahooLiveQuotes(["ES=F", "NQ=F", "YM=F", "RTY=F", "DX-Y.NYB", "SPY", "QQQ", "DIA", "IWM"]),
       fetchJson(origin, "/market_monitor.json"),
       fetchJson(origin, "/dashboard_data.json"),
       (async () => {
@@ -569,8 +649,15 @@ export default async function handler(req, res) {
         change: (tnxQuote.changePercentage || 0).toFixed(2),
       });
     }
-    // Add DXY proxy
-    if (quotes.UUP) {
+    // Add DXY (prefer live DX-Y.NYB spot index, fall back to UUP proxy)
+    const yhDxy = yhLive?.["DX-Y.NYB"];
+    if (yhDxy?.regularMarketPrice > 0) {
+      tape.splice(3, 0, {
+        ticker: "DXY",
+        price: Number(yhDxy.regularMarketPrice).toFixed(2),
+        change: Number(yhDxy.regularMarketChangePercent || 0).toFixed(2),
+      });
+    } else if (quotes.UUP) {
       tape.splice(3, 0, {
         ticker: "DXY",
         price: (quotes.UUP.price || 0).toFixed(2),
@@ -857,25 +944,71 @@ export default async function handler(req, res) {
           .map(d => ({ date: d.date, time: d.time, tickers: d.tickers.slice(0, 12) }));
       })(),
       futures: await (async () => {
-        // Fetch futures/forex/crypto from FMP batch-quote
+        // Live 24/5 CME equity index futures (ES/NQ/YM/RTY) + commodities/FX/crypto.
+        // Never fall back silently to yesterday's RTH ETF close during premarket/afterhours.
         try {
-          const symbols = ["CLUSD","NGUSD","GCUSD","EURUSD","USDJPY","GBPUSD","BTCUSD"];
-          const labels = { CLUSD:"Crude Oil", NGUSD:"Natural Gas", GCUSD:"Gold", EURUSD:"EUR/USD", USDJPY:"USD/JPY", GBPUSD:"GBP/USD", BTCUSD:"BTC/USD" };
+          const rth = isRthNowEt();
+          const fmpExt = !rth ? await fetchFmpAftermarket(INDEX_TICKERS, fmpKey) : {};
+          const results = [];
+
+          // 1. Real CME E-mini index futures first (ES=F, NQ=F, YM=F, RTY=F),
+          //    falling back to live pre/postmarket ETF quotes outside RTH, or RTH ETF quotes during RTH.
+          const indexFutures = [
+            ["ES=F", "SPY", "S&P 500"],
+            ["NQ=F", "QQQ", "Nasdaq 100"],
+            ["YM=F", "DIA", "Dow"],
+            ["RTY=F", "IWM", "Russell 2000"],
+          ];
+          for (const [futSym, etfSym, name] of indexFutures) {
+            const fq = yhLive?.[futSym];
+            if (fq?.regularMarketPrice > 0 && fq?.regularMarketChangePercent != null) {
+              results.push({
+                name,
+                price: fq.regularMarketPrice,
+                change: fq.regularMarketChange ?? null,
+                changePct: fq.regularMarketChangePercent,
+                source: "futures",
+              });
+              continue;
+            }
+            const yEtf = yhLive?.[etfSym];
+            const extPx = !rth ? (yEtf?.preMarketPrice ?? yEtf?.postMarketPrice ?? fmpExt?.[etfSym]?.price ?? null) : null;
+            const prevClose = quotes[etfSym]?.price ?? quotes[etfSym]?.previousClose ?? null;
+            const extPct = !rth
+              ? (yEtf?.preMarketChangePercent ?? yEtf?.postMarketChangePercent ?? (extPx && prevClose ? ((extPx - prevClose) / prevClose) * 100 : null))
+              : null;
+            if (!rth && extPx && extPct != null) {
+              results.push({
+                name,
+                price: extPx,
+                change: prevClose ? Math.round((extPx - prevClose) * 100) / 100 : null,
+                changePct: Math.round(extPct * 100) / 100,
+                source: "ext",
+              });
+              continue;
+            }
+            const q = quotes[etfSym];
+            if (q && rth) {
+              results.push({ name, price: q.price, change: q.change, changePct: q.changePercentage, source: "rth" });
+            }
+          }
+
+          // 2. 24h commodities / FX / crypto from FMP batch-quote
+          const symbols = ["CLUSD", "NGUSD", "GCUSD", "EURUSD", "USDJPY", "GBPUSD", "BTCUSD"];
+          const labels = { CLUSD: "Crude Oil", NGUSD: "Natural Gas", GCUSD: "Gold", EURUSD: "EUR/USD", USDJPY: "USD/JPY", GBPUSD: "GBP/USD", BTCUSD: "BTC/USD" };
           const url = `https://financialmodelingprep.com/stable/batch-quote?symbols=${symbols.join(",")}&apikey=${fmpKey}`;
           const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
-          if (!r.ok) return [];
-          const data = await r.json();
-          const results = (Array.isArray(data) ? data : []).map(q => ({
-            name: labels[q.symbol] || q.name || q.symbol,
-            price: q.price ?? null,
-            change: q.change ?? null,
-            changePct: q.changePercentage ?? null,
-          }));
-          // Add index futures from existing quotes
-          const idxMap = { SPY:"S&P 500", QQQ:"Nasdaq 100", DIA:"Dow", IWM:"Russell 2000" };
-          for (const [sym, name] of Object.entries(idxMap)) {
-            const q = quotes[sym];
-            if (q) results.push({ name, price: q.price, change: q.change, changePct: q.changePercentage });
+          if (r.ok) {
+            const data = await r.json();
+            for (const q of Array.isArray(data) ? data : []) {
+              results.push({
+                name: labels[q.symbol] || q.name || q.symbol,
+                price: q.price ?? null,
+                change: q.change ?? null,
+                changePct: q.changePercentage ?? null,
+                source: "24h",
+              });
+            }
           }
           return results;
         } catch { return []; }

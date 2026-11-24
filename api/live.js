@@ -1341,8 +1341,8 @@ async function fetchYahooExtHours(tickers, session) {
   const results = new Map();
   const { crumb, cookies } = await getYahooCrumb();
 
-  const pmFields = "symbol,preMarketPrice,preMarketChangePercent";
-  const ahFields = "symbol,postMarketPrice,postMarketChangePercent";
+  const pmFields = "symbol,preMarketPrice,preMarketChangePercent,preMarketVolume";
+  const ahFields = "symbol,postMarketPrice,postMarketChangePercent,postMarketVolume";
   const fields = session === "premarket" ? pmFields : ahFields;
 
   for (let i = 0; i < tickers.length; i += BATCH) {
@@ -1362,10 +1362,12 @@ async function fetchYahooExtHours(tickers, session) {
       for (const q of quotes) {
         const price = session === "premarket" ? q.preMarketPrice : q.postMarketPrice;
         const changePct = session === "premarket" ? q.preMarketChangePercent : q.postMarketChangePercent;
+        const extVol = session === "premarket" ? q.preMarketVolume : q.postMarketVolume;
         if (price != null && changePct != null) {
           results.set(q.symbol, {
             extPrice: Math.round(price * 100) / 100,
             extChange: Math.round(changePct * 100) / 100,
+            extVolume: typeof extVol === "number" && Number.isFinite(extVol) && extVol > 0 ? extVol : null,
           });
         }
       }
@@ -1611,7 +1613,7 @@ export default async function handler(req, res) {
               price: ext ? ext.extPrice : u.price,
               ext_session: extSession,
               ext_change: ext ? ext.extChange : null,
-              ext_volume: null,
+              ext_volume: ext ? ext.extVolume : null,
             };
           });
       } else {

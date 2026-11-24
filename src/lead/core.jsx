@@ -1086,13 +1086,31 @@ export function extRows(snap, stockMap, tickerLayer, universeOnly) {
 
 export function ExtHoursMovers({ A, pipeline, stockMap, tickerLayer, onTicker, chartTicker, onLayer, keep }) {
   const [uOnly, setUOnly] = useState(true);
-  const today = etClock().today;
+  const clock = etClock();
+  const today = clock.today;
   const pmSnap = useMemo(() => pipeline?.last_pm || (pipeline?.pm_sip_movers?.length || pipeline?.pm_earnings_movers?.length
     ? { session: null, earnings: pipeline.pm_earnings_movers, movers: pipeline.pm_sip_movers, top: pipeline.pm_top_movers } : null), [pipeline]);
   const ahSnap = useMemo(() => pipeline?.last_ah || (pipeline?.ah_sip_movers?.length || pipeline?.ah_earnings_movers?.length
     ? { session: null, earnings: pipeline.ah_earnings_movers, movers: pipeline.ah_sip_movers, top: pipeline.ah_top_movers } : null), [pipeline]);
-  const pmRows = useMemo(() => extRows(pmSnap, stockMap, tickerLayer, uOnly).filter((r) => !keep || keep(r.t)), [pmSnap, stockMap, tickerLayer, uOnly, keep]);
-  const ahRows = useMemo(() => extRows(ahSnap, stockMap, tickerLayer, uOnly).filter((r) => !keep || keep(r.t)), [ahSnap, stockMap, tickerLayer, uOnly, keep]);
+  const basePmRows = useMemo(() => extRows(pmSnap, stockMap, tickerLayer, uOnly).filter((r) => !keep || keep(r.t)), [pmSnap, stockMap, tickerLayer, uOnly, keep]);
+  const baseAhRows = useMemo(() => extRows(ahSnap, stockMap, tickerLayer, uOnly).filter((r) => !keep || keep(r.t)), [ahSnap, stockMap, tickerLayer, uOnly, keep]);
+
+  // Overlay live pre-market / after-hours Chg%, Price, and Vol during extended hours
+  const extTickers = useMemo(
+    () => (!clock.rth ? [...new Set([...basePmRows.map((r) => r.t), ...baseAhRows.map((r) => r.t)])] : []),
+    [clock.rth, basePmRows, baseAhRows]
+  );
+  const { quotes: extQuotes, at: extAt } = useScanQuotes(extTickers, !clock.rth && extTickers.length > 0);
+  const overlayLive = (rows, targetSession) => rows.map((r) => {
+    const q = extQuotes.get(r.t);
+    if (!q || q.ext_session !== targetSession) return r;
+    const chg = q.ext_change != null ? q.ext_change : r.chg;
+    const price = q.ext_change != null && q.price != null ? q.price : r.price;
+    const vol = q.ext_volume != null ? q.ext_volume : r.vol;
+    return { ...r, chg, price, vol, isLiveExt: q.ext_change != null };
+  });
+  const pmRows = useMemo(() => overlayLive(basePmRows, "premarket"), [basePmRows, extQuotes]); // eslint-disable-line react-hooks/exhaustive-deps
+  const ahRows = useMemo(() => overlayLive(baseAhRows, "aftermarket"), [baseAhRows, extQuotes]); // eslint-disable-line react-hooks/exhaustive-deps
   const fmtVol = (v) => (v == null ? "—" : v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `${Math.round(v / 1e3)}K` : String(v));
   // Click-to-sort, shared by both tables. Default: biggest move either way.
   const [sort, setSort] = useState({ k: "absChg", d: -1 });
@@ -1117,7 +1135,7 @@ export function ExtHoursMovers({ A, pipeline, stockMap, tickerLayer, onTicker, c
       </th>
     );
   };
-  const section = (title, sub, rows0) => { const rows = sorted(rows0); return (
+  const section = (title, sub, rows0, sessTag) => { const rows = sorted(rows0); return (
     <div style={{ marginBottom: 12 }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 8, margin: "2px 0 6px" }}>
         <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: A.text }}>{title}</span>
@@ -1128,8 +1146,8 @@ export function ExtHoursMovers({ A, pipeline, stockMap, tickerLayer, onTicker, c
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead style={{ position: "sticky", top: 0, background: A.bgCard || A.bg, zIndex: 1 }}>
               <tr>
-                {hdr("t", "Ticker")}{hdr("chg", "Chg", "right", "Default order is biggest move either way; click to sort high → low")}{hdr("price", "Price", "right")}
-                {hdr("vol", "Vol", "right")}{hdr("rs", "RS", "right")}{hdr("eps", "EPS", "right", EPS_TIP)}{hdr("layer", "Layer")}{hdr("catalyst", "Catalyst")}
+                {hdr("t", "Ticker")}{hdr("chg", `${sessTag} Chg%`, "right", `${title} change % vs prior regular close (default sorted by biggest move either way)`)}{hdr("price", `${sessTag} Px`, "right")}
+                {hdr("vol", `${sessTag} Vol`, "right", `${title} share volume`)}{hdr("rs", "RS", "right")}{hdr("eps", "EPS", "right", EPS_TIP)}{hdr("layer", "Layer")}{hdr("catalyst", "Catalyst")}
               </tr>
             </thead>
             <tbody>
@@ -1169,10 +1187,13 @@ export function ExtHoursMovers({ A, pipeline, stockMap, tickerLayer, onTicker, c
       )}
     </div>
   ); };
-  const pmSub = pmSnap?.session
+  const pmLiveCount = pmRows.filter((r) => r.isLiveExt).length;
+  const ahLiveCount = ahRows.filter((r) => r.isLiveExt).length;
+  const liveStamp = extAt ? ` · live ${extAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "";
+  const pmSub = (pmSnap?.session
     ? (pmSnap.session === today ? `today · scanned ${String(pmSnap.scanned || "").slice(11)} ET` : `no scan yet today — last: ${pmSnap.session}`)
-    : "today";
-  const ahSub = ahSnap?.session ? `${ahSnap.session} close · scanned ${String(ahSnap.scanned || "").slice(5)} ET` : (ahSnap ? "last session" : "no after-hours scan saved yet");
+    : "today") + (pmLiveCount > 0 ? liveStamp : "");
+  const ahSub = (ahSnap?.session ? `${ahSnap.session} close · scanned ${String(ahSnap.scanned || "").slice(5)} ET` : (ahSnap ? "last session" : "no after-hours scan saved yet")) + (ahLiveCount > 0 ? liveStamp : "");
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
@@ -1180,8 +1201,8 @@ export function ExtHoursMovers({ A, pipeline, stockMap, tickerLayer, onTicker, c
           <input type="checkbox" checked={uOnly} onChange={(e) => setUOnly(e.target.checked)} /> Universe only, ≥ $5
         </label>
       </div>
-      {section("Pre-market", pmSub, pmRows)}
-      {section("After-hours", ahSub, ahRows)}
+      {section("Pre-market", pmSub, pmRows, "PM")}
+      {section("After-hours", ahSub, ahRows, "AH")}
     </div>
   );
 }

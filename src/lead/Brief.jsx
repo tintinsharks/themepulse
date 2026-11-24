@@ -74,6 +74,7 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
 
   const num = (v, dg = 2) => (typeof v === "number" ? v.toFixed(dg) : "—");
   const pct = (v, dg = 1) => (typeof v === "number" ? `${v > 0 ? "+" : ""}${v.toFixed(dg)}%` : "—");
+  const fmtVol = (v) => (typeof v !== "number" || !Number.isFinite(v) || v <= 0 ? "—" : v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `${Math.round(v / 1e3)}K` : String(Math.round(v)));
   const pc = (v) => (typeof v !== "number" ? A.textMuted : v >= 0 ? A.green : A.red);
   const rsC = (v) => (v >= 90 ? A.green : v >= 70 ? A.yellow : typeof v === "number" ? A.red : A.textMuted);
   const arr = (x) => (Array.isArray(x) ? x : []);
@@ -106,7 +107,11 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
     const hi = Math.max(hiLvl || 0, q.yearHigh || 0) || null;
     const offHi = hi && px ? (px / hi - 1) * 100 : null;
     const vs50 = s?.sma50_lvl && px ? (px / s.sma50_lvl - 1) * 100 : null;
-    return { q, px, chg, cr, zvr, offHi, vs50 };
+    const extSession = q.ext_session || null;
+    const extPx = extSession ? (q.price ?? null) : null;
+    const extChg = extSession ? (q.ext_change ?? null) : null;
+    const extVol = extSession ? (q.ext_volume ?? null) : null;
+    return { q, px, chg, cr, zvr, offHi, vs50, extSession, extPx, extChg, extVol };
   };
 
   const toneColor = (tone) => (
@@ -429,35 +434,58 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
         </Card>
       )}
 
-      {!collapsed && arr(brief.extendedMovers).length > 0 && (
-        <Card A={A} title="Pre / after-market movers" sub={liveOn ? "Showing live intraday Chg% / Price / ZVR vs original brief gap" : undefined}>
+      {!collapsed && arr(brief.extendedMovers).length > 0 && (() => {
+        const extRowsList = arr(brief.extendedMovers).map((m) => {
+          const li = liveInfo(m.ticker);
+          const isExt = Boolean(li?.extSession);
+          const chg = isExt ? (li?.extChg ?? m.chgPct) : (li?.chg ?? m.chgPct);
+          const px = isExt ? (li?.extPx ?? m.price) : (li?.px ?? m.price);
+          const volNum = isExt ? (li?.extVol ?? null) : null;
+          const volStr = isExt
+            ? (li?.extVol != null ? fmtVol(li.extVol) : String(m.vol ?? "—"))
+            : null;
+          return { ...m, _li: li, _isExt: isExt, _chg: chg, _px: px, _volNum: volNum, _volStr: volStr };
+        });
+        const inExtNow = liveOn && extRowsList.some((r) => r._isExt);
+        const extSessTag = extRowsList.find((r) => r._li?.extSession)?._li?.extSession === "premarket" ? "PM" : "AH";
+        return (
+        <Card
+          A={A}
+          title="Pre / after-market movers"
+          sub={
+            liveOn
+              ? (inExtNow
+                  ? `Showing live ${extSessTag === "PM" ? "pre-market" : "after-hours"} Chg% / Price / Vol (never mixed with prior RTH close)`
+                  : "Showing live intraday Chg% / Price / ZVR vs original brief gap")
+              : undefined
+          }
+        >
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead style={{ position: "sticky", top: 0, background: A.bgCard, zIndex: 1 }}><tr>
                 {extTh("ticker", "Ticker", "left", true)}
                 {extTh("session", "Session", "left", true)}
-                {extTh("chg", liveOn ? "Live Chg" : "Chg")}
-                {extTh("px", liveOn ? "Live Px" : "Price")}
-                {extTh("zvr", liveOn ? "ZVR / Vol" : "Vol")}
+                {extTh("chg", liveOn ? (inExtNow ? `${extSessTag} Chg%` : "Live Chg") : "Chg")}
+                {extTh("px", liveOn ? (inExtNow ? `${extSessTag} Px` : "Live Px") : "Price")}
+                {extTh("zvr", liveOn ? (inExtNow ? `${extSessTag} Vol` : "ZVR / Vol") : "Vol")}
                 {extTh("rs", "RS")}
                 <th style={th(A)}>Catalyst</th><th style={th(A)}>Protocol</th>
               </tr></thead>
               <tbody>{sortWith(
-                arr(brief.extendedMovers).map((m) => {
-                  const li = liveInfo(m.ticker);
-                  return { ...m, _li: li, _chg: li?.chg ?? m.chgPct, _px: li?.px ?? m.price };
-                }),
+                extRowsList,
                 extSort,
                 (r, k) => {
                   if (k === "chg") return r._chg ?? null;
                   if (k === "px") return r._px ?? null;
-                  if (k === "zvr") return r._li?.zvr ?? null;
+                  if (k === "zvr") return r._isExt ? r._volNum : (r._li?.zvr ?? null);
                   return r[k] ?? null;
                 }
               ).map((m, i) => {
                 const li = m._li;
+                const isExt = m._isExt;
                 const chg = m._chg;
                 const px = m._px;
+                const hasLiveChg = isExt ? li?.extChg != null : Boolean(li);
                 const isCharted = chartTicker === m.ticker;
                 return (
                   <tr
@@ -473,15 +501,17 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
                   >
                     <td style={td()}><FlagButton t={m.ticker} A={A} /><Tk t={m.ticker} /></td>
                     <td style={td()}>{String(m.session ?? "")}</td>
-                    <td style={{ ...td("right"), color: pc(chg), fontWeight: li ? 700 : 400 }}>
+                    <td style={{ ...td("right"), color: pc(chg), fontWeight: hasLiveChg ? 700 : 400 }}>
                       {pct(chg, 2)}
-                      {li && typeof m.chgPct === "number" && (
+                      {hasLiveChg && typeof m.chgPct === "number" && Math.abs((chg ?? 0) - m.chgPct) >= 0.15 && (
                         <div style={{ fontSize: 10, color: A.textMuted }}>was {pct(m.chgPct, 1)}</div>
                       )}
                     </td>
                     <td style={td("right")}>{num(px)}</td>
                     <td style={td("right")}>
-                      {li?.zvr != null ? <strong style={{ color: li.zvr >= 1.5 ? A.green : A.text }}>{li.zvr.toFixed(2)}x</strong> : String(m.vol ?? "")}
+                      {isExt
+                        ? m._volStr
+                        : (li?.zvr != null ? <strong style={{ color: li.zvr >= 1.5 ? A.green : A.text }}>{li.zvr.toFixed(2)}x</strong> : String(m.vol ?? ""))}
                     </td>
                     <td style={{ ...td("right"), color: rsC(m.rs) }}>{m.rs ?? "—"}</td>
                     <td style={{ ...td(), color: A.textDim, minWidth: 200 }}>{String(m.catalyst ?? "")}<Src u={m.sourceUrl} /></td>
@@ -492,7 +522,8 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
             </table>
           </div>
         </Card>
-      )}
+        );
+      })()}
 
       {!collapsed && arr(brief.breakdowns).length > 0 && (
         <Card A={A} title="Breakdowns">
