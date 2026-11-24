@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { computeStageDistribution, estimateStageHistory, etClock } from "../lead/math.js";
+import { STATUS, computeStageDistribution, estimateStageHistory, etClock } from "../lead/math.js";
+import { LayerTable, Tabs, ThemeBoard } from "../lead/core.jsx";
 import { authFetch } from "../utils.js";
 import {
   buildCumulativeAdSeries,
@@ -1598,7 +1599,23 @@ function StageStockDrawer({
   );
 }
 
-export default function MarketBreadthCard({ A, stockMap, breadth, monitor, onTicker, chartTicker, tickerLayer }) {
+export default function MarketBreadthCard({
+  A,
+  stockMap,
+  breadth,
+  monitor,
+  onTicker,
+  chartTicker,
+  tickerLayer,
+  themes = [],
+  layers = [],
+  members = {},
+  onLayer,
+  onTheme,
+}) {
+  const [cardTab, setCardTab] = useState("breadth"); // "breadth" | "themes" | "layers"
+  const [selThemeId, setSelThemeId] = useState(null);
+  const [layerTab, setLayerTab] = useState("lead"); // "lead" | "weak" | "brk" | "emerg" | "lag"
   const [slide, setSlide] = useState(0); // 0 = Breadth + Stage Analysis (Deepvue view), 1 = MA Breadth + 4% Movers
   const [openChart, setOpenChart] = useState(null); // null | "nhnl" | "ad" | "stage" | "p20" | "p50" | "p200" | "mcclellan"
   const [adMode, setAdMode] = useState("daily"); // "daily" | "cum"
@@ -1824,7 +1841,37 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor, onTic
     [breadth, spxData, advDec, todayStr]
   );
 
+  const hasLeaderTabs = (Array.isArray(themes) && themes.length > 0) || (Array.isArray(layers) && layers.length > 0);
+  const selThemeObj = useMemo(
+    () => (selThemeId ? (themes || []).find((t) => t.themeId === selThemeId) || null : null),
+    [themes, selThemeId]
+  );
+  const visLayers = useMemo(
+    () => (selThemeId ? (layers || []).filter((l) => l.themeId === selThemeId) : (layers || [])),
+    [layers, selThemeId]
+  );
+  const layerBuckets = useMemo(() => {
+    const b = { lead: [], weak: [], brk: [], emerg: [], lag: [] };
+    for (const l of visLayers) {
+      if (b[l.st]) b[l.st].push(l);
+    }
+    return b;
+  }, [visLayers]);
+
+  const pickTheme = (id) => {
+    setSelThemeId(id);
+    if (id) {
+      const subset = (layers || []).filter((l) => l.themeId === id);
+      if (subset.length && !subset.some((l) => l.st === layerTab)) {
+        const first = ["lead", "emerg", "weak", "brk", "lag"].find((k) => subset.some((l) => l.st === k));
+        if (first) setLayerTab(first);
+      }
+      setCardTab("layers");
+    }
+  };
+
   const openSignalChart = (sig) => {
+    setCardTab("breadth");
     if (sig.chart === "mcclellan") {
       setSlide(1);
       setOpenChart("mcclellan");
@@ -1911,27 +1958,41 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor, onTic
             );
           })}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 10, fontFamily: "monospace", color: A.textMuted }}>
+        <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6, fontSize: 10, fontFamily: "monospace", color: A.textMuted }}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: isLive ? A.green : A.textMuted }}>
             {isLive && <span className="tp-livedot" style={{ width: 6, height: 6, borderRadius: 3, background: A.green, display: "inline-block" }} />}
             {isLive ? `LIVE${liveAt ? ` · ${liveAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}` : `EOD${breadth?.date ? ` · ${breadth.date}` : ""}`}
           </span>
-          <button
-            type="button"
-            onClick={() => setSlide((s) => (s === 0 ? 1 : 0))}
-            style={{
-              background: "transparent",
-              border: `1px solid ${A.border}`,
-              color: A.textDim,
-              borderRadius: 4,
-              padding: "1px 6px",
-              fontSize: 10,
-              fontFamily: "monospace",
-              cursor: "pointer",
-            }}
-          >
-            {slide === 0 ? "MA Breadth →" : "← Stages"}
-          </button>
+          {hasLeaderTabs && (
+            <Tabs
+              A={A}
+              value={cardTab}
+              onChange={setCardTab}
+              items={[
+                ["breadth", "Breadth", "", COLORS.blue],
+                ["themes", "Themes", themes.length || "", A.green],
+                ["layers", "Layers", visLayers.length || "", A.cyan],
+              ]}
+            />
+          )}
+          {cardTab === "breadth" && (
+            <button
+              type="button"
+              onClick={() => setSlide((s) => (s === 0 ? 1 : 0))}
+              style={{
+                background: "transparent",
+                border: `1px solid ${A.border}`,
+                color: A.textDim,
+                borderRadius: 4,
+                padding: "2px 7px",
+                fontSize: 10,
+                fontFamily: "monospace",
+                cursor: "pointer",
+              }}
+            >
+              {slide === 0 ? "MA Breadth →" : "← Stages"}
+            </button>
+          )}
         </div>
       </div>
 
@@ -1943,7 +2004,90 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor, onTic
           padding: "16px 18px 14px",
         }}
       >
-        {slide === 0 ? (
+        {cardTab === "themes" ? (
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 8, fontSize: 10, color: A.textMuted, fontFamily: "monospace" }}>
+              <span>Average layer RS rank · click any theme to view its layers</span>
+              {selThemeObj && (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <button
+                    type="button"
+                    onClick={() => setSelThemeId(null)}
+                    style={{ background: "transparent", border: `1px solid ${A.border}`, color: A.cyan, borderRadius: 4, padding: "1px 6px", fontSize: 10, fontFamily: "monospace", cursor: "pointer" }}
+                  >
+                    {selThemeObj.theme} ✕
+                  </button>
+                  {onTheme && (
+                    <button
+                      type="button"
+                      onClick={() => onTheme(selThemeObj.themeId)}
+                      style={{ background: `${A.green}18`, border: `1px solid ${A.green}66`, color: A.green, borderRadius: 4, padding: "1px 6px", fontSize: 10, fontFamily: "monospace", fontWeight: 700, cursor: "pointer" }}
+                    >
+                      Open Stocks
+                    </button>
+                  )}
+                </span>
+              )}
+            </div>
+            <div style={{ maxHeight: 460, overflowY: "auto" }}>
+              <ThemeBoard themes={themes} A={A} selected={selThemeId} onSelect={pickTheme} />
+            </div>
+          </div>
+        ) : cardTab === "layers" ? (
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+              <Tabs
+                A={A}
+                value={layerTab}
+                onChange={setLayerTab}
+                items={[
+                  ["lead", "Leading", layerBuckets.lead.length, A.green],
+                  ["weak", "Weakening", layerBuckets.weak.length, A.yellow],
+                  ["brk", "Breaking down", layerBuckets.brk.length, A.red],
+                  ["emerg", "Emerging", layerBuckets.emerg.length, A.cyan],
+                  ["lag", "Lagging", layerBuckets.lag.length, A.textDim],
+                ]}
+              />
+              {selThemeObj && (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, fontFamily: "monospace" }}>
+                  <button
+                    type="button"
+                    onClick={() => setSelThemeId(null)}
+                    title="Clear theme filter"
+                    style={{ background: `${A.cyan}18`, border: `1px solid ${A.cyan}66`, color: A.cyan, borderRadius: 4, padding: "1px 6px", fontSize: 10, fontFamily: "monospace", fontWeight: 700, cursor: "pointer" }}
+                  >
+                    Theme: {selThemeObj.theme} ✕
+                  </button>
+                  {onTheme && (
+                    <button
+                      type="button"
+                      onClick={() => onTheme(selThemeObj.themeId)}
+                      style={{ background: "transparent", border: `1px solid ${A.border}`, color: A.green, borderRadius: 4, padding: "1px 6px", fontSize: 10, fontFamily: "monospace", cursor: "pointer" }}
+                    >
+                      All Stocks
+                    </button>
+                  )}
+                </span>
+              )}
+            </div>
+            <div style={{ fontSize: 10, color: A.textMuted, marginBottom: 6 }}>
+              {STATUS[layerTab]?.hint}
+            </div>
+            <div style={{ maxHeight: 460, overflowY: "auto", overflowX: "auto" }}>
+              <LayerTable
+                rows={layerBuckets[layerTab] || []}
+                A={A}
+                onTicker={onTicker}
+                chartTicker={chartTicker}
+                stockMap={stockMap}
+                showPeak={layerTab === "weak" || layerTab === "brk"}
+                members={members}
+                onToggle={onLayer}
+                compact
+              />
+            </div>
+          </div>
+        ) : slide === 0 ? (
           <>
             <RatioBar
               title="New Highs vs New Lows"
@@ -2290,26 +2434,28 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor, onTic
         )}
 
         {/* Carousel dots matching the Deepvue widget */}
-        <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 12 }}>
-          {[0, 1].map((i) => (
-            <button
-              key={i}
-              type="button"
-              aria-label={i === 0 ? "Breadth & Stage Analysis" : "Moving Average Breadth"}
-              onClick={() => setSlide(i)}
-              style={{
-                width: 7,
-                height: 7,
-                borderRadius: "50%",
-                padding: 0,
-                cursor: "pointer",
-                background: slide === i ? A.textMuted : "transparent",
-                border: `1.5px solid ${A.textMuted}`,
-                opacity: slide === i ? 0.95 : 0.45,
-              }}
-            />
-          ))}
-        </div>
+        {cardTab === "breadth" && (
+          <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 12 }}>
+            {[0, 1].map((i) => (
+              <button
+                key={i}
+                type="button"
+                aria-label={i === 0 ? "Breadth & Stage Analysis" : "Moving Average Breadth"}
+                onClick={() => setSlide(i)}
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: "50%",
+                  padding: 0,
+                  cursor: "pointer",
+                  background: slide === i ? A.textMuted : "transparent",
+                  border: `1.5px solid ${A.textMuted}`,
+                  opacity: slide === i ? 0.95 : 0.45,
+                }}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

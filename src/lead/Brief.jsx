@@ -508,6 +508,11 @@ function BriefPanel(props) {
         onTicker={props.onTicker}
         chartTicker={props.chartTicker}
         tickerLayer={props.tickerLayer}
+        themes={props.themes}
+        layers={props.layers}
+        members={props.members}
+        onLayer={props.onLayer}
+        onTheme={props.onTheme}
       />
       <ZangerBriefSection
         A={A}

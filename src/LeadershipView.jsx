@@ -425,7 +425,20 @@ export default function LeadershipView({
           onTicker={onTickerClick} onLayer={(l) => { setTheme(l.themeId); setLayerTab(l.st); showLayer(l); }}
           onTheme={(id) => setTheme(id)} />
         <IndexPanel A={A} liveQuotes={indexQuotes} onTicker={onTickerClick} chartTicker={chartTicker} bars={idxBars} />
-        <MarketBreadthCard A={A} stockMap={stockMapX} breadth={breadth} monitor={monitor} onTicker={onTickerClick} chartTicker={chartTicker} tickerLayer={tickerLayer} />
+        <MarketBreadthCard
+          A={A}
+          stockMap={stockMapX}
+          breadth={breadth}
+          monitor={monitor}
+          onTicker={onTickerClick}
+          chartTicker={chartTicker}
+          tickerLayer={tickerLayer}
+          themes={themes}
+          layers={layers}
+          members={members}
+          onLayer={(l) => showLayer(l)}
+          onTheme={showTheme}
+        />
 
         {loading ? (
           <div style={{ color: A.textMuted, fontSize: 12, padding: 20 }}>Loading leadership data…</div>
