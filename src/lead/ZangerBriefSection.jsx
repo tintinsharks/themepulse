@@ -66,48 +66,6 @@ const fmtVol = (v) => {
   return String(Math.round(v));
 };
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-function formatSnapLabel(b) {
-  if (!b) return "";
-  const raw = String(b.label || b.et || b.id || "");
-  const countStr = `(${b.breakoutCount ?? 0} BO)`;
-
-  const dateSrc = String(b.date || b.et || raw);
-  const dateMatch = dateSrc.match(/(\d{4})-(\d{2})-(\d{2})/);
-  let datePart = "";
-  if (dateMatch) {
-    const mon = MONTHS[Number(dateMatch[2]) - 1];
-    const day = Number(dateMatch[3]);
-    if (mon && day) datePart = `${mon} ${day}`;
-  }
-
-  const timeSrc = String(b.et || raw);
-  const timeMatch = timeSrc.match(/(\d{1,2}:\d{2})(?:\s*ET)?/i);
-  const timePart = timeMatch ? `${timeMatch[1]} ET` : "";
-
-  const phaseRaw = String(b.phase || (raw.includes("·") ? raw.split("·").slice(1).join("·") : ""))
-    .trim()
-    .toUpperCase();
-  let phasePart = "";
-  if (phaseRaw.includes("PRE-MARKET") || phaseRaw.includes("PREMARKET") || phaseRaw === "PRE") {
-    phasePart = "Pre";
-  } else if (phaseRaw.includes("OPEN")) {
-    phasePart = "Open";
-  } else if (phaseRaw.includes("POWER")) {
-    phasePart = "Power Hr";
-  } else if (phaseRaw.includes("CLOSE") || phaseRaw.includes("CLOSING")) {
-    phasePart = "Close";
-  } else if (phaseRaw.includes("MIDDAY") || phaseRaw.includes("INTRADAY")) {
-    phasePart = "Midday";
-  } else if (phaseRaw) {
-    phasePart = phaseRaw.length > 12 ? phaseRaw.slice(0, 12).trim() : phaseRaw;
-  }
-
-  const head = [datePart, timePart, phasePart].filter(Boolean).join(" · ");
-  return head ? `${head} ${countStr}` : `${raw} ${countStr}`;
-}
-
 function ZvrMeter({ zvr, A }) {
   if (zvr == null) return <span style={{ color: A.textMuted }}>—</span>;
   const pct = Math.min(100, Math.round((zvr / 3.5) * 100));
@@ -474,28 +432,6 @@ export default function ZangerBriefSection({
         <span className={liveOn && at ? "tp-livedot" : undefined} style={{ width: 6, height: 6, borderRadius: 3, background: liveOn ? A.green : A.textMuted, display: "inline-block" }} />
         {liveOn ? (at ? `LIVE · ${at.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })}` : "LIVE") : "Snapshot"}
       </button>
-      {index && index.length > 0 && (
-        <select
-          value={sel || ""}
-          onChange={(e) => setSel(e.target.value)}
-          style={{
-            background: A.bg,
-            color: A.text,
-            border: `1px solid ${A.border}`,
-            borderRadius: 6,
-            fontSize: 11,
-            fontWeight: 600,
-            padding: "2px 8px",
-            maxWidth: 280,
-          }}
-        >
-          {index.map((b) => (
-            <option key={b.id || b.file} value={b.file}>
-              {formatSnapLabel(b)}
-            </option>
-          ))}
-        </select>
-      )}
     </div>
   );
 
