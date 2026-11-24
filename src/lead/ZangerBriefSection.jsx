@@ -113,7 +113,6 @@ export default function ZangerBriefSection({
   onTicker,
   chartTicker,
   onLayer,
-  onLayerObj,
   onTheme,
 }) {
   const [index, setIndex] = useState(null);
@@ -454,7 +453,6 @@ export default function ZangerBriefSection({
       themes={themes}
       layers={layers}
       members={members}
-      onLayer={onLayerObj}
       onTheme={onTheme}
       embedded
     />
@@ -592,7 +590,6 @@ export default function ZangerBriefSection({
   const damagedLeaders = liveComputed ? liveComputed.damagedLeaders : (snap?.leaderDamage?.damagedLeaders || []);
   const onDeck = liveComputed ? liveComputed.onDeck : (snap?.onDeckRsl || []);
   const faded = snap?.delta?.fadedBreakouts || [];
-  const holdRate = snap?.delta?.holdRate || null;
   const headlines = snap?.headlines || {};
   const warnLayers = (layers || []).filter((l) => l.st === "lead" && (l.flags || []).some(([k]) => k === "distrib" || k === "exiting"));
 
@@ -722,7 +719,6 @@ export default function ZangerBriefSection({
             )}
           </span>
         }
-        sub={`${liveComputed && at ? `Live as of ${at.toLocaleTimeString()} (60s refresh)` : (snap?.stamp?.pretty || "")} · ${bos.length} breakouts · ${movers.length} movers${holdRate ? ` · Hold rate ${holdRate.holding}/${holdRate.totalToday} (${holdRate.pct}%)` : ""}`}
         right={picker}
       >
         {/* Merged Major Indexes Strip (SPY, QQQ, IWM, DIA, MDY, RSP — sparklines, MAs, dist days, CR%) */}

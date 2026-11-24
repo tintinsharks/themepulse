@@ -238,7 +238,7 @@ export const LAYER_SORT = {
   held: (l) => l.persist,
 };
 
-export function LayerTable({ rows: rowsIn, A, onTicker, chartTicker, stockMap, showPeak, members, expanded, onToggle, focus, compact }) {
+export function LayerTable({ rows: rowsIn, A, onTicker, chartTicker, stockMap, showPeak, members, expanded, onToggle, focus, compact, inlineExpand = false, maxHeight = 640 }) {
   const [sort, setSort] = useState(() => { try { return JSON.parse(localStorage.getItem("tp_layer_sort")) || null; } catch { return null; } });
   const rows = useMemo(() => {
     if (!sort || !LAYER_SORT[sort.k]) return rowsIn;
@@ -263,11 +263,12 @@ export function LayerTable({ rows: rowsIn, A, onTicker, chartTicker, stockMap, s
       {label}{sort?.k === k ? (sort.d === "asc" ? " ▲" : " ▼") : ""}
     </th>
   );
+  const colSpan = 10 + (showPeak ? 1 : 0) + (!compact ? 3 : 0);
   if (!rows.length) return <div style={{ fontSize: 11, color: A.textMuted, padding: "6px 2px" }}>None.</div>;
   return (
-    <div style={{ overflowX: "auto", maxHeight: 640, overflowY: "auto" }}>
+    <div style={{ overflowX: "auto", maxHeight, overflowY: "auto" }}>
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead style={{ position: "sticky", top: 0, background: A.bg, zIndex: 1 }}>
+        <thead style={{ position: "sticky", top: 0, background: A.bg, zIndex: 2 }}>
           <tr>
             {sh("name", "Layer", "left")}
             {sh("rank", "Rank", "right", "Layer RS rank among all layers (0–100)")}
@@ -297,10 +298,13 @@ export function LayerTable({ rows: rowsIn, A, onTicker, chartTicker, stockMap, s
             const flags = layerFlags(l);
             return (
               <React.Fragment key={l.key}>
-              <tr onClick={() => onToggle?.(l)} title="Show every member in the Stocks box"
+              <tr onClick={() => onToggle?.(l)} title={inlineExpand ? (open ? "Collapse members" : "Expand members below") : "Show every member in the Stocks box"}
                 style={{ cursor: "pointer", background: open ? A.bgHover : "transparent", boxShadow: open ? `inset 3px 0 0 ${c}` : "none" }}>
                 <td style={compact ? { ...td(A), whiteSpace: "normal", minWidth: 120 } : td(A)}>
-                  <div style={{ color: A.text, fontWeight: 600 }}>{l.name}</div>
+                  <div style={{ color: A.text, fontWeight: 600 }}>
+                    {inlineExpand && <span style={{ color: open ? c : A.textMuted, fontSize: 10, marginRight: 5, fontFamily: "monospace" }}>{open ? "▾" : "▸"}</span>}
+                    {l.name}
+                  </div>
                   <div style={{ fontSize: 10, color: A.textMuted }}>{l.theme}
                     {flags.map(([k, why]) => (
                       <span key={k} title={why} style={{ marginLeft: 5, padding: "0 4px", borderRadius: 3, fontSize: 9, fontWeight: 700,
@@ -348,6 +352,30 @@ export function LayerTable({ rows: rowsIn, A, onTicker, chartTicker, stockMap, s
                   {all.length > 5 && <span style={{ fontSize: 10, color: A.textMuted }}>+{all.length - 5}</span>}
                 </td>}
               </tr>
+              {inlineExpand && open && (
+                <tr onClick={(e) => e.stopPropagation()}>
+                  <td
+                    colSpan={colSpan}
+                    style={{
+                      padding: "8px 10px 10px 12px",
+                      background: A.bg,
+                      borderBottom: `1px solid ${A.border}`,
+                      boxShadow: `inset 3px 0 0 ${c}`,
+                    }}
+                  >
+                    <LayerMembers
+                      A={A}
+                      layer={l}
+                      tickers={members?.[l.key] || (l.holds || []).map((h) => h.t)}
+                      stockMap={stockMap}
+                      onTicker={onTicker}
+                      chartTicker={chartTicker}
+                      maxHeight={340}
+                      onClose={() => onToggle?.(l)}
+                    />
+                  </td>
+                </tr>
+              )}
               </React.Fragment>
             );
           })}
@@ -1621,7 +1649,7 @@ export const RslDot = ({ tip, A }) => (tip ? <span title={tip} style={{ color: A
 // ── Layer members ─────────────────────────────────────────────────────────
 // Every stock in one layer, shown in the Stocks box when a layer row is
 // clicked. Same columns as the Scanner plus vs-50d; ★ = fastest EPS grower.
-export function LayerMembers({ A, layer, tickers, stockMap, onTicker, chartTicker, keep }) {
+export function LayerMembers({ A, layer, tickers, stockMap, onTicker, chartTicker, keep, maxHeight = 560, onClose }) {
   const [sort, setSort] = useState({ k: "rs", d: -1 });
   const list = useMemo(() => tickers.filter((t) => stockMap[t] && (!keep || keep(t))), [tickers, stockMap, keep]);
   const { quotes, at } = useScanQuotes(list, true);
@@ -1656,15 +1684,27 @@ export function LayerMembers({ A, layer, tickers, stockMap, onTicker, chartTicke
   const b = layer.stats;
   return (
     <div>
-      <div style={{ fontSize: 10, color: A.textMuted, marginBottom: 6 }}>
-        <span style={{ color: statusColor(layer.st, A), fontWeight: 700 }}>{STATUS[layer.st].label}</span> · rank {layer.now}{b?.rsMed != null && <> · typical member RS {b.rsMed}</>}
-        {" "}(<Delta v={layer.now - layer.w1} A={A} /> 1w, <Delta v={layer.now - layer.m1} A={A} /> 1m) · {layer.theme}
-        {at && <> · live {at.toLocaleTimeString()}</>}
-        {" "}· ★ fastest EPS grower · ↑/↓ to step through
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, fontSize: 10, color: A.textMuted, marginBottom: 6 }}>
+        <div>
+          <span style={{ color: statusColor(layer.st, A), fontWeight: 700 }}>{STATUS[layer.st].label}</span> · rank {layer.now}{b?.rsMed != null && <> · typical member RS {b.rsMed}</>}
+          {" "}(<Delta v={layer.now - layer.w1} A={A} /> 1w, <Delta v={layer.now - layer.m1} A={A} /> 1m) · {layer.theme}
+          {at && <> · live {at.toLocaleTimeString()}</>}
+          {" "}· ★ fastest EPS grower · ↑/↓ to step through
+        </div>
+        {onClose && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onClose(); }}
+            title="Collapse layer"
+            style={{ background: "transparent", border: `1px solid ${A.border}`, color: A.textMuted, borderRadius: 4, padding: "1px 6px", fontSize: 10, cursor: "pointer", flexShrink: 0 }}
+          >
+            ✕
+          </button>
+        )}
       </div>
-      <div style={{ overflowX: "auto", maxHeight: 560, overflowY: "auto" }}>
+      <div style={{ overflowX: "auto", maxHeight, overflowY: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead style={{ position: "sticky", top: 0, background: A.bg }}>
+          <thead style={{ position: "sticky", top: 0, background: A.bg, zIndex: 1 }}>
             <tr>
               <th style={th(A)}>Ticker</th>
               {col("px", "Price")}{col("chg", "Chg")}

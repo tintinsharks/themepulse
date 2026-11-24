@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { CONF_LABEL, Card, Delta, EPS_TIP, ExtHoursMovers, FlagButton, LayerLink, StockTable, TierMark, closingRange, statusColor, td, th, useRvolProfiles, useScanQuotes, zvrFor } from "./core.jsx";
+import { CONF_LABEL, Card, Delta, EPS_TIP, ExtHoursMovers, FlagButton, LayerLink, LayerMembers, StockTable, TierMark, closingRange, statusColor, td, th, useRvolProfiles, useScanQuotes, zvrFor } from "./core.jsx";
 import { authFetch } from "../utils.js";
 import { collectBriefTickers, evalPivotStatus, matchMacroLive } from "./briefLive.js";
 import RotationView from "./Rotation.jsx";
@@ -518,7 +518,6 @@ function BriefPanel(props) {
         onTicker={props.onTicker}
         chartTicker={props.chartTicker}
         onLayer={props.layerOfTicker}
-        onLayerObj={props.onLayer}
         onTheme={props.onTheme}
       />
     </>
@@ -535,6 +534,18 @@ const isRising = (l) => l.st === "emerg" || (l.st !== "lead" && (l.now - (l.m1 ?
 
 function LiveBrief({ A, themes, layers, stockMap, tickerLayer, members, brk, pipeline, dates, theme, lb,
   onTicker, chartTicker, onLayer, onTheme, layerOfTicker, modeSwitch }) {
+  const [openLayerKey, setOpenLayerKey] = useState(null);
+  const toggleInlineLayer = (l) => {
+    if (!l) return;
+    const next = openLayerKey === l.key ? null : l.key;
+    setOpenLayerKey(next);
+    if (next && onTicker) {
+      const top = (members?.[l.key] || (l.holds || []).map((h) => h.t))
+        .filter((t) => stockMap?.[t])
+        .sort((a, b) => (stockMap[b]?.rs_rank ?? 0) - (stockMap[a]?.rs_rank ?? 0))[0];
+      if (top) onTicker(top);
+    }
+  };
   const pct = (v, dg = 1) => (v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(dg)}%`);
   const pc = (v) => (v == null ? A.textMuted : v >= 0 ? A.green : A.red);
   const rsC = (v) => (v >= 90 ? A.green : v >= 70 ? A.yellow : v != null ? A.red : A.textMuted);
@@ -650,18 +661,30 @@ function LiveBrief({ A, themes, layers, stockMap, tickerLayer, members, brk, pip
       <Card A={A} title="Emerging layers" sub="Rank rising (Emerging, or +10 in a month and still climbing) · confirmed = 2+ of accumulation days, money flowing in, new RS 90+ leaders · early rotation backtested negative, so unconfirmed is a watchlist only">
         {!emerging.length ? <div style={{ fontSize: 11, color: A.textMuted }}>None.</div> : emerging.map(({ l, cf, names }) => {
           const ok = (cf?.passed.length ?? 0) >= 2;
+          const open = openLayerKey === l.key;
+          const c = statusColor(l.st, A);
           return (
-            <div key={l.key} onClick={() => onLayer(l)} title="Show every stock in this layer"
-              style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap", padding: "6px 0", borderBottom: `1px solid ${A.border}`, cursor: "pointer" }}>
-              <span style={{ minWidth: 170, color: A.text, fontWeight: 600, fontSize: 12 }}>{l.name} <span style={{ color: A.textMuted, fontWeight: 400, fontSize: 10 }}>{l.theme}</span></span>
-              <span style={{ fontSize: 11, color: statusColor(l.st, A), fontWeight: 700, minWidth: 70 }}>{l.now} <span style={{ color: A.textMuted, fontWeight: 400 }}>1m</span> <Delta v={l.now - l.m1} A={A} /></span>
-              <span style={{ fontSize: 10, fontWeight: 700, padding: "0 5px", borderRadius: 3, border: `1px solid ${ok ? A.green : A.textMuted}`, color: ok ? A.green : A.textMuted }}>
-                {cf ? (ok ? "confirmed" : "unconfirmed") : "no volume data"}
-              </span>
-              {cf?.passed.length ? <span style={{ fontSize: 10, color: A.textMuted }}>{cf.passed.map((k) => CONF_LABEL[k]).join(" · ")}</span> : null}
-              <span style={{ fontSize: 11, marginLeft: "auto" }}>
-                {names.map((s) => <span key={s.ticker} style={{ marginLeft: 8 }}><Tk t={s.ticker} /> <span style={{ color: rsC(s.rs_rank), fontSize: 10 }}>{s.rs_rank}</span></span>)}
-              </span>
+            <div key={l.key} style={{ borderBottom: `1px solid ${A.border}` }}>
+              <div onClick={() => toggleInlineLayer(l)} title={open ? "Collapse members" : "Expand members below"}
+                style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap", padding: "6px 0", cursor: "pointer", background: open ? A.bgHover : "transparent", boxShadow: open ? `inset 3px 0 0 ${c}` : "none", paddingLeft: open ? 8 : 0 }}>
+                <span style={{ minWidth: 170, color: A.text, fontWeight: 600, fontSize: 12 }}>
+                  <span style={{ color: open ? c : A.textMuted, fontSize: 10, marginRight: 5, fontFamily: "monospace" }}>{open ? "▾" : "▸"}</span>
+                  {l.name} <span style={{ color: A.textMuted, fontWeight: 400, fontSize: 10 }}>{l.theme}</span>
+                </span>
+                <span style={{ fontSize: 11, color: c, fontWeight: 700, minWidth: 70 }}>{l.now} <span style={{ color: A.textMuted, fontWeight: 400 }}>1m</span> <Delta v={l.now - l.m1} A={A} /></span>
+                <span style={{ fontSize: 10, fontWeight: 700, padding: "0 5px", borderRadius: 3, border: `1px solid ${ok ? A.green : A.textMuted}`, color: ok ? A.green : A.textMuted }}>
+                  {cf ? (ok ? "confirmed" : "unconfirmed") : "no volume data"}
+                </span>
+                {cf?.passed.length ? <span style={{ fontSize: 10, color: A.textMuted }}>{cf.passed.map((k) => CONF_LABEL[k]).join(" · ")}</span> : null}
+                <span style={{ fontSize: 11, marginLeft: "auto" }}>
+                  {names.map((s) => <span key={s.ticker} style={{ marginLeft: 8 }}><Tk t={s.ticker} /> <span style={{ color: rsC(s.rs_rank), fontSize: 10 }}>{s.rs_rank}</span></span>)}
+                </span>
+              </div>
+              {open && (
+                <div style={{ padding: "8px 10px 10px 12px", background: A.bg, boxShadow: `inset 3px 0 0 ${c}` }}>
+                  <LayerMembers A={A} layer={l} tickers={tks(l)} stockMap={stockMap} onTicker={onTicker} chartTicker={chartTicker} maxHeight={340} onClose={() => setOpenLayerKey(null)} />
+                </div>
+              )}
             </div>
           );
         })}
@@ -670,14 +693,28 @@ function LiveBrief({ A, themes, layers, stockMap, tickerLayer, members, brk, pip
       <Card A={A} title="Breakdowns" sub="Layers losing leaders this week (were RS 90+, now below the 50-day or under RS 80), then individual leaders breaking down">
         {exiting.length > 0 && (
           <div style={{ marginBottom: 10 }}>
-            {exiting.map((l) => (
-              <div key={l.key} onClick={() => onLayer(l)} title="Show every stock in this layer"
-                style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap", padding: "5px 0", borderBottom: `1px solid ${A.border}`, cursor: "pointer" }}>
-                <span style={{ minWidth: 170, color: A.text, fontWeight: 600, fontSize: 12 }}>{l.name} <span style={{ color: A.textMuted, fontWeight: 400, fontSize: 10 }}>{l.theme}</span></span>
-                <span style={{ fontSize: 11, color: A.red, fontWeight: 700 }}>{l.conf.lx} out</span>
-                <span style={{ fontSize: 11 }}>{l.conf.lxT.slice(0, 10).map((t) => <span key={t} style={{ marginRight: 8 }}><Tk t={t} /></span>)}</span>
-              </div>
-            ))}
+            {exiting.map((l) => {
+              const open = openLayerKey === l.key;
+              const c = statusColor(l.st, A);
+              return (
+                <div key={l.key} style={{ borderBottom: `1px solid ${A.border}` }}>
+                  <div onClick={() => toggleInlineLayer(l)} title={open ? "Collapse members" : "Expand members below"}
+                    style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap", padding: "5px 0", cursor: "pointer", background: open ? A.bgHover : "transparent", boxShadow: open ? `inset 3px 0 0 ${c}` : "none", paddingLeft: open ? 8 : 0 }}>
+                    <span style={{ minWidth: 170, color: A.text, fontWeight: 600, fontSize: 12 }}>
+                      <span style={{ color: open ? c : A.textMuted, fontSize: 10, marginRight: 5, fontFamily: "monospace" }}>{open ? "▾" : "▸"}</span>
+                      {l.name} <span style={{ color: A.textMuted, fontWeight: 400, fontSize: 10 }}>{l.theme}</span>
+                    </span>
+                    <span style={{ fontSize: 11, color: A.red, fontWeight: 700 }}>{l.conf.lx} out</span>
+                    <span style={{ fontSize: 11 }}>{l.conf.lxT.slice(0, 10).map((t) => <span key={t} style={{ marginRight: 8 }}><Tk t={t} /></span>)}</span>
+                  </div>
+                  {open && (
+                    <div style={{ padding: "8px 10px 10px 12px", background: A.bg, boxShadow: `inset 3px 0 0 ${c}` }}>
+                      <LayerMembers A={A} layer={l} tickers={tks(l)} stockMap={stockMap} onTicker={onTicker} chartTicker={chartTicker} maxHeight={340} onClose={() => setOpenLayerKey(null)} />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
         <H sub="Held the top RS decile ≥ 40% of the quarter, now RS < 70 or ≥ 8% below the 50-day">Leaders breaking down</H>
