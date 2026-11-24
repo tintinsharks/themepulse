@@ -7,6 +7,7 @@ import {
   buildCumulativeAdSeries,
   buildMcClellanSeries,
   buildMaBreadthSeries,
+  buildStockbee4PctSeries,
   detectBreadthSignals,
   filterStageStocks,
 } from "../src/components/breadthChartMath.js";
@@ -308,4 +309,43 @@ test("computeEmaAtrExtensions and classifyWeinsteinStageFromBars compute EMA ATR
     low: 249 - i * 0.5,
   }));
   assert.equal(classifyWeinsteinStageFromBars(downBars), 4);
+});
+
+test("buildStockbee4PctSeries merges archive + monitor, computes 5D/10D ratios and thrust flags", () => {
+  const archive = [
+    { date: "2026-11-17", up_4pct: 100, down_4pct: 200 },
+    { date: "2026-11-18", up_4pct: 150, down_4pct: 150 },
+    { date: "2026-11-19", up_4pct: 50, down_4pct: 400 },
+    { date: "2026-11-20", up_4pct: 40, down_4pct: 500 },
+    { date: "2026-11-23", up_4pct: 320, down_4pct: 50 },
+  ];
+  // monitor.current overrides 2026-11-23 with fresher reading
+  const monitor = {
+    current: { date: "2026-11-23", up_4pct: 360, down_4pct: 40, t2108: 34.5 },
+  };
+  const series = buildStockbee4PctSeries(archive, monitor);
+  assert.equal(series.length, 5);
+  assert.equal(series[4].pos, 360);
+  assert.equal(series[4].neg, 40);
+  assert.equal(series[4].net, 320);
+  assert.equal(series[4].thrust, "up");
+  assert.equal(series[3].thrust, "down");
+  assert.equal(series[1].thrust, null);
+  // 5-day sums on day 4: up = 100+150+50+40+360 = 700, dn = 200+150+400+500+40 = 1290 -> 0.54
+  assert.equal(series[4].ratio5d, 0.54);
+  assert.equal(series[4].ratio10d, 0.54);
+
+  // Appends live point when todayStr differs from last date
+  const withLive = buildStockbee4PctSeries(archive, monitor, { up: 250, dn: 100, isLive: true }, "2026-11-24");
+  assert.equal(withLive.length, 6);
+  assert.equal(withLive[5].date, "Today (Live)");
+  assert.equal(withLive[5].isLive, true);
+
+  // Validates real backfilled public/data/stockbee_4pct_history.json
+  const histPath = path.resolve(__dirname, "../public/data/stockbee_4pct_history.json");
+  const disk = JSON.parse(fs.readFileSync(histPath, "utf8"));
+  assert.ok(Array.isArray(disk.history) && disk.history.length >= 100, "backfilled archive should have 100+ sessions");
+  const realSeries = buildStockbee4PctSeries(disk.history);
+  assert.equal(realSeries.length, disk.history.length);
+  assert.ok(realSeries[realSeries.length - 1].ratio5d > 0);
 });

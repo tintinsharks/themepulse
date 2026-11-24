@@ -24,6 +24,7 @@ import {
   estimateStageHistory,
   computeLayerDayFlow,
   fmtDollarVol,
+  stockThrust,
 } from "../src/lead/math.js";
 
 test("rankHeld counts sessions at or above threshold in trailing window", () => {
@@ -311,4 +312,14 @@ test("computeLayerDayFlow and fmtDollarVol compute EOD and pace-adjusted live do
   assert.equal(fmtDollarVol(-4.2e9, true), "-$4.2B");
   assert.equal(fmtDollarVol(420e6, true), "+$420M");
   assert.equal(fmtDollarVol(null), "—");
+});
+
+test("stockThrust multiplies Chg% by positive ZVR and handles missing/invalid values", () => {
+  assert.equal(stockThrust(4.5, 2.2), 9.9);
+  assert.equal(stockThrust(-4.0, 2.0), -8.0);
+  assert.equal(stockThrust(0, 1.8), 0);
+  assert.equal(stockThrust(5.0, 0), null);
+  assert.equal(stockThrust(5.0, -1), null);
+  assert.equal(stockThrust(null, 2.0), null);
+  assert.equal(stockThrust(3.0, null), null);
 });

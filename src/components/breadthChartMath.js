@@ -451,3 +451,86 @@ export function detectBreadthSignals({
 
   return { byDate, recent, all };
 }
+
+/**
+ * Merge Stockbee 4% movers history (archive + monitor.history + monitor.current + optional live reading)
+ * into a chronologically sorted series with Net (up - down), rolling 5D & 10D Stockbee ratios,
+ * and 300+ thrust/capitulation flags.
+ *
+ * @param {Array<{date:string, up_4pct:number, down_4pct:number, t2108?:number}>} archiveRows
+ * @param {{history?:Array<object>, current?:object}|null} [monitor]
+ * @param {{up:number, dn:number, isLive?:boolean}|null} [liveM4]
+ * @param {string|null} [todayStr]
+ * @returns {Array<{date:string, pos:number, neg:number, net:number, ratio5d:number|null, ratio10d:number|null, thrust:"up"|"down"|null, t2108:number|null, isLive:boolean}>}
+ */
+export function buildStockbee4PctSeries(archiveRows, monitor = null, liveM4 = null, todayStr = null) {
+  const byDate = new Map();
+  const ingest = (raw) => {
+    if (!raw?.date || typeof raw.date !== "string") return;
+    const up = Number(raw.up_4pct);
+    const dn = Number(raw.down_4pct);
+    if (!Number.isFinite(up) || !Number.isFinite(dn)) return;
+    if (up === 0 && dn === 0) return;
+    byDate.set(raw.date, {
+      date: raw.date,
+      pos: Math.max(0, Math.round(up)),
+      neg: Math.max(0, Math.round(dn)),
+      t2108: typeof raw.t2108 === "number" && Number.isFinite(raw.t2108) ? raw.t2108 : null,
+      isLive: false,
+    });
+  };
+
+  for (const r of Array.isArray(archiveRows) ? archiveRows : []) ingest(r);
+  for (const r of Array.isArray(monitor?.history) ? monitor.history : []) ingest(r);
+  if (monitor?.current) ingest(monitor.current);
+
+  const sorted = [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+  const lastDate = sorted.length ? sorted[sorted.length - 1].date : null;
+
+  if (
+    liveM4?.isLive &&
+    typeof liveM4.up === "number" &&
+    typeof liveM4.dn === "number" &&
+    Number.isFinite(liveM4.up) &&
+    Number.isFinite(liveM4.dn) &&
+    (liveM4.up > 0 || liveM4.dn > 0) &&
+    lastDate !== todayStr
+  ) {
+    sorted.push({
+      date: "Today (Live)",
+      pos: Math.max(0, Math.round(liveM4.up)),
+      neg: Math.max(0, Math.round(liveM4.dn)),
+      t2108: null,
+      isLive: true,
+    });
+  }
+
+  const rollRatio = (idx, win) => {
+    const start = Math.max(0, idx - win + 1);
+    let u = 0;
+    let d = 0;
+    for (let j = start; j <= idx; j++) {
+      u += sorted[j].pos;
+      d += sorted[j].neg;
+    }
+    if (d <= 0) return u > 0 ? 9.99 : null;
+    return Math.round((u / d) * 100) / 100;
+  };
+
+  return sorted.map((r, i) => {
+    const net = r.pos - r.neg;
+    const thrust =
+      r.pos >= 300 && r.pos >= r.neg * 2
+        ? "up"
+        : r.neg >= 300 && r.neg >= r.pos * 2
+          ? "down"
+          : null;
+    return {
+      ...r,
+      net,
+      ratio5d: rollRatio(i, 5),
+      ratio10d: rollRatio(i, 10),
+      thrust,
+    };
+  });
+}

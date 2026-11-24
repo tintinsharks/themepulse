@@ -154,6 +154,14 @@ export function fmtDollarVol(v, signed = false) {
   return `${sign}$${Math.round(a)}`;
 }
 
+// Stock-level daily thrust: Chg% × ZVR (volume-weighted directional move).
+// Preserves sign so high-volume green breakouts rank highest and heavy-volume selloffs lowest.
+export function stockThrust(chg, zvr) {
+  if (typeof chg !== "number" || !Number.isFinite(chg)) return null;
+  if (typeof zvr !== "number" || !Number.isFinite(zvr) || zvr <= 0) return null;
+  return +(chg * zvr).toFixed(1);
+}
+
 // Volume / participation confirmation for a layer, from layer_breadth.json
 // (pipeline 10f). Counts and ratios only.
 export function layerConfirm(lbRow) {

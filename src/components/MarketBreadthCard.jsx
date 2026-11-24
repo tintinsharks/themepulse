@@ -6,6 +6,7 @@ import {
   buildCumulativeAdSeries,
   buildMaBreadthSeries,
   buildMcClellanSeries,
+  buildStockbee4PctSeries,
   detectBreadthSignals,
   filterStageStocks,
 } from "./breadthChartMath.js";
@@ -18,6 +19,33 @@ let _hpCache = { ts: 0, stats: null, inflight: null };
 // Shared 10m cache for daily SPX (^GSPC, fallback SPY) closing prices for chart overlays
 const SPX_TTL_MS = 10 * 60 * 1000;
 let _spxCache = { ts: 0, data: null, inflight: null };
+
+// Shared 10m cache for archived daily Stockbee 4% movers history
+let _sb4Cache = { ts: 0, rows: null, inflight: null };
+
+function fetchStockbee4PctHistory() {
+  const now = Date.now();
+  if (_sb4Cache.rows && now - _sb4Cache.ts < SPX_TTL_MS) {
+    return Promise.resolve(_sb4Cache.rows);
+  }
+  if (_sb4Cache.inflight) return _sb4Cache.inflight;
+  _sb4Cache.inflight = fetch("/data/stockbee_4pct_history.json", { cache: "no-store" })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((d) => {
+      const rows = Array.isArray(d?.history) ? d.history : [];
+      if (rows.length > 0) {
+        _sb4Cache = { ts: Date.now(), rows, inflight: null };
+        return rows;
+      }
+      _sb4Cache.inflight = null;
+      return _sb4Cache.rows || [];
+    })
+    .catch(() => {
+      _sb4Cache.inflight = null;
+      return _sb4Cache.rows || [];
+    });
+  return _sb4Cache.inflight;
+}
 
 function fetchSpxHistory() {
   const now = Date.now();
@@ -326,15 +354,16 @@ const RANGE_OPTIONS = [
   [252, "1Y"],
 ];
 
-function ChartControls({ A, range, onRange, onResetHover, spxData, showSpx, onToggleSpx, mode, onMode }) {
+function ChartControls({ A, range, onRange, onResetHover, spxData, showSpx, onToggleSpx, mode, onMode, modeOptions }) {
+  const modes = modeOptions || [
+    ["daily", "Daily"],
+    ["cum", "Cum A/D"],
+  ];
   return (
     <div style={{ display: "inline-flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
       {mode && onMode && (
         <div style={{ display: "inline-flex", gap: 2, marginRight: 2 }}>
-          {[
-            ["daily", "Daily"],
-            ["cum", "Cum A/D"],
-          ].map(([val, lbl]) => {
+          {modes.map(([val, lbl]) => {
             const active = mode === val;
             return (
               <button
@@ -632,6 +661,307 @@ function BreadthHistoryChart({ A, series, posLabel, negLabel, range, onRange, sp
           <span><span style={{ color: COLORS.blue }}>■</span> {posLabel} (up)</span>
           <span><span style={{ color: COLORS.pink }}>■</span> {negLabel} (down)</span>
           <span><span style={{ color: COLORS.gold }}>━</span> Net ({posLabel} − {negLabel})</span>
+          {spx && <span><span style={{ color: A.text }}>━</span> {spx.label} (right)</span>}
+        </div>
+        {partialNote && <span>{partialNote}</span>}
+      </div>
+    </div>
+  );
+}
+
+// Stockbee 4% Movers history chart: Daily mirrored Up/Down bars (+ ±300 thrust guide & Net line) OR 5D / 10D Stockbee Ratio curves
+function Stockbee4PctHistoryChart({ A, series, range, onRange, spxData, showSpx, onToggleSpx, todayStr }) {
+  const [hoverIdx, setHoverIdx] = useState(null);
+  const [mode, setMode] = useState("daily"); // "daily" | "ratio"
+  if (!series || series.length === 0) {
+    return (
+      <div style={{ fontSize: 11, color: A.textMuted, padding: "8px 10px", marginBottom: 14, background: A.bg, border: `1px solid ${A.border}`, borderRadius: 8 }}>
+        No historical Stockbee 4% movers series available yet.
+      </div>
+    );
+  }
+
+  const W = 600, H = 160;
+  const n = series.length;
+  const padL = 36, padT = 12, padB = 22;
+  const hasSpx = Boolean(showSpx && spxData?.map && series.filter((d) => spxData.map.has(d.isLive ? todayStr : d.date)).length >= 2);
+  const padR = hasSpx ? 44 : 10;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+  const midY = padT + plotH / 2;
+  const halfH = plotH / 2;
+  const step = plotW / n;
+  const spx = hasSpx ? buildSpxOverlay(series, spxData, todayStr, padL, step, padT, plotH) : null;
+
+  const activeIdx = hoverIdx != null && hoverIdx < n ? hoverIdx : n - 1;
+  const cur = series[activeIdx];
+  const curNet = cur.net ?? ((cur.pos || 0) - (cur.neg || 0));
+  const curSpx = spx ? spx.values[activeIdx] : null;
+  const spxStroke = A.text || "#f8fafc";
+  const spxHalo = A.bg || "#0d1117";
+
+  const spansYear = series[0]?.date && series[n - 1]?.date && String(series[0].date).slice(0, 4) !== String(series[n - 1].date).slice(0, 4);
+  const fmtShortDate = (d) => (d === "Today (Live)" ? "Live" : spansYear ? String(d || "").slice(2) : String(d || "").slice(5));
+  const midIdx = Math.floor((n - 1) / 2);
+  const partialNote = n < range ? `${n}d shown (earliest ${series[0].date})` : null;
+
+  // Daily mode scaling (cap outlier spikes smoothly so normal 100–400 days stay crisp)
+  const peaks = series.map((d) => Math.max(d.pos || 0, d.neg || 0)).sort((a, b) => a - b);
+  const rawMax = peaks[peaks.length - 1] || 300;
+  const p97 = peaks[Math.max(0, Math.floor((peaks.length - 1) * 0.97))] || rawMax;
+  const maxVal = Math.max(300, rawMax > p97 * 2.2 ? Math.ceil(p97 * 1.15) : rawMax);
+  const barW = Math.max(1.5, Math.min(16, step * 0.72));
+  const thrustUpY = midY - Math.min(halfH, (300 / maxVal) * halfH);
+  const thrustDnY = midY + Math.min(halfH, (300 / maxVal) * halfH);
+
+  const netPts = series.map((d, i) => {
+    const x = padL + i * step + step / 2;
+    const y = midY - ((d.net ?? 0) / maxVal) * halfH;
+    return `${x.toFixed(1)},${Math.max(padT, Math.min(padT + plotH, y)).toFixed(1)}`;
+  }).join(" ");
+
+  // Ratio mode scaling (cap display at ~5x so 1.0x and 2.0x thresholds stay clearly legible)
+  const ratioVals = series.flatMap((d) => [d.ratio5d, d.ratio10d]).filter((v) => v != null && Number.isFinite(v)).sort((a, b) => a - b);
+  const rP96 = ratioVals[Math.max(0, Math.floor((ratioVals.length - 1) * 0.96))] || 3;
+  const maxRatio = Math.max(2.5, Math.min(6, Math.ceil((rP96 + 0.3) * 2) / 2));
+  const yRatio = (v) => padT + plotH - (Math.min(maxRatio, Math.max(0, v)) / maxRatio) * plotH;
+  const buildRatioPath = (key) => {
+    const segs = [];
+    for (let i = 0; i < n; i++) {
+      const v = series[i][key];
+      if (v == null || !Number.isFinite(v)) continue;
+      const x = padL + i * step + step / 2;
+      segs.push(`${segs.length === 0 ? "M" : "L"}${x.toFixed(1)},${yRatio(v).toFixed(1)}`);
+    }
+    return segs.join(" ");
+  };
+  const r5Path = mode === "ratio" ? buildRatioPath("ratio5d") : "";
+  const r10Path = mode === "ratio" ? buildRatioPath("ratio10d") : "";
+  const yOne = yRatio(1.0);
+  const yTwo = yRatio(2.0);
+  const fmtRatio = (v) => (v == null ? "—" : v >= 9.9 ? ">9.9×" : `${v.toFixed(2)}×`);
+
+  return (
+    <div
+      style={{
+        marginBottom: 14,
+        padding: "10px 12px 8px",
+        background: A.bg,
+        border: `1px solid ${A.border}`,
+        borderRadius: 8,
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 6, fontSize: 11 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontFamily: MONO }}>
+          <strong style={{ color: A.text }}>{cur.date}</strong>
+          <span style={{ color: COLORS.blue, fontWeight: 700 }}>{cur.pos.toLocaleString()} Up 4%+</span>
+          <span style={{ color: COLORS.pink, fontWeight: 700 }}>{cur.neg.toLocaleString()} Down 4%+</span>
+          <span style={{ color: curNet >= 0 ? COLORS.blue : COLORS.pink }}>
+            Net {curNet > 0 ? `+${curNet.toLocaleString()}` : curNet.toLocaleString()}
+          </span>
+          <span style={{ color: (cur.ratio5d ?? 0) >= 2 ? A.green : (cur.ratio5d ?? 1) < 0.7 ? COLORS.pink : A.textDim }} title="Rolling 5-day Stockbee ratio: sum(Up 4%+) ÷ sum(Down 4%+)">
+            5D {fmtRatio(cur.ratio5d)}
+          </span>
+          <span style={{ color: (cur.ratio10d ?? 0) >= 2 ? A.green : (cur.ratio10d ?? 1) < 0.7 ? COLORS.pink : A.textMuted }} title="Rolling 10-day Stockbee ratio: sum(Up 4%+) ÷ sum(Down 4%+)">
+            10D {fmtRatio(cur.ratio10d)}
+          </span>
+          {cur.thrust === "up" && (
+            <span style={{ fontSize: 10, fontWeight: 800, padding: "0 5px", borderRadius: 4, background: `${A.green}22`, border: `1px solid ${A.green}77`, color: A.green }}>
+              300+ THRUST
+            </span>
+          )}
+          {cur.thrust === "down" && (
+            <span style={{ fontSize: 10, fontWeight: 800, padding: "0 5px", borderRadius: 4, background: `${COLORS.pink}22`, border: `1px solid ${COLORS.pink}77`, color: COLORS.pink }}>
+              300+ SELLOFF
+            </span>
+          )}
+          {curSpx != null && (
+            <span style={{ color: A.text, fontWeight: 700 }}>
+              {spx.label} {fmtSpx(curSpx)}
+            </span>
+          )}
+        </div>
+        <ChartControls
+          A={A}
+          range={range}
+          onRange={onRange}
+          onResetHover={() => setHoverIdx(null)}
+          spxData={spxData}
+          showSpx={showSpx}
+          onToggleSpx={onToggleSpx}
+          mode={mode}
+          onMode={setMode}
+          modeOptions={[["daily", "Daily"], ["ratio", "5D/10D Ratio"]]}
+        />
+      </div>
+
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        style={{ width: "100%", height: "auto", display: "block" }}
+        onMouseLeave={() => setHoverIdx(null)}
+      >
+        {mode === "daily" ? (
+          <>
+            <line x1={padL} y1={padT} x2={W - padR} y2={padT} stroke={A.border} strokeDasharray="2 3" strokeOpacity="0.55" />
+            <line x1={padL} y1={thrustUpY} x2={W - padR} y2={thrustUpY} stroke={A.green} strokeDasharray="3 3" strokeOpacity="0.4" />
+            <line x1={padL} y1={midY} x2={W - padR} y2={midY} stroke={A.textMuted} strokeOpacity="0.45" />
+            <line x1={padL} y1={thrustDnY} x2={W - padR} y2={thrustDnY} stroke={COLORS.pink} strokeDasharray="3 3" strokeOpacity="0.4" />
+            <line x1={padL} y1={padT + plotH} x2={W - padR} y2={padT + plotH} stroke={A.border} strokeDasharray="2 3" strokeOpacity="0.55" />
+
+            <text x={padL - 5} y={padT + 8} textAnchor="end" fontSize="9.5" fill={COLORS.blue} fontFamily={MONO}>+{maxVal}</text>
+            {maxVal > 380 && (
+              <text x={padL - 5} y={thrustUpY + 3} textAnchor="end" fontSize="8.5" fill={A.green} fontFamily={MONO}>+300</text>
+            )}
+            <text x={padL - 5} y={midY + 3} textAnchor="end" fontSize="9.5" fill={A.textMuted} fontFamily={MONO}>0</text>
+            {maxVal > 380 && (
+              <text x={padL - 5} y={thrustDnY + 3} textAnchor="end" fontSize="8.5" fill={COLORS.pink} fontFamily={MONO}>-300</text>
+            )}
+            <text x={padL - 5} y={padT + plotH} textAnchor="end" fontSize="9.5" fill={COLORS.pink} fontFamily={MONO}>-{maxVal}</text>
+
+            {series.map((d, i) => {
+              const cx = padL + i * step + step / 2;
+              const x = cx - barW / 2;
+              const posH = Math.min(halfH, Math.max(0, ((d.pos || 0) / maxVal) * halfH));
+              const negH = Math.min(halfH, Math.max(0, ((d.neg || 0) / maxVal) * halfH));
+              const isActive = i === activeIdx;
+              return (
+                <g key={d.date} onMouseEnter={() => setHoverIdx(i)} style={{ cursor: "crosshair" }}>
+                  <rect x={padL + i * step} y={padT} width={step} height={plotH} fill={isActive ? A.text : "transparent"} fillOpacity={isActive ? 0.06 : 0} />
+                  <rect
+                    x={x}
+                    y={midY - posH}
+                    width={barW}
+                    height={posH}
+                    rx={n > 150 ? 0.5 : 1.5}
+                    fill={d.thrust === "up" ? A.green : COLORS.blue}
+                    fillOpacity={isActive ? 1 : d.isLive ? 0.92 : 0.78}
+                  />
+                  <rect
+                    x={x}
+                    y={midY}
+                    width={barW}
+                    height={negH}
+                    rx={n > 150 ? 0.5 : 1.5}
+                    fill={COLORS.pink}
+                    fillOpacity={isActive ? 1 : d.isLive ? 0.92 : 0.75}
+                  />
+                  {d.thrust && (
+                    <circle
+                      cx={cx}
+                      cy={d.thrust === "up" ? padT + 2.5 : padT + plotH - 2.5}
+                      r="2.2"
+                      fill={d.thrust === "up" ? A.green : COLORS.pink}
+                    />
+                  )}
+                </g>
+              );
+            })}
+
+            {n >= 2 && (
+              <polyline
+                fill="none"
+                stroke={COLORS.gold}
+                strokeWidth="1.4"
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                points={netPts}
+                style={{ pointerEvents: "none" }}
+              />
+            )}
+          </>
+        ) : (
+          <>
+            <line x1={padL} y1={padT} x2={W - padR} y2={padT} stroke={A.border} strokeDasharray="2 3" strokeOpacity="0.55" />
+            <line x1={padL} y1={yTwo} x2={W - padR} y2={yTwo} stroke={A.green} strokeDasharray="3 3" strokeOpacity="0.5" />
+            <line x1={padL} y1={yOne} x2={W - padR} y2={yOne} stroke={A.textMuted} strokeDasharray="3 3" strokeOpacity="0.6" />
+            <line x1={padL} y1={padT + plotH} x2={W - padR} y2={padT + plotH} stroke={A.border} strokeOpacity="0.6" />
+
+            <text x={padL - 5} y={padT + 8} textAnchor="end" fontSize="9.5" fill={A.textMuted} fontFamily={MONO}>{maxRatio.toFixed(1)}×</text>
+            <text x={padL - 5} y={yTwo + 3} textAnchor="end" fontSize="9.5" fill={A.green} fontFamily={MONO}>2.0×</text>
+            <text x={padL - 5} y={yOne + 3} textAnchor="end" fontSize="9.5" fill={A.textDim} fontFamily={MONO}>1.0×</text>
+            <text x={padL - 5} y={padT + plotH} textAnchor="end" fontSize="9.5" fill={COLORS.pink} fontFamily={MONO}>0×</text>
+
+            {series.map((d, i) => {
+              const isActive = i === activeIdx;
+              return (
+                <rect
+                  key={d.date}
+                  x={padL + i * step}
+                  y={padT}
+                  width={step}
+                  height={plotH}
+                  fill={isActive ? A.text : "transparent"}
+                  fillOpacity={isActive ? 0.06 : 0}
+                  onMouseEnter={() => setHoverIdx(i)}
+                  style={{ cursor: "crosshair" }}
+                />
+              );
+            })}
+
+            {r10Path && (
+              <path d={r10Path} fill="none" stroke={COLORS.cyan} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" style={{ pointerEvents: "none" }} />
+            )}
+            {r5Path && (
+              <path d={r5Path} fill="none" stroke={COLORS.blue} strokeWidth="1.9" strokeLinejoin="round" strokeLinecap="round" style={{ pointerEvents: "none" }} />
+            )}
+            {cur.ratio5d != null && (
+              <circle cx={padL + activeIdx * step + step / 2} cy={yRatio(cur.ratio5d)} r="3.2" fill={COLORS.blue} stroke={spxHalo} strokeWidth="1.2" style={{ pointerEvents: "none" }} />
+            )}
+            {cur.ratio10d != null && (
+              <circle cx={padL + activeIdx * step + step / 2} cy={yRatio(cur.ratio10d)} r="2.8" fill={COLORS.cyan} stroke={spxHalo} strokeWidth="1.2" style={{ pointerEvents: "none" }} />
+            )}
+          </>
+        )}
+
+        {/* Right Y-axis scale labels (SPX) */}
+        {spx && (
+          <>
+            <text x={W - padR + 5} y={padT + 8} textAnchor="start" fontSize="9.5" fill={A.textDim} fontFamily={MONO}>{fmtSpx(spx.max)}</text>
+            <text x={W - padR + 5} y={midY + 3} textAnchor="start" fontSize="9.5" fill={A.textMuted} fontFamily={MONO}>{fmtSpx(spx.mid)}</text>
+            <text x={W - padR + 5} y={padT + plotH} textAnchor="start" fontSize="9.5" fill={A.textDim} fontFamily={MONO}>{fmtSpx(spx.min)}</text>
+          </>
+        )}
+
+        {/* SPX price line overlay */}
+        {spx && (
+          <g style={{ pointerEvents: "none" }}>
+            <path d={spx.pathD} fill="none" stroke={spxHalo} strokeWidth="3.2" strokeOpacity="0.65" strokeLinejoin="round" strokeLinecap="round" />
+            <path d={spx.pathD} fill="none" stroke={spxStroke} strokeWidth="1.7" strokeLinejoin="round" strokeLinecap="round" />
+            {curSpx != null && (
+              <circle cx={spx.xOf(activeIdx)} cy={spx.yOf(curSpx)} r="3.2" fill={spxStroke} stroke={spxHalo} strokeWidth="1.2" />
+            )}
+          </g>
+        )}
+
+        {/* X-axis date ticks */}
+        <text x={padL} y={H - 5} textAnchor="start" fontSize="9.5" fill={A.textMuted} fontFamily={MONO}>
+          {fmtShortDate(series[0].date)}
+        </text>
+        {n > 4 && (
+          <text x={padL + midIdx * step + step / 2} y={H - 5} textAnchor="middle" fontSize="9.5" fill={A.textMuted} fontFamily={MONO}>
+            {fmtShortDate(series[midIdx].date)}
+          </text>
+        )}
+        <text x={W - padR} y={H - 5} textAnchor="end" fontSize="9.5" fill={series[n - 1].isLive ? A.green : A.textMuted} fontFamily={MONO}>
+          {fmtShortDate(series[n - 1].date)}
+        </text>
+      </svg>
+
+      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginTop: 4, fontSize: 10.5, color: A.textMuted }}>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          {mode === "daily" ? (
+            <>
+              <span><span style={{ color: COLORS.blue }}>■</span> Up 4%+ (<span style={{ color: A.green }}>■</span> 300+ thrust)</span>
+              <span><span style={{ color: COLORS.pink }}>■</span> Down 4%+</span>
+              <span><span style={{ color: COLORS.gold }}>━</span> Net</span>
+            </>
+          ) : (
+            <>
+              <span><span style={{ color: COLORS.blue }}>━</span> 5-Day Ratio</span>
+              <span><span style={{ color: COLORS.cyan }}>━</span> 10-Day Ratio</span>
+              <span><span style={{ color: A.green }}>╌</span> 2.0× Thrust</span>
+            </>
+          )}
           {spx && <span><span style={{ color: A.text }}>━</span> {spx.label} (right)</span>}
         </div>
         {partialNote && <span>{partialNote}</span>}
@@ -1616,6 +1946,7 @@ export default function MarketBreadthCard({
   members = {},
   onTheme,
   embedded = false,
+  chartFocus = null,
 }) {
   const [cardTab, setCardTab] = useState("breadth"); // "breadth" | "themes" | "layers"
   const [selThemeId, setSelThemeId] = useState(null);
@@ -1629,17 +1960,26 @@ export default function MarketBreadthCard({
   });
   const [themeSort, setThemeSort] = useState("rank"); // "rank" | "hold" | "today" | "thrust" | "rvol"
   const [slide, setSlide] = useState(0); // 0 = Breadth + Stage Analysis (Deepvue view), 1 = MA Breadth + 4% Movers
-  const [openChart, setOpenChart] = useState(null); // null | "nhnl" | "ad" | "stage" | "p20" | "p50" | "p200" | "mcclellan"
+  const [openChart, setOpenChart] = useState(null); // null | "nhnl" | "ad" | "stage" | "p20" | "p50" | "p200" | "m4" | "mcclellan"
   const [adMode, setAdMode] = useState("daily"); // "daily" | "cum"
   const [histRange, setHistRange] = useState(126); // 22 (~1M) | 63 (~3M) | 126 (~6M) | 252 (~1Y)
   const [showSpx, setShowSpx] = useState(true);
   const [spxData, setSpxData] = useState(() => _spxCache.data);
+  const [sb4Archive, setSb4Archive] = useState(() => _sb4Cache.rows);
   const [liveStats, setLiveStats] = useState(() => _hpCache.stats);
   const [liveAt, setLiveAt] = useState(() => (_hpCache.ts ? new Date(_hpCache.ts) : null));
   const [selectedStage, setSelectedStage] = useState(null); // null | 1 | 2 | 3 | 4
   const [stageLeadingOnly, setStageLeadingOnly] = useState(false);
   const [stageMinRs, setStageMinRs] = useState(0); // 0 | 80 | 90
   const todayStr = etClock().today;
+
+  // Allow external pills (e.g. "4% Movers" under Major Indexes) to jump straight to a specific chart
+  useEffect(() => {
+    if (!chartFocus?.chart) return;
+    setCardTab("breadth");
+    if (chartFocus.slide != null) setSlide(chartFocus.slide);
+    setOpenChart(chartFocus.chart);
+  }, [chartFocus]);
 
   // Load daily SPX (^GSPC, fallback SPY) closes once on mount (10m module cache) for chart overlays & divergence detection
   useEffect(() => {
@@ -1650,6 +1990,16 @@ export default function MarketBreadthCard({
     });
     return () => { alive = false; };
   }, [spxData]);
+
+  // Load archived daily Stockbee 4% movers history once on mount (10m module cache)
+  useEffect(() => {
+    if (sb4Archive) return;
+    let alive = true;
+    fetchStockbee4PctHistory().then((rows) => {
+      if (alive && rows) setSb4Archive(rows);
+    });
+    return () => { alive = false; };
+  }, [sb4Archive]);
 
   useEffect(() => {
     let alive = true;
@@ -1841,6 +2191,11 @@ export default function MarketBreadthCard({
       mcclellan: breadth?.conditions?.qulla?.mcclellan?.osc ?? latestMc,
     };
   }, [stockMap, liveStats, monitor, breadth, mcclellanSeries]);
+
+  const stockbee4Series = useMemo(
+    () => buildStockbee4PctSeries(sb4Archive, monitor, null, todayStr).slice(-histRange),
+    [sb4Archive, monitor, todayStr, histRange]
+  );
 
   const breadthSignals = useMemo(
     () => detectBreadthSignals({
@@ -2481,7 +2836,21 @@ export default function MarketBreadthCard({
               trackBg={trackBg}
               textColor={A.text}
               mutedColor={A.textMuted}
+              expanded={openChart === "m4"}
+              onClick={() => toggleChart("m4")}
             />
+            {openChart === "m4" && (
+              <Stockbee4PctHistoryChart
+                A={A}
+                series={stockbee4Series}
+                range={histRange}
+                onRange={setHistRange}
+                spxData={spxData}
+                showSpx={showSpx}
+                onToggleSpx={() => setShowSpx((v) => !v)}
+                todayStr={todayStr}
+              />
+            )}
 
             {(maStats.t2108 != null || maStats.mcclellan != null || mcclellanSeries.length > 0) && (
               <div>
