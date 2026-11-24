@@ -709,9 +709,6 @@ export default function ZangerBriefSection({
         title={
           <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <span>Market Breadth &amp; Leadership Briefing</span>
-            <span style={{ fontSize: 9, fontWeight: 800, fontFamily: "monospace", padding: "2px 6px", borderRadius: 4, border: `1px solid ${ph.accent || A.green}`, color: ph.accent || A.green }}>
-              {liveComputed ? "LIVE INTRADAY" : ph.label}
-            </span>
             {dec && (
               <span style={{ fontSize: 9, fontWeight: 800, fontFamily: "monospace", padding: "2px 7px", borderRadius: 999, background: `${decColor}22`, border: `1px solid ${decColor}`, color: decColor }}>
                 {dec}{mktScore != null ? ` · ${mktScore}/100` : ""}{posSize ? ` · ${posSize}` : ""}
