@@ -130,14 +130,14 @@ function AppMain() {
     return localStorage.getItem("themepulse-chart-ticker") || "QQQ";
   });
   const [mainView, setMainView] = useState(() => {
-    const valid = (x) => x === "lead" || x === "scanner" || x === "brief";
-    const normalize = (x) => (x === "zanger" ? "brief" : x);
+    const valid = (x) => x === "brief" || x === "scanner";
+    const normalize = (x) => (x === "zanger" || x === "lead" ? "brief" : x);
     try {
       const qv = normalize((new URLSearchParams(window.location.search).get("view") || "").trim().toLowerCase());
       if (valid(qv)) return qv;
     } catch {}
     const v = normalize(localStorage.getItem("themepulse-view"));
-    return valid(v) ? v : "lead";
+    return valid(v) ? v : "brief";
   });
   useEffect(() => {
     try {
@@ -347,7 +347,7 @@ function AppMain() {
         </div>
         {/* View switcher */}
         <div style={{ display: "flex", gap: 2, marginLeft: 18 }}>
-          {[["lead", "LEADERS"], ["scanner", "SCANNER"], ["brief", "BRIEF"]].map(([v, label]) => (
+          {[["brief", "BRIEF"], ["scanner", "SCANNER"]].map(([v, label]) => (
             <button key={v} onClick={() => switchView(v)}
               style={{
                 background: mainView === v ? "rgba(13,145,99,0.14)" : "transparent",

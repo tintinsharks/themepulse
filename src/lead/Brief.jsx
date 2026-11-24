@@ -485,12 +485,11 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
 
 function BriefPanel(props) {
   const { A } = props;
-  const [mode, setMode] = useState(() => { try { return localStorage.getItem("tp_brief_mode") || "live"; } catch { return "live"; } });
-  const pick = (m) => { setMode(m); try { localStorage.setItem("tp_brief_mode", m); } catch { /* ignore */ } };
+  const [mode, setMode] = useState("live");
   const modeSwitch = (
     <div style={{ display: "inline-flex", border: `1px solid ${A.border}`, borderRadius: 4, overflow: "hidden" }}>
       {[["live", "Live"], ["written", "Written"]].map(([k, l]) => (
-        <button key={k} onClick={() => pick(k)} style={{ background: mode === k ? A.border : "transparent", color: mode === k ? A.text : A.textMuted,
+        <button key={k} onClick={() => setMode(k)} style={{ background: mode === k ? A.border : "transparent", color: mode === k ? A.text : A.textMuted,
           border: "none", padding: "2px 10px", fontSize: 11, cursor: "pointer" }}>{l}</button>
       ))}
     </div>
@@ -505,6 +504,7 @@ function BriefPanel(props) {
         stockMap={props.stockMap}
         breadth={props.breadth}
         monitor={props.monitor}
+        indexQuotes={props.indexQuotes}
         onTicker={props.onTicker}
         chartTicker={props.chartTicker}
         tickerLayer={props.tickerLayer}

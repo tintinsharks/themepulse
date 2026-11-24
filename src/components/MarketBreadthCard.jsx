@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { STATUS, computeStageDistribution, estimateStageHistory, etClock } from "../lead/math.js";
-import { LayerTable, Tabs, ThemeBoard } from "../lead/core.jsx";
+import { LayerTable, MarketGate, Tabs, ThemeBoard } from "../lead/core.jsx";
 import { authFetch } from "../utils.js";
 import {
   buildCumulativeAdSeries,
@@ -1604,6 +1604,7 @@ export default function MarketBreadthCard({
   stockMap,
   breadth,
   monitor,
+  indexQuotes,
   onTicker,
   chartTicker,
   tickerLayer,
@@ -2456,6 +2457,13 @@ export default function MarketBreadthCard({
                 }}
               />
             ))}
+          </div>
+        )}
+
+        {/* Market Gate (moved from retired Leaders tab) */}
+        {cardTab === "breadth" && breadth?.conditions?.market_gate?.overall && (
+          <div style={{ marginTop: 12 }}>
+            <MarketGate A={A} gate={breadth.conditions.market_gate} liveQuotes={indexQuotes} />
           </div>
         )}
       </div>
