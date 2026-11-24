@@ -3,12 +3,14 @@ import {
   Card,
   CopyTickersBtn,
   EPS_TIP,
+  ExtHoursMovers,
   FlagButton,
   IndexSpark,
   LEAD_INDEXES,
   RslDot,
   TierMark,
   closingRange,
+  extRows,
   indexStats,
   pinReason,
   scoreZangerCandidate,
@@ -21,6 +23,7 @@ import {
 import { authFetch } from "../utils.js";
 import { computeLivePortfolioPulse, filterRecentHeadlines } from "./briefLive.js";
 import BreakoutFollowThroughCard from "./BreakoutFollowThroughCard.jsx";
+import MarketBreadthCard from "../components/MarketBreadthCard.jsx";
 
 const BRIEF_DIR = "/data/briefs/";
 const INDEX_TKS = LEAD_INDEXES.map((x) => x.t);
@@ -48,6 +51,7 @@ const CAT_TABS = [
   ["zanger", "⚡ All Movers", "#4ade80", "Any breakout OR ZVR ≥ 1.5x volume surge in a leading/emerging theme"],
   ["rsl", "🔵 RS Leading", "#38bdf8", "RS line at a new 52-week high on a green close while basing 5–15% off highs"],
   ["leaders", "⭐ Core Leaders", "#f59e0b", "RS 90+ Tier Leaders in Leading theme layers"],
+  ["ext", "🌙 Pre/Postmarket", "#c084fc", "Pre-market & after-hours movers with earnings flags and catalysts"],
 ];
 
 const fmtPct = (v, dg = 1) =>
@@ -87,15 +91,19 @@ function CrMeter({ cr, A }) {
   );
 }
 
-const VALID_CAT_TABS = new Set(["bo", "zanger", "rsl", "leaders"]);
+const VALID_CAT_TABS = new Set(["bo", "zanger", "rsl", "leaders", "ext"]);
 
 export default function ZangerBriefSection({
   A,
   stockMap,
-  tickerLayer,
+  tickerLayer = {},
   layers,
   themes,
+  members = {},
   tiers,
+  breadth,
+  monitor,
+  pipeline,
   indexQuotes,
   idxBars = {},
   portfolio = [],
@@ -105,6 +113,8 @@ export default function ZangerBriefSection({
   onTicker,
   chartTicker,
   onLayer,
+  onLayerObj,
+  onTheme,
 }) {
   const [index, setIndex] = useState(null);
   const [sel, setSel] = useState(null);
@@ -203,6 +213,17 @@ export default function ZangerBriefSection({
     });
     return { ...res, isLive: liveOn };
   }, [liveOn, portfolio, watchlist, stockMap, quotes, profiles, tickerLayer, tiers]);
+
+  const extMeta = useMemo(() => {
+    const pmSnap = pipeline?.last_pm || (pipeline?.pm_sip_movers?.length || pipeline?.pm_earnings_movers?.length
+      ? { session: null, earnings: pipeline.pm_earnings_movers, movers: pipeline.pm_sip_movers, top: pipeline.pm_top_movers } : null);
+    const ahSnap = pipeline?.last_ah || (pipeline?.ah_sip_movers?.length || pipeline?.ah_earnings_movers?.length
+      ? { session: null, earnings: pipeline.ah_earnings_movers, movers: pipeline.ah_sip_movers, top: pipeline.ah_top_movers } : null);
+    const pm = extRows(pmSnap, stockMap, tickerLayer, true);
+    const ah = extRows(ahSnap, stockMap, tickerLayer, true);
+    const tickers = [...new Set([...pm.map((r) => r.t), ...ah.map((r) => r.t)])];
+    return { count: tickers.length, pmCount: pm.length, ahCount: ah.length, tickers };
+  }, [pipeline, stockMap, tickerLayer]);
 
   // Poll /api/market-quality every 60s when liveOn is active
   useEffect(() => {
@@ -420,17 +441,38 @@ export default function ZangerBriefSection({
     </div>
   );
 
+  const breadthEmbedded = (
+    <MarketBreadthCard
+      A={A}
+      stockMap={stockMap}
+      breadth={breadth}
+      monitor={monitor}
+      indexQuotes={indexQuotes}
+      onTicker={onTicker}
+      chartTicker={chartTicker}
+      tickerLayer={tickerLayer}
+      themes={themes}
+      layers={layers}
+      members={members}
+      onLayer={onLayerObj}
+      onTheme={onTheme}
+      embedded
+    />
+  );
+
   if (err && !snap && !liveComputed) {
     return (
-      <Card A={A} title="Zanger & Leadership Briefing" sub="Auto-updated hourly during market hours + live intraday overlay" right={picker}>
+      <Card A={A} title="Market Breadth & Leadership Briefing" sub="Auto-updated hourly during market hours + live intraday overlay" right={picker}>
         <div style={{ fontSize: 11, color: A.textMuted }}>{err}</div>
+        {breadthEmbedded}
       </Card>
     );
   }
   if (!snap && !liveComputed) {
     return (
-      <Card A={A} title="Zanger & Leadership Briefing" right={picker}>
+      <Card A={A} title="Market Breadth & Leadership Briefing" right={picker}>
         <div style={{ fontSize: 11, color: A.textMuted }}>Loading latest Zanger briefing…</div>
+        {breadthEmbedded}
       </Card>
     );
   }
@@ -481,6 +523,7 @@ export default function ZangerBriefSection({
     zanger: liveComputed ? allPool.filter((r) => r.qualifiesZanger).length : (snap?.zangerMovers || []).length,
     rsl: allPool.filter((r) => r.rsl).length,
     leaders: allPool.filter((r) => r.tier === "lead" && r.layerStatus === "lead").length,
+    ext: extMeta.count,
   };
   const boTypeCounts = { ZANGER: 0, "SB4%": 0, "SB$": 0, QMAG: 0 };
   for (const r of allPool) {
@@ -662,13 +705,13 @@ export default function ZangerBriefSection({
   ) : null;
 
   return (
-    <div style={{ marginTop: 14, borderTop: `2px solid ${A.border}`, paddingTop: 12 }}>
-      {/* Header & General Market */}
+    <div>
+      {/* Unified Market Breadth & Leadership Briefing */}
       <Card
         A={A}
         title={
           <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <span>Zanger &amp; Leadership Briefing</span>
+            <span>Market Breadth &amp; Leadership Briefing</span>
             <span style={{ fontSize: 9, fontWeight: 800, fontFamily: "monospace", padding: "2px 6px", borderRadius: 4, border: `1px solid ${ph.accent || A.green}`, color: ph.accent || A.green }}>
               {liveComputed ? "LIVE INTRADAY" : ph.label}
             </span>
@@ -800,6 +843,9 @@ export default function ZangerBriefSection({
             {baseMkt.commentary.map((c, i) => <li key={i} style={{ marginBottom: 3 }}>{c}</li>)}
           </ul>
         )}
+
+        {/* Embedded Market Breadth, Stages, Themes/Layers & Market Gate */}
+        {breadthEmbedded}
       </Card>
 
       {/* Portfolio & Watchlist Pulse + Upcoming 10d Earnings */}
@@ -933,8 +979,18 @@ export default function ZangerBriefSection({
       <Card
         A={A}
         title="Breakouts & Intraday Volume Movers"
-        sub={`${liveComputed ? "Live 60s scan · " : ""}${sortedMovers.length} shown · click any row to chart`}
-        right={<CopyTickersBtn A={A} tickers={sortedMovers.map((m) => m.ticker)} label="Copy Shown" />}
+        sub={
+          catTab === "ext"
+            ? `Pre-market (${extMeta.pmCount}) & after-hours (${extMeta.ahCount}) · click any row to chart`
+            : `${liveComputed ? "Live 60s scan · " : ""}${sortedMovers.length} shown · click any row to chart`
+        }
+        right={
+          <CopyTickersBtn
+            A={A}
+            tickers={catTab === "ext" ? extMeta.tickers : sortedMovers.map((m) => m.ticker)}
+            label="Copy Shown"
+          />
+        }
       >
         {/* Category Tabs matching Zanger view */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
@@ -967,6 +1023,18 @@ export default function ZangerBriefSection({
           })}
         </div>
 
+        {catTab === "ext" ? (
+          <ExtHoursMovers
+            A={A}
+            pipeline={pipeline}
+            stockMap={stockMap}
+            tickerLayer={tickerLayer}
+            onTicker={onTicker}
+            chartTicker={chartTicker}
+            onLayer={onLayer}
+          />
+        ) : (
+        <>
         {/* Leading & Emerging Themes Filter Strip */}
         {(topThemes.length > 0 || extraThemeChip) && (
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 5, marginBottom: 8, padding: "6px 8px", background: A.bg, border: `1px solid ${A.border}`, borderRadius: 6 }}>
@@ -1295,6 +1363,8 @@ export default function ZangerBriefSection({
               })}
             </ul>
           </div>
+        )}
+        </>
         )}
       </Card>
 

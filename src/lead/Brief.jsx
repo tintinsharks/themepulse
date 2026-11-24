@@ -4,7 +4,6 @@ import { authFetch } from "../utils.js";
 import { collectBriefTickers, evalPivotStatus, matchMacroLive } from "./briefLive.js";
 import RotationView from "./Rotation.jsx";
 import ZangerBriefSection from "./ZangerBriefSection.jsx";
-import MarketBreadthCard from "../components/MarketBreadthCard.jsx";
 
 // ── Written briefs (BRIEF → Written) ─────────────────────────────────────
 // Dated snapshots in public/data/briefs/ (brief-index.json + <id>.json),
@@ -485,10 +484,10 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
 
 function BriefPanel(props) {
   const { A } = props;
-  const [mode, setMode] = useState("live");
+  const [mode, setMode] = useState("written");
   const modeSwitch = (
     <div style={{ display: "inline-flex", border: `1px solid ${A.border}`, borderRadius: 4, overflow: "hidden" }}>
-      {[["live", "Live"], ["written", "Written"]].map(([k, l]) => (
+      {[["written", "Written"], ["live", "Live"]].map(([k, l]) => (
         <button key={k} onClick={() => setMode(k)} style={{ background: mode === k ? A.border : "transparent", color: mode === k ? A.text : A.textMuted,
           border: "none", padding: "2px 10px", fontSize: 11, cursor: "pointer" }}>{l}</button>
       ))}
@@ -499,28 +498,17 @@ function BriefPanel(props) {
       {mode === "written"
         ? <WrittenBrief A={A} stockMap={props.stockMap} onTicker={props.onTicker} chartTicker={props.chartTicker} modeSwitch={modeSwitch} />
         : <LiveBrief {...props} modeSwitch={modeSwitch} />}
-      <MarketBreadthCard
-        A={A}
-        stockMap={props.stockMap}
-        breadth={props.breadth}
-        monitor={props.monitor}
-        indexQuotes={props.indexQuotes}
-        onTicker={props.onTicker}
-        chartTicker={props.chartTicker}
-        tickerLayer={props.tickerLayer}
-        themes={props.themes}
-        layers={props.layers}
-        members={props.members}
-        onLayer={props.onLayer}
-        onTheme={props.onTheme}
-      />
       <ZangerBriefSection
         A={A}
         stockMap={props.stockMap}
         tickerLayer={props.tickerLayer}
         layers={props.layers}
         themes={props.themes}
+        members={props.members}
         tiers={props.tiers}
+        breadth={props.breadth}
+        monitor={props.monitor}
+        pipeline={props.pipeline}
         indexQuotes={props.indexQuotes}
         idxBars={props.idxBars}
         portfolio={props.portfolio}
@@ -530,6 +518,8 @@ function BriefPanel(props) {
         onTicker={props.onTicker}
         chartTicker={props.chartTicker}
         onLayer={props.layerOfTicker}
+        onLayerObj={props.onLayer}
+        onTheme={props.onTheme}
       />
     </>
   );

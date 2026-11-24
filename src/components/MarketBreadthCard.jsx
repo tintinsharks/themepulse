@@ -1613,6 +1613,7 @@ export default function MarketBreadthCard({
   members = {},
   onLayer,
   onTheme,
+  embedded = false,
 }) {
   const [cardTab, setCardTab] = useState("breadth"); // "breadth" | "themes" | "layers"
   const [selThemeId, setSelThemeId] = useState(null);
@@ -1897,10 +1898,12 @@ export default function MarketBreadthCard({
   const toggleChart = (id) => setOpenChart((cur) => (cur === id ? null : id));
 
   return (
-    <div style={{ marginBottom: 10 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 6, padding: "0 2px" }}>
+    <div style={embedded ? { marginTop: 12, paddingTop: 12, borderTop: `1px solid ${A.border}` } : { marginBottom: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: embedded ? 10 : 6, padding: embedded ? 0 : "0 2px" }}>
         <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
-          <span style={{ fontSize: 13, fontWeight: 800, color: A.text, letterSpacing: 0.1 }}>Market Breadth</span>
+          <span style={{ fontSize: embedded ? 11 : 13, fontWeight: 800, color: embedded ? A.textDim : A.text, letterSpacing: embedded ? 0.4 : 0.1, textTransform: embedded ? "uppercase" : "none", fontFamily: embedded ? "monospace" : "inherit" }}>
+            Market Breadth
+          </span>
           <BreadthTagTip
             A={A}
             accent={tapeTag.color}
@@ -1961,10 +1964,12 @@ export default function MarketBreadthCard({
           })}
         </div>
         <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6, fontSize: 10, fontFamily: "monospace", color: A.textMuted }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: isLive ? A.green : A.textMuted }}>
-            {isLive && <span className="tp-livedot" style={{ width: 6, height: 6, borderRadius: 3, background: A.green, display: "inline-block" }} />}
-            {isLive ? `LIVE${liveAt ? ` · ${liveAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}` : `EOD${breadth?.date ? ` · ${breadth.date}` : ""}`}
-          </span>
+          {!embedded && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: isLive ? A.green : A.textMuted }}>
+              {isLive && <span className="tp-livedot" style={{ width: 6, height: 6, borderRadius: 3, background: A.green, display: "inline-block" }} />}
+              {isLive ? `LIVE${liveAt ? ` · ${liveAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}` : `EOD${breadth?.date ? ` · ${breadth.date}` : ""}`}
+            </span>
+          )}
           {hasLeaderTabs && (
             <Tabs
               A={A}
@@ -1999,12 +2004,16 @@ export default function MarketBreadthCard({
       </div>
 
       <div
-        style={{
-          background: A.bgCard,
-          border: `1px solid ${A.border}`,
-          borderRadius: 12,
-          padding: "16px 18px 14px",
-        }}
+        style={
+          embedded
+            ? { padding: "2px 0 0" }
+            : {
+                background: A.bgCard,
+                border: `1px solid ${A.border}`,
+                borderRadius: 12,
+                padding: "16px 18px 14px",
+              }
+        }
       >
         {cardTab === "themes" ? (
           <div>
