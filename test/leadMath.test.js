@@ -24,7 +24,7 @@ import {
   estimateStageHistory,
   computeLayerDayFlow,
   fmtDollarVol,
-  isBiotechLayer,
+  isHealthcareItem,
   stockThrust,
 } from "../src/lead/math.js";
 
@@ -325,14 +325,15 @@ test("stockThrust multiplies Chg% by positive ZVR and handles missing/invalid va
   assert.equal(stockThrust(3.0, null), null);
 });
 
-test("isBiotechLayer matches Biotech, Biotech Leaders, Biotechnology, Oncology, Specialty Pharma, and Pharma Majors", () => {
-  assert.equal(isBiotechLayer("Biotech"), true);
-  assert.equal(isBiotechLayer("Biotech Leaders"), true);
-  assert.equal(isBiotechLayer("Biotechnology"), true);
-  assert.equal(isBiotechLayer("Oncology"), true);
-  assert.equal(isBiotechLayer("Specialty Pharma"), true);
-  assert.equal(isBiotechLayer("Pharma Majors"), true);
-  assert.equal(isBiotechLayer("GLP-1 / Metabolic"), false);
-  assert.equal(isBiotechLayer("Medical Robotics"), false);
-  assert.equal(isBiotechLayer(null), false);
+test("isHealthcareItem matches all Healthcare themes, sectors, layers, and industries", () => {
+  assert.equal(isHealthcareItem({ theme: "Healthcare", layer: "Devices" }), true);
+  assert.equal(isHealthcareItem({ themeId: "health", layer: "CRO + Services" }), true);
+  assert.equal(isHealthcareItem({ sector: "Healthcare", layer: "Medical Robotics" }), true);
+  assert.equal(isHealthcareItem({ industry: "Biotechnology" }), true);
+  assert.equal(isHealthcareItem({ industry: "Drug Manufacturers - General" }), true);
+  assert.equal(isHealthcareItem({ layer: "Pharma Majors" }), true);
+  assert.equal(isHealthcareItem({ layer: "GLP-1 / Metabolic" }), true);
+  assert.equal(isHealthcareItem({ theme: "Software", layer: "Enterprise SaaS", sector: "Technology" }), false);
+  assert.equal(isHealthcareItem({ theme: "Agriculture", layer: "Animal Health + Food Tech", sector: "Consumer Defensive" }), false);
+  assert.equal(isHealthcareItem(null), false);
 });

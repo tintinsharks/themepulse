@@ -162,8 +162,18 @@ export function stockThrust(chg, zvr) {
   return +(chg * zvr).toFixed(1);
 }
 
-export function isBiotechLayer(name) {
-  return /^(biotech|biotech leaders|biotechnology|oncology|specialty pharma|pharma majors)$/i.test(String(name || "").trim());
+const HEALTH_RE = /^(healthcare|health care|biotech|biotech leaders|biotechnology|oncology|specialty pharma|pharma majors|drug manufacturers|medical\b|diagnostics|genomics|glp-1|managed care|cro \+ services|telemedicine|providers \+ facilities|distribution \+ supplies)/i;
+
+export function isHealthcareItem(item) {
+  if (!item) return false;
+  if (typeof item === "string") return HEALTH_RE.test(item.trim());
+  const { theme, themeId, layer, sector, industry } = item;
+  if (String(themeId || "").toLowerCase() === "health") return true;
+  if (/^health\s?care$/i.test(String(theme || "").trim())) return true;
+  if (/^health\s?care$/i.test(String(sector || "").trim())) return true;
+  if (HEALTH_RE.test(String(layer || "").trim())) return true;
+  if (HEALTH_RE.test(String(industry || "").trim())) return true;
+  return false;
 }
 
 // Volume / participation confirmation for a layer, from layer_breadth.json

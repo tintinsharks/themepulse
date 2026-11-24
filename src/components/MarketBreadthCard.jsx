@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { STATUS, computeStageDistribution, estimateStageHistory, etClock, isBiotechLayer } from "../lead/math.js";
+import { STATUS, computeStageDistribution, estimateStageHistory, etClock, isHealthcareItem } from "../lead/math.js";
 import { LayerTable, MarketGate, Tabs, ThemeBoard } from "../lead/core.jsx";
 import { authFetch } from "../utils.js";
 import {
@@ -1972,21 +1972,21 @@ export default function MarketBreadthCard({
   const [selectedStage, setSelectedStage] = useState(null); // null | 1 | 2 | 3 | 4
   const [stageLeadingOnly, setStageLeadingOnly] = useState(false);
   const [stageMinRs, setStageMinRs] = useState(0); // 0 | 80 | 90
-  const [noBio, setNoBio] = useState(() => {
-    try { return localStorage.getItem("tp-no-bio") === "1"; } catch { return false; }
+  const [noHealth, setNoHealth] = useState(() => {
+    try { return (localStorage.getItem("tp-no-health") ?? localStorage.getItem("tp-no-bio")) === "1"; } catch { return false; }
   });
-  const toggleNoBio = () => {
-    setNoBio((prev) => {
+  const toggleNoHealth = () => {
+    setNoHealth((prev) => {
       const next = !prev;
-      try { localStorage.setItem("tp-no-bio", next ? "1" : "0"); } catch { /* ignore */ }
-      try { window.dispatchEvent(new CustomEvent("tp-no-bio", { detail: next })); } catch { /* ignore */ }
+      try { localStorage.setItem("tp-no-health", next ? "1" : "0"); } catch { /* ignore */ }
+      try { window.dispatchEvent(new CustomEvent("tp-no-health", { detail: next })); } catch { /* ignore */ }
       return next;
     });
   };
   useEffect(() => {
-    const onSync = (e) => setNoBio(Boolean(e?.detail));
-    window.addEventListener("tp-no-bio", onSync);
-    return () => window.removeEventListener("tp-no-bio", onSync);
+    const onSync = (e) => setNoHealth(Boolean(e?.detail));
+    window.addEventListener("tp-no-health", onSync);
+    return () => window.removeEventListener("tp-no-health", onSync);
   }, []);
   const todayStr = etClock().today;
 
@@ -2239,9 +2239,9 @@ export default function MarketBreadthCard({
   );
   const visLayers = useMemo(() => {
     let list = selThemeId ? (layers || []).filter((l) => l.themeId === selThemeId) : (layers || []);
-    if (noBio) list = list.filter((l) => !isBiotechLayer(l.name));
+    if (noHealth) list = list.filter((l) => !isHealthcareItem({ theme: l.theme, themeId: l.themeId, layer: l.name }));
     return list;
-  }, [layers, selThemeId, noBio]);
+  }, [layers, selThemeId, noHealth]);
   const layerBuckets = useMemo(() => {
     const b = { all: [...visLayers].sort((x, y) => (y.now ?? -1) - (x.now ?? -1)), lead: [], weak: [], brk: [], emerg: [], lag: [] };
     for (const l of visLayers) {
@@ -2264,7 +2264,7 @@ export default function MarketBreadthCard({
     }
   };
   const sortedThemes = useMemo(() => {
-    const arr = [...(themes || [])];
+    const arr = (noHealth ? (themes || []).filter((t) => !isHealthcareItem({ theme: t.theme, themeId: t.themeId })) : [...(themes || [])]);
     const keyVal = (t) => {
       if (themeSort === "hold") return (t.heldAvg ?? 0) * 1000 + (t.now ?? 0);
       if (themeSort === "today") return t.dayFlow?.today ?? null;
@@ -2279,7 +2279,7 @@ export default function MarketBreadthCard({
       if (vb == null) return -1;
       return vb - va || (b.now ?? 0) - (a.now ?? 0);
     });
-  }, [themes, themeSort]);
+  }, [themes, themeSort, noHealth]);
 
   const sortPillStyle = (active, accent) => ({
     background: active ? `${accent || A.green}20` : "transparent",
@@ -2553,11 +2553,11 @@ export default function MarketBreadthCard({
                 })}
                 <button
                   type="button"
-                  onClick={toggleNoBio}
-                  title="Hide Biotech, Biotech Leaders, Biotechnology, Oncology, Specialty Pharma & Pharma Majors"
-                  style={{ ...sortPillStyle(noBio, "#f472b6"), marginLeft: 4 }}
+                  onClick={toggleNoHealth}
+                  title="Hide all Healthcare layers (Biotech, Pharma, MedTech, Providers, etc.)"
+                  style={{ ...sortPillStyle(noHealth, "#f472b6"), marginLeft: 4 }}
                 >
-                  No Bio
+                  No Health
                 </button>
               </div>
               <span style={{ fontSize: 10, color: A.textMuted }}>

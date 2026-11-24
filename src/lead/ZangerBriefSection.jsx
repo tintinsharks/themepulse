@@ -13,7 +13,7 @@ import {
   closingRange,
   extRows,
   indexStats,
-  isBiotechLayer,
+  isHealthcareItem,
   pinReason,
   scoreZangerCandidate,
   statusColor,
@@ -141,21 +141,21 @@ export default function ZangerBriefSection({
   const [minZvr, setMinZvr] = useState(1.0);
   const [minRs, setMinRs] = useState(70);
   const [minAdr, setMinAdr] = useState(null);
-  const [noBio, setNoBio] = useState(() => {
-    try { return localStorage.getItem("tp-no-bio") === "1"; } catch { return false; }
+  const [noHealth, setNoHealth] = useState(() => {
+    try { return (localStorage.getItem("tp-no-health") ?? localStorage.getItem("tp-no-bio")) === "1"; } catch { return false; }
   });
-  const toggleNoBio = () => {
-    setNoBio((prev) => {
+  const toggleNoHealth = () => {
+    setNoHealth((prev) => {
       const next = !prev;
-      try { localStorage.setItem("tp-no-bio", next ? "1" : "0"); } catch { /* ignore */ }
-      try { window.dispatchEvent(new CustomEvent("tp-no-bio", { detail: next })); } catch { /* ignore */ }
+      try { localStorage.setItem("tp-no-health", next ? "1" : "0"); } catch { /* ignore */ }
+      try { window.dispatchEvent(new CustomEvent("tp-no-health", { detail: next })); } catch { /* ignore */ }
       return next;
     });
   };
   useEffect(() => {
-    const onSync = (e) => setNoBio(Boolean(e?.detail));
-    window.addEventListener("tp-no-bio", onSync);
-    return () => window.removeEventListener("tp-no-bio", onSync);
+    const onSync = (e) => setNoHealth(Boolean(e?.detail));
+    window.addEventListener("tp-no-health", onSync);
+    return () => window.removeEventListener("tp-no-health", onSync);
   }, []);
   const [epsOnly, setEpsOnly] = useState(false);
   const [cleanOnly, setCleanOnly] = useState(false);
@@ -721,7 +721,13 @@ export default function ZangerBriefSection({
     if ((catTab === "zanger" || catTab === "bo") && minZvr > 1.0 && (r.zvr ?? 0) < minZvr) return false;
     if (minRs > 70 && (r.rs ?? 0) < minRs) return false;
     if (minAdr != null && (r.adr ?? -1) < minAdr) return false;
-    if (noBio && (isBiotechLayer(r.layer || tickerLayer?.[r.ticker]?.name) || isBiotechLayer(stockMap?.[r.ticker]?.industry))) return false;
+    if (noHealth && isHealthcareItem({
+      theme: r.theme || tickerLayer?.[r.ticker]?.theme,
+      themeId: tickerLayer?.[r.ticker]?.themeId,
+      layer: r.layer || tickerLayer?.[r.ticker]?.name,
+      sector: stockMap?.[r.ticker]?.sector,
+      industry: stockMap?.[r.ticker]?.industry,
+    })) return false;
     if (epsOnly && (r.eps ?? 0) < 50) return false;
     if (cleanOnly && ((r.layerFlags?.length ? r.layerFlags : tickerLayer?.[r.ticker]?.flags) || []).some(([k]) => k === "distrib" || k === "exiting")) return false;
     return true;
@@ -1347,11 +1353,11 @@ export default function ZangerBriefSection({
             <div style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6 }}>
               <button
                 type="button"
-                onClick={toggleNoBio}
-                title="Exclude Biotech, Biotech Leaders, Biotechnology, Oncology, Specialty Pharma & Pharma Majors"
-                style={chipStyle(noBio, "#f472b6")}
+                onClick={toggleNoHealth}
+                title="Exclude all Healthcare stocks (Biotech, Pharma, MedTech, Providers, etc.)"
+                style={chipStyle(noHealth, "#f472b6")}
               >
-                No Bio
+                No Health
               </button>
               <AdrFilter A={A} value={minAdr} onChange={setMinAdr} />
               {filtersOpen && activeFilterCount > 0 && (
