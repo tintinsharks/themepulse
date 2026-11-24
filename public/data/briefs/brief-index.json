@@ -1,6 +1,14 @@
 {
-  "latest": "brief-2026-11-23-pm.json",
+  "latest": "brief-2026-11-24-am.json",
   "briefs": [
+    {
+      "id": "brief-2026-11-24-am",
+      "date": "2026-11-24",
+      "session": "am",
+      "label": "Premarket Brief — Tue Nov 24, 2026",
+      "file": "brief-2026-11-24-am.json",
+      "regime": "Market Update"
+    },
     {
       "id": "brief-2026-11-23-pm",
       "date": "2026-11-23",
