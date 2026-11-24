@@ -641,3 +641,55 @@ export function estimateStageHistory(breadthHistory, currentDist = null, current
   }
   return rows;
 }
+
+// Compute current price extension from 10 / 21 / 50 EMA in both % and ATR multiples.
+export function computeEmaAtrExtensions(ohlcBars, livePrice = null, atr = null) {
+  if (!Array.isArray(ohlcBars) || ohlcBars.length < 10) return null;
+  const closes = ohlcBars.map((b) => b?.close).filter((v) => typeof v === "number" && Number.isFinite(v) && v > 0);
+  if (closes.length < 10) return null;
+  const px = typeof livePrice === "number" && Number.isFinite(livePrice) && livePrice > 0
+    ? livePrice
+    : closes[closes.length - 1];
+  const validAtr = typeof atr === "number" && Number.isFinite(atr) && atr > 0 ? atr : null;
+
+  const calc = (period) => {
+    if (closes.length < period) return null;
+    const series = ema(closes, period);
+    const val = series[series.length - 1];
+    if (val == null || !Number.isFinite(val) || val <= 0) return null;
+    const pct = ((px - val) / val) * 100;
+    const atrX = validAtr ? (px - val) / validAtr : null;
+    return {
+      ema: Math.round(val * 100) / 100,
+      pct: Math.round(pct * 10) / 10,
+      atrX: atrX != null ? Math.round(atrX * 10) / 10 : null,
+    };
+  };
+
+  return {
+    price: px,
+    atr: validAtr,
+    ema10: calc(10),
+    ema21: calc(21),
+    ema50: calc(50),
+  };
+}
+
+// Fallback Weinstein Stage 1-4 classifier from raw daily OHLC bars (for tickers outside stockMap, e.g. SPY/QQQ).
+export function classifyWeinsteinStageFromBars(ohlcBars, livePrice = null) {
+  if (!Array.isArray(ohlcBars) || ohlcBars.length < 50) return null;
+  const closes = ohlcBars.map((b) => b?.close).filter((v) => typeof v === "number" && Number.isFinite(v) && v > 0);
+  if (closes.length < 50) return null;
+  const px = typeof livePrice === "number" && Number.isFinite(livePrice) && livePrice > 0
+    ? livePrice
+    : closes[closes.length - 1];
+  const s50 = sma(closes, 50);
+  const s200 = closes.length >= 200 ? sma(closes, 200) : null;
+  const last50 = s50[s50.length - 1];
+  const last200 = s200 ? s200[s200.length - 1] : null;
+  const prev200 = s200 && s200.length > 20 ? s200[s200.length - 21] : null;
+  const sma50_pct = last50 ? ((px - last50) / last50) * 100 : null;
+  const sma200_pct = last200 ? ((px - last200) / last200) * 100 : null;
+  const tt_mask = (last200 && prev200 && last200 > prev200) ? (1 << 2) : 0;
+  return classifyWeinsteinStage({ sma50_pct, sma200_pct, tt_mask });
+}

@@ -218,3 +218,236 @@ export function filterStageStocks(stockMap, stageNum, opts = {}) {
 
   return matches;
 }
+
+/**
+ * Detect institutional breadth turning-point signals across historical daily data:
+ *  1. 90% Up / 90% Down Days (adv/(adv+dec) >= 88% or <= 12% on >= 500 issues)
+ *  2. Zweig Breadth Thrust (10-day EMA of adv/(adv+dec) rising from <40% to >61.5% within 10 sessions)
+ *  3. McClellan Oversold / Overbought Hook (<= -60 turning up, or >= +60 turning down)
+ *  4. SPX vs. Breadth Divergence (SPX near 20d high while Cum A/D or % > 50d SMA lags, or vice versa)
+ *
+ * @param {{
+ *   adHistory?: Array<{date:string, adv:number, dec:number}>,
+ *   history?: Array<{date:string, p50?:number}>,
+ *   spxMap?: Map<string, number>|null,
+ *   liveAdvDec?: {adv:number, dec:number, isLive?:boolean}|null,
+ *   todayStr?: string|null,
+ *   recentWindow?: number
+ * }} params
+ * @returns {{
+ *   byDate: Map<string, Array<{type:string, short:string, label:string, tone:"good"|"warn"|"bad", chart:"ad"|"cum"|"mcclellan"|"p50", date:string, detail:string}>>,
+ *   recent: Array<{type:string, short:string, label:string, tone:"good"|"warn"|"bad", chart:"ad"|"cum"|"mcclellan"|"p50", date:string, detail:string}>,
+ *   all: Array<{type:string, short:string, label:string, tone:"good"|"warn"|"bad", chart:"ad"|"cum"|"mcclellan"|"p50", date:string, detail:string}>
+ * }}
+ */
+export function detectBreadthSignals({
+  adHistory = [],
+  history = [],
+  spxMap = null,
+  liveAdvDec = null,
+  todayStr = null,
+  recentWindow = 10,
+} = {}) {
+  const byDate = new Map();
+  const all = [];
+  const pushSig = (sig) => {
+    all.push(sig);
+    const list = byDate.get(sig.date);
+    if (list) list.push(sig);
+    else byDate.set(sig.date, [sig]);
+  };
+
+  const cumSeries = buildCumulativeAdSeries(adHistory, liveAdvDec, todayStr);
+  const mcSeries = buildMcClellanSeries(adHistory, liveAdvDec, todayStr);
+
+  // 1 & 2. 90% Up/Down days + Zweig Breadth Thrust (10-day EMA of Adv / (Adv + Dec))
+  const k10 = 2 / 11;
+  let zbtEma = null;
+  let lastBelow40Idx = -999;
+  let lastZbtIdx = -999;
+
+  for (let i = 0; i < cumSeries.length; i++) {
+    const d = cumSeries[i];
+    const tot = d.adv + d.dec;
+    if (tot <= 0) continue;
+    const ratio = d.adv / tot;
+    const pct = Math.round(ratio * 1000) / 10;
+
+    if (tot >= 500) {
+      if (ratio >= 0.88) {
+        pushSig({
+          type: "ninety_up",
+          short: "90↑",
+          label: "90% Up Day",
+          tone: "good",
+          chart: "ad",
+          date: d.date,
+          detail: `${pct}% advancing (${d.adv.toLocaleString()} vs ${d.dec.toLocaleString()}) — institutional accumulation thrust`,
+        });
+      } else if (ratio <= 0.12) {
+        pushSig({
+          type: "ninety_down",
+          short: "90↓",
+          label: "90% Down Day",
+          tone: "bad",
+          chart: "ad",
+          date: d.date,
+          detail: `${(100 - pct).toFixed(1)}% declining (${d.dec.toLocaleString()} vs ${d.adv.toLocaleString()}) — capitulation/liquidation`,
+        });
+      }
+    }
+
+    zbtEma = zbtEma == null ? ratio : ratio * k10 + zbtEma * (1 - k10);
+    if (zbtEma < 0.40) lastBelow40Idx = i;
+    if (
+      zbtEma > 0.615 &&
+      i - lastBelow40Idx <= 10 &&
+      i - lastBelow40Idx >= 1 &&
+      i - lastZbtIdx > 15
+    ) {
+      lastZbtIdx = i;
+      pushSig({
+        type: "zbt",
+        short: "ZBT",
+        label: "Zweig Thrust",
+        tone: "good",
+        chart: "ad",
+        date: d.date,
+        detail: `10d breadth EMA surged from <40% to ${(zbtEma * 100).toFixed(1)}% within ${i - lastBelow40Idx}d — rare institutional thrust`,
+      });
+    }
+  }
+
+  // 3. McClellan Oversold / Overbought Hooks
+  for (let i = 2; i < mcSeries.length; i++) {
+    const prev2 = mcSeries[i - 2];
+    const prev = mcSeries[i - 1];
+    const cur = mcSeries[i];
+    if (prev.osc <= -60 && prev.osc <= prev2.osc && cur.osc > prev.osc) {
+      pushSig({
+        type: "mc_os_hook",
+        short: "MC↑",
+        label: "McClellan Hook ↑",
+        tone: "good",
+        chart: "mcclellan",
+        date: cur.date,
+        detail: `McClellan turned up from oversold ${prev.osc.toFixed(1)} to ${cur.osc.toFixed(1)}`,
+      });
+    } else if (prev.osc >= 60 && prev.osc >= prev2.osc && cur.osc < prev.osc) {
+      pushSig({
+        type: "mc_ob_hook",
+        short: "MC↓",
+        label: "McClellan Hook ↓",
+        tone: "warn",
+        chart: "mcclellan",
+        date: cur.date,
+        detail: `McClellan rolled over from overbought +${prev.osc.toFixed(1)} to +${cur.osc.toFixed(1)}`,
+      });
+    }
+  }
+
+  // 4. SPX vs Breadth Divergences (Cum A/D and % Above 50d SMA)
+  if (spxMap && spxMap.size >= 20 && cumSeries.length >= 20) {
+    const p50ByDate = new Map();
+    for (const h of Array.isArray(history) ? history : []) {
+      if (h?.date && typeof h.p50 === "number" && Number.isFinite(h.p50)) {
+        p50ByDate.set(h.date, h.p50);
+      }
+    }
+
+    const aligned = [];
+    for (const d of cumSeries) {
+      const lookupDate = d.isLive ? todayStr : d.date;
+      const spx = lookupDate ? spxMap.get(lookupDate) : null;
+      if (typeof spx !== "number" || !Number.isFinite(spx)) continue;
+      aligned.push({
+        date: d.date,
+        spx,
+        cumAd: d.cumAd,
+        p50: p50ByDate.get(d.date) ?? null,
+      });
+    }
+
+    let lastBearIdx = -999;
+    let lastBullIdx = -999;
+    const win = 20;
+    for (let i = win; i < aligned.length; i++) {
+      const cur = aligned[i];
+      const slice = aligned.slice(i - win, i + 1);
+      let hiSpx = -Infinity, loSpx = Infinity;
+      let hiAd = -Infinity, loAd = Infinity, hiAdIdx = -1, loAdIdx = -1;
+      let hiP50 = -Infinity, loP50 = Infinity, hiP50Idx = -1, loP50Idx = -1;
+      for (let j = 0; j < slice.length; j++) {
+        const s = slice[j];
+        if (s.spx > hiSpx) hiSpx = s.spx;
+        if (s.spx < loSpx) loSpx = s.spx;
+        if (s.cumAd > hiAd) { hiAd = s.cumAd; hiAdIdx = j; }
+        if (s.cumAd < loAd) { loAd = s.cumAd; loAdIdx = j; }
+        if (s.p50 != null) {
+          if (s.p50 > hiP50) { hiP50 = s.p50; hiP50Idx = j; }
+          if (s.p50 < loP50) { loP50 = s.p50; loP50Idx = j; }
+        }
+      }
+      const adSpan = hiAd - loAd;
+      const spxRising5 = cur.spx > aligned[i - 5].spx;
+      const spxFalling5 = cur.spx < aligned[i - 5].spx;
+
+      // Bearish divergence: SPX near 20d high while breadth lags meaningfully below 20d peak
+      if (i - lastBearIdx >= 6 && cur.spx >= hiSpx * 0.995 && spxRising5) {
+        const adLag = adSpan > 500 && hiAdIdx <= slice.length - 4 && (hiAd - cur.cumAd) >= adSpan * 0.25;
+        const p50Lag = cur.p50 != null && hiP50 > -Infinity && hiP50Idx <= slice.length - 4 && (hiP50 - cur.p50) >= 6;
+        if (adLag || p50Lag) {
+          lastBearIdx = i;
+          const why = [
+            adLag ? "Cum A/D lagging 20d peak" : null,
+            p50Lag ? `>50d SMA at ${cur.p50.toFixed(0)}% vs ${hiP50.toFixed(0)}% peak` : null,
+          ].filter(Boolean).join(" & ");
+          pushSig({
+            type: "div_bear",
+            short: "DIV↓",
+            label: "SPX Bear Div",
+            tone: "bad",
+            chart: adLag ? "cum" : "p50",
+            date: cur.date,
+            detail: `SPX near 20d high while ${why}`,
+          });
+        }
+      }
+
+      // Bullish divergence: SPX near 20d low while breadth holds meaningfully above 20d trough
+      if (i - lastBullIdx >= 6 && cur.spx <= loSpx * 1.005 && spxFalling5) {
+        const adHold = adSpan > 500 && loAdIdx <= slice.length - 4 && (cur.cumAd - loAd) >= adSpan * 0.25;
+        const p50Hold = cur.p50 != null && loP50 < Infinity && loP50Idx <= slice.length - 4 && (cur.p50 - loP50) >= 6;
+        if (adHold || p50Hold) {
+          lastBullIdx = i;
+          const why = [
+            adHold ? "Cum A/D holding higher low" : null,
+            p50Hold ? `>50d SMA at ${cur.p50.toFixed(0)}% vs ${loP50.toFixed(0)}% low` : null,
+          ].filter(Boolean).join(" & ");
+          pushSig({
+            type: "div_bull",
+            short: "DIV↑",
+            label: "SPX Bull Div",
+            tone: "good",
+            chart: adHold ? "cum" : "p50",
+            date: cur.date,
+            detail: `SPX near 20d low while ${why}`,
+          });
+        }
+      }
+    }
+  }
+
+  // Recent signals (within the last `recentWindow` trading dates in cumSeries, newest first, unique by type)
+  const recentDates = new Set(cumSeries.slice(-recentWindow).map((d) => d.date));
+  const seenTypes = new Set();
+  const recent = [];
+  for (let i = all.length - 1; i >= 0; i--) {
+    const s = all[i];
+    if (!recentDates.has(s.date) || seenTypes.has(s.type)) continue;
+    seenTypes.add(s.type);
+    recent.push(s);
+  }
+
+  return { byDate, recent, all };
+}

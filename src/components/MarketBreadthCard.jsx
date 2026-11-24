@@ -5,6 +5,7 @@ import {
   buildCumulativeAdSeries,
   buildMaBreadthSeries,
   buildMcClellanSeries,
+  detectBreadthSignals,
   filterStageStocks,
 } from "./breadthChartMath.js";
 
@@ -153,6 +154,80 @@ const STAGE_META = {
   4: { label: "Stage 4", hint: "Downtrend" },
 };
 
+function signalToneColor(tone, A) {
+  if (tone === "good") return A?.green || "#22c55e";
+  if (tone === "bad") return COLORS.pink;
+  return COLORS.gold;
+}
+
+function getDateSignals(signalByDate, date, allowedTypes) {
+  if (!signalByDate || !date) return [];
+  const list = signalByDate.get(date);
+  if (!list?.length) return [];
+  if (!allowedTypes) return list;
+  return list.filter((s) => allowedTypes.has(s.type));
+}
+
+// Crisp vertical pin + top dot markers inside SVG charts for breadth thrusts, 90% days, hooks & SPX divergences
+function SignalMarkers({ series, signalByDate, allowedTypes, padL, step, padT, plotH, A }) {
+  if (!signalByDate || !series?.length) return null;
+  const markers = [];
+  for (let i = 0; i < series.length; i++) {
+    const sigs = getDateSignals(signalByDate, series[i].date, allowedTypes);
+    if (sigs.length) markers.push({ idx: i, sig: sigs[0], all: sigs });
+  }
+  if (!markers.length) return null;
+  const showText = series.length <= 90 && markers.length <= 10;
+  return (
+    <g style={{ pointerEvents: "none" }}>
+      {markers.map(({ idx, sig }) => {
+        const x = padL + idx * step + step / 2;
+        const c = signalToneColor(sig.tone, A);
+        return (
+          <g key={`${sig.date}-${sig.type}`}>
+            <line x1={x} y1={padT} x2={x} y2={padT + plotH} stroke={c} strokeWidth="1" strokeDasharray="2 2" strokeOpacity="0.55" />
+            <circle cx={x} cy={padT + 3.5} r="2.8" fill={c} stroke={A?.bg || "#0d1117"} strokeWidth="1" />
+            {showText && (
+              <text x={x} y={padT - 1.5} textAnchor="middle" fontSize="7.5" fontWeight="700" fill={c} fontFamily="monospace">
+                {sig.short}
+              </text>
+            )}
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
+function HoverSignalPills({ signals, A }) {
+  if (!signals?.length) return null;
+  return signals.map((sig) => {
+    const c = signalToneColor(sig.tone, A);
+    return (
+      <span
+        key={`${sig.type}-${sig.date}`}
+        title={sig.detail}
+        style={{
+          fontSize: 9,
+          fontWeight: 800,
+          padding: "0 5px",
+          borderRadius: 999,
+          background: `${c}22`,
+          border: `1px solid ${c}77`,
+          color: c,
+        }}
+      >
+        {sig.label}
+      </span>
+    );
+  });
+}
+
+const AD_SIG_TYPES = new Set(["ninety_up", "ninety_down", "zbt"]);
+const CUM_SIG_TYPES = new Set(["div_bear", "div_bull", "zbt"]);
+const MC_SIG_TYPES = new Set(["mc_os_hook", "mc_ob_hook"]);
+const MA50_SIG_TYPES = new Set(["div_bear", "div_bull"]);
+
 const RANGE_OPTIONS = [
   [22, "1M"],
   [63, "3M"],
@@ -279,7 +354,7 @@ function RatioBar({ title, pct, leftLabel, rightLabel, accentColor, trackBg, tex
 }
 
 // Mirrored daily bar chart (Up = Highs/Advance in blue, Down = Lows/Decline in pink, + Net curve in gold + optional SPX overlay)
-function BreadthHistoryChart({ A, series, posLabel, negLabel, range, onRange, spxData, showSpx, onToggleSpx, todayStr, mode, onMode }) {
+function BreadthHistoryChart({ A, series, posLabel, negLabel, range, onRange, spxData, showSpx, onToggleSpx, todayStr, mode, onMode, signalByDate, signalTypes }) {
   const [hoverIdx, setHoverIdx] = useState(null);
   if (!series || series.length === 0) {
     return (
@@ -351,6 +426,7 @@ function BreadthHistoryChart({ A, series, posLabel, negLabel, range, onRange, sp
               {spx.label} {fmtSpx(curSpx)}
             </span>
           )}
+          <HoverSignalPills signals={getDateSignals(signalByDate, cur.date, signalTypes)} A={A} />
         </div>
         <ChartControls
           A={A}
@@ -374,6 +450,7 @@ function BreadthHistoryChart({ A, series, posLabel, negLabel, range, onRange, sp
         <line x1={padL} y1={padT} x2={W - padR} y2={padT} stroke={A.border} strokeDasharray="2 3" strokeOpacity="0.6" />
         <line x1={padL} y1={midY} x2={W - padR} y2={midY} stroke={A.textMuted} strokeOpacity="0.45" />
         <line x1={padL} y1={padT + plotH} x2={W - padR} y2={padT + plotH} stroke={A.border} strokeDasharray="2 3" strokeOpacity="0.6" />
+        <SignalMarkers series={series} signalByDate={signalByDate} allowedTypes={signalTypes} padL={padL} step={step} padT={padT} plotH={plotH} A={A} />
 
         {/* Left Y-axis scale labels */}
         <text x={padL - 5} y={padT + 8} textAnchor="end" fontSize="9" fill={COLORS.blue} fontFamily="monospace">+{maxVal}</text>
@@ -476,7 +553,7 @@ function BreadthHistoryChart({ A, series, posLabel, negLabel, range, onRange, sp
 }
 
 // Cumulative Advance-Decline Line chart with subtle area fill + SPX right-axis overlay for divergence reads
-function CumAdHistoryChart({ A, series, range, onRange, spxData, showSpx, onToggleSpx, todayStr, mode, onMode }) {
+function CumAdHistoryChart({ A, series, range, onRange, spxData, showSpx, onToggleSpx, todayStr, mode, onMode, signalByDate, signalTypes }) {
   const [hoverIdx, setHoverIdx] = useState(null);
   if (!series || series.length === 0) {
     return (
@@ -551,6 +628,7 @@ function CumAdHistoryChart({ A, series, range, onRange, spxData, showSpx, onTogg
               {spx.label} {fmtSpx(curSpx)}
             </span>
           )}
+          <HoverSignalPills signals={getDateSignals(signalByDate, cur.date, signalTypes)} A={A} />
         </div>
         <ChartControls
           A={A}
@@ -596,6 +674,7 @@ function CumAdHistoryChart({ A, series, range, onRange, spxData, showSpx, onTogg
 
         {/* Subtle area fill */}
         {areaD && <path d={areaD} fill={COLORS.cyan} fillOpacity="0.13" style={{ pointerEvents: "none" }} />}
+        <SignalMarkers series={series} signalByDate={signalByDate} allowedTypes={signalTypes} padL={padL} step={step} padT={padT} plotH={plotH} A={A} />
 
         {/* Hover hit zones */}
         {series.map((d, i) => {
@@ -663,7 +742,7 @@ function CumAdHistoryChart({ A, series, range, onRange, spxData, showSpx, onTogg
 }
 
 // 0%-100% MA Breadth history chart with >80% overbought band, <20% oversold washout band, + SPX overlay
-function MaBreadthHistoryChart({ A, title, series, range, onRange, spxData, showSpx, onToggleSpx, todayStr }) {
+function MaBreadthHistoryChart({ A, title, series, range, onRange, spxData, showSpx, onToggleSpx, todayStr, signalByDate, signalTypes }) {
   const [hoverIdx, setHoverIdx] = useState(null);
   if (!series || series.length === 0) {
     return (
@@ -743,6 +822,7 @@ function MaBreadthHistoryChart({ A, title, series, range, onRange, spxData, show
               {spx.label} {fmtSpx(curSpx)}
             </span>
           )}
+          <HoverSignalPills signals={getDateSignals(signalByDate, cur.date, signalTypes)} A={A} />
         </div>
         <ChartControls
           A={A}
@@ -789,6 +869,7 @@ function MaBreadthHistoryChart({ A, title, series, range, onRange, spxData, show
 
         {/* Subtle area fill under MA% line */}
         {areaD && <path d={areaD} fill={COLORS.blue} fillOpacity="0.10" style={{ pointerEvents: "none" }} />}
+        <SignalMarkers series={series} signalByDate={signalByDate} allowedTypes={signalTypes} padL={padL} step={step} padT={padT} plotH={plotH} A={A} />
 
         {/* Hover hit zones */}
         {series.map((d, i) => {
@@ -858,7 +939,7 @@ function MaBreadthHistoryChart({ A, title, series, range, onRange, spxData, show
 }
 
 // Mirrored McClellan Oscillator bar chart around 0 with ±60 overbought/oversold guide lines + SPX overlay
-function McClellanHistoryChart({ A, series, range, onRange, spxData, showSpx, onToggleSpx, todayStr }) {
+function McClellanHistoryChart({ A, series, range, onRange, spxData, showSpx, onToggleSpx, todayStr, signalByDate, signalTypes }) {
   const [hoverIdx, setHoverIdx] = useState(null);
   if (!series || series.length === 0) {
     return (
@@ -938,6 +1019,7 @@ function McClellanHistoryChart({ A, series, range, onRange, spxData, showSpx, on
               {spx.label} {fmtSpx(curSpx)}
             </span>
           )}
+          <HoverSignalPills signals={getDateSignals(signalByDate, cur.date, signalTypes)} A={A} />
         </div>
         <ChartControls
           A={A}
@@ -961,6 +1043,7 @@ function McClellanHistoryChart({ A, series, range, onRange, spxData, showSpx, on
         <line x1={padL} y1={midY} x2={W - padR} y2={midY} stroke={A.textMuted} strokeOpacity="0.5" />
         <line x1={padL} y1={yNeg60} x2={W - padR} y2={yNeg60} stroke={COLORS.pink} strokeDasharray="3 3" strokeOpacity="0.6" />
         <line x1={padL} y1={padT + plotH} x2={W - padR} y2={padT + plotH} stroke={A.border} strokeDasharray="2 3" strokeOpacity="0.55" />
+        <SignalMarkers series={series} signalByDate={signalByDate} allowedTypes={signalTypes} padL={padL} step={step} padT={padT} plotH={plotH} A={A} />
 
         {/* Left Y-axis labels */}
         <text x={padL - 5} y={padT + 7} textAnchor="end" fontSize="8.5" fill={A.textMuted} fontFamily="monospace">+{maxAbs}</text>
@@ -1429,15 +1512,15 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor, onTic
   const [stageMinRs, setStageMinRs] = useState(0); // 0 | 80 | 90
   const todayStr = etClock().today;
 
-  // Lazily load daily SPX (^GSPC, fallback SPY) closes once any history chart is opened
+  // Load daily SPX (^GSPC, fallback SPY) closes once on mount (10m module cache) for chart overlays & divergence detection
   useEffect(() => {
-    if (!openChart || spxData) return;
+    if (spxData) return;
     let alive = true;
     fetchSpxHistory().then((res) => {
       if (alive && res) setSpxData(res);
     });
     return () => { alive = false; };
-  }, [openChart, spxData]);
+  }, [spxData]);
 
   useEffect(() => {
     let alive = true;
@@ -1604,6 +1687,35 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor, onTic
     };
   }, [stockMap, liveStats, monitor, breadth, mcclellanSeries]);
 
+  const breadthSignals = useMemo(
+    () => detectBreadthSignals({
+      adHistory: breadth?.ad_history,
+      history: breadth?.history,
+      spxMap: spxData?.map || null,
+      liveAdvDec: advDec,
+      todayStr,
+    }),
+    [breadth, spxData, advDec, todayStr]
+  );
+
+  const openSignalChart = (sig) => {
+    if (sig.chart === "mcclellan") {
+      setSlide(1);
+      setOpenChart("mcclellan");
+    } else if (sig.chart === "p50") {
+      setSlide(1);
+      setOpenChart("p50");
+    } else if (sig.chart === "cum") {
+      setSlide(0);
+      setAdMode("cum");
+      setOpenChart("ad");
+    } else {
+      setSlide(0);
+      setAdMode("daily");
+      setOpenChart("ad");
+    }
+  };
+
   const isDark = A.bg === "#0a0d12" || A.bg === "#0d1117" || /^#0|^#1/.test(String(A.bg || ""));
   const trackBg = isDark ? "#2d333b" : "#e2e8f0";
   const isLive = Boolean(nhNl?.isLive || advDec?.isLive);
@@ -1611,8 +1723,8 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor, onTic
 
   return (
     <div style={{ marginBottom: 10 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, padding: "0 2px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 6, padding: "0 2px" }}>
+        <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
           <span style={{ fontSize: 13, fontWeight: 800, color: A.text, letterSpacing: 0.1 }}>Market Breadth</span>
           <span
             style={{
@@ -1628,6 +1740,30 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor, onTic
           >
             {tapeTag.label}
           </span>
+          {breadthSignals.recent.slice(0, 3).map((sig) => {
+            const c = signalToneColor(sig.tone, A);
+            return (
+              <button
+                key={`${sig.type}-${sig.date}`}
+                type="button"
+                onClick={() => openSignalChart(sig)}
+                title={`${sig.label} (${sig.date}): ${sig.detail} — click to inspect chart`}
+                style={{
+                  fontSize: 9,
+                  fontWeight: 800,
+                  fontFamily: "monospace",
+                  padding: "1px 6px",
+                  borderRadius: 999,
+                  background: `${c}1f`,
+                  border: `1px solid ${c}77`,
+                  color: c,
+                  cursor: "pointer",
+                }}
+              >
+                {sig.label} · {sig.date === "Today (Live)" ? "Live" : sig.date.slice(5)}
+              </button>
+            );
+          })}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 10, fontFamily: "monospace", color: A.textMuted }}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: isLive ? A.green : A.textMuted }}>
@@ -1715,6 +1851,8 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor, onTic
                   todayStr={todayStr}
                   mode={adMode}
                   onMode={setAdMode}
+                  signalByDate={breadthSignals.byDate}
+                  signalTypes={CUM_SIG_TYPES}
                 />
               ) : (
                 <BreadthHistoryChart
@@ -1730,6 +1868,8 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor, onTic
                   todayStr={todayStr}
                   mode={adMode}
                   onMode={setAdMode}
+                  signalByDate={breadthSignals.byDate}
+                  signalTypes={AD_SIG_TYPES}
                 />
               )
             )}
@@ -1905,6 +2045,8 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor, onTic
                 showSpx={showSpx}
                 onToggleSpx={() => setShowSpx((v) => !v)}
                 todayStr={todayStr}
+                signalByDate={breadthSignals.byDate}
+                signalTypes={MA50_SIG_TYPES}
               />
             )}
 
@@ -1992,6 +2134,8 @@ export default function MarketBreadthCard({ A, stockMap, breadth, monitor, onTic
                     showSpx={showSpx}
                     onToggleSpx={() => setShowSpx((v) => !v)}
                     todayStr={todayStr}
+                    signalByDate={breadthSignals.byDate}
+                    signalTypes={MC_SIG_TYPES}
                   />
                 )}
               </div>

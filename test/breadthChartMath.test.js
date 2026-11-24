@@ -7,8 +7,13 @@ import {
   buildCumulativeAdSeries,
   buildMcClellanSeries,
   buildMaBreadthSeries,
+  detectBreadthSignals,
   filterStageStocks,
 } from "../src/components/breadthChartMath.js";
+import {
+  computeEmaAtrExtensions,
+  classifyWeinsteinStageFromBars,
+} from "../src/lead/math.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -229,4 +234,78 @@ test("filterStageStocks classifies Weinstein stages, applies filters, and sorts 
   assert.deepEqual(filterStageStocks(stockMap, 5), []);
   assert.deepEqual(filterStageStocks(null, 2), []);
   assert.equal(stockMap.NVDA.stage, undefined, "must not mutate original stockMap entries");
+});
+
+test("detectBreadthSignals identifies 90% days, Zweig Breadth Thrust, McClellan hook, and SPX divergence", () => {
+  // Build a synthetic 42-session series:
+  // Days 0..11: healthy uptrend warmup (pushes 39-EMA positive)
+  // Days 12..21: sharp washout (triggers 90% Down day, 10d EMA < 40%, McClellan <= -60)
+  // Days 22..29: broad thrust (triggers 90% Up day, McClellan OS Hook, Zweig Breadth Thrust > 61.5%)
+  // Days 30..41: SPX grinds to new 20d highs while Cum A/D & >50d SMA roll over -> SPX Bear Div
+  const adHistory = [];
+  const history = [];
+  const spxMap = new Map();
+  const baseMs = Date.UTC(2026, 8, 1);
+  const dateOf = (i) => new Date(baseMs + i * 86400000).toISOString().slice(0, 10);
+
+  for (let i = 0; i < 42; i++) {
+    const date = dateOf(i);
+    let adv, dec, spx, p50;
+    if (i < 12) {
+      adv = 2100;
+      dec = 900;
+      spx = 5700 + i * 10;
+      p50 = 60 + i;
+    } else if (i < 22) {
+      adv = i === 21 ? 250 : 450;
+      dec = i === 21 ? 2750 : 2550;
+      spx = 5820 - (i - 11) * 25;
+      p50 = 68 - (i - 11) * 4;
+    } else if (i < 30) {
+      adv = 2750;
+      dec = 250;
+      spx = 5570 + (i - 21) * 42;
+      p50 = 28 + (i - 21) * 5.5;
+    } else {
+      // SPX keeps grinding up to new highs, while breadth turns net negative (bearish divergence)
+      adv = 1100;
+      dec = 1900;
+      spx = 5910 + (i - 29) * 12;
+      p50 = 72 - (i - 29) * 3;
+    }
+    adHistory.push({ date, adv, dec });
+    history.push({ date, p50 });
+    spxMap.set(date, spx);
+  }
+
+  const res = detectBreadthSignals({ adHistory, history, spxMap });
+  const types = new Set(res.all.map((s) => s.type));
+  assert.ok(types.has("ninety_down"), "expected 90% Down day");
+  assert.ok(types.has("ninety_up"), "expected 90% Up day");
+  assert.ok(types.has("zbt"), "expected Zweig Breadth Thrust");
+  assert.ok(types.has("mc_os_hook"), "expected McClellan oversold hook");
+  assert.ok(types.has("div_bear"), "expected SPX bearish divergence");
+  assert.ok(res.recent.some((s) => s.type === "div_bear"), "bearish divergence should appear in recent signals");
+  assert.ok(res.byDate.size > 0);
+});
+
+test("computeEmaAtrExtensions and classifyWeinsteinStageFromBars compute EMA ATR multiples and stage", () => {
+  // 220 steadily rising daily bars -> Stage 2 and positive EMA ATR multiples
+  const upBars = Array.from({ length: 220 }, (_, i) => ({
+    close: 100 + i * 0.5,
+    high: 101 + i * 0.5,
+    low: 99 + i * 0.5,
+  }));
+  assert.equal(classifyWeinsteinStageFromBars(upBars), 2);
+  const ext = computeEmaAtrExtensions(upBars, 215, 2.5);
+  assert.ok(ext.ema10.atrX > 0 && ext.ema21.atrX > ext.ema10.atrX && ext.ema50.atrX > ext.ema21.atrX);
+  assert.ok(ext.ema10.ema > ext.ema21.ema && ext.ema21.ema > ext.ema50.ema);
+
+  // 220 steadily falling daily bars -> Stage 4
+  const downBars = Array.from({ length: 220 }, (_, i) => ({
+    close: 250 - i * 0.5,
+    high: 251 - i * 0.5,
+    low: 249 - i * 0.5,
+  }));
+  assert.equal(classifyWeinsteinStageFromBars(downBars), 4);
 });

@@ -10,6 +10,7 @@ import { useAriaTheme } from "../themeContext.js";
 import { useLocalStorageList } from "../hooks/useUserData.js";
 import { useLiveQuotes } from "../hooks/useLiveQuotes.js";
 import { zvrFor, useRvolProfiles, useJson, TierMark } from "../LeadershipView.jsx";
+import { classifyWeinsteinStage, classifyWeinsteinStageFromBars, computeEmaAtrExtensions } from "../lead/math.js";
 import { ErrorBoundary } from "./ErrorBoundary.jsx";
 import { DailyChartSVG } from "./DailyChartSVG.jsx";
 import { EarningsBox } from "./EarningsBox.jsx";
@@ -360,6 +361,14 @@ export function ChartPanelInline({
   const riskEntry = c > 0 ? c : (ohlcBars[ohlcBars.length - 1]?.close ?? null);
   const riskDayLow = l > 0 ? l : (ohlcBars[ohlcBars.length - 1]?.low ?? null);
   const riskPDL = ohlcBars[ohlcBars.length - 1]?.low ?? null;
+  const weinsteinStage = useMemo(
+    () => classifyWeinsteinStage(stockInfo) ?? classifyWeinsteinStageFromBars(ohlcBars, riskEntry),
+    [stockInfo, ohlcBars, riskEntry]
+  );
+  const emaExt = useMemo(
+    () => computeEmaAtrExtensions(ohlcBars, riskEntry, dailyATR),
+    [ohlcBars, riskEntry, dailyATR]
+  );
   const riskScenarios = useMemo(() => {
     if (!riskEntry || !dailyATR) return null;
     const { accountSize, riskPct, maxAllocPct } = tradeSettings;
@@ -469,6 +478,32 @@ export function ChartPanelInline({
         <img key={ticker} src={`https://images.financialmodelingprep.com/symbol/${ticker}.png`} alt="" onError={(e) => { e.target.style.display = "none"; }}
           style={{ width: 20, height: 20, borderRadius: 4, background: "#ffffff", objectFit: "contain", padding: 1.5, flexShrink: 0 }} />
         <span style={{ fontSize: 12, fontWeight: 800, color: ARIA.text, flexShrink: 0 }}>{ticker}</span>
+        {weinsteinStage != null && (() => {
+          const stMeta = {
+            1: { tag: "S1 · Base", color: "#64748b", tip: "Weinstein Stage 1 — Basing / Accumulation near or stabilizing below the 200d MA" },
+            2: { tag: "S2 · Up", color: "#3b82f6", tip: "Weinstein Stage 2 — Advancing Uptrend above rising 50d & 200d MAs" },
+            3: { tag: "S3 · Top", color: "#eab308", tip: "Weinstein Stage 3 — Topping / Distribution (losing 50d momentum above 200d)" },
+            4: { tag: "S4 · Down", color: "#ec4899", tip: "Weinstein Stage 4 — Declining Downtrend below 50d & 200d MAs" },
+          }[weinsteinStage];
+          return (
+            <span
+              title={stMeta.tip}
+              style={{
+                fontSize: 8.5,
+                fontWeight: 800,
+                padding: "1px 6px",
+                borderRadius: 4,
+                background: `${stMeta.color}22`,
+                border: `1px solid ${stMeta.color}88`,
+                color: stMeta.color,
+                letterSpacing: 0.3,
+                flexShrink: 0,
+              }}
+            >
+              {stMeta.tag}
+            </span>
+          );
+        })()}
         {tickerLayers.length > 0 ? (
           <span onClick={() => { try { window.dispatchEvent(new CustomEvent("tp-open-layer", { detail: { themeId: tickerLayers[0].themeId, layer: tickerLayers[0].layer } })); } catch {} }}
             title={`${tickerLayers[0].theme} — click to view layer members${tickerLayers.length > 1 ? ` (+${tickerLayers.length - 1} more layer${tickerLayers.length - 1 > 1 ? "s" : ""})` : ""}`}
@@ -567,7 +602,40 @@ export function ChartPanelInline({
               </span>
             )}
             {stat("RS", <span style={{ color: rsColor, fontWeight: 700 }}>{rsRank != null ? rsRank : "—"}</span>, "RS score (0-100) — the same relative-strength value shown in the LAYER REGIME box (rs_rotation holds)")}
-            {stat("Ext", <span style={{ color: extColor, fontWeight: 700 }}>{ext != null ? `${ext.toFixed(1)}×` : "—"}</span>, "Extension from the 20-day MA in ATR multiples (swing anchor, days-to-weeks). Green = coiled: within ~2 ATRs of the MA on either side (tight to it, above or below). Gray = not coiled: extended above (loose, don\'t chase) or well below the MA.")}
+            {(() => {
+              const items = [
+                ["10E", emaExt?.ema10, 2.0, 3.5],
+                ["21E", emaExt?.ema21, 2.0, 3.5],
+                ["50E", emaExt?.ema50, 3.5, 5.0],
+              ];
+              const hasAny = items.some(([, v]) => v?.atrX != null);
+              if (!hasAny) {
+                return stat("Ext", <span style={{ color: extColor, fontWeight: 700 }}>{ext != null ? `${ext.toFixed(1)}×` : "—"}</span>, "Extension from the 20-day MA in ATR multiples.");
+              }
+              return (
+                <span style={{ fontSize: 9, fontFamily: "monospace", display: "inline-flex", alignItems: "baseline", gap: 6, flexShrink: 0 }}>
+                  <span style={{ color: ARIA.textMuted }}>ATR×</span>
+                  {items.map(([lbl, v, goodMax, warnMax]) => {
+                    if (v?.atrX == null) return null;
+                    const x = v.atrX;
+                    const c = x < (lbl === "50E" ? 0 : -1.0)
+                      ? ARIA.red
+                      : x <= goodMax
+                      ? ARIA.green
+                      : x <= warnMax
+                      ? "#f59e0b"
+                      : ARIA.red;
+                    const tip = `${lbl.replace("E", " EMA")}: $${v.ema.toFixed(2)} · ${v.pct >= 0 ? "+" : ""}${v.pct.toFixed(1)}% · ${x >= 0 ? "+" : ""}${x.toFixed(1)}× ATR${emaExt?.atr ? ` (14d ATR $${emaExt.atr.toFixed(2)})` : ""} — Green = tight/buyable (≤${goodMax}×), Amber = stretched, Red = extended (>${warnMax}×) or below`;
+                    return (
+                      <span key={lbl} title={tip} style={{ display: "inline-flex", alignItems: "baseline", gap: 2 }}>
+                        <span style={{ color: ARIA.textMuted }}>{lbl}</span>
+                        <span style={{ color: c, fontWeight: 700 }}>{x > 0 ? `+${x.toFixed(1)}` : x.toFixed(1)}×</span>
+                      </span>
+                    );
+                  })}
+                </span>
+              );
+            })()}
             {stat("Base", <span style={{ color: baseColor, fontWeight: 700 }}>{baseW ? `${baseW % 1 === 0 ? baseW : baseW.toFixed(1)}w` : "—"}</span>, `Base quality — weeks consolidating near the highs (longer bases → bigger moves)${basePos != null ? `; price sits at the ${basePos}th %ile of the base range (${basePos >= 50 ? "upper" : "lower"} half)` : ""}.`)}
             {(() => {
               const tt = ttCount(stockInfo);
