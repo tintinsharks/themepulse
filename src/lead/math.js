@@ -162,6 +162,10 @@ export function stockThrust(chg, zvr) {
   return +(chg * zvr).toFixed(1);
 }
 
+export function isBiotechLayer(name) {
+  return /^(biotech|biotech leaders|oncology|specialty pharma)$/i.test(String(name || "").trim());
+}
+
 // Volume / participation confirmation for a layer, from layer_breadth.json
 // (pipeline 10f). Counts and ratios only.
 export function layerConfirm(lbRow) {

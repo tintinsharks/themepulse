@@ -916,21 +916,30 @@ export function useRvolProfiles() { return useJson("/data/rvol_profiles.json"); 
 // ADR floor for the Stocks box: one click toggles it (last value, 4% the first
 // time); type a value to change it. Filters every Stocks tab by 20-day ADR.
 export function AdrFilter({ A, value, onChange }) {
-  const [draft, setDraft] = useState(value ?? "");
-  useEffect(() => { setDraft(value ?? ""); }, [value]);
+  const [draft, setDraft] = useState(value != null ? String(value) : "");
+  useEffect(() => {
+    setDraft((prev) => {
+      if (value == null) return "";
+      return parseFloat(prev) === value ? prev : String(value);
+    });
+  }, [value]);
   const last = () => { try { return parseFloat(localStorage.getItem("tp_adr_last")) || 4; } catch { return 4; } };
   const commit = (v) => { const n = parseFloat(v); if (n > 0) { try { localStorage.setItem("tp_adr_last", String(n)); } catch { /* ignore */ } onChange(n); } else onChange(null); };
   const on = value != null;
   return (
-    <span title="Show only stocks with a 20-day ADR at or above this — applies to every Stocks tab"
-      style={{ display: "inline-flex", alignItems: "center", border: `1px solid ${on ? A.cyan : A.border}`, borderRadius: 6, background: on ? A.bgHover : "transparent", marginRight: 4, transition: "background-color 140ms ease, border-color 140ms ease" }}>
-      <button onClick={() => (on ? onChange(null) : commit(last()))}
-        style={{ background: "transparent", border: "none", color: on ? A.cyan : A.textDim, padding: "3px 4px 3px 8px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>ADR ≥</button>
+    <span title="Show only stocks with a 20-day ADR at or above this (click ADR ≥ to toggle, or type any %)"
+      style={{ display: "inline-flex", alignItems: "center", border: `1px solid ${on ? A.cyan : A.border}`, borderRadius: 6, background: on ? A.bgHover : "transparent", transition: "background-color 140ms ease, border-color 140ms ease" }}>
+      <button type="button" onClick={() => (on ? onChange(null) : commit(last()))}
+        style={{ background: "transparent", border: "none", color: on ? A.cyan : A.textDim, padding: "2px 4px 2px 7px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>ADR ≥</button>
       <input value={draft} inputMode="decimal" aria-label="Minimum ADR percent" placeholder="—"
-        onChange={(e) => setDraft(e.target.value.replace(/[^0-9.]/g, ""))}
+        onChange={(e) => {
+          const clean = e.target.value.replace(/[^0-9.]/g, "");
+          setDraft(clean);
+          commit(clean);
+        }}
         onBlur={() => commit(draft)} onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
-        style={{ width: 30, background: "transparent", border: "none", color: on ? A.cyan : A.textDim, fontSize: 11, fontWeight: 600, fontFamily: MONO, textAlign: "right", padding: "3px 0", outline: "none" }} />
-      <span style={{ color: on ? A.cyan : A.textMuted, fontSize: 11, fontFamily: MONO, padding: "0 7px 0 1px" }}>%</span>
+        style={{ width: 30, background: "transparent", border: "none", color: on ? A.cyan : A.textDim, fontSize: 11, fontWeight: 600, fontFamily: MONO, textAlign: "right", padding: "2px 0", outline: "none" }} />
+      <span style={{ color: on ? A.cyan : A.textMuted, fontSize: 11, fontFamily: MONO, padding: "0 6px 0 1px" }}>%</span>
     </span>
   );
 }

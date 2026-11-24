@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  AdrFilter,
   Card,
   CopyTickersBtn,
   EPS_TIP,
@@ -12,6 +13,7 @@ import {
   closingRange,
   extRows,
   indexStats,
+  isBiotechLayer,
   pinReason,
   scoreZangerCandidate,
   statusColor,
@@ -138,6 +140,23 @@ export default function ZangerBriefSection({
   const [themeFilter, setThemeFilter] = useState(null);
   const [minZvr, setMinZvr] = useState(1.0);
   const [minRs, setMinRs] = useState(70);
+  const [minAdr, setMinAdr] = useState(null);
+  const [noBio, setNoBio] = useState(() => {
+    try { return localStorage.getItem("tp-no-bio") === "1"; } catch { return false; }
+  });
+  const toggleNoBio = () => {
+    setNoBio((prev) => {
+      const next = !prev;
+      try { localStorage.setItem("tp-no-bio", next ? "1" : "0"); } catch { /* ignore */ }
+      try { window.dispatchEvent(new CustomEvent("tp-no-bio", { detail: next })); } catch { /* ignore */ }
+      return next;
+    });
+  };
+  useEffect(() => {
+    const onSync = (e) => setNoBio(Boolean(e?.detail));
+    window.addEventListener("tp-no-bio", onSync);
+    return () => window.removeEventListener("tp-no-bio", onSync);
+  }, []);
   const [epsOnly, setEpsOnly] = useState(false);
   const [cleanOnly, setCleanOnly] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -165,7 +184,7 @@ export default function ZangerBriefSection({
 
   const openBreadthChart = (chart, slide = 1) => {
     setBreadthChartFocus({ chart, slide, seq: Date.now() });
-    const el = document.getElementById("sec-breadth");
+    const el = document.getElementById("sec-layers") || document.getElementById("sec-breadth");
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
@@ -489,23 +508,25 @@ export default function ZangerBriefSection({
   }, [breadthFocus, breadthChartFocus]);
 
   const breadthEmbedded = (
-    <MarketBreadthCard
-      A={A}
-      stockMap={stockMap}
-      breadth={breadth}
-      monitor={monitor}
-      indexQuotes={indexQuotes}
-      onTicker={onTicker}
-      chartTicker={chartTicker}
-      tickerLayer={tickerLayer}
-      themes={themes}
-      layers={layers}
-      members={members}
-      onTheme={onTheme}
-      embedded
-      chartFocus={mergedBreadthFocus}
-      onCardTabChange={onBreadthTabChange}
-    />
+    <div id="sec-layers" style={{ scrollMarginTop: 96 }}>
+      <MarketBreadthCard
+        A={A}
+        stockMap={stockMap}
+        breadth={breadth}
+        monitor={monitor}
+        indexQuotes={indexQuotes}
+        onTicker={onTicker}
+        chartTicker={chartTicker}
+        tickerLayer={tickerLayer}
+        themes={themes}
+        layers={layers}
+        members={members}
+        onTheme={onTheme}
+        embedded
+        chartFocus={mergedBreadthFocus}
+        onCardTabChange={onBreadthTabChange}
+      />
+    </div>
   );
 
   if (err && !snap && !liveComputed) {
@@ -699,6 +720,8 @@ export default function ZangerBriefSection({
     if (themeFilter && r.theme !== themeFilter) return false;
     if ((catTab === "zanger" || catTab === "bo") && minZvr > 1.0 && (r.zvr ?? 0) < minZvr) return false;
     if (minRs > 70 && (r.rs ?? 0) < minRs) return false;
+    if (minAdr != null && (r.adr ?? -1) < minAdr) return false;
+    if (noBio && isBiotechLayer(r.layer || tickerLayer?.[r.ticker]?.name)) return false;
     if (epsOnly && (r.eps ?? 0) < 50) return false;
     if (cleanOnly && ((r.layerFlags?.length ? r.layerFlags : tickerLayer?.[r.ticker]?.flags) || []).some(([k]) => k === "distrib" || k === "exiting")) return false;
     return true;
@@ -1322,6 +1345,15 @@ export default function ZangerBriefSection({
               </button>
             )}
             <div style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <button
+                type="button"
+                onClick={toggleNoBio}
+                title="Exclude Biotech, Biotech Leaders, Oncology & Specialty Pharma stocks"
+                style={chipStyle(noBio, "#f472b6")}
+              >
+                No Bio
+              </button>
+              <AdrFilter A={A} value={minAdr} onChange={setMinAdr} />
               {filtersOpen && activeFilterCount > 0 && (
                 <button
                   type="button"

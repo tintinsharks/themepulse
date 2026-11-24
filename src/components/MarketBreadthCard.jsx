@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { STATUS, computeStageDistribution, estimateStageHistory, etClock } from "../lead/math.js";
+import { STATUS, computeStageDistribution, estimateStageHistory, etClock, isBiotechLayer } from "../lead/math.js";
 import { LayerTable, MarketGate, Tabs, ThemeBoard } from "../lead/core.jsx";
 import { authFetch } from "../utils.js";
 import {
@@ -1972,6 +1972,22 @@ export default function MarketBreadthCard({
   const [selectedStage, setSelectedStage] = useState(null); // null | 1 | 2 | 3 | 4
   const [stageLeadingOnly, setStageLeadingOnly] = useState(false);
   const [stageMinRs, setStageMinRs] = useState(0); // 0 | 80 | 90
+  const [noBio, setNoBio] = useState(() => {
+    try { return localStorage.getItem("tp-no-bio") === "1"; } catch { return false; }
+  });
+  const toggleNoBio = () => {
+    setNoBio((prev) => {
+      const next = !prev;
+      try { localStorage.setItem("tp-no-bio", next ? "1" : "0"); } catch { /* ignore */ }
+      try { window.dispatchEvent(new CustomEvent("tp-no-bio", { detail: next })); } catch { /* ignore */ }
+      return next;
+    });
+  };
+  useEffect(() => {
+    const onSync = (e) => setNoBio(Boolean(e?.detail));
+    window.addEventListener("tp-no-bio", onSync);
+    return () => window.removeEventListener("tp-no-bio", onSync);
+  }, []);
   const todayStr = etClock().today;
 
   // Allow external pills/jump links (e.g. "4% Movers" or "Layers") to jump straight to a tab or chart
@@ -2221,10 +2237,11 @@ export default function MarketBreadthCard({
     () => (selThemeId ? (themes || []).find((t) => t.themeId === selThemeId) || null : null),
     [themes, selThemeId]
   );
-  const visLayers = useMemo(
-    () => (selThemeId ? (layers || []).filter((l) => l.themeId === selThemeId) : (layers || [])),
-    [layers, selThemeId]
-  );
+  const visLayers = useMemo(() => {
+    let list = selThemeId ? (layers || []).filter((l) => l.themeId === selThemeId) : (layers || []);
+    if (noBio) list = list.filter((l) => !isBiotechLayer(l.name));
+    return list;
+  }, [layers, selThemeId, noBio]);
   const layerBuckets = useMemo(() => {
     const b = { all: [...visLayers].sort((x, y) => (y.now ?? -1) - (x.now ?? -1)), lead: [], weak: [], brk: [], emerg: [], lag: [] };
     for (const l of visLayers) {
@@ -2534,6 +2551,14 @@ export default function MarketBreadthCard({
                     </button>
                   );
                 })}
+                <button
+                  type="button"
+                  onClick={toggleNoBio}
+                  title="Hide Biotech, Biotech Leaders, Oncology & Specialty Pharma layers"
+                  style={{ ...sortPillStyle(noBio, "#f472b6"), marginLeft: 4 }}
+                >
+                  No Bio
+                </button>
               </div>
               <span style={{ fontSize: 10, color: A.textMuted }}>
                 {layerTab === "all" ? "Click any layer to expand members below" : STATUS[layerTab]?.hint}

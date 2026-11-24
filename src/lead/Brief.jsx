@@ -622,7 +622,7 @@ function BriefPanel(props) {
   const jumpSections = useMemo(() => [
     { id: "sec-written", scrollId: "sec-written", label: mode === "live" ? "Live Brief" : "Written" },
     { id: "sec-breadth", scrollId: "sec-breadth", label: "Breadth", cardTab: "breadth" },
-    { id: "sec-layers", scrollId: "sec-breadth", label: "Layers", cardTab: "layers" },
+    { id: "sec-layers", scrollId: "sec-layers", label: "Layers", cardTab: "layers" },
     { id: "sec-portfolio", scrollId: "sec-portfolio", label: "Portfolio" },
     { id: "sec-breakouts", scrollId: "sec-breakouts", label: "Breakouts" },
     { id: "sec-followthrough", scrollId: "sec-followthrough", label: "Follow-Through" },
@@ -630,7 +630,7 @@ function BriefPanel(props) {
 
   useEffect(() => {
     let raf = 0;
-    const scrollTargets = ["sec-written", "sec-breadth", "sec-portfolio", "sec-breakouts", "sec-followthrough"];
+    const scrollTargets = ["sec-written", "sec-breadth", "sec-layers", "sec-portfolio", "sec-breakouts", "sec-followthrough"];
     const updateActive = () => {
       raf = 0;
       const threshold = 116;
@@ -640,7 +640,7 @@ function BriefPanel(props) {
         if (!el) continue;
         if (el.getBoundingClientRect().top <= threshold) current = domId;
       }
-      if (current === "sec-breadth" && breadthTab === "layers") current = "sec-layers";
+      if (current === "sec-layers" && breadthTab !== "layers") current = "sec-breadth";
       setActiveSec((prev) => (prev === current ? prev : current));
     };
     const onScroll = () => {
