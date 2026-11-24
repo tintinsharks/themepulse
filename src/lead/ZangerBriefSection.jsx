@@ -721,7 +721,7 @@ export default function ZangerBriefSection({
     if ((catTab === "zanger" || catTab === "bo") && minZvr > 1.0 && (r.zvr ?? 0) < minZvr) return false;
     if (minRs > 70 && (r.rs ?? 0) < minRs) return false;
     if (minAdr != null && (r.adr ?? -1) < minAdr) return false;
-    if (noBio && isBiotechLayer(r.layer || tickerLayer?.[r.ticker]?.name)) return false;
+    if (noBio && (isBiotechLayer(r.layer || tickerLayer?.[r.ticker]?.name) || isBiotechLayer(stockMap?.[r.ticker]?.industry))) return false;
     if (epsOnly && (r.eps ?? 0) < 50) return false;
     if (cleanOnly && ((r.layerFlags?.length ? r.layerFlags : tickerLayer?.[r.ticker]?.flags) || []).some(([k]) => k === "distrib" || k === "exiting")) return false;
     return true;
@@ -1348,7 +1348,7 @@ export default function ZangerBriefSection({
               <button
                 type="button"
                 onClick={toggleNoBio}
-                title="Exclude Biotech, Biotech Leaders, Oncology & Specialty Pharma stocks"
+                title="Exclude Biotech, Biotech Leaders, Biotechnology, Oncology, Specialty Pharma & Pharma Majors"
                 style={chipStyle(noBio, "#f472b6")}
               >
                 No Bio

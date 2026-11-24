@@ -325,12 +325,14 @@ test("stockThrust multiplies Chg% by positive ZVR and handles missing/invalid va
   assert.equal(stockThrust(3.0, null), null);
 });
 
-test("isBiotechLayer matches Biotech, Biotech Leaders, Oncology, and Specialty Pharma", () => {
+test("isBiotechLayer matches Biotech, Biotech Leaders, Biotechnology, Oncology, Specialty Pharma, and Pharma Majors", () => {
   assert.equal(isBiotechLayer("Biotech"), true);
   assert.equal(isBiotechLayer("Biotech Leaders"), true);
+  assert.equal(isBiotechLayer("Biotechnology"), true);
   assert.equal(isBiotechLayer("Oncology"), true);
   assert.equal(isBiotechLayer("Specialty Pharma"), true);
-  assert.equal(isBiotechLayer("Pharma Majors"), false);
+  assert.equal(isBiotechLayer("Pharma Majors"), true);
   assert.equal(isBiotechLayer("GLP-1 / Metabolic"), false);
+  assert.equal(isBiotechLayer("Medical Robotics"), false);
   assert.equal(isBiotechLayer(null), false);
 });

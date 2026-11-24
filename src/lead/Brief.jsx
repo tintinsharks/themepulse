@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { CONF_LABEL, Card, Delta, EPS_TIP, ExtHoursMovers, FlagButton, LayerLink, LayerMembers, MONO, StockTable, TierMark, closingRange, statusColor, td, th, useRvolProfiles, useScanQuotes, zvrFor } from "./core.jsx";
 import { authFetch } from "../utils.js";
-import { collectBriefTickers, evalPivotStatus, matchMacroLive } from "./briefLive.js";
+import { collectBriefTickers, evalPivotStatus, matchMacroLive, normalizeWrittenBrief } from "./briefLive.js";
 import RotationView from "./Rotation.jsx";
 import ZangerBriefSection from "./ZangerBriefSection.jsx";
 
@@ -54,7 +54,8 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
       .then((b) => { setBrief(b); setErr(null); }).catch(() => setErr(`Couldn't load ${sel}.`));
   }, [sel, index]);
 
-  const briefTickers = useMemo(() => collectBriefTickers(brief), [brief]);
+  const normBrief = useMemo(() => normalizeWrittenBrief(brief), [brief]);
+  const briefTickers = useMemo(() => collectBriefTickers(normBrief), [normBrief]);
   const { quotes, at } = useScanQuotes(briefTickers, liveOn && briefTickers.length > 0);
 
   // Poll /api/market-quality every 60s when live overlay is active for live VIX / 10Y / Crude / DXY
@@ -214,14 +215,19 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
       {modeSwitch}
     </div>
   );
-  if (err && !brief) return <Card A={A} title="Written brief" right={picker}><div style={{ fontSize: 12, color: A.textMuted }}>{err}</div></Card>;
-  if (!brief) return <Card A={A} title="Written brief" right={picker}><div style={{ fontSize: 12, color: A.textMuted }}>Loading…</div></Card>;
+  if (err && !normBrief) return <Card A={A} title="Written brief" right={picker}><div style={{ fontSize: 12, color: A.textMuted }}>{err}</div></Card>;
+  if (!normBrief) return <Card A={A} title="Written brief" right={picker}><div style={{ fontSize: 12, color: A.textMuted }}>Loading…</div></Card>;
 
-  const rg = brief.regime || {};
-  const br = rg.breadth || {};
-  const st = brief.skipTraps || {};
+  const rg = normBrief.regime;
+  const br = rg.breadth;
+  const st = normBrief.skipTraps;
+  const skipIsArr = Array.isArray(st);
+  const hasSkip = skipIsArr ? st.length > 0 : Object.keys(st || {}).length > 0;
+  const pulseEntries = normBrief.leadingPulse
+    ? Object.entries(normBrief.leadingPulse).filter(([k, v]) => k !== "tradingViewWatchlist" && Array.isArray(v) && v.length > 0)
+    : [];
   const inBuyCount = liveOn
-    ? arr(brief.focusSetups).filter((f) => {
+    ? arr(normBrief.focusSetups).filter((f) => {
         const li = liveInfo(f.ticker);
         const px = li?.px ?? f.price;
         return evalPivotStatus(px, f)?.state === "buy_zone";
@@ -233,11 +239,11 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
       <Card
         A={A}
         title="Written brief"
-        sub={`${SESSION_LABEL[brief.session] || brief.session || ""} · ${brief.date || ""}${brief.dataAsOf ? ` · written ${brief.dataAsOf}` : ""}${liveOn && at ? ` · intraday overlay active (60s refresh)` : ""}`}
+        sub={`${SESSION_LABEL[normBrief.session] || normBrief.session || ""} · ${normBrief.date || ""}${normBrief.dataAsOf ? ` · written ${normBrief.dataAsOf}` : ""}${liveOn && at ? ` · intraday overlay active (60s refresh)` : ""}`}
         right={picker}
       >
-        {brief.headline && <div style={{ fontSize: 16, fontWeight: 700, color: A.text, lineHeight: 1.35, marginBottom: collapsed ? 4 : 6 }}>{String(brief.headline)}</div>}
-        {(rg.posture || (collapsed && (inBuyCount > 0 || arr(brief.focusSetups).length > 0))) && (
+        {normBrief.headline && <div style={{ fontSize: 16, fontWeight: 700, color: A.text, lineHeight: 1.35, marginBottom: collapsed ? 4 : 6 }}>{String(normBrief.headline)}</div>}
+        {(rg.posture || (collapsed && (inBuyCount > 0 || arr(normBrief.focusSetups).length > 0))) && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             {rg.posture && <div style={{ fontSize: 12, fontWeight: 700, color: /correction|defensive|risk off/i.test(rg.posture) ? A.red : A.green }}>{String(rg.posture)}</div>}
             {collapsed && inBuyCount > 0 && (
@@ -245,9 +251,9 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
                 {inBuyCount} IN BUY ZONE
               </span>
             )}
-            {collapsed && arr(brief.focusSetups).length > 0 && (
+            {collapsed && arr(normBrief.focusSetups).length > 0 && (
               <span style={{ fontSize: 10, fontWeight: 600, fontVariantNumeric: "tabular-nums", padding: "1px 6px", borderRadius: 4, border: `1px solid ${A.borderLight || A.border}`, color: A.textMuted }}>
-                <span style={{ fontFamily: MONO }}>{arr(brief.focusSetups).length}</span> focus setups
+                <span style={{ fontFamily: MONO }}>{arr(normBrief.focusSetups).length}</span> {normBrief.focusTitle.toLowerCase()}
               </span>
             )}
           </div>
@@ -261,7 +267,7 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
               const chg = li?.chg ?? x.chgPct;
               const cr = li?.cr ?? x.closingRangePct;
               const offHi = li?.offHi ?? x.offHighPct;
-              const snapTip = li ? `Brief snapshot: ${num(x.price)} (${pct(x.chgPct, 2)})` : undefined;
+              const snapTip = [li ? `Brief snapshot: ${num(x.price)} (${pct(x.chgPct, 2)})` : null, x.note].filter(Boolean).join(" — ") || undefined;
               return (
                 <div key={x.symbol} title={snapTip} style={{ minWidth: 130 }}>
                   <div style={{ fontSize: 11, color: A.textMuted, display: "flex", alignItems: "center", gap: 4 }}>
@@ -288,10 +294,10 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
         )}
       </Card>
 
-      {!collapsed && arr(brief.macroTape).length > 0 && (
+      {!collapsed && arr(normBrief.macroTape).length > 0 && (
         <Card A={A} title="Macro tape" sub={liveOn && mq ? "Live VIX / 10Y / Crude / DXY overlaid from /api/market-quality" : undefined}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
-            {arr(brief.macroTape).map((m, i) => {
+            {arr(normBrief.macroTape).map((m, i) => {
               const liveM = liveOn ? matchMacroLive(m, mq) : null;
               const val = liveM?.value ?? m.value ?? "";
               const chg = liveM?.change ?? m.change ?? "";
@@ -305,7 +311,7 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
                     {String(val)}{" "}
                     <span style={{ fontSize: 11, color: /^\+/.test(chg) ? A.green : /^-/.test(chg) ? A.red : A.textDim }}>{String(chg)}</span>
                   </div>
-                  <div style={{ fontSize: 11, color: A.textDim, lineHeight: 1.4, marginTop: 2 }}>{String(m.impact ?? "")}</div>
+                  <div style={{ fontSize: 11, color: A.textDim, lineHeight: 1.4, marginTop: 2 }}>{String(m.impact ?? "")}<Src u={m.sourceUrl} /></div>
                 </div>
               );
             })}
@@ -313,12 +319,12 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
         </Card>
       )}
 
-      {!collapsed && arr(brief.focusSetups).length > 0 && (
+      {!collapsed && arr(normBrief.focusSetups).length > 0 && (
         <Card
           A={A}
           title={
             <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-              <span>Focus setups</span>
+              <span>{normBrief.focusTitle}</span>
               {inBuyCount > 0 && (
                 <span style={{ fontSize: 10, fontWeight: 800, fontFamily: MONO, fontVariantNumeric: "tabular-nums", padding: "1px 7px", borderRadius: 4, background: "rgba(34,197,94,0.18)", border: `1px solid ${A.green}`, color: A.green }}>
                   {inBuyCount} IN BUY ZONE
@@ -348,7 +354,7 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
                 <th style={th(A)}>Catalyst</th>
               </tr></thead>
               <tbody>{sortWith(
-                arr(brief.focusSetups).map((f) => {
+                arr(normBrief.focusSetups).map((f) => {
                   const li = liveInfo(f.ticker);
                   const px = li?.px ?? f.price;
                   const status = liveOn ? evalPivotStatus(px, f) : null;
@@ -434,8 +440,8 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
         </Card>
       )}
 
-      {!collapsed && arr(brief.extendedMovers).length > 0 && (() => {
-        const extRowsList = arr(brief.extendedMovers).map((m) => {
+      {!collapsed && arr(normBrief.extendedMovers).length > 0 && (() => {
+        const extRowsList = arr(normBrief.extendedMovers).map((m) => {
           const li = liveInfo(m.ticker);
           const isExt = Boolean(li?.extSession);
           const chg = isExt ? (li?.extChg ?? m.chgPct) : (li?.chg ?? m.chgPct);
@@ -525,7 +531,7 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
         );
       })()}
 
-      {!collapsed && arr(brief.breakdowns).length > 0 && (
+      {!collapsed && arr(normBrief.breakdowns).length > 0 && (
         <Card A={A} title="Breakdowns">
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -538,7 +544,7 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
                 <th style={th(A)}>Catalyst</th>
               </tr></thead>
               <tbody>{sortWith(
-                arr(brief.breakdowns).map((b) => {
+                arr(normBrief.breakdowns).map((b) => {
                   const li = liveInfo(b.ticker);
                   return { ...b, _li: li, _vs50: li?.vs50 ?? b.vs50dPct };
                 }),
@@ -578,12 +584,26 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
         </Card>
       )}
 
-      {!collapsed && (arr(brief.radar).length > 0 || Object.keys(st).length > 0) && (
+      {!collapsed && pulseEntries.length > 0 && (
+        <Card A={A} title="Leading pulse">
+          {pulseEntries.map(([k, list]) => {
+            const niceLabel = k.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase());
+            return (
+              <div key={k} style={{ fontSize: 11, padding: "4px 0", borderBottom: `1px solid ${A.border}` }}>
+                <span style={{ color: A.textMuted, marginRight: 8, fontWeight: 600 }}>{niceLabel}</span>
+                <span style={{ color: A.text }}>{list.map((x) => (typeof x === "string" ? x : String(x?.ticker || x?.note || ""))).filter(Boolean).join(" · ")}</span>
+              </div>
+            );
+          })}
+        </Card>
+      )}
+
+      {!collapsed && (arr(normBrief.radar).length > 0 || hasSkip) && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-          {arr(brief.radar).length > 0 && (
+          {arr(normBrief.radar).length > 0 && (
             <div style={{ flex: "1 1 300px", minWidth: 0 }}>
               <Card A={A} title="Radar">
-                {arr(brief.radar).map((r, i) => (
+                {arr(normBrief.radar).map((r, i) => (
                   <div key={i} style={{ display: "flex", gap: 10, fontSize: 11, padding: "4px 0", borderBottom: `1px solid ${A.border}` }}>
                     <span style={{ color: A.cyan, fontFamily: MONO, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{String(r.date ?? "")}</span>
                     <span style={{ color: A.text }}>{String(r.event ?? "")}</span>
@@ -592,17 +612,26 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
               </Card>
             </div>
           )}
-          {Object.keys(st).length > 0 && (
+          {hasSkip && (
             <div style={{ flex: "1 1 300px", minWidth: 0 }}>
               <Card A={A} title="Skip / traps">
-                {[["buyoutCapped", "Buyout-capped"], ["extended", "Extended"], ["stage4", "Stage 4"]].concat(
-                  Object.keys(st).filter((k) => !["buyoutCapped", "extended", "stage4"].includes(k)).map((k) => [k, k]))
-                  .filter(([k]) => arr(st[k]).length).map(([k, lab]) => (
-                    <div key={k} style={{ fontSize: 11, padding: "4px 0", borderBottom: `1px solid ${A.border}` }}>
-                      <span style={{ color: A.textMuted, marginRight: 8 }}>{lab}</span>
-                      <span style={{ color: A.text }}>{arr(st[k]).map(String).join(" · ")}</span>
+                {skipIsArr ? (
+                  st.map((item, i) => (
+                    <div key={`${item?.ticker || i}`} style={{ fontSize: 11, padding: "4px 0", borderBottom: `1px solid ${A.border}` }}>
+                      {item?.ticker && <span style={{ marginRight: 8 }}><Tk t={item.ticker} /></span>}
+                      <span style={{ color: A.textDim }}>{String(item?.reason ?? item?.note ?? item ?? "")}</span>
                     </div>
-                  ))}
+                  ))
+                ) : (
+                  [["buyoutCapped", "Buyout-capped"], ["extended", "Extended"], ["stage4", "Stage 4"]].concat(
+                    Object.keys(st).filter((k) => !["buyoutCapped", "extended", "stage4"].includes(k)).map((k) => [k, k]))
+                    .filter(([k]) => arr(st[k]).length).map(([k, lab]) => (
+                      <div key={k} style={{ fontSize: 11, padding: "4px 0", borderBottom: `1px solid ${A.border}` }}>
+                        <span style={{ color: A.textMuted, marginRight: 8 }}>{lab}</span>
+                        <span style={{ color: A.text }}>{arr(st[k]).map(String).join(" · ")}</span>
+                      </div>
+                    ))
+                )}
               </Card>
             </div>
           )}

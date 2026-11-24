@@ -2554,7 +2554,7 @@ export default function MarketBreadthCard({
                 <button
                   type="button"
                   onClick={toggleNoBio}
-                  title="Hide Biotech, Biotech Leaders, Oncology & Specialty Pharma layers"
+                  title="Hide Biotech, Biotech Leaders, Biotechnology, Oncology, Specialty Pharma & Pharma Majors"
                   style={{ ...sortPillStyle(noBio, "#f472b6"), marginLeft: 4 }}
                 >
                   No Bio

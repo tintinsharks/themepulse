@@ -83,18 +83,158 @@ export function matchMacroLive(item, mq) {
   return null;
 }
 
+const MACRO_LABEL = {
+  vix: "VIX",
+  us10yyieldpct: "10Y Yield",
+  us10y: "10Y Yield",
+  wticrude: "WTI Crude",
+  wti: "WTI Crude",
+  dxy: "DXY",
+};
+
+const fmtSignedPct = (n) => (typeof n === "number" && Number.isFinite(n) ? `${n >= 0 ? "+" : ""}${n.toFixed(2)}%` : "");
+
+export function normalizeWrittenBrief(brief) {
+  if (!brief || typeof brief !== "object") return null;
+  const rg = brief.regime && typeof brief.regime === "object" ? brief.regime : {};
+
+  // Normalize regime.indexes: supports Array, { SPY: {...}, QQQ: {...} } map, or direct regime.spy / regime.qqq / regime.iwm keys
+  const normIdx = (sym, x) => ({
+    ...x,
+    symbol: String(x?.symbol || x?.ticker || sym || "").toUpperCase(),
+    price: x?.price ?? x?.premarket ?? x?.priorClose ?? null,
+    chgPct: x?.chgPct ?? x?.changePct ?? null,
+    closingRangePct: x?.closingRangePct ?? null,
+    offHighPct: x?.offHighPct ?? null,
+    afterHours: x?.afterHours ?? null,
+    note: x?.note || x?.status || null,
+  });
+  let indexes = [];
+  if (Array.isArray(rg.indexes)) {
+    indexes = rg.indexes.filter((x) => x && typeof x === "object").map((x) => normIdx(null, x));
+  } else if (rg.indexes && typeof rg.indexes === "object") {
+    indexes = Object.entries(rg.indexes)
+      .filter(([, v]) => v && typeof v === "object")
+      .map(([k, v]) => normIdx(k, v));
+  } else {
+    for (const k of ["spy", "qqq", "iwm", "dia"]) {
+      if (rg[k] && typeof rg[k] === "object") indexes.push(normIdx(k.toUpperCase(), rg[k]));
+    }
+  }
+
+  // Normalize macroTape: supports Array or Object map ({ VIX: {...} } or { vix: 29, vixChangePct: 10 })
+  let macroTape = [];
+  if (Array.isArray(brief.macroTape)) {
+    macroTape = brief.macroTape.filter((m) => m && typeof m === "object");
+  } else if (brief.macroTape && typeof brief.macroTape === "object") {
+    for (const [k, v] of Object.entries(brief.macroTape)) {
+      if (/changepct|changebps/i.test(k)) continue;
+      const lk = k.toLowerCase();
+      const name = MACRO_LABEL[lk] || k;
+      if (v && typeof v === "object") {
+        const chg = v.change != null
+          ? String(v.change)
+          : typeof v.changePct === "number"
+            ? fmtSignedPct(v.changePct)
+            : typeof v.changeBps === "number"
+              ? `${v.changeBps >= 0 ? "+" : ""}${v.changeBps} bps`
+              : "";
+        const rawVal = v.value ?? "";
+        const val = typeof rawVal === "number" && /10y|yield/i.test(lk) ? `${rawVal.toFixed(2)}%` : rawVal;
+        macroTape.push({
+          name,
+          value: val,
+          change: chg,
+          impact: v.impact || v.note || "",
+          sourceUrl: v.sourceUrl || null,
+        });
+      } else if (v != null) {
+        const chgKey = Object.keys(brief.macroTape).find((ck) => ck.toLowerCase() === `${lk}changepct`);
+        const chgNum = chgKey ? brief.macroTape[chgKey] : null;
+        macroTape.push({
+          name,
+          value: typeof v === "number" && /10y|yield/i.test(lk) ? `${v.toFixed(2)}%` : v,
+          change: fmtSignedPct(chgNum),
+          impact: "",
+          sourceUrl: null,
+        });
+      }
+    }
+  }
+
+  // Normalize focusSetups (also accepts intradayMovers when focusSetups is absent)
+  const rawFocus = Array.isArray(brief.focusSetups)
+    ? brief.focusSetups
+    : Array.isArray(brief.intradayMovers)
+      ? brief.intradayMovers
+      : [];
+  const focusSetups = rawFocus.filter((f) => f && typeof f === "object").map((f) => ({
+    ...f,
+    price: f.price ?? f.premarket ?? f.priorClose ?? null,
+    baseStage: f.baseStage || f.stageTag || f.status || "",
+    sizing: f.sizing || f.grade || "",
+    catalyst: f.catalyst || f.groupConfirmation || f.note || f.status || "",
+    sourceUrl: f.sourceUrl || f.catalystUrl || null,
+  }));
+
+  const extendedMovers = (Array.isArray(brief.extendedMovers) ? brief.extendedMovers : [])
+    .filter((m) => m && typeof m === "object")
+    .map((m) => ({
+      ...m,
+      chgPct: m.chgPct ?? m.changePct ?? null,
+      price: m.price ?? m.premarket ?? null,
+      catalyst: m.catalyst || m.note || "",
+      sourceUrl: m.sourceUrl || m.catalystUrl || null,
+    }));
+
+  const breakdowns = (Array.isArray(brief.breakdowns) ? brief.breakdowns : [])
+    .filter((b) => b && typeof b === "object")
+    .map((b) => ({
+      ...b,
+      chgPct: b.chgPct ?? b.changePct ?? null,
+      catalyst: b.catalyst || b.note || "",
+      sourceUrl: b.sourceUrl || b.catalystUrl || null,
+    }));
+
+  const posture = rg.posture || rg.stance || rg.status || null;
+  const note = rg.note || [
+    rg.exposurePosture || (rg.grossExposure ? `Gross Exposure ${rg.grossExposure}` : null),
+    rg.maxRiskPerTrade ? `Max Risk ${rg.maxRiskPerTrade}` : null,
+  ].filter(Boolean).join(" · ") || null;
+
+  return {
+    ...brief,
+    regime: {
+      ...rg,
+      posture,
+      note,
+      indexes,
+      breadth: rg.breadth && typeof rg.breadth === "object" && !Array.isArray(rg.breadth) ? rg.breadth : {},
+    },
+    macroTape,
+    focusSetups,
+    focusTitle: Array.isArray(brief.focusSetups) ? "Focus setups" : "Intraday movers",
+    extendedMovers,
+    breakdowns,
+    radar: Array.isArray(brief.radar) ? brief.radar : [],
+    skipTraps: brief.skipTraps ?? {},
+    leadingPulse: brief.leadingPulse && typeof brief.leadingPulse === "object" && !Array.isArray(brief.leadingPulse) ? brief.leadingPulse : null,
+  };
+}
+
 export function collectBriefTickers(brief) {
-  if (!brief) return [];
+  const nb = normalizeWrittenBrief(brief);
+  if (!nb) return [];
   const set = new Set();
   const add = (t) => {
     if (typeof t === "string" && /^[A-Z][A-Z0-9.-]{0,9}$/.test(t.trim().toUpperCase())) {
       set.add(t.trim().toUpperCase());
     }
   };
-  for (const x of brief.regime?.indexes || []) add(x?.symbol);
-  for (const f of brief.focusSetups || []) add(f?.ticker);
-  for (const m of brief.extendedMovers || []) add(m?.ticker);
-  for (const b of brief.breakdowns || []) add(b?.ticker);
+  for (const x of nb.regime.indexes) add(x?.symbol);
+  for (const f of nb.focusSetups) add(f?.ticker);
+  for (const m of nb.extendedMovers) add(m?.ticker);
+  for (const b of nb.breakdowns) add(b?.ticker);
   return [...set];
 }
 

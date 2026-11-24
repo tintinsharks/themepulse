@@ -4,6 +4,7 @@ import {
   evalPivotStatus,
   matchMacroLive,
   collectBriefTickers,
+  normalizeWrittenBrief,
   filterRecentHeadlines,
   computeLivePortfolioPulse,
 } from "../src/lead/briefLive.js";
@@ -46,6 +47,40 @@ test("collectBriefTickers deduplicates symbols across indexes, focusSetups, exte
     breakdowns: [{ ticker: "CAPR" }],
   });
   assert.deepEqual(tickers, ["SPY", "QQQ", "AMRX", "COLM", "CRWD", "CAPR"]);
+
+  // Regression: object-keyed regime.indexes & macroTape + intradayMovers (brief-2026-11-24-intraday-0905 schema) must never throw
+  const objBrief = {
+    regime: {
+      stance: "Selective Rotation",
+      grossExposure: "25%-40%",
+      indexes: {
+        SPY: { price: 714.66, changePct: -1.06 },
+        QQQ: { price: 633.95, changePct: -2.62 },
+        IWM: { price: 266.04, changePct: 0.11 },
+      },
+    },
+    macroTape: {
+      VIX: { value: 27.72, changePct: 4.13, note: "Cooling" },
+      US10Y: { value: "4.92%", changeBps: -4, note: "Easing" },
+    },
+    intradayMovers: [{ ticker: "TGTX", price: 67.2, pivot: 65.5, stop: 60.5 }],
+  };
+  const nb = normalizeWrittenBrief(objBrief);
+  assert.equal(nb.regime.indexes.length, 3);
+  assert.equal(nb.regime.posture, "Selective Rotation");
+  assert.equal(nb.macroTape.length, 2);
+  assert.equal(nb.focusSetups.length, 1);
+  assert.deepEqual(collectBriefTickers(objBrief), ["SPY", "QQQ", "IWM", "TGTX"]);
+
+  // Also handles direct regime.spy / regime.qqq / regime.iwm keys (0715 / 0822 schema)
+  const flatBrief = {
+    regime: { status: "Test", spy: { price: 713 }, qqq: { price: 631 } },
+    macroTape: { vix: 29.02, vixChangePct: 9.02, us10yYieldPct: 4.92 },
+  };
+  const nbf = normalizeWrittenBrief(flatBrief);
+  assert.deepEqual(nbf.regime.indexes.map((x) => x.symbol), ["SPY", "QQQ"]);
+  assert.equal(nbf.macroTape[0].name, "VIX");
+  assert.equal(nbf.macroTape[0].change, "+9.02%");
 });
 
 test("filterRecentHeadlines drops stale pipeline/Finviz headlines and inherits bare Finviz times", () => {
