@@ -580,7 +580,7 @@ export default function LeadershipView({
       </div>
       )}
       {chartSlot && (
-        <div style={{ flex: "1 1 520px", minWidth: 0, position: "sticky", top: 0, maxHeight: "100vh", overflowY: "auto" }} className="tp-lead-chart">
+        <div style={{ flex: "1 1 520px", minWidth: 0, position: "sticky", top: 52, maxHeight: "calc(100vh - 56px)", overflowY: "auto" }} className="tp-lead-chart">
           {chartSlot}
         </div>
       )}

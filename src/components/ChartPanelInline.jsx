@@ -473,8 +473,33 @@ export function ChartPanelInline({
         boxShadow: ARIA.shadow,
       }}
     >
-      {/* Thin header bar — ticker · layer · Chg · Intraday · ADR · Next ER (left), ticker input (right) */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 12px", borderBottom: `1px solid ${ARIA.border}`, flexShrink: 0, fontFamily: "monospace", overflowX: "auto", whiteSpace: "nowrap" }}>
+      {/* SVG D/W Chart */}
+      <div style={{ height: 600, overflow: "hidden", flexShrink: 0 }}>
+        <ErrorBoundary>
+          <DailyChartSVG
+            ohlc={ohlcBars}
+            quarters={erHist?.ticker === ticker && erHist.history.length
+              ? erHist.history.map((q) => ({ report_date: q.date, label: q.fiscal_label || "", eps_yoy: q.eps_yoy_pct, sales_yoy: q.revenue_yoy_pct }))
+              : quarters}
+            height={height}
+            owned={inPF || inFC || inWL}
+            rsRating={rsRating}
+            rsRatingColor={rsRatingColor}
+            stopLines={[
+              ...(showTrade && riskScenarios ? [
+                { price: riskScenarios.tight?.stopPrice, color: "#ef4444", label: "0.5x", dashed: true },
+                { price: riskScenarios.base?.stopPrice,  color: "#f97316", label: "1x",   dashed: true },
+                { price: riskScenarios.wide?.stopPrice,  color: "#f59e0b", label: "2x",   dashed: true },
+                { price: riskDayLow,                     color: "#9ca3af", label: "LOD",  dashed: false },
+                { price: riskPDL,                        color: "#fb923c", label: "PDL",  dashed: true },
+              ] : []),
+            ].filter(sl => sl.price > 0)}
+          />
+        </ErrorBoundary>
+      </div>
+
+      {/* Thin header bar — ticker · stage · layer · Chg · Intraday · ADR · Next ER (left), controls & ticker input (right) */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "5px 12px", borderTop: `1px solid ${ARIA.border}`, borderBottom: `1px solid ${ARIA.border}`, flexShrink: 0, fontFamily: "monospace", overflowX: "auto", whiteSpace: "nowrap" }}>
         <img key={ticker} src={`https://images.financialmodelingprep.com/symbol/${ticker}.png`} alt="" onError={(e) => { e.target.style.display = "none"; }}
           style={{ width: 20, height: 20, borderRadius: 4, background: "#ffffff", objectFit: "contain", padding: 1.5, flexShrink: 0 }} />
         <span style={{ fontSize: 12, fontWeight: 800, color: ARIA.text, flexShrink: 0 }}>{ticker}</span>
@@ -549,17 +574,13 @@ export function ChartPanelInline({
         </div>
       </div>
 
-      {/* Second thin row — grade · perf · 52W · Str (left), IPO (right) */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "3px 12px", borderBottom: `1px solid ${ARIA.border}`, flexShrink: 0, fontFamily: "monospace", overflowX: "auto", whiteSpace: "nowrap" }}>
+      {/* Second thin row — grade · perf · 52W · RS · ATR× · Base · TT (left), IPO (right) */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "4px 12px", flexShrink: 0, fontFamily: "monospace", overflowX: "auto", whiteSpace: "nowrap" }}>
       {(() => {
         const csColor = (l) => (l === "A+" || l === "A") ? ARIA.green : l === "B" ? ARIA.blue : l === "C" ? ARIA.yellow : l === "D" ? "#f59e0b" : l === "F" ? ARIA.red : ARIA.textMuted;
         const pctColor = (v) => v == null ? ARIA.textMuted : v >= 80 ? ARIA.green : v >= 50 ? ARIA.blue : v >= 30 ? ARIA.yellow : ARIA.textDim;
         const rsRank = rsScoreMap.get(ticker) ?? stockInfo?.rs_rank ?? null;
         const rsColor = rsRank == null ? ARIA.textMuted : rsRank >= 90 ? ARIA.green : rsRank >= 70 ? ARIA.blue : rsRank >= 50 ? ARIA.yellow : ARIA.textDim;
-        // Extension from the 20-day MA in ATR multiples (swing anchor, days-weeks).
-        // Coiled = tight to the 20-day MA on EITHER side (|ext| ≤ 2 ATRs) = green;
-        // loose/extended above OR well below the MA = gray. Proximity is symmetric —
-        // a name hugging the MA from just below is as tight as one just above it.
         const ext = stockInfo?.dist_20dma_atrx ?? null;
         const extColor = ext == null ? ARIA.textMuted : Math.abs(ext) <= 2 ? ARIA.green : ARIA.textDim;
         const baseW = stockInfo?.base_weeks ?? null;
@@ -653,31 +674,6 @@ export function ChartPanelInline({
             <span title="Recent IPO (< 5 years)" style={{ fontWeight: 700, color: (Date.now() - new Date(stockInfo.ipo_date).getTime()) < 157788000000 ? ARIA.green : ARIA.textDim }}>{stockInfo.ipo_date}</span>
           </span>
         )}
-      </div>
-
-      {/* SVG D/W Chart */}
-      <div style={{ height: 600, overflow: "hidden", flexShrink: 0 }}>
-        <ErrorBoundary>
-          <DailyChartSVG
-            ohlc={ohlcBars}
-            quarters={erHist?.ticker === ticker && erHist.history.length
-              ? erHist.history.map((q) => ({ report_date: q.date, label: q.fiscal_label || "", eps_yoy: q.eps_yoy_pct, sales_yoy: q.revenue_yoy_pct }))
-              : quarters}
-            height={height}
-            owned={inPF || inFC || inWL}
-            rsRating={rsRating}
-            rsRatingColor={rsRatingColor}
-            stopLines={[
-              ...(showTrade && riskScenarios ? [
-                { price: riskScenarios.tight?.stopPrice, color: "#ef4444", label: "0.5x", dashed: true },
-                { price: riskScenarios.base?.stopPrice,  color: "#f97316", label: "1x",   dashed: true },
-                { price: riskScenarios.wide?.stopPrice,  color: "#f59e0b", label: "2x",   dashed: true },
-                { price: riskDayLow,                     color: "#9ca3af", label: "LOD",  dashed: false },
-                { price: riskPDL,                        color: "#fb923c", label: "PDL",  dashed: true },
-              ] : []),
-            ].filter(sl => sl.price > 0)}
-          />
-        </ErrorBoundary>
       </div>
 
       {/* Ticker details — compact strip below the chart */}
