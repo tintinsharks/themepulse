@@ -17,6 +17,7 @@ export function EarningsBox({ quarters, annuals, est, ARIA, source }) {
     return () => ro.disconnect();
   }, []);
   const compact = w < 520;
+  const tight = w < 410;
   const dark = (ARIA.bg || "").toLowerCase() !== "#f8f9fc";
   const C = {
     box: dark ? "#0b0b0e" : "#ffffff",
@@ -29,17 +30,17 @@ export function EarningsBox({ quarters, annuals, est, ARIA, source }) {
     orange: dark ? "#f5a524" : "#d97706",
     blue: "#2643c9",
   };
-  const fmtSales = (m) => (m == null ? "—" : Math.abs(m) >= 1000 ? `${(m / 1000).toFixed(1)} B` : `${Math.round(m)} M`);
+  const fmtSales = (m) => (m == null ? "—" : Math.abs(m) >= 1000 ? `${(m / 1000).toFixed(1)}${tight ? "B" : " B"}` : `${Math.round(m)}${tight ? "M" : " M"}`);
   const fmtPct = (v) => (v == null || !Number.isFinite(v) ? "—" : `${v.toFixed(compact && Math.abs(v) >= 100 ? 0 : 1)}%`);
   const fmtEps = (v) => (v == null || !Number.isFinite(v) ? "—" : String(+v.toFixed(2)));
   const rows = [
     { k: "eps", label: "EPS ($)", fmt: fmtEps, kind: "eps" },
-    { k: "eps_yoy", label: "EPS YoY %", fmt: fmtPct, kind: "growth" },
-    { k: "revenue", label: "Sales ($)", fmt: fmtSales, kind: "plain" },
-    { k: "revenue_yoy", label: "Sales YoY %", fmt: fmtPct, kind: "growth" },
-    { k: "net_margin", label: compact ? "Net Mgn %" : "Net Margin %", fmt: fmtPct, kind: "margin" },
+    { k: "eps_yoy", label: tight ? "EPS YoY" : "EPS YoY %", fmt: fmtPct, kind: "growth" },
+    { k: "revenue", label: tight ? "Sales" : "Sales ($)", fmt: fmtSales, kind: "plain" },
+    { k: "revenue_yoy", label: tight ? "Sales YoY" : "Sales YoY %", fmt: fmtPct, kind: "growth" },
+    { k: "net_margin", label: tight ? "Net Mgn" : compact ? "Net Mgn %" : "Net Margin %", fmt: fmtPct, kind: "margin" },
   ];
-  const cell = { padding: compact ? "6px 2px" : "7px 6px", textAlign: "center", fontSize: compact ? 11 : 13, borderBottom: `1px solid ${C.line}`, borderLeft: `1px solid ${C.line}`, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontVariantNumeric: "tabular-nums" };
+  const cell = { padding: tight ? "4px 2px" : compact ? "5px 2px" : "6px 6px", textAlign: "center", fontSize: tight ? 10 : compact ? 11 : 12.5, borderBottom: `1px solid ${C.line}`, borderLeft: `1px solid ${C.line}`, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontVariantNumeric: "tabular-nums" };
   const color = (row, v, isMax, isEst) => {
     if (v == null || !Number.isFinite(v)) return { color: C.label, opacity: 0.45 };
     if (isMax) return { background: C.blue, color: "#fff" };
@@ -81,7 +82,7 @@ export function EarningsBox({ quarters, annuals, est, ARIA, source }) {
     <div ref={boxRef} title={source} style={{ background: C.box, border: `1px solid ${C.line}`, borderRadius: 6, overflow: "hidden" }}>
       <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed",
         fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif" }}>
-        <colgroup><col style={{ width: compact ? "19.6%" : "22%" }} />{Array.from({ length: 6 }, (_, i) => <col key={i} style={{ width: compact ? "13.4%" : "13%" }} />)}</colgroup>
+        <colgroup><col style={{ width: tight ? "19%" : compact ? "19.6%" : "22%" }} />{Array.from({ length: 6 }, (_, i) => <col key={i} style={{ width: tight ? "13.5%" : compact ? "13.4%" : "13%" }} />)}</colgroup>
         <tbody>
           {section("Quarterly", [...(est ? quarters.slice(-5) : quarters.slice(-6)), ...(est ? [est] : [])])}
           {section("Annual", annuals.slice(-6))}

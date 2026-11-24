@@ -460,6 +460,90 @@ export function ChartPanelInline({
     return `${Math.floor(h / 24)}d`;
   };
 
+  // Quarterly & annual fundamentals grid (shown alongside company description + news)
+  const earningsBox = useMemo(() => {
+    const normPipelineQ = (arr) =>
+      Array.isArray(arr)
+        ? arr.map(q => ({
+            ...q,
+            revenue: q.revenue != null ? q.revenue / 1_000_000 : null,
+            revenue_yoy: q.revenue_yoy ?? q.sales_yoy ?? null,
+            ocf_ps: null,
+            ocf_yoy: null,
+          }))
+        : [];
+    const normPipelineA = (arr) =>
+      Array.isArray(arr)
+        ? arr.map(q => ({
+            ...q,
+            label: String(q.year),
+            period: "FY",
+            revenue: q.revenue != null ? q.revenue / 1_000_000 : null,
+            revenue_yoy: q.revenue_yoy ?? q.sales_yoy ?? null,
+            net_margin: q.net_margin ?? null,
+            ocf_ps: null,
+            ocf_yoy: null,
+          }))
+        : [];
+    // Same source of truth as the Earnings History table + chart markers:
+    // street-basis actuals from /api/earnings, oldest→newest.
+    const erQ = erHist?.ticker === ticker && erHist.history.length
+      ? [...erHist.history].reverse().map((q) => ({
+          label: q.fiscal_label || (q.date || "").slice(2, 7),
+          period: q.fiscal_label ? q.fiscal_label.split("-")[0] : "",
+          eps: q.eps_actual,
+          eps_yoy: q.eps_yoy_pct,
+          revenue: q.revenue_actual != null ? q.revenue_actual / 1e6 : null,
+          revenue_yoy: q.revenue_yoy_pct,
+          net_margin: q.net_margin_pct,
+          gross_margin: q.gross_margin_pct,
+        }))
+      : null;
+    const effectiveQuarters = erQ || (quarters.length > 0 ? quarters : normPipelineQ(stockInfo?.quarters));
+    const effectiveAnnuals  = annuals.length  > 0 ? annuals  : normPipelineA(stockInfo?.annual);
+    const orderQ = (arr) => {
+      const a = [...arr];
+      if (a.length > 1 && a.every((q) => q.report_date)) a.sort((x, y) => String(x.report_date).localeCompare(String(y.report_date)));
+      return a;
+    };
+    const qAll = erQ || orderQ(effectiveQuarters);
+    const qCols = qAll.slice(-6).map((q) => ({
+      _label: q.label || q.period || "",
+      eps: q.eps ?? null, eps_yoy: q.eps_yoy ?? null,
+      revenue: q.revenue ?? null, revenue_yoy: q.revenue_yoy ?? q.sales_yoy ?? null,
+      net_margin: q.net_margin ?? null,
+    }));
+    const aCols = [...effectiveAnnuals]
+      .sort((x, y) => (Number(x.year ?? x.label) || 0) - (Number(y.year ?? y.label) || 0))
+      .slice(-6)
+      .map((a) => ({
+        _label: String(a.year ?? a.label ?? ""),
+        eps: a.eps ?? null, eps_yoy: a.eps_yoy ?? null,
+        revenue: a.revenue ?? null, revenue_yoy: a.revenue_yoy ?? a.sales_yoy ?? null,
+        net_margin: a.net_margin ?? null,
+      }));
+    let est = null;
+    const eEps = stockInfo?.eps_estimated, eRev = stockInfo?.revenue_estimated;
+    if (eEps != null || eRev != null) {
+      const yAgo = qAll.length >= 4 ? qAll[qAll.length - 4] : null;
+      const revM = eRev != null ? eRev / 1e6 : null;
+      const yoy = (now, then) => (now != null && then != null && then !== 0 ? ((now - then) / Math.abs(then)) * 100 : null);
+      est = {
+        _est: true,
+        _label: `Est ${String(stockInfo?.earnings_display || "").replace(/^~/, "").split("/").slice(0, 2).join("/")}`.trim(),
+        eps: eEps ?? null, eps_yoy: yoy(eEps, yAgo?.eps),
+        revenue: revM, revenue_yoy: yoy(revM, yAgo?.revenue),
+        net_margin: null,
+      };
+    }
+    if (!qCols.length && !aCols.length) return null;
+    return {
+      qCols,
+      aCols,
+      est,
+      source: `Quarterly: ${erQ ? "street actuals (adjusted)" : quarters.length > 0 ? "Finviz actuals" : "pipeline data"} · Annual: reported · orange = consensus estimate`,
+    };
+  }, [erHist, ticker, quarters, annuals, stockInfo]);
 
   return (
     <div
@@ -672,11 +756,11 @@ export function ChartPanelInline({
         )}
       </div>
 
-      {/* Ticker details — compact strip below the chart */}
-      <div style={{ padding: "6px 14px", borderTop: `1px solid ${ARIA.border}`, flexShrink: 0 }}>
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
-        {/* Left column — badges + company + description */}
-        <div style={{ flex: 1, minWidth: 0 }}>
+      {/* Ticker details — company description + news on left, quarterly/annual earnings grid on right */}
+      <div style={{ padding: "8px 14px", borderTop: `1px solid ${ARIA.border}`, flexShrink: 0 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 14, flexWrap: "wrap" }}>
+        {/* Left column — badges + company + description + news */}
+        <div style={{ flex: earningsBox ? "1 1 240px" : "1 1 100%", minWidth: 0 }}>
           {(has9M || stockInfo.two_day_tight || stockInfo.de_ready) && (
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 2 }}>
               {has9M && <span style={badgeStyle("#f59e0b")} title="Unusual institutional volume">9M</span>}
@@ -710,46 +794,59 @@ export function ChartPanelInline({
           {description
             ? <div style={{ fontSize: 10.5, color: "#6a6a7a", lineHeight: 1.4 }}>{description}</div>
             : <div style={{ fontSize: 10, color: "#4a4a5a", fontStyle: "italic" }}>No description available.</div>}
-        </div>
-        {/* Right column — news */}
-        <div style={{ flex: 1, minWidth: 0, borderLeft: `1px solid ${ARIA.border}`, paddingLeft: 14 }}>
-          <div onClick={() => news.length > 0 && setNewsOpen(o => !o)}
-            style={{ display: "flex", alignItems: "center", gap: 5, cursor: news.length > 0 ? "pointer" : "default", userSelect: "none", fontSize: 10, fontWeight: 700, color: "#6a6a7a", textTransform: "uppercase", letterSpacing: 0.5, padding: "1px 0" }}
-            onMouseEnter={e => { if (news.length > 0) e.currentTarget.style.color = "#9090a0"; }}
-            onMouseLeave={e => { e.currentTarget.style.color = "#6a6a7a"; }}>
-            {news.length > 0 && <span style={{ fontSize: 9 }}>{newsOpen ? "▼" : "▶"}</span>}
-            News <span style={{ color: "#4a4a5a", fontWeight: 400, fontFamily: MONO }}>({news.length || stockInfo._newsPipe?.length || 0})</span>
+
+          {/* News — below company description */}
+          <div style={{ marginTop: 8, paddingTop: 6, borderTop: `1px solid ${ARIA.border}` }}>
+            <div onClick={() => news.length > 0 && setNewsOpen(o => !o)}
+              style={{ display: "flex", alignItems: "center", gap: 5, cursor: news.length > 0 ? "pointer" : "default", userSelect: "none", fontSize: 10, fontWeight: 700, color: "#6a6a7a", textTransform: "uppercase", letterSpacing: 0.5, padding: "1px 0" }}
+              onMouseEnter={e => { if (news.length > 0) e.currentTarget.style.color = "#9090a0"; }}
+              onMouseLeave={e => { e.currentTarget.style.color = "#6a6a7a"; }}>
+              {news.length > 0 && <span style={{ fontSize: 9 }}>{newsOpen ? "▼" : "▶"}</span>}
+              News <span style={{ color: "#4a4a5a", fontWeight: 400, fontFamily: MONO }}>({news.length || stockInfo._newsPipe?.length || 0})</span>
+            </div>
+            {news.length === 0 && !(stockInfo._newsPipe?.length) && <div style={{ fontSize: 10, color: "#4a4a5a", fontStyle: "italic", marginTop: 2 }}>No recent headlines.</div>}
+            {news.length === 0 && stockInfo._newsPipe?.length > 0 && (
+              <div style={{ maxHeight: 150, overflowY: "auto" }}>
+                {stockInfo._newsPipe.map((h, i) => (
+                  <div key={i} title={h} style={{ fontSize: 10, color: "#9090a0", padding: "2px 0", lineHeight: 1.35, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
+                    <span style={{ color: "#5a5a6a", marginRight: 4 }}>⛭</span>{h}
+                  </div>
+                ))}
+              </div>
+            )}
+            {newsOpen && news.length > 0 && (
+              <div style={{ maxHeight: 150, overflowY: "auto" }}>
+                {news.slice(0, 8).map((a, i) => (
+                  <a key={i} href={a.url} target="_blank" rel="noopener noreferrer"
+                    style={{ display: "block", fontSize: 10, color: "#9090a0", textDecoration: "none", padding: "2px 0", lineHeight: 1.35, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderBottom: "1px solid rgba(255,255,255,0.03)" }}
+                    onMouseEnter={e => { e.currentTarget.style.color = "#c0c0d8"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
+                    onMouseLeave={e => { e.currentTarget.style.color = "#9090a0"; e.currentTarget.style.background = "transparent"; }}>
+                    <span style={{ color: "#5a5a6a", marginRight: 4, fontFamily: MONO }}>{agoLabel(a.date)}</span>
+                    {a.headline}
+                    <span style={{ color: "#6a6a7a", marginLeft: 4 }}>{a.source}</span>
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
-          {news.length === 0 && !(stockInfo._newsPipe?.length) && <div style={{ fontSize: 10, color: "#4a4a5a", fontStyle: "italic", marginTop: 2 }}>No recent headlines.</div>}
-          {news.length === 0 && stockInfo._newsPipe?.length > 0 && (
-            <div style={{ maxHeight: 150, overflowY: "auto" }}>
-              {stockInfo._newsPipe.map((h, i) => (
-                <div key={i} title={h} style={{ fontSize: 10, color: "#9090a0", padding: "2px 0", lineHeight: 1.35, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
-                  <span style={{ color: "#5a5a6a", marginRight: 4 }}>⛭</span>{h}
-                </div>
-              ))}
-            </div>
-          )}
-          {newsOpen && news.length > 0 && (
-            <div style={{ maxHeight: 150, overflowY: "auto" }}>
-              {news.slice(0, 8).map((a, i) => (
-                <a key={i} href={a.url} target="_blank" rel="noopener noreferrer"
-                  style={{ display: "block", fontSize: 10, color: "#9090a0", textDecoration: "none", padding: "2px 0", lineHeight: 1.35, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderBottom: "1px solid rgba(255,255,255,0.03)" }}
-                  onMouseEnter={e => { e.currentTarget.style.color = "#c0c0d8"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
-                  onMouseLeave={e => { e.currentTarget.style.color = "#9090a0"; e.currentTarget.style.background = "transparent"; }}>
-                  <span style={{ color: "#5a5a6a", marginRight: 4, fontFamily: MONO }}>{agoLabel(a.date)}</span>
-                  {a.headline}
-                  <span style={{ color: "#6a6a7a", marginLeft: 4 }}>{a.source}</span>
-                </a>
-              ))}
-            </div>
-          )}
         </div>
+        {/* Right column — quarterly & annual fundamentals table */}
+        {earningsBox && (
+          <div style={{ flex: "1.45 1 360px", minWidth: 0 }}>
+            <EarningsBox
+              quarters={earningsBox.qCols}
+              annuals={earningsBox.aCols}
+              est={earningsBox.est}
+              ARIA={ARIA}
+              source={earningsBox.source}
+            />
+          </div>
+        )}
       </div>
       </div>
 
       {/* Prior earnings responses — EPS/Sales surprise + 1d/10d reaction */}
-      <div style={{ borderBottom: `1px solid ${ARIA.border}`, padding: "3px 14px 4px" }}>
+      <div style={{ borderTop: `1px solid ${ARIA.border}`, borderBottom: `1px solid ${ARIA.border}`, padding: "3px 14px 4px" }}>
         <div onClick={() => setErHistOpen((o) => { const n = !o; try { localStorage.setItem("tp-erhist-open", n ? "1" : "0"); } catch {} return n; })}
           style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", userSelect: "none", fontSize: 10, fontWeight: 700, color: "#6a6a7a", textTransform: "uppercase", letterSpacing: 0.5, padding: "1px 0" }}
           onMouseEnter={(e) => { e.currentTarget.style.color = "#9090a0"; }}
@@ -925,96 +1022,6 @@ export function ChartPanelInline({
                 </tbody>
               </table>
             )}
-          </div>
-        );
-      })()}
-
-      {/* Quarterly fundamentals — always visible below chart */}
-      {(() => {
-        // Normalize pipeline quarters/annual into the same shape as FMP data.
-        // Pipeline revenue is raw dollars; MiniQBars expects millions.
-        const normPipelineQ = (arr) =>
-          Array.isArray(arr)
-            ? arr.map(q => ({
-                ...q,
-                revenue: q.revenue != null ? q.revenue / 1_000_000 : null,
-                revenue_yoy: q.revenue_yoy ?? q.sales_yoy ?? null,
-                ocf_ps: null,
-                ocf_yoy: null,
-              }))
-            : [];
-        const normPipelineA = (arr) =>
-          Array.isArray(arr)
-            ? arr.map(q => ({
-                ...q,
-                label: String(q.year),
-                period: "FY",
-                revenue: q.revenue != null ? q.revenue / 1_000_000 : null,
-                revenue_yoy: q.revenue_yoy ?? q.sales_yoy ?? null,
-                net_margin: q.net_margin ?? null,
-                ocf_ps: null,
-                ocf_yoy: null,
-              }))
-            : [];
-        // Same source of truth as the Earnings History table + chart markers:
-        // street-basis actuals from /api/earnings, oldest→newest.
-        const erQ = erHist?.ticker === ticker && erHist.history.length
-          ? [...erHist.history].reverse().map((q) => ({
-              label: q.fiscal_label || (q.date || "").slice(2, 7),
-              period: q.fiscal_label ? q.fiscal_label.split("-")[0] : "",
-              eps: q.eps_actual,
-              eps_yoy: q.eps_yoy_pct,
-              revenue: q.revenue_actual != null ? q.revenue_actual / 1e6 : null,
-              revenue_yoy: q.revenue_yoy_pct,
-              net_margin: q.net_margin_pct,
-              gross_margin: q.gross_margin_pct,
-            }))
-          : null;
-        const effectiveQuarters = erQ || (quarters.length > 0 ? quarters : normPipelineQ(stockInfo?.quarters));
-        const effectiveAnnuals  = annuals.length  > 0 ? annuals  : normPipelineA(stockInfo?.annual);
-        // Oldest → newest. Street history (erQ) already is; pipeline arrays are
-        // newest-first, so order by report date / year when available.
-        const orderQ = (arr) => {
-          const a = [...arr];
-          if (a.length > 1 && a.every((q) => q.report_date)) a.sort((x, y) => String(x.report_date).localeCompare(String(y.report_date)));
-          return a;
-        };
-        const qAll = erQ || orderQ(effectiveQuarters);
-        const qCols = qAll.slice(-6).map((q) => ({
-          _label: q.label || q.period || "",
-          eps: q.eps ?? null, eps_yoy: q.eps_yoy ?? null,
-          revenue: q.revenue ?? null, revenue_yoy: q.revenue_yoy ?? q.sales_yoy ?? null,
-          net_margin: q.net_margin ?? null,
-        }));
-        const aCols = [...effectiveAnnuals]
-          .sort((x, y) => (Number(x.year ?? x.label) || 0) - (Number(y.year ?? y.label) || 0))
-          .slice(-6)
-          .map((a) => ({
-            _label: String(a.year ?? a.label ?? ""),
-            eps: a.eps ?? null, eps_yoy: a.eps_yoy ?? null,
-            revenue: a.revenue ?? null, revenue_yoy: a.revenue_yoy ?? a.sales_yoy ?? null,
-            net_margin: a.net_margin ?? null,
-          }));
-        // Next quarter's consensus (orange). YoY vs the quarter 4 back.
-        let est = null;
-        const eEps = stockInfo?.eps_estimated, eRev = stockInfo?.revenue_estimated;
-        if (eEps != null || eRev != null) {
-          const yAgo = qAll.length >= 4 ? qAll[qAll.length - 4] : null;
-          const revM = eRev != null ? eRev / 1e6 : null;
-          const yoy = (now, then) => (now != null && then != null && then !== 0 ? ((now - then) / Math.abs(then)) * 100 : null);
-          est = {
-            _est: true,
-            _label: `Est ${String(stockInfo?.earnings_display || "").replace(/^~/, "").split("/").slice(0, 2).join("/")}`.trim(),
-            eps: eEps ?? null, eps_yoy: yoy(eEps, yAgo?.eps),
-            revenue: revM, revenue_yoy: yoy(revM, yAgo?.revenue),
-            net_margin: null,
-          };
-        }
-        if (!qCols.length && !aCols.length) return null;
-        return (
-          <div style={{ padding: "8px 14px 12px", borderTop: `1px solid ${ARIA.border}` }}>
-            <EarningsBox quarters={qCols} annuals={aCols} est={est} ARIA={ARIA}
-              source={`Quarterly: ${erQ ? "street actuals (adjusted)" : quarters.length > 0 ? "Finviz actuals" : "pipeline data"} · Annual: reported · orange = consensus estimate`} />
           </div>
         );
       })()}
