@@ -1,0 +1,286 @@
+{
+  "id": "brief-2026-11-24-pm",
+  "date": "2026-11-24",
+  "session": "pm",
+  "timestamp": "2026-11-24T15:28:00-08:00",
+  "subject": "ThemePulse Postmarket Brief — 2026-11-24",
+  "posture": "Selective Exposure (45%–60% Equity)",
+  "breadth": {
+    "leadingLayers": 15,
+    "breakingDownLayers": 12,
+    "emergingLayers": 5,
+    "weakeningLayers": 8,
+    "netSpread": 3
+  },
+  "indexes": {
+    "SPY": {
+      "close": 718.78,
+      "changePct": -0.49,
+      "afterHours": 718.43,
+      "above21d": true,
+      "above50d": true,
+      "dcrPct": 76
+    },
+    "QQQ": {
+      "close": 638.1,
+      "changePct": -1.99,
+      "afterHours": 638.38,
+      "above21d": false,
+      "above50d": false,
+      "dcrPct": 41
+    },
+    "IWM": {
+      "close": 267.14,
+      "changePct": 0.53,
+      "afterHours": 267.19,
+      "above21d": true,
+      "above50d": true,
+      "dcrPct": 73
+    }
+  },
+  "macroTape": {
+    "VIX": {
+      "value": 26.65,
+      "changePct": 0.11
+    },
+    "US10Y": {
+      "value": 4.92,
+      "changeBps": -4
+    },
+    "WTI": {
+      "value": 80.38,
+      "changePct": 0.27,
+      "change1MPct": -21
+    },
+    "DXY": {
+      "value": 103.41,
+      "changePct": -0.39
+    }
+  },
+  "topSetups": [
+    {
+      "ticker": "COLM",
+      "grade": "A+",
+      "theme": "Luxury + Apparel",
+      "close": 77.94,
+      "changePct": 2.86,
+      "rvol": 3.1,
+      "rs": 94,
+      "eps": 80,
+      "pivot": 76,
+      "buyZoneMax": 79.8,
+      "stop": 70.68,
+      "status": "Actionable in Buy Zone (+2.6%)"
+    },
+    {
+      "ticker": "VCEL",
+      "grade": "A",
+      "theme": "Biotech",
+      "close": 61.18,
+      "changePct": 3.69,
+      "rvol": 2.6,
+      "rs": 97,
+      "eps": 87,
+      "pivot": 58.8,
+      "buyZoneMax": 61.74,
+      "stop": 54.68,
+      "status": "Actionable in Buy Zone (+4.0%)"
+    },
+    {
+      "ticker": "XERS",
+      "grade": "A-",
+      "theme": "Specialty Pharma",
+      "close": 17.69,
+      "changePct": 0.97,
+      "rvol": 2.7,
+      "rs": 99,
+      "eps": 74,
+      "pivot": 17.04,
+      "buyZoneMax": 17.89,
+      "stop": 16.29,
+      "status": "Actionable in Buy Zone (+3.8%)"
+    },
+    {
+      "ticker": "A",
+      "grade": "A-",
+      "theme": "MedTech & Life Sciences Tools",
+      "close": 183.52,
+      "changePct": 4.23,
+      "rvol": 3.1,
+      "rs": 84,
+      "eps": 88,
+      "pivot": 182.99,
+      "buyZoneMax": 192.14,
+      "stop": 179.29,
+      "status": "Actionable EP Reclaim (+0.29%)"
+    },
+    {
+      "ticker": "COGT",
+      "grade": "A-",
+      "theme": "Biotech Oncology",
+      "close": 33.01,
+      "changePct": 17.43,
+      "rvol": 8.8,
+      "rs": 95,
+      "eps": 75,
+      "pivot": 33.76,
+      "buyZoneMax": 35.45,
+      "stop": 30.7,
+      "status": "FDA Approval EP Coiling (-2.2% below ORH)"
+    },
+    {
+      "ticker": "PRCH",
+      "grade": "B+",
+      "theme": "Enterprise Software",
+      "close": 22.02,
+      "changePct": 3.77,
+      "rvol": 3.5,
+      "rs": 96,
+      "eps": 80,
+      "pivot": 22.36,
+      "buyZoneMax": 23.48,
+      "stop": 20.48,
+      "status": "Coiling 1.5% Below Pivot"
+    },
+    {
+      "ticker": "BLMN",
+      "grade": "B+",
+      "theme": "Restaurants + QSR",
+      "close": 10.63,
+      "changePct": 2.71,
+      "rvol": 2.4,
+      "rs": 88,
+      "eps": 82,
+      "pivot": 10.25,
+      "buyZoneMax": 10.76,
+      "stop": 9.63,
+      "status": "Actionable in Buy Zone (+3.7%)"
+    },
+    {
+      "ticker": "CBRL",
+      "grade": "B",
+      "theme": "Restaurants + QSR",
+      "close": 75.19,
+      "changePct": 0.49,
+      "rvol": 1.5,
+      "rs": 98,
+      "eps": 84,
+      "pivot": 72.8,
+      "buyZoneMax": 76.44,
+      "stop": 67.7,
+      "status": "Actionable in Buy Zone (+3.3%)"
+    },
+    {
+      "ticker": "DLTR",
+      "grade": "B+",
+      "theme": "Discount & Variety Retail",
+      "close": 154.65,
+      "changePct": 11.18,
+      "rvol": 4.9,
+      "rs": 83,
+      "eps": 85,
+      "pivot": 148.54,
+      "buyZoneMax": 155.97,
+      "stop": 143.82,
+      "status": "Actionable EP Breakout (+4.1%)"
+    },
+    {
+      "ticker": "DKS",
+      "grade": "B+",
+      "theme": "Specialty & Apparel Retail",
+      "close": 153.17,
+      "changePct": 14.77,
+      "rvol": 5.2,
+      "rs": 81,
+      "eps": 89,
+      "pivot": 153.85,
+      "buyZoneMax": 161.54,
+      "stop": 142.45,
+      "status": "Coiling 0.4% Below Pivot ($153.99 AH)"
+    },
+    {
+      "ticker": "AMTM",
+      "grade": "B+",
+      "theme": "Gov IT & Defense Services",
+      "close": 24.8,
+      "changePct": 20.21,
+      "rvol": 4.7,
+      "rs": 85,
+      "eps": 82,
+      "pivot": 24.15,
+      "buyZoneMax": 25.36,
+      "stop": 23.06,
+      "status": "Actionable EP Breakout (+2.7%)"
+    }
+  ],
+  "afterHoursMovers": [
+    {
+      "ticker": "GDRX",
+      "close": 3,
+      "ahPrice": 3.29,
+      "ahChangePct": 9.62,
+      "catalyst": "Filed delayed 10-Q, restated 1H26 revenue +$29.8M, raised 2026 outlook"
+    },
+    {
+      "ticker": "DELL",
+      "close": 295.28,
+      "ahPrice": 307.5,
+      "ahChangePct": 4.14,
+      "catalyst": "Q3 rev doubled (+103% YoY) to $54.9B, EPS $8.82 vs $6.75 est, $132.3B AI backlog, FY27 rev raised to $202B"
+    },
+    {
+      "ticker": "HPQ",
+      "close": 27.94,
+      "ahPrice": 27.93,
+      "ahChangePct": -0.04,
+      "catalyst": "Q4 rev +9.3% to $16.0B, EPS $0.83 vs $0.74 est, FY27 EPS guide $3.15-$3.45, Q1 EPS guide $0.66-$0.76"
+    },
+    {
+      "ticker": "ADSK",
+      "close": 255.7,
+      "ahPrice": 243.5,
+      "ahChangePct": -4.77,
+      "catalyst": "Q3 rev +17% to $2.16B and raised FY27 guidance midpoints, slipped on margin digestion"
+    },
+    {
+      "ticker": "WDAY",
+      "close": 179.23,
+      "ahPrice": 166.5,
+      "ahChangePct": -7.1,
+      "catalyst": "Q3 rev +11.2% to $2.705B, FY27 subscription guide raised to $9.958B, sold off on cRPO deceleration"
+    },
+    {
+      "ticker": "NTNX",
+      "close": 54.59,
+      "ahPrice": 49.95,
+      "ahChangePct": -8.51,
+      "catalyst": "Q1 rev +15% to $772.4M, board announced search to replace CEO Rajiv Ramaswami"
+    },
+    {
+      "ticker": "URBN",
+      "close": 85.58,
+      "ahPrice": 75.01,
+      "ahChangePct": -12.35,
+      "catalyst": "Record Q3 sales $1.67B (+8.9% YoY), fell on Q4 holiday promotional margin commentary"
+    },
+    {
+      "ticker": "AMBA",
+      "close": 44.47,
+      "ahPrice": 26.9,
+      "ahChangePct": -39.51,
+      "catalyst": "Guided Q4 revenue down to $70M-$75M as memory shortages and price spikes hit customer orders"
+    }
+  ],
+  "trackerSummary": {
+    "totalSetups": 24,
+    "avgLiveReturnPct": 2.47,
+    "positiveCount": 15,
+    "flatNewCount": 3,
+    "negativeCount": 6,
+    "stopsHitCount": 1,
+    "stoppedOutTickers": [
+      "ECO"
+    ]
+  },
+  "tradingViewWatchlist": "VCEL,COLM,XERS,A,COGT,PRCH,BLMN,CBRL,DLTR,DKS,AMTM,TGTX,ETON,CDNA,PGNY,LTH,APPN,GEN,WWW,LFST"
+}
