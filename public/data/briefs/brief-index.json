@@ -1,6 +1,14 @@
 {
-  "latest": "brief-2026-11-25-intraday-0922.json",
+  "latest": "brief-2026-11-25-intraday-1028.json",
   "briefs": [
+    {
+      "id": "brief-2026-11-25-intraday-1028",
+      "date": "2026-11-25",
+      "session": "intraday",
+      "label": "10:28 AM PT Intraday Scan #4 (Early Afternoon)",
+      "file": "brief-2026-11-25-intraday-1028.json",
+      "regime": "Tactical Accumulation (30%-45% net long, 0.5x-0.75x position sizing on Grade A/A+ setups now that VIX < 30 and SPY/IWM reclaimed 50d SMAs)"
+    },
     {
       "id": "brief-2026-11-25-intraday-0922",
       "date": "2026-11-25",
