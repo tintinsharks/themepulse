@@ -1,0 +1,309 @@
+{
+  "id": "brief-2026-11-25-intraday-1028",
+  "date": "2026-11-25",
+  "session": "intraday",
+  "label": "10:28 AM PT Intraday Scan #4 (Early Afternoon)",
+  "headline": "10:28 PT Regime Upgrade: SPY Reclaims 50d SMA ($714.44), IWM Turns Green (+0.45%) Above 21d EMA & VIX Drops Below 30 (29.18); COGT (+8.85%), DKS (+4.81%), DE (+4.61%), ANF (+3.78%), GEN (+2.14%) & APPN (+1.53%) Lead",
+  "regime": {
+    "posture": "Tactical Accumulation (30%-45% net long, 0.5x-0.75x position sizing on Grade A/A+ setups now that VIX < 30 and SPY/IWM reclaimed 50d SMAs)",
+    "spy": {
+      "price": 714.44,
+      "changePct": -0.6,
+      "fromOpenPct": 1.6,
+      "above21d": false,
+      "above50d": true,
+      "note": "Reclaimed 50d SMA $708.10 ($715.00 intraday high), approaching 21d EMA $716.50"
+    },
+    "qqq": {
+      "price": 628.975,
+      "changePct": -1.43,
+      "fromOpenPct": 1.92,
+      "above21d": false,
+      "above50d": false,
+      "note": "Pared over two-thirds of morning drawdown, +1.92% above $617.10 open"
+    },
+    "iwm": {
+      "price": 268.35,
+      "changePct": 0.45,
+      "fromOpenPct": 1.95,
+      "above21d": true,
+      "above50d": true,
+      "note": "Turned green on the day and reclaimed both 50d SMA ($261.40) and 21d EMA ($266.90)"
+    }
+  },
+  "macroTape": {
+    "vix": {
+      "value": 29.18,
+      "changePct": 10.7,
+      "intradayHigh": 34.95,
+      "note": "Fell back below 30 threshold (-5.77 pts off morning peak)"
+    },
+    "us10y": {
+      "value": 4.84,
+      "changeBps": -6
+    },
+    "wtiCrude": {
+      "value": 82.57,
+      "changePct": 0.63
+    },
+    "dxy": {
+      "value": 103.94,
+      "changePct": 0.12
+    },
+    "headlines": [
+      "IWM turns positive (+0.45%) above 21d EMA ($266.90), SPY reclaims 50d SMA ($708.10) at $714.44, and VIX drops below 30 to 29.18",
+      "CBRL added to Zacks Rank #1 Strong Buy list today as shares print a new 52-week high ($75.68)"
+    ]
+  },
+  "intradayMovers": [
+    {
+      "ticker": "COGT",
+      "theme": "Biotech & Oncology",
+      "scan0727Price": 33.88,
+      "scan0815Price": 34.2,
+      "scan0922Price": 35.09,
+      "currentPrice": 35.93,
+      "changePct": 8.85,
+      "fromOpenPct": 7.54,
+      "offHighPct": -0.91,
+      "zvr": 4.3,
+      "rs": 95,
+      "eps": 75,
+      "pivot": 33.76,
+      "stop": 30.7,
+      "grade": "A-",
+      "status": "Building / Extended +6.43% Above $33.76 ORH Pivot"
+    },
+    {
+      "ticker": "DKS",
+      "theme": "Specialty & Apparel Retail",
+      "scan0727Price": 157,
+      "scan0815Price": 158.97,
+      "scan0922Price": 159.9,
+      "currentPrice": 160.53,
+      "changePct": 4.81,
+      "fromOpenPct": 4.24,
+      "offHighPct": -0.91,
+      "zvr": 3.7,
+      "rs": 81,
+      "eps": 89,
+      "pivot": 153.85,
+      "stop": 142.45,
+      "grade": "A-",
+      "status": "Building / Actionable Inside 5% Buy Zone (+4.34% Above Pivot)"
+    },
+    {
+      "ticker": "DE",
+      "theme": "Ag & Heavy Machinery",
+      "scan0727Price": 622.38,
+      "scan0815Price": 632.54,
+      "scan0922Price": 635,
+      "currentPrice": 642.24,
+      "changePct": 4.61,
+      "fromOpenPct": 9.22,
+      "offHighPct": -0.27,
+      "zvr": 3.9,
+      "rs": 76,
+      "eps": 78,
+      "pivot": 613.5,
+      "stop": 580.51,
+      "grade": "B",
+      "status": "Building / New Intraday High $643.99"
+    },
+    {
+      "ticker": "ANF",
+      "theme": "Specialty & Apparel Retail",
+      "scan0727Price": 170,
+      "scan0815Price": 170.16,
+      "scan0922Price": 172.99,
+      "currentPrice": 174.46,
+      "changePct": 3.78,
+      "fromOpenPct": 5.36,
+      "offHighPct": -0.07,
+      "zvr": 2.7,
+      "rs": 88,
+      "eps": 92,
+      "pivot": 168.1,
+      "stop": 158.95,
+      "grade": "B+",
+      "status": "Building / Actionable Inside 5% Buy Zone (+3.78% Above Pivot)"
+    },
+    {
+      "ticker": "BURL",
+      "theme": "Discount & Variety Retail",
+      "scan0727Price": 248.01,
+      "scan0815Price": 246.24,
+      "scan0922Price": 249.41,
+      "currentPrice": 251.54,
+      "changePct": 2.95,
+      "fromOpenPct": 1.84,
+      "offHighPct": -0.8,
+      "zvr": 2.7,
+      "rs": 86,
+      "eps": 90,
+      "pivot": 253.58,
+      "stop": 243.12,
+      "grade": "B+",
+      "status": "Building Toward $253.58 Morning ORH Pivot"
+    },
+    {
+      "ticker": "COLM",
+      "theme": "Specialty & Apparel Retail",
+      "scan0727Price": 77.97,
+      "scan0815Price": 78.65,
+      "scan0922Price": 79.86,
+      "currentPrice": 80.03,
+      "changePct": 2.68,
+      "fromOpenPct": 2.34,
+      "offHighPct": -0.22,
+      "zvr": 2.2,
+      "rs": 94,
+      "eps": 80,
+      "pivot": 76,
+      "stop": 70.68,
+      "grade": "A+",
+      "status": "Holding 52W Highs ($80.21) / Extended +5.30% Above Pivot"
+    },
+    {
+      "ticker": "GEN",
+      "theme": "Cybersecurity",
+      "scan0727Price": 29.8,
+      "scan0815Price": 29.94,
+      "scan0922Price": 30.29,
+      "currentPrice": 30.59,
+      "changePct": 2.14,
+      "fromOpenPct": 3.08,
+      "offHighPct": -0.13,
+      "zvr": 2,
+      "rs": 87,
+      "eps": 86,
+      "pivot": 30.2,
+      "stop": 27.15,
+      "grade": "A",
+      "status": "Building on Scan #3 Breakout (+1.29% Above $30.20 Pivot)"
+    },
+    {
+      "ticker": "APPN",
+      "theme": "Enterprise Software",
+      "scan0727Price": 52.61,
+      "scan0815Price": 53.42,
+      "scan0922Price": 54.84,
+      "currentPrice": 55.64,
+      "changePct": 1.53,
+      "fromOpenPct": 4.57,
+      "offHighPct": -0.18,
+      "zvr": 1.9,
+      "rs": 94,
+      "eps": 81,
+      "pivot": 54.5,
+      "stop": 50.69,
+      "grade": "A-",
+      "status": "Building on Pivot Reclaim (+2.09% Above $54.50 Pivot)"
+    },
+    {
+      "ticker": "LFST",
+      "theme": "Healthcare Services",
+      "scan0727Price": 13.8,
+      "scan0815Price": 14.08,
+      "scan0922Price": 14.235,
+      "currentPrice": 14.375,
+      "changePct": 1.52,
+      "fromOpenPct": 1.41,
+      "offHighPct": -0.55,
+      "zvr": 2.6,
+      "rs": 92,
+      "eps": 81,
+      "pivot": 13.5,
+      "stop": 12.56,
+      "grade": "A-",
+      "status": "Building / Extended +6.48% Above $13.50 Pivot"
+    },
+    {
+      "ticker": "CBRL",
+      "theme": "Restaurants & Consumer",
+      "scan0727Price": 74.33,
+      "scan0815Price": 74.6,
+      "scan0922Price": 75.59,
+      "currentPrice": 75.45,
+      "changePct": 0.35,
+      "fromOpenPct": 1.25,
+      "offHighPct": -0.3,
+      "zvr": 1.6,
+      "rs": 89,
+      "eps": 81,
+      "pivot": 72.8,
+      "stop": 67.7,
+      "grade": "A-",
+      "status": "Fresh Higher 52W High ($75.68) & Zacks Rank #1 Addition"
+    },
+    {
+      "ticker": "OKTA",
+      "theme": "Cybersecurity",
+      "scan0727Price": 187.82,
+      "scan0815Price": 191.28,
+      "scan0922Price": 192.58,
+      "currentPrice": 197.43,
+      "changePct": -0.35,
+      "fromOpenPct": 4.32,
+      "offHighPct": -0.35,
+      "zvr": 2.3,
+      "rs": 82,
+      "eps": 88,
+      "pivot": 191.46,
+      "stop": 178.06,
+      "grade": "B+",
+      "status": "Fresh This Hour Reclaim of 50d SMA ($192.80) & 21d EMA ($196.40)"
+    },
+    {
+      "ticker": "XERS",
+      "theme": "Specialty Pharma",
+      "scan0727Price": 17.12,
+      "scan0815Price": 16.85,
+      "scan0922Price": 17.07,
+      "currentPrice": 17.22,
+      "changePct": -2.66,
+      "fromOpenPct": -2.71,
+      "offHighPct": -3.26,
+      "zvr": 2,
+      "rs": 99,
+      "eps": 74,
+      "pivot": 17.04,
+      "stop": 16.29,
+      "grade": "A-",
+      "status": "Building Above Reclaimed $17.04 Pivot (+1.06% Above Pivot)"
+    }
+  ],
+  "leadingPulse": {
+    "actionableInsideBuyZone": [
+      "GEN",
+      "XERS",
+      "APPN",
+      "CBRL",
+      "ANF",
+      "DKS",
+      "AMTM"
+    ],
+    "extendedHoldCore": [
+      "COGT",
+      "LFST",
+      "COLM"
+    ],
+    "coilingNearPivot": [
+      "PGNY",
+      "BURL",
+      "WMT"
+    ],
+    "constructiveSupportTests": [
+      "VCEL",
+      "DLTR",
+      "CDNA",
+      "TGTX",
+      "BLMN"
+    ],
+    "movingAverageReclaimsAndStops": [
+      "OKTA",
+      "PRCH"
+    ],
+    "tradingViewWatchlist": "COGT,DKS,DE,ANF,BURL,COLM,GEN,APPN,LFST,CBRL,PGNY,XERS,OKTA,VCEL,DLTR,CDNA,HPQ,WDAY"
+  }
+}
