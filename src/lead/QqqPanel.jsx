@@ -8,6 +8,7 @@ import {
   MONO,
   RslDot,
   TierMark,
+  etClock,
   th,
   td,
   useRvolProfiles,
@@ -18,7 +19,9 @@ import {
   NDX_CONSTITUENTS,
   NDX_GROUPS,
   NDX_TICKERS,
+  buildQqqBreadthSeries,
   computeNdxInternals,
+  computeQqqBreadthTrend,
   computeQqqTechnicals,
 } from "./qqqMath.js";
 
@@ -27,10 +30,347 @@ const ALL_QUOTE_TKS = [...new Set([...BENCH_TKS, ...NDX_TICKERS])];
 const STAGE_COLOR = { 1: "#64748b", 2: "#3b82f6", 3: "#eab308", 4: "#ec4899" };
 const GROUP_COLOR = Object.fromEntries(NDX_GROUPS.map((g) => [g.id, g.color]));
 const GROUP_SHORT = { mag7: "MAG7", semi: "SEMI", soft: "SOFT", cons: "CONS", health: "HLTH", ind: "IND" };
+const BREADTH_RANGES = [
+  [63, "3M"],
+  [126, "6M"],
+  [252, "1Y"],
+  [504, "2Y"],
+  [780, "3Y"],
+];
+
+let _qqqBreadthCache = { ts: 0, rows: null, inflight: null };
+function fetchQqqBreadthHistory() {
+  const now = Date.now();
+  if (_qqqBreadthCache.rows && now - _qqqBreadthCache.ts < 10 * 60 * 1000) {
+    return Promise.resolve(_qqqBreadthCache.rows);
+  }
+  if (_qqqBreadthCache.inflight) return _qqqBreadthCache.inflight;
+  _qqqBreadthCache.inflight = fetch("/data/qqq_breadth_history.json", { cache: "no-store" })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((d) => {
+      const rows = Array.isArray(d?.history) ? d.history : [];
+      if (rows.length > 0) {
+        _qqqBreadthCache = { ts: Date.now(), rows, inflight: null };
+        return rows;
+      }
+      _qqqBreadthCache.inflight = null;
+      return _qqqBreadthCache.rows || [];
+    })
+    .catch(() => {
+      _qqqBreadthCache.inflight = null;
+      return _qqqBreadthCache.rows || [];
+    });
+  return _qqqBreadthCache.inflight;
+}
 
 const fmtPx = (v) => (typeof v === "number" && Number.isFinite(v) ? `$${v.toFixed(2)}` : "—");
 const fmtPct = (v, dg = 1) => (typeof v === "number" && Number.isFinite(v) ? `${v > 0 ? "+" : ""}${v.toFixed(dg)}%` : "—");
 const fmtBps = (v) => (typeof v === "number" && Number.isFinite(v) ? `${v > 0 ? "+" : ""}${v.toFixed(1)}` : "—");
+
+function QqqBreadthHistoryChart({ A, fullSeries, trend, range, onRange }) {
+  const [mode, setMode] = useState("ma"); // "ma" | "ad"
+  const [showQqq, setShowQqq] = useState(true);
+  const [hoverIdx, setHoverIdx] = useState(null);
+
+  const series = useMemo(
+    () => (Array.isArray(fullSeries) ? fullSeries.slice(-range) : []),
+    [fullSeries, range]
+  );
+
+  if (!series.length) {
+    return (
+      <div style={{ fontSize: 11, color: A.textMuted, padding: "8px 10px", marginTop: 8, background: A.bg, border: `1px solid ${A.border}`, borderRadius: 8 }}>
+        Loading 3-year Nasdaq-100 breadth history…
+      </div>
+    );
+  }
+
+  const W = 620, H = 178;
+  const n = series.length;
+  const padL = 34, padT = 12, padB = 22;
+  const qVals = series.map((d) => d.qqq).filter((v) => typeof v === "number" && Number.isFinite(v));
+  const hasQqq = showQqq && qVals.length >= 2;
+  const padR = hasQqq ? 42 : 10;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+  const xOf = (i) => padL + (n > 1 ? (i / (n - 1)) * plotW : plotW / 2);
+
+  // QQQ right-axis scaling
+  const qMin = hasQqq ? Math.min(...qVals) : 0;
+  const qMax = hasQqq ? Math.max(...qVals) : 1;
+  const qSpan = Math.max(qMax - qMin, 1);
+  const qLo = qMin - qSpan * 0.05;
+  const qHi = qMax + qSpan * 0.05;
+  const yQqq = (v) => padT + plotH - ((v - qLo) / (qHi - qLo)) * plotH;
+  const qqqPath = hasQqq
+    ? series.reduce((segs, d, i) => {
+        if (d.qqq == null) return segs;
+        segs.push(`${segs.length === 0 ? "M" : "L"}${xOf(i).toFixed(1)},${yQqq(d.qqq).toFixed(1)}`);
+        return segs;
+      }, []).join(" ")
+    : "";
+
+  // Left-axis scaling: 0..100% for MA mode, min..max for Cum A/D mode
+  const yPct = (v) => padT + plotH - (Math.max(0, Math.min(100, v)) / 100) * plotH;
+  const adBase = series[0]?.cumAd ?? 0;
+  const relAd = series.map((d) => (d.cumAd ?? 0) - adBase);
+  const adMin = Math.min(0, ...relAd);
+  const adMax = Math.max(0, ...relAd);
+  const adSpan = Math.max(adMax - adMin, 10);
+  const adLo = adMin - adSpan * 0.06;
+  const adHi = adMax + adSpan * 0.06;
+  const yAd = (v) => padT + plotH - ((v - adLo) / (adHi - adLo)) * plotH;
+
+  const linePath = (getter, yFn) => {
+    const segs = [];
+    for (let i = 0; i < n; i++) {
+      const v = getter(series[i], i);
+      if (v == null || !Number.isFinite(v)) continue;
+      segs.push(`${segs.length === 0 ? "M" : "L"}${xOf(i).toFixed(1)},${yFn(v).toFixed(1)}`);
+    }
+    return segs.join(" ");
+  };
+
+  const p20Path = mode === "ma" ? linePath((d) => d.p20, yPct) : "";
+  const p50Path = mode === "ma" ? linePath((d) => d.p50, yPct) : "";
+  const p200Path = mode === "ma" ? linePath((d) => d.p200, yPct) : "";
+  const ema20Path = mode === "ma" ? linePath((d) => d.p50Ema20, yPct) : "";
+  const adPath = mode === "ad" ? linePath((_, i) => relAd[i], yAd) : "";
+  const adZeroY = yAd(0);
+  const adArea = mode === "ad" && n >= 2
+    ? `${adPath} L${xOf(n - 1).toFixed(1)},${adZeroY.toFixed(1)} L${xOf(0).toFixed(1)},${adZeroY.toFixed(1)} Z`
+    : "";
+
+  const activeIdx = hoverIdx != null && hoverIdx < n ? hoverIdx : n - 1;
+  const cur = series[activeIdx];
+  const curRelAd = relAd[activeIdx];
+  const activeX = xOf(activeIdx);
+
+  const onSvgMove = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    if (!rect.width) return;
+    const svgX = ((e.clientX - rect.left) / rect.width) * W;
+    const ratio = (svgX - padL) / plotW;
+    const idx = Math.max(0, Math.min(n - 1, Math.round(ratio * (n - 1))));
+    setHoverIdx(idx);
+  };
+
+  const fmtAxisDate = (d) => (d === "Today (Live)" ? "Live" : n > 260 ? String(d || "").slice(0, 7) : String(d || "").slice(2));
+  const q1Idx = Math.floor((n - 1) * 0.25);
+  const midIdx = Math.floor((n - 1) * 0.5);
+  const q3Idx = Math.floor((n - 1) * 0.75);
+  const qqqStroke = A.text || "#f8fafc";
+  const qqqHalo = A.bg || "#0d1117";
+
+  const fmtD = (v) => (v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(1)}`);
+
+  return (
+    <div style={{ marginTop: 10, marginBottom: 12, padding: "10px 12px 8px", background: A.bg, border: `1px solid ${A.border}`, borderRadius: 8 }}>
+      {/* Top readout & controls */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 6, fontSize: 11 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontFamily: MONO, fontVariantNumeric: "tabular-nums" }}>
+          <strong style={{ color: A.text }}>{cur.date}</strong>
+          {mode === "ma" ? (
+            <>
+              <span style={{ color: "#eab308" }}>&gt;20d <strong>{cur.p20 != null ? `${cur.p20.toFixed(1)}%` : "—"}</strong></span>
+              <span style={{ color: "#3b82f6" }}>&gt;50d <strong>{cur.p50.toFixed(1)}%</strong></span>
+              <span style={{ color: "#4ade80" }}>&gt;200d <strong>{cur.p200 != null ? `${cur.p200.toFixed(1)}%` : "—"}</strong></span>
+            </>
+          ) : (
+            <>
+              <span style={{ color: curRelAd >= 0 ? "#3b82f6" : "#ec4899" }}>
+                Cum A/D <strong>{curRelAd > 0 ? `+${curRelAd}` : curRelAd}</strong>
+              </span>
+              {cur.adv != null && cur.dec != null && (
+                <span style={{ color: A.textDim }}>
+                  Day <strong style={{ color: A.green }}>{cur.adv}↑</strong>/<strong style={{ color: A.red }}>{cur.dec}↓</strong>
+                </span>
+              )}
+            </>
+          )}
+          {hasQqq && cur.qqq != null && (
+            <span style={{ color: A.text, fontWeight: 700 }}>QQQ ${cur.qqq.toFixed(2)}</span>
+          )}
+        </div>
+
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+          {[["ma", "MA %"], ["ad", "Cum A/D"]].map(([k, lbl]) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setMode(k)}
+              style={{
+                background: mode === k ? A.bgHover : "transparent",
+                border: `1px solid ${mode === k ? A.cyan : A.border}`,
+                color: mode === k ? A.cyan : A.textMuted,
+                borderRadius: 6,
+                padding: "1px 6px",
+                fontSize: 10.5,
+                fontWeight: mode === k ? 700 : 600,
+                cursor: "pointer",
+              }}
+            >
+              {lbl}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => setShowQqq((v) => !v)}
+            title="Toggle QQQ closing price overlay (right axis)"
+            style={{
+              background: showQqq ? A.bgHover : "transparent",
+              border: `1px solid ${showQqq ? A.text : A.border}`,
+              color: showQqq ? A.text : A.textMuted,
+              borderRadius: 6,
+              padding: "1px 6px",
+              fontSize: 10.5,
+              fontWeight: showQqq ? 700 : 600,
+              cursor: "pointer",
+            }}
+          >
+            QQQ
+          </button>
+          {BREADTH_RANGES.map(([days, lbl]) => (
+            <button
+              key={lbl}
+              type="button"
+              onClick={() => { setHoverIdx(null); onRange(days); }}
+              style={{
+                background: range === days ? A.bgHover : "transparent",
+                border: `1px solid ${range === days ? "#3b82f6" : A.border}`,
+                color: range === days ? "#3b82f6" : A.textMuted,
+                borderRadius: 6,
+                padding: "1px 6px",
+                fontSize: 10.5,
+                fontWeight: range === days ? 700 : 600,
+                cursor: "pointer",
+              }}
+            >
+              {lbl}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Trend deltas + 3Y percentile strip */}
+      {trend && (
+        <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 6, fontSize: 10.5, fontFamily: MONO, color: A.textMuted }}>
+          <span>
+            &gt;50d Δ:{" "}
+            {[["5d", trend.d5.p50], ["10d", trend.d10.p50], ["20d", trend.d20.p50], ["60d", trend.d60.p50]].map(([lbl, v], i) => (
+              <span key={lbl} style={{ marginLeft: i ? 6 : 0 }}>
+                {lbl} <strong style={{ color: v == null ? A.textMuted : v >= 0 ? A.green : A.red }}>{fmtD(v)}</strong>
+              </span>
+            ))}
+          </span>
+          <span title={`3-year >50d SMA range: min ${trend.min50}% · median ${trend.med}% · max ${trend.max50}% (${trend.sessions} sessions)`}>
+            3Y %ile <strong style={{ color: trend.pctile >= 60 ? A.green : trend.pctile <= 30 ? "#f59e0b" : A.text }}>{trend.pctile}th</strong>
+            <span style={{ opacity: 0.75 }}> (med {trend.med}%)</span>
+          </span>
+        </div>
+      )}
+
+      {/* SVG Plot */}
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        style={{ width: "100%", height: "auto", display: "block", cursor: "crosshair" }}
+        onMouseMove={onSvgMove}
+        onMouseLeave={() => setHoverIdx(null)}
+      >
+        {mode === "ma" ? (
+          <>
+            {/* Overbought / Midline / Oversold zones */}
+            <rect x={padL} y={padT} width={plotW} height={yPct(80) - padT} fill={A.green} fillOpacity="0.05" />
+            <rect x={padL} y={yPct(20)} width={plotW} height={padT + plotH - yPct(20)} fill="#ec4899" fillOpacity="0.06" />
+            {[80, 50, 20].map((lvl) => (
+              <g key={lvl}>
+                <line
+                  x1={padL}
+                  y1={yPct(lvl)}
+                  x2={W - padR}
+                  y2={yPct(lvl)}
+                  stroke={lvl === 50 ? A.textMuted : lvl === 80 ? A.green : "#ec4899"}
+                  strokeDasharray={lvl === 50 ? "3 3" : "2 3"}
+                  strokeOpacity={lvl === 50 ? 0.55 : 0.4}
+                />
+                <text x={padL - 5} y={yPct(lvl) + 3} textAnchor="end" fontSize="9" fill={A.textMuted} fontFamily={MONO}>
+                  {lvl}%
+                </text>
+              </g>
+            ))}
+
+            {p20Path && <path d={p20Path} fill="none" stroke="#eab308" strokeWidth="1" strokeOpacity="0.55" strokeLinejoin="round" />}
+            {p200Path && <path d={p200Path} fill="none" stroke="#4ade80" strokeWidth="1.35" strokeOpacity="0.85" strokeLinejoin="round" />}
+            {ema20Path && <path d={ema20Path} fill="none" stroke="#f472b6" strokeWidth="1.2" strokeDasharray="3 2" strokeOpacity="0.85" />}
+            {p50Path && <path d={p50Path} fill="none" stroke="#3b82f6" strokeWidth="1.8" strokeLinejoin="round" />}
+          </>
+        ) : (
+          <>
+            <line x1={padL} y1={adZeroY} x2={W - padR} y2={adZeroY} stroke={A.textMuted} strokeDasharray="3 3" strokeOpacity="0.55" />
+            <text x={padL - 5} y={padT + 8} textAnchor="end" fontSize="9" fill={A.textMuted} fontFamily={MONO}>{Math.round(adMax)}</text>
+            <text x={padL - 5} y={adZeroY + 3} textAnchor="end" fontSize="9" fill={A.textMuted} fontFamily={MONO}>0</text>
+            <text x={padL - 5} y={padT + plotH} textAnchor="end" fontSize="9" fill={A.textMuted} fontFamily={MONO}>{Math.round(adMin)}</text>
+            {adArea && <path d={adArea} fill={curRelAd >= 0 ? "#3b82f6" : "#ec4899"} fillOpacity="0.12" />}
+            {adPath && <path d={adPath} fill="none" stroke="#3b82f6" strokeWidth="1.8" strokeLinejoin="round" />}
+          </>
+        )}
+
+        {/* Right Y-axis QQQ price overlay */}
+        {hasQqq && (
+          <>
+            <text x={W - padR + 5} y={padT + 8} textAnchor="start" fontSize="9" fill={A.textDim} fontFamily={MONO}>${Math.round(qMax)}</text>
+            <text x={W - padR + 5} y={padT + plotH / 2 + 3} textAnchor="start" fontSize="9" fill={A.textMuted} fontFamily={MONO}>${Math.round((qMax + qMin) / 2)}</text>
+            <text x={W - padR + 5} y={padT + plotH} textAnchor="start" fontSize="9" fill={A.textDim} fontFamily={MONO}>${Math.round(qMin)}</text>
+            <path d={qqqPath} fill="none" stroke={qqqHalo} strokeWidth="3" strokeOpacity="0.65" strokeLinejoin="round" />
+            <path d={qqqPath} fill="none" stroke={qqqStroke} strokeWidth="1.5" strokeLinejoin="round" />
+          </>
+        )}
+
+        {/* Hover vertical crosshair & markers */}
+        <line x1={activeX} y1={padT} x2={activeX} y2={padT + plotH} stroke={A.textMuted} strokeWidth="1" strokeDasharray="2 2" strokeOpacity="0.6" />
+        {mode === "ma" ? (
+          <circle cx={activeX} cy={yPct(cur.p50)} r="3.2" fill="#3b82f6" stroke={qqqHalo} strokeWidth="1.2" />
+        ) : (
+          <circle cx={activeX} cy={yAd(curRelAd)} r="3.2" fill="#3b82f6" stroke={qqqHalo} strokeWidth="1.2" />
+        )}
+        {hasQqq && cur.qqq != null && (
+          <circle cx={activeX} cy={yQqq(cur.qqq)} r="3" fill={qqqStroke} stroke={qqqHalo} strokeWidth="1.2" />
+        )}
+
+        {/* X-axis ticks */}
+        <text x={padL} y={H - 5} textAnchor="start" fontSize="9" fill={A.textMuted} fontFamily={MONO}>{fmtAxisDate(series[0].date)}</text>
+        {n > 40 && (
+          <text x={xOf(q1Idx)} y={H - 5} textAnchor="middle" fontSize="9" fill={A.textMuted} fontFamily={MONO}>{fmtAxisDate(series[q1Idx].date)}</text>
+        )}
+        {n > 6 && (
+          <text x={xOf(midIdx)} y={H - 5} textAnchor="middle" fontSize="9" fill={A.textMuted} fontFamily={MONO}>{fmtAxisDate(series[midIdx].date)}</text>
+        )}
+        {n > 40 && (
+          <text x={xOf(q3Idx)} y={H - 5} textAnchor="middle" fontSize="9" fill={A.textMuted} fontFamily={MONO}>{fmtAxisDate(series[q3Idx].date)}</text>
+        )}
+        <text x={W - padR} y={H - 5} textAnchor="end" fontSize="9" fill={series[n - 1].isLive ? A.green : A.textMuted} fontFamily={MONO}>{fmtAxisDate(series[n - 1].date)}</text>
+      </svg>
+
+      {/* Legend */}
+      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginTop: 4, fontSize: 10, color: A.textMuted }}>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          {mode === "ma" ? (
+            <>
+              <span><span style={{ color: "#3b82f6" }}>━</span> &gt;50d SMA</span>
+              <span><span style={{ color: "#f472b6" }}>╌</span> 20d EMA (&gt;50d)</span>
+              <span><span style={{ color: "#4ade80" }}>━</span> &gt;200d SMA</span>
+              <span><span style={{ color: "#eab308" }}>━</span> &gt;20d SMA</span>
+            </>
+          ) : (
+            <span><span style={{ color: "#3b82f6" }}>━</span> NDX Cumulative A/D (window-rebased)</span>
+          )}
+          {hasQqq && <span><span style={{ color: A.text }}>━</span> QQQ (right)</span>}
+        </div>
+        <span>{n} sessions ({series[0].date} → {series[n - 1].date})</span>
+      </div>
+    </div>
+  );
+}
 
 function MiniBar({ title, pct, left, right, color, A }) {
   const safe = Number.isFinite(pct) ? Math.max(0, Math.min(100, pct)) : 0;
@@ -68,6 +408,8 @@ export default function QqqPanel({
   const { quotes, at } = useScanQuotes(ALL_QUOTE_TKS, true);
   const profiles = useRvolProfiles();
   const [qqqBars, setQqqBars] = useState([]);
+  const [breadthArchive, setBreadthArchive] = useState(() => _qqqBreadthCache.rows);
+  const [breadthRange, setBreadthRange] = useState(780); // default 3Y lookback
   const [mq, setMq] = useState(null);
   const [groupFilter, setGroupFilter] = useState("all"); // all | mag7 | semi | soft | cons | health | ind | bo | weak
   const [minAdr, setMinAdr] = useState(null);
@@ -91,6 +433,16 @@ export default function QqqPanel({
     window.addEventListener("tp-no-health", onSync);
     return () => window.removeEventListener("tp-no-health", onSync);
   }, []);
+
+  // Fetch archived 3-year Nasdaq-100 breadth history once on mount (10m module cache)
+  useEffect(() => {
+    if (breadthArchive) return;
+    let alive = true;
+    fetchQqqBreadthHistory().then((rows) => {
+      if (alive && rows) setBreadthArchive(rows);
+    });
+    return () => { alive = false; };
+  }, [breadthArchive]);
 
   // Fetch daily QQQ OHLC bars for exact 8/10/21 EMA, 50/200 SMA, ATR14, and key swing levels
   useEffect(() => {
@@ -139,6 +491,25 @@ export default function QqqPanel({
     () => computeNdxInternals({ constituents: NDX_CONSTITUENTS, stockMap, quotes, tickerLayer, profiles }),
     [stockMap, quotes, tickerLayer, profiles]
   );
+
+  const todayStr = etClock().today;
+  const breadthSeries = useMemo(
+    () => buildQqqBreadthSeries(breadthArchive, internals, tech.price, todayStr),
+    [breadthArchive, internals, tech.price, todayStr]
+  );
+  const breadthTrend = useMemo(
+    () => computeQqqBreadthTrend(breadthSeries),
+    [breadthSeries]
+  );
+  const trendColor = !breadthTrend
+    ? A.textMuted
+    : breadthTrend.tone === "good"
+      ? A.green
+      : breadthTrend.tone === "cyan"
+        ? A.cyan
+        : breadthTrend.tone === "warn"
+          ? "#f59e0b"
+          : A.red;
 
   const nqFut = useMemo(() => {
     const futs = Array.isArray(mq?.futures) ? mq.futures : [];
@@ -492,6 +863,23 @@ export default function QqqPanel({
           title={
             <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <span>Nasdaq-100 Internals &amp; Breadth</span>
+              {breadthTrend && (
+                <span
+                  title={breadthTrend.summary}
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 800,
+                    fontFamily: MONO,
+                    padding: "1px 6px",
+                    borderRadius: 4,
+                    background: `${trendColor}20`,
+                    border: `1px solid ${trendColor}77`,
+                    color: trendColor,
+                  }}
+                >
+                  {breadthTrend.label}
+                </span>
+              )}
               {spreadLabel && (
                 <span
                   title={`Top-10 weighted avg (${fmtPct(internals.top10Chg, 2)}) minus remaining holdings avg (${fmtPct(internals.restChg, 2)})`}
@@ -572,6 +960,15 @@ export default function QqqPanel({
               </div>
             </div>
           )}
+
+          {/* 3-Year Historical QQQ Breadth & Trend Chart */}
+          <QqqBreadthHistoryChart
+            A={A}
+            fullSeries={breadthSeries}
+            trend={breadthTrend}
+            range={breadthRange}
+            onRange={setBreadthRange}
+          />
 
           {/* Concentration + Top Contributors */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10, paddingTop: 8, borderTop: `1px solid ${A.border}` }}>

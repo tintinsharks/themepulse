@@ -527,3 +527,162 @@ export function computeNdxInternals({
     groupPerf,
   };
 }
+
+// Build chronological QQQ breadth series with 10d/20d EMAs of >50d SMA and running Cumulative NDX A/D.
+// Appends a "Today (Live)" point when liveInternals is provided and todayStr is newer than the archive's latest date.
+export function buildQqqBreadthSeries(archiveRows, liveInternals = null, liveQqqPx = null, todayStr = null) {
+  const clean = [];
+  let lastDate = null;
+  for (const r of Array.isArray(archiveRows) ? archiveRows : []) {
+    if (!r?.date || typeof r.p50 !== "number" || !Number.isFinite(r.p50)) continue;
+    lastDate = r.date;
+    clean.push({
+      date: r.date,
+      qqq: typeof r.qqq === "number" && Number.isFinite(r.qqq) ? r.qqq : null,
+      p20: typeof r.p20 === "number" && Number.isFinite(r.p20) ? r.p20 : null,
+      p50: r.p50,
+      p200: typeof r.p200 === "number" && Number.isFinite(r.p200) ? r.p200 : null,
+      adv: typeof r.adv === "number" && Number.isFinite(r.adv) ? r.adv : null,
+      dec: typeof r.dec === "number" && Number.isFinite(r.dec) ? r.dec : null,
+      isLive: false,
+    });
+  }
+
+  if (liveInternals && liveInternals.count >= 60 && todayStr && lastDate !== todayStr) {
+    clean.push({
+      date: "Today (Live)",
+      qqq: typeof liveQqqPx === "number" && Number.isFinite(liveQqqPx) ? +liveQqqPx.toFixed(2) : null,
+      p20: +liveInternals.ma20.pct.toFixed(1),
+      p50: +liveInternals.ma50.pct.toFixed(1),
+      p200: +liveInternals.ma200.pct.toFixed(1),
+      adv: liveInternals.adv,
+      dec: liveInternals.dec,
+      isLive: true,
+    });
+  }
+
+  if (!clean.length) return [];
+
+  const k10 = 2 / 11;
+  const k20 = 2 / 21;
+  let e10 = clean[0].p50;
+  let e20 = clean[0].p50;
+  let cumAd = 0;
+
+  return clean.map((r, i) => {
+    if (i > 0) {
+      e10 = r.p50 * k10 + e10 * (1 - k10);
+      e20 = r.p50 * k20 + e20 * (1 - k20);
+    }
+    const net = r.adv != null && r.dec != null ? r.adv - r.dec : 0;
+    cumAd += net;
+    return {
+      ...r,
+      net,
+      cumAd,
+      p50Ema10: +e10.toFixed(1),
+      p50Ema20: +e20.toFixed(1),
+    };
+  });
+}
+
+function linSlope(vals) {
+  const n = vals.length;
+  if (n < 2) return 0;
+  let sx = 0, sy = 0, sxy = 0, sxx = 0;
+  for (let i = 0; i < n; i++) {
+    sx += i;
+    sy += vals[i];
+    sxy += i * vals[i];
+    sxx += i * i;
+  }
+  const denom = n * sxx - sx * sx;
+  return denom ? +((n * sxy - sx * sy) / denom).toFixed(2) : 0;
+}
+
+// Classify QQQ breadth trend (UPTREND / BOUNCE HOOK / ROLLING OVER / DOWNTREND)
+// using short-term momentum (5d), intermediate trend (20d slope & EMA), and 3Y percentile context.
+export function computeQqqBreadthTrend(series) {
+  if (!Array.isArray(series) || series.length < 5) return null;
+  const n = series.length;
+  const cur = series[n - 1];
+  const back = (k) => series[Math.max(0, n - 1 - k)];
+  const delta = (k, field) => {
+    const a = cur[field];
+    const b = back(k)[field];
+    return a != null && b != null ? +(a - b).toFixed(1) : null;
+  };
+
+  const d5 = { p20: delta(5, "p20"), p50: delta(5, "p50"), p200: delta(5, "p200") };
+  const d10 = { p20: delta(10, "p20"), p50: delta(10, "p50"), p200: delta(10, "p200") };
+  const d20 = { p20: delta(20, "p20"), p50: delta(20, "p50"), p200: delta(20, "p200") };
+  const d60 = { p20: delta(60, "p20"), p50: delta(60, "p50"), p200: delta(60, "p200") };
+
+  const tail20 = series.slice(-20).map((r) => r.p50).filter((v) => v != null);
+  const slope20 = linSlope(tail20);
+  const tail5 = series.slice(-5).map((r) => r.p50).filter((v) => v != null);
+  const slope5 = linSlope(tail5);
+
+  const all50 = series.map((r) => r.p50).filter((v) => v != null).sort((a, b) => a - b);
+  const pctile = all50.length
+    ? Math.round((all50.filter((x) => x <= cur.p50).length / all50.length) * 100)
+    : null;
+  const med = all50.length ? all50[Math.floor(all50.length / 2)] : null;
+  const min50 = all50.length ? all50[0] : null;
+  const max50 = all50.length ? all50[all50.length - 1] : null;
+
+  // Recent 5d trough for detecting sharp bounce hooks off oversold lows
+  const minRecent20 = Math.min(...series.slice(-6).map((r) => r.p20 ?? 100));
+  const bounce20 = cur.p20 != null ? +(cur.p20 - minRecent20).toFixed(1) : 0;
+
+  let state = "DOWNTREND";
+  let label = "Breadth Downtrend";
+  let tone = "bad";
+  let summary = `>50d SMA at ${cur.p50}% (below 50% & 20d EMA ${cur.p50Ema20}%)`;
+
+  if (cur.p50 >= 50 && cur.p50 >= cur.p50Ema20 && slope20 >= 0 && (d10.p50 ?? 0) > -6) {
+    state = "UPTREND";
+    label = "Breadth Uptrend";
+    tone = "good";
+    summary = `>50d SMA at ${cur.p50}% — above 50% & rising 20d EMA (${cur.p50Ema20}%)`;
+  } else if (cur.p50 >= 50) {
+    state = "ROLLING_OVER";
+    label = "Breadth Rolling Over";
+    tone = "warn";
+    summary = `>50d SMA still ${cur.p50}% but softening vs 10d/20d trend (${d10.p50 >= 0 ? "+" : ""}${d10.p50} pts 10d)`;
+  } else if (bounce20 >= 12 || ((d5.p50 ?? 0) >= 4 && cur.p50 >= cur.p50Ema10)) {
+    state = "BOUNCE_HOOK";
+    label = "Downtrend · Hook Up";
+    tone = "cyan";
+    summary = `Intermediate trend down (${cur.p50}% < 50%), short-term hook (+${bounce20} pts off 5d >20d low)`;
+  } else {
+    state = "DOWNTREND";
+    label = "Breadth Downtrend";
+    tone = "bad";
+    summary = `>50d SMA at ${cur.p50}% — below 50% with negative 20d slope (${slope20}%/d)`;
+  }
+
+  return {
+    state,
+    label,
+    tone,
+    summary,
+    date: cur.date,
+    p20: cur.p20,
+    p50: cur.p50,
+    p200: cur.p200,
+    p50Ema10: cur.p50Ema10,
+    p50Ema20: cur.p50Ema20,
+    slope5,
+    slope20,
+    d5,
+    d10,
+    d20,
+    d60,
+    pctile,
+    med,
+    min50,
+    max50,
+    sessions: n,
+  };
+}

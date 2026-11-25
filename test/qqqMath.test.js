@@ -1,12 +1,19 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   NDX_CONSTITUENTS,
+  buildQqqBreadthSeries,
   computeAtr14,
   computeNdxInternals,
   computeNdxWeights,
+  computeQqqBreadthTrend,
   computeQqqTechnicals,
 } from "../src/lead/qqqMath.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 test("computeNdxWeights normalizes weights to ~100%, caps single names, and splits GOOGL/GOOG", () => {
   const sample = [
@@ -92,4 +99,44 @@ test("computeNdxInternals computes live breadth, thrust, bps contribution, and m
   assert.equal(nvdaRow.isBreakout, true);
   const amgnRow = res.rows.find((r) => r.ticker === "AMGN");
   assert.equal(amgnRow.isHealth, true);
+});
+
+test("buildQqqBreadthSeries and computeQqqBreadthTrend classify uptrend, downtrend, bounce hook, and validate 3Y archive", () => {
+  // Rising breadth -> UPTREND
+  const rising = Array.from({ length: 25 }, (_, i) => ({
+    date: `2026-01-${String((i % 28) + 1).padStart(2, "0")}`,
+    qqq: 500 + i * 2,
+    p20: 45 + i * 1.5,
+    p50: 42 + i * 1.2,
+    p200: 55 + i * 0.5,
+    adv: 65,
+    dec: 35,
+  }));
+  const upTrend = computeQqqBreadthTrend(buildQqqBreadthSeries(rising));
+  assert.equal(upTrend.state, "UPTREND");
+  assert.ok(upTrend.slope20 > 0);
+
+  // Falling breadth -> DOWNTREND
+  const falling = Array.from({ length: 25 }, (_, i) => ({
+    date: `2026-02-${String((i % 28) + 1).padStart(2, "0")}`,
+    qqq: 550 - i * 2,
+    p20: 60 - i * 2,
+    p50: 62 - i * 1.5,
+    p200: 60 - i * 0.8,
+    adv: 30,
+    dec: 70,
+  }));
+  const dnTrend = computeQqqBreadthTrend(buildQqqBreadthSeries(falling));
+  assert.equal(dnTrend.state, "DOWNTREND");
+  assert.ok(dnTrend.slope20 < 0);
+
+  // Validate real 3-year backfilled archive (750+ sessions)
+  const histPath = path.resolve(__dirname, "../public/data/qqq_breadth_history.json");
+  const disk = JSON.parse(fs.readFileSync(histPath, "utf8"));
+  assert.ok(Array.isArray(disk.history) && disk.history.length >= 700, "3Y QQQ breadth archive should have 700+ sessions");
+  const series = buildQqqBreadthSeries(disk.history);
+  assert.equal(series.length, disk.history.length);
+  const trend = computeQqqBreadthTrend(series);
+  assert.ok(["UPTREND", "ROLLING_OVER", "BOUNCE_HOOK", "DOWNTREND"].includes(trend.state));
+  assert.ok(trend.pctile >= 0 && trend.pctile <= 100);
 });
