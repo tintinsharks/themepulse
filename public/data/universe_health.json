@@ -1,6 +1,6 @@
 {
- "generated": "2026-11-24T23:05",
- "universe": 2985,
+ "generated": "2026-11-25T11:13",
+ "universe": 2989,
  "in_layer": 2436,
  "layers": 161,
  "checks": [
@@ -101,8 +101,8 @@
    "label": "Listings 2\u201312 months old with no RS rank",
    "count": 5,
    "items": [
-    "YSS(2026-01-29)",
     "EMAT(2026-01-06)",
+    "YSS(2026-01-29)",
     "CMCSV(2025-12-15)",
     "VSNTV(2025-12-15)",
     "AACI(2026-03-27)"
@@ -124,7 +124,7 @@
   {
    "id": "stale_prices",
    "label": "Liquid names whose price history is behind 2026-11-24",
-   "count": 8,
+   "count": 7,
    "items": [
     "BIPC",
     "BKH",
@@ -132,7 +132,6 @@
     "LAC",
     "MSGS",
     "RCAT",
-    "TCBI",
     "UTZ"
    ],
    "status": "ok",
