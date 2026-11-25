@@ -1,0 +1,419 @@
+{
+  "id": "brief-2026-11-25-am",
+  "date": "2026-11-25",
+  "session": "am",
+  "label": "Premarket Brief — Nov 25, 2026",
+  "headline": "VIX Tops 31.50 as Hot 3.3% Core PCE & 4.3% Q3 GDP Compound AI Hardware Selloff (DELL -7.9%, MU -8.6%); VCEL (+0.7%) & DLTR (+0.3%) Show Elite Relative Strength",
+  "regime": {
+    "posture": "Selective / Defensive Exposure (35%–50% Equity)",
+    "breadth": {
+      "leadingLayers": 14,
+      "breakingDownLayers": 13,
+      "emergingLayers": 5,
+      "weakeningLayers": 8,
+      "netSpread": 1
+    },
+    "indexes": {
+      "SPY": {
+        "premarketPrice": 703.86,
+        "changePct": -2.08,
+        "priorClose": 718.78,
+        "sma21": 716.5,
+        "sma50": 708.1,
+        "above21d": false,
+        "above50d": false,
+        "distributionDays": 4
+      },
+      "QQQ": {
+        "premarketPrice": 617.46,
+        "changePct": -3.23,
+        "priorClose": 638.1,
+        "sma21": 646.8,
+        "sma50": 639.2,
+        "above21d": false,
+        "above50d": false
+      },
+      "IWM": {
+        "premarketPrice": 263.39,
+        "changePct": -1.4,
+        "priorClose": 267.14,
+        "sma21": 265.2,
+        "sma50": 261.4,
+        "above21d": false,
+        "above50d": true
+      }
+    }
+  },
+  "macroTape": {
+    "VIX": {
+      "value": 31.5,
+      "changePct": 19.5,
+      "note": "Above 30 threshold on PCE/tariff hedging; use 0.5x pilot sizing"
+    },
+    "US10Y": {
+      "value": 4.86,
+      "changeBps": -6,
+      "note": "2-week low on flight-to-safety bid despite 96% Dec Fed hike odds"
+    },
+    "WTI": {
+      "value": 80.74,
+      "changePct": 0.71,
+      "change1MPct": -20.6,
+      "note": "-21% 1M drop remains a margin tailwind for Discount & Apparel Retail"
+    },
+    "DXY": {
+      "value": 103.98,
+      "changePct": 0.16,
+      "note": "Firmed slightly after Q3 GDP revised up to +4.3% SAAR and Section 301 tariff headlines"
+    }
+  },
+  "focusSetups": [
+    {
+      "ticker": "VCEL",
+      "grade": "A+",
+      "theme": "Biotech",
+      "premarketPrice": 61.6,
+      "premarketChangePct": 0.69,
+      "priorClose": 61.18,
+      "baseStageTag": "Early Stage 2 Flat Base Breakout / W+D Aligned / RS Line New 52W High",
+      "groupConfirmation": "Confirmed (AMGN +0.38%, MRK +0.32%, TGTX)",
+      "dollarVolM": 45.1,
+      "shortInterestPct": 6.4,
+      "daysToCover": 4.2,
+      "rs": 97,
+      "eps": 87,
+      "pivot": 58.8,
+      "buyZoneMax": 61.74,
+      "support10d": 58.65,
+      "support21d": 57.25,
+      "support50d": 54.9,
+      "stop": 54.68,
+      "adrPct": 3.8,
+      "rvol": 2.6,
+      "priorDcrPct": 97
+    },
+    {
+      "ticker": "COLM",
+      "grade": "A+",
+      "theme": "Luxury + Apparel",
+      "premarketPrice": 77.69,
+      "premarketChangePct": -0.32,
+      "priorClose": 77.94,
+      "baseStageTag": "Early Stage 2 Flat Base Breakout / W+D Aligned / RS Line New High",
+      "groupConfirmation": "Confirmed (BURL +0.84%, DKS, WWW)",
+      "dollarVolM": 26.2,
+      "shortInterestPct": 5.8,
+      "daysToCover": 4.6,
+      "rs": 94,
+      "eps": 80,
+      "pivot": 76,
+      "buyZoneMax": 79.8,
+      "support10d": 75.8,
+      "support21d": 74.5,
+      "support50d": 71.95,
+      "stop": 70.68,
+      "adrPct": 3.4,
+      "rvol": 3.1,
+      "priorDcrPct": 78
+    },
+    {
+      "ticker": "DLTR",
+      "grade": "A-",
+      "theme": "Discount & Variety Retail",
+      "premarketPrice": 155.15,
+      "premarketChangePct": 0.32,
+      "priorClose": 154.65,
+      "baseStageTag": "Stage 2 Multi-Month Base EP Breakout / W+D Aligned / RS Line New High",
+      "groupConfirmation": "Confirmed (WMT +0.22%, BURL +0.84%)",
+      "dollarVolM": 540,
+      "shortInterestPct": 4.1,
+      "daysToCover": 2.3,
+      "rs": 83,
+      "eps": 85,
+      "pivot": 148.54,
+      "buyZoneMax": 155.97,
+      "support10d": 144.2,
+      "support21d": 141.1,
+      "support50d": 138.5,
+      "stop": 143.82,
+      "adrPct": 3.2,
+      "rvol": 4.9,
+      "priorDcrPct": 76
+    },
+    {
+      "ticker": "A",
+      "grade": "A-",
+      "theme": "MedTech & Life Sciences Tools",
+      "premarketPrice": 182,
+      "premarketChangePct": -0.83,
+      "priorClose": 183.52,
+      "baseStageTag": "Stage 1-to-2 Earnings EP Reclaim / W+D Aligned / Coiling 0.5% Below Pivot",
+      "groupConfirmation": "Confirmed (CDNA, MRK +0.32%)",
+      "dollarVolM": 315.4,
+      "shortInterestPct": 1.9,
+      "daysToCover": 2.1,
+      "rs": 84,
+      "eps": 88,
+      "pivot": 182.99,
+      "buyZoneMax": 192.14,
+      "support10d": 177.2,
+      "support21d": 174.8,
+      "support50d": 171.3,
+      "stop": 179.29,
+      "adrPct": 2.9,
+      "rvol": 3.1,
+      "priorDcrPct": 44
+    },
+    {
+      "ticker": "DKS",
+      "grade": "A-",
+      "theme": "Specialty & Apparel Retail",
+      "premarketPrice": 153.05,
+      "premarketChangePct": -0.08,
+      "priorClose": 153.17,
+      "baseStageTag": "Stage 2 Earnings EP Breakout + Guidance Raise / Coiling 0.5% Below Pivot",
+      "groupConfirmation": "Confirmed (COLM, BURL +0.84%)",
+      "dollarVolM": 390,
+      "shortInterestPct": 6.8,
+      "daysToCover": 3.4,
+      "rs": 81,
+      "eps": 89,
+      "pivot": 153.85,
+      "buyZoneMax": 161.54,
+      "support10d": 141.5,
+      "support21d": 138.9,
+      "support50d": 136.4,
+      "stop": 142.45,
+      "adrPct": 3.5,
+      "rvol": 5.2,
+      "priorDcrPct": 82
+    },
+    {
+      "ticker": "XERS",
+      "grade": "A-",
+      "theme": "Specialty Pharma",
+      "premarketPrice": 17.58,
+      "premarketChangePct": -0.62,
+      "priorClose": 17.69,
+      "baseStageTag": "Stage 2 Cup-with-Handle Breakout / W+D Aligned / RS Line New High",
+      "groupConfirmation": "Confirmed (VCEL +0.69%, ETON)",
+      "dollarVolM": 27.6,
+      "shortInterestPct": 8.2,
+      "daysToCover": 5.1,
+      "rs": 99,
+      "eps": 74,
+      "pivot": 17.04,
+      "buyZoneMax": 17.89,
+      "support10d": 17,
+      "support21d": 16.4,
+      "support50d": 15.25,
+      "stop": 16.29,
+      "adrPct": 4.4,
+      "rvol": 2.7,
+      "priorDcrPct": 22
+    },
+    {
+      "ticker": "PRCH",
+      "grade": "B+",
+      "theme": "Enterprise Software",
+      "premarketPrice": 22,
+      "premarketChangePct": -0.09,
+      "priorClose": 22.02,
+      "baseStageTag": "Stage 2 Flat Base Handle / W+D Aligned / RS Line New High",
+      "groupConfirmation": "Solo / Diverging (Holding flat while WDAY -5.12% & ADSK -5.28% gap down)",
+      "dollarVolM": 38.4,
+      "shortInterestPct": 9.4,
+      "daysToCover": 4.8,
+      "rs": 96,
+      "eps": 80,
+      "pivot": 22.36,
+      "buyZoneMax": 23.48,
+      "support10d": 21.25,
+      "support21d": 20.45,
+      "support50d": 18.95,
+      "stop": 20.48,
+      "adrPct": 4.8,
+      "rvol": 3.5,
+      "priorDcrPct": 60
+    },
+    {
+      "ticker": "PGNY",
+      "grade": "A-",
+      "theme": "Healthcare Services",
+      "premarketPrice": 36.31,
+      "premarketChangePct": -0.47,
+      "priorClose": 36.48,
+      "baseStageTag": "Early Stage 2 Cup-with-Handle Coiling / W+D Aligned",
+      "groupConfirmation": "Confirmed (LFST -0.07%, VCEL +0.69%)",
+      "dollarVolM": 34.8,
+      "shortInterestPct": 7.6,
+      "daysToCover": 4.5,
+      "rs": 91,
+      "eps": 83,
+      "pivot": 36.5,
+      "buyZoneMax": 38.33,
+      "support10d": 35.6,
+      "support21d": 34.75,
+      "support50d": 33.1,
+      "stop": 33.95,
+      "adrPct": 3.6,
+      "rvol": 2.1,
+      "priorDcrPct": 71
+    }
+  ],
+  "extendedMovers": [
+    {
+      "ticker": "TGTX",
+      "premarketPrice": 69.7,
+      "changePct": -0.61,
+      "pivot": 65.5,
+      "extensionAbovePivotPct": 6.41,
+      "note": "Hold core; +6.4% above $65.50 pivot after Tuesday's $71.24 52W high"
+    },
+    {
+      "ticker": "ETON",
+      "premarketPrice": 66.71,
+      "changePct": -1.13,
+      "pivot": 62.5,
+      "extensionAbovePivotPct": 6.74,
+      "note": "Hold core; +6.7% above $62.50 pivot"
+    },
+    {
+      "ticker": "CDNA",
+      "premarketPrice": 77.45,
+      "changePct": -0.49,
+      "pivot": 72.5,
+      "extensionAbovePivotPct": 6.83,
+      "note": "Hold core; +6.8% above $72.50 pivot"
+    },
+    {
+      "ticker": "LI",
+      "premarketPrice": 11.4,
+      "changePct": 6.54,
+      "note": "Q3 EPS/rev beat and Q4 revenue guide $4.7B-$4.9B; Stage 4 laggard"
+    },
+    {
+      "ticker": "HPQ",
+      "premarketPrice": 29.31,
+      "changePct": 4.9,
+      "note": "Q4 rev +9.3% to $16.0B, EPS $0.83 vs $0.75 est, FY27 EPS guide $3.15-$3.45"
+    }
+  ],
+  "breakdowns": [
+    {
+      "ticker": "AMBA",
+      "premarketPrice": 31.5,
+      "changePct": -29.17,
+      "catalyst": "Q4 revenue guided down to $70M-$75M on memory shortages and customer order cuts"
+    },
+    {
+      "ticker": "NTNX",
+      "premarketPrice": 46.8,
+      "changePct": -14.27,
+      "catalyst": "Board launched search to replace CEO Rajiv Ramaswami despite Q1 beat"
+    },
+    {
+      "ticker": "GDRX",
+      "premarketPrice": 2.62,
+      "changePct": -12.67,
+      "catalyst": "Reversed Tuesday's after-hours spike on delayed 10-Q filing digestion"
+    },
+    {
+      "ticker": "URBN",
+      "premarketPrice": 77.11,
+      "changePct": -9.9,
+      "catalyst": "Q4 holiday promotional margin warnings outweighed record $1.67B Q3 sales"
+    },
+    {
+      "ticker": "MU",
+      "premarketPrice": 576.22,
+      "changePct": -8.55,
+      "catalyst": "AI memory & semiconductor hardware selloff enters Day 2"
+    },
+    {
+      "ticker": "DELL",
+      "premarketPrice": 272.06,
+      "changePct": -7.86,
+      "catalyst": "Slew of PT cuts on DRAM/NAND cost inflation and AI multiple compression despite $54.9B Q3 rev and $132.3B AI backlog"
+    },
+    {
+      "ticker": "NVDA",
+      "premarketPrice": 146.41,
+      "changePct": -5.77,
+      "catalyst": "Semiconductor hardware selloff and tariff headlines"
+    },
+    {
+      "ticker": "SMTC",
+      "premarketPrice": 81.5,
+      "changePct": -5.74,
+      "catalyst": "Continued post-earnings breakdown below 50-day SMA"
+    },
+    {
+      "ticker": "ADSK",
+      "premarketPrice": 242.2,
+      "changePct": -5.28,
+      "catalyst": "Enterprise software multiple compression despite Q3 beat"
+    },
+    {
+      "ticker": "HPE",
+      "premarketPrice": 38.1,
+      "changePct": -5.2,
+      "catalyst": "Continued institutional selling after server margin and memory shortage warning"
+    },
+    {
+      "ticker": "WDAY",
+      "premarketPrice": 170.06,
+      "changePct": -5.12,
+      "catalyst": "cRPO deceleration worries despite Q3 subscription beat"
+    },
+    {
+      "ticker": "OKTA",
+      "premarketPrice": 188.54,
+      "changePct": -4.84,
+      "catalyst": "Gapping below 50-day SMA ($192.80) and $191.46 tracker entry ahead of Dec 1 AMC earnings"
+    },
+    {
+      "ticker": "DE",
+      "premarketPrice": 593,
+      "changePct": -3.38,
+      "catalyst": "Q4 EPS $3.89 missed $4.03-$4.07 consensus (-4.42% surprise), snapping 6-quarter beat streak; FY27 net income guided to $4.50B-$5.25B"
+    }
+  ],
+  "radar": [
+    {
+      "date": "2026-11-25",
+      "event": "8:30 AM ET Q3 GDP 2nd Est (+4.3% actual vs +3.5% est) & Oct Core PCE (+3.3% YoY actual vs +3.2% est); 10:00 AM ET Oct New Home Sales & DE Earnings Call; 2:00 PM ET Fed Beige Book"
+    },
+    {
+      "date": "2026-11-26",
+      "event": "Thanksgiving Day — U.S. Stock & Bond Markets Closed"
+    },
+    {
+      "date": "2026-11-27",
+      "event": "Black Friday — U.S. Equities Early Close at 1:00 PM ET (10:00 AM PT); Holiday Retail Traffic Read-Through"
+    },
+    {
+      "date": "2026-12-01",
+      "event": "OKTA Reports AMC (3.5 trading days away; Options-Implied Move ±15.4% to ±19.8%); MRVL Reports AMC (Options-Implied Move ±13.97% to ±16.8%); 10:00 AM ET Nov ISM Manufacturing PMI"
+    }
+  ],
+  "skipTraps": [
+    {
+      "ticker": "INSM",
+      "reason": "Buyout-capped at $175.00/sh cash by Sanofi ($170.18 PM; 2.83% arb spread)"
+    },
+    {
+      "ticker": "EMBC",
+      "reason": "Climax/mean-reversion risk (+34% above 50d SMA after +40.64% 1-day squeeze on lower FY27 EPS guide)"
+    },
+    {
+      "ticker": "KSS",
+      "reason": "Extended +21% above 50d SMA ($24.70 PM, -2.49%) on low-quality one-time tariff/tax Q3 beat"
+    },
+    {
+      "ticker": "GDRX",
+      "reason": "Sub-$5 whipsaw trap ($2.62 PM, -12.67% round-trip from $3.99 AH spike)"
+    }
+  ],
+  "tradingViewWatchlist": "VCEL,COLM,DLTR,A,DKS,XERS,PRCH,PGNY,AMTM,COGT,LTH,CBRL,BLMN,WMT,BURL,TGTX,ETON,CDNA,LFST,MRK"
+}
