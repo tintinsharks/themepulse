@@ -604,6 +604,7 @@ export default function LeadershipView({
                 chartTicker={chartTicker}
                 tickerLayer={tickerLayer}
                 onLayer={layerOfTicker}
+                indexQuotes={indexQuotes}
               />
             ) : view === "qqq" ? (
               <QqqPanel
