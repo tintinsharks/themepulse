@@ -1,7 +1,7 @@
 // Pure scan rules for ScannerPanel: 5 Elite Relative Strength scans + 9 classic momentum/Stockbee scans.
 // Kept React/DOM-free so every filter rule can be unit-tested directly under Node.
 
-import { pinReason, rsLeads } from "./math.js";
+import { isEliteRs, pinReason, rsLeads } from "./math.js";
 
 export const ELITE_RS_SCANS = [
   ["rs95", "RS 95+ Elite", "#fbbf24"],
@@ -73,7 +73,7 @@ export function evalScanHits(s, q = null, zvr = null) {
 
   // ── Elite RS Scans ──────────────────────────────────────────────────────
   // 1. Raw Elite RS >= 95
-  if (liquidRs && rs >= 95 && above50) {
+  if (isEliteRs(s, q)) {
     out.rs95 = true;
   }
 

@@ -13,6 +13,7 @@ import {
   zvrFor,
   pinReason,
   rsLeads,
+  isEliteRs,
   computeTiers,
   epsGrowth,
   withEpsRating,
@@ -133,16 +134,32 @@ test("pinReason, rsLeads, and computeTiers classify leaders and emerging stocks"
   assert.equal(rsLeads({ rsl_hi_ago: 0, off_52w_high: -8, change_pct: -0.5 }), null);
 
   const stockMap = {
-    LEAD1: { ticker: "LEAD1", avg_dollar_vol_raw: 50e6, above_50ma: true, rs_rank: 95, off_52w_high: -5, adr20: 4 },
-    PIN1: { ticker: "PIN1", avg_dollar_vol_raw: 50e6, above_50ma: true, rs_rank: 95, off_52w_high: -1, adr20: 0.4 },
-    EMRG1: { ticker: "EMRG1", avg_dollar_vol_raw: 50e6, above_50ma: true, rs_rank: 82, off_52w_high: -4, adr20: 4 },
-    ILLIQ: { ticker: "ILLIQ", avg_dollar_vol_raw: 5e6, above_50ma: true, rs_rank: 99, off_52w_high: -2, adr20: 4 },
+    LEAD1: { ticker: "LEAD1", close: 85, avg_dollar_vol_raw: 50e6, above_50ma: true, rs_rank: 95, off_52w_high: -5, adr20: 4 },
+    LEAD92: { ticker: "LEAD92", close: 60, avg_dollar_vol_raw: 50e6, above_50ma: true, rs_rank: 92, off_52w_high: -5, adr20: 4 },
+    ELITE_PB: { ticker: "ELITE_PB", close: 40, avg_dollar_vol_raw: 50e6, above_50ma: true, rs_rank: 97, off_52w_high: -28, adr20: 5 },
+    PENNY: { ticker: "PENNY", close: 3.5, avg_dollar_vol_raw: 50e6, above_50ma: true, rs_rank: 98, off_52w_high: -2, adr20: 6 },
+    PIN1: { ticker: "PIN1", close: 50, avg_dollar_vol_raw: 50e6, above_50ma: true, rs_rank: 95, off_52w_high: -1, adr20: 0.4 },
+    EMRG1: { ticker: "EMRG1", close: 45, avg_dollar_vol_raw: 50e6, above_50ma: true, rs_rank: 82, off_52w_high: -4, adr20: 4 },
+    ILLIQ: { ticker: "ILLIQ", close: 20, avg_dollar_vol_raw: 5e6, above_50ma: true, rs_rank: 99, off_52w_high: -2, adr20: 4 },
   };
+  assert.equal(isEliteRs(stockMap.LEAD1), true);
+  assert.equal(isEliteRs(stockMap.ELITE_PB), true);
+  assert.equal(isEliteRs(stockMap.LEAD92), false);
+  assert.equal(isEliteRs(stockMap.PENNY), false);
+  assert.equal(isEliteRs(stockMap.PIN1), false);
+  assert.equal(isEliteRs(stockMap.ILLIQ), false);
+
   const tiers = computeTiers(stockMap, { EMRG1: { st: "lead" } });
   assert.equal(tiers.leaders.has("LEAD1"), true);
   assert.equal(tiers.leaders.has("PIN1"), false);
   assert.equal(tiers.leaders.has("ILLIQ"), false);
   assert.equal(tiers.emerging.has("EMRG1"), true);
+  assert.equal(tiers.eliteRs.has("LEAD1"), true);
+  assert.equal(tiers.eliteRs.has("ELITE_PB"), true);
+  assert.equal(tiers.eliteRs.has("LEAD92"), false);
+  assert.equal(tiers.eliteRs.has("PENNY"), false);
+  assert.equal(tiers.eliteRs.has("PIN1"), false);
+  assert.equal(tiers.eliteRs.has("ILLIQ"), false);
 });
 
 test("epsGrowth and withEpsRating rank faster growers higher and flag acceleration", () => {

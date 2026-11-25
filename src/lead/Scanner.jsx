@@ -308,6 +308,7 @@ function ScannerPanel({ A, stockMap, onTicker, chartTicker, tickerLayer, onLayer
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 8, paddingBottom: 7, borderBottom: `1px solid ${A.border}` }}>
         <div style={{ fontSize: 10.5, color: A.textMuted, flex: "1 1 260px" }}>
           {SCAN_NOTES[scan]}
+          {" "}· <span style={{ color: "#fbbf24" }}>●</span> Elite RS (≥95)
           {" "}· <span style={{ color: A.blue || "#3b82f6" }}>●</span> RS line new 52w high before price
         </div>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0 }}>

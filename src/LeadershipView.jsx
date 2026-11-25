@@ -52,6 +52,7 @@ function lazyWithReload(load) {
 const BriefPanel = lazyWithReload(() => import("./lead/Brief.jsx"));
 const QqqPanel = lazyWithReload(() => import("./lead/QqqPanel.jsx"));
 const ScannerPanel = lazyWithReload(() => import("./lead/Scanner.jsx"));
+const OptionsPanel = lazyWithReload(() => import("./lead/OptionsPanel.jsx"));
 
 const SPLIT_STORAGE_KEY = "tp-split-pct";
 const SPLIT_MIN = 38;
@@ -605,6 +606,15 @@ export default function LeadershipView({
                 tickerLayer={tickerLayer}
                 onLayer={layerOfTicker}
                 indexQuotes={indexQuotes}
+              />
+            ) : view === "options" ? (
+              <OptionsPanel
+                A={A}
+                stockMap={stockMapX}
+                portfolio={portfolio}
+                watchlist={watchlist}
+                chartTicker={chartTicker}
+                onTicker={onTickerClick}
               />
             ) : view === "qqq" ? (
               <QqqPanel

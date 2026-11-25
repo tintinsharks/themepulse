@@ -401,17 +401,34 @@ export function rsLeads(s) {
   return `RS line at a new 52-week high on ${s.change_pct > 0 ? `a +${s.change_pct.toFixed(1)}%` : "an unchanged"} close while price is ${off.toFixed(1)}% off its high — RS leading price`;
 }
 
+// Elite Relative Strength: top 5% of market (RS >= 95), above 50d SMA,
+// liquid ($20M+ avg $vol, price >= $5 when known), and not buyout-pinned.
+export function isEliteRs(s, q = null) {
+  if (!s) return false;
+  if (pinReason(s)) return false;
+  const c = q?.rthPrice ?? q?.price ?? s.close ?? s.price;
+  if (c != null && Number.isFinite(c) && c < 5) return false;
+  const av = s.avg_volume_raw || 0;
+  const adv = s.avg_dollar_vol_raw || (c ? av * c : 0);
+  if (adv < 20e6) return false;
+  if ((s.rs_rank ?? 0) < 95) return false;
+  const sma50 = s.sma50_lvl && c ? ((c / s.sma50_lvl) - 1) * 100 : s.sma50_pct;
+  return sma50 != null ? sma50 > 0 : Boolean(s.above_50ma);
+}
+
 export function computeTiers(stockMap, tickerLayer) {
-  const leaders = new Set(), em = [];
+  const leaders = new Set(), eliteRs = new Set(), em = [];
   Object.values(stockMap || {}).forEach((s) => {
-    if (!s?.ticker || (s.avg_dollar_vol_raw ?? 0) < 20e6 || !s.above_50ma) return;
+    if (!s?.ticker) return;
+    if (isEliteRs(s)) eliteRs.add(s.ticker);
+    if ((s.avg_dollar_vol_raw ?? 0) < 20e6 || !s.above_50ma) return;
     const rs = s.rs_rank ?? 0, off = s.off_52w_high ?? -100;
     if (rs >= 90 && off >= -25 && !pinReason(s)) { leaders.add(s.ticker); return; }
     const st = tickerLayer?.[s.ticker]?.st;
     if (rs >= 75 && (st === "lead" || st === "emerg") && (off >= -8 || s.rs_line_new_high || rsLeads(s))) em.push(s);
   });
   em.sort((a, b) => (b.rs_rank ?? 0) - (a.rs_rank ?? 0) || (b.off_52w_high ?? -100) - (a.off_52w_high ?? -100));
-  return { leaders, emerging: new Set(em.slice(0, 40).map((s) => s.ticker)) };
+  return { leaders, emerging: new Set(em.slice(0, 40).map((s) => s.ticker)), eliteRs };
 }
 
 export const EPS_TIP = "O'Neil-style EPS Rating 1-99: last two quarters' year-over-year EPS growth + 3-year annual growth, ranked vs the universe. ▲ = growth accelerating 3 quarters running";

@@ -7,6 +7,7 @@ import liveHandler from "../api/live.js";
 import ohlcHandler from "../api/ohlc.js";
 import earningsHandler from "../api/earnings.js";
 import marketQualityHandler from "../api/market-quality.js";
+import optionsHandler from "../api/options.js";
 
 test("_cumVolFrac is monotonic from 0 to 1 across RTH", () => {
   assert.equal(_cumVolFrac(-5), 0);
@@ -115,6 +116,8 @@ test("All gated /api/* endpoints reject unauthenticated requests with 401", asyn
       [ohlcHandler, { method: "GET", query: { ticker: "NVDA" }, headers: {} }],
       [earningsHandler, { method: "GET", query: { ticker: "NVDA" }, headers: {} }],
       [marketQualityHandler, { method: "GET", query: {}, headers: {} }],
+      [optionsHandler, { method: "GET", query: { ticker: "QQQ" }, headers: {} }],
+      [optionsHandler, { method: "GET", query: { mode: "scan", tickers: "QQQ,NVDA" }, headers: {} }],
     ];
     for (const [fn, req] of checks) {
       const res = mockRes();

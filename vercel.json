@@ -45,6 +45,9 @@
     },
     "api/earnings.js": {
       "maxDuration": 15
+    },
+    "api/options.js": {
+      "maxDuration": 25
     }
   },
   "rewrites": [

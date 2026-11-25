@@ -553,6 +553,7 @@ export function StockTable({ rows, A, onTicker, chartTicker, mode, onLayer }) {
                 <td style={td(A)}>
                   <FlagButton t={r.ticker} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: MONO }}>{r.ticker}</span>
                   {r.inLead && mode === "lead" && <span title="In a leading layer" style={{ color: A.green, marginLeft: 4 }}>●</span>}
+                  <EliteRsDot t={r.ticker} />
                   <RslDot tip={r.rsl} A={A} />
                   {r.pin && <span title={r.pin} style={{ color: A.yellow, marginLeft: 4, fontSize: 10, fontWeight: 700, fontFamily: MONO, border: `1px solid ${A.yellow}`, borderRadius: 3, padding: "0 3px" }}>PIN</span>}
                 </td>
@@ -1964,14 +1965,44 @@ export function WatchlistPortfolioTab({
 // sitting within 2% of the high — the 20-day window still holds the
 // announcement-day jump for a week or two, so it misses fresh deals (SGRY).
 export const TierCtx = createContext(null);
+export const ELITE_RS_TIP = "● Elite RS — RS ≥ 95 (top 5% of market), above 50-day SMA, liquid ($20M+ avg $vol, ≥ $5)";
+export function EliteRsDot({ t, label }) {
+  const tiers = useContext(TierCtx);
+  if (!t || !tiers?.eliteRs?.has(t)) return null;
+  return (
+    <span
+      title={ELITE_RS_TIP}
+      style={{
+        marginLeft: label ? 0 : 4,
+        fontSize: label ? 10 : undefined,
+        color: "#fbbf24",
+        fontWeight: 700,
+      }}
+    >
+      ●{label ? " Elite RS" : ""}
+    </span>
+  );
+}
 export function TierMark({ t, label }) {
   const tiers = useContext(TierCtx);
   if (!tiers || !t) return null;
   const L = tiers.leaders.has(t), E = !L && tiers.emerging.has(t);
-  if (!L && !E) return null;
-  return <span title={L ? "⭐ Leader — passes the Leaders screen (RS 90+, above 50d, within 25% of high)"
-    : "🌱 Emerging — RS 75+ in a leading/emerging layer, near its high or RS line at a new high; not a leader yet"}
-    style={{ marginLeft: label ? 0 : 4, fontSize: 10, color: L ? "#f59e0b" : "#4ade80", fontWeight: 700 }}>{L ? "⭐" : "🌱"}{label ? (L ? " Leader" : " Emerging") : ""}</span>;
+  const elite = Boolean(tiers.eliteRs?.has(t));
+  if (!L && !E && !elite) return null;
+  return (
+    <>
+      {(L || E) && (
+        <span
+          title={L ? "⭐ Leader — passes the Leaders screen (RS 90+, above 50d, within 25% of high)"
+            : "🌱 Emerging — RS 75+ in a leading/emerging layer, near its high or RS line at a new high; not a leader yet"}
+          style={{ marginLeft: label ? 0 : 4, fontSize: 10, color: L ? "#f59e0b" : "#4ade80", fontWeight: 700 }}
+        >
+          {L ? "⭐" : "🌱"}{label ? (L ? " Leader" : " Emerging") : ""}
+        </span>
+      )}
+      {elite && <EliteRsDot t={t} label={label} />}
+    </>
+  );
 }
 export const RslDot = ({ tip, A }) => (tip ? <span title={tip} style={{ color: A.blue || "#3b82f6", marginLeft: 4 }}>●</span> : null);
 
