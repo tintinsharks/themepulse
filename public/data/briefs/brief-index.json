@@ -1,6 +1,14 @@
 {
-  "latest": "brief-2026-11-25-intraday-1028.json",
+  "latest": "brief-2026-11-25-intraday-1109.json",
   "briefs": [
+    {
+      "id": "brief-2026-11-25-intraday-1109",
+      "date": "2026-11-25",
+      "session": "intraday",
+      "label": "11:09 AM PT Intraday Scan #5 (Post-Beige Book)",
+      "file": "brief-2026-11-25-intraday-1109.json",
+      "regime": "Constructive Tactical Accumulation (35%-50% net long, 0.75x standard sizing on Grade A/A+ setups now that SPY & IWM hold above both 21d & 50d MAs and VIX < 28)"
+    },
     {
       "id": "brief-2026-11-25-intraday-1028",
       "date": "2026-11-25",
