@@ -307,10 +307,11 @@ function normTicker(x) {
   return t || null;
 }
 
-// Compute live intraday alerts across the user's portfolio & watchlist tickers.
+// Compute live intraday alerts across the user's portfolio, watchlist & flagged tickers.
 export function computeLivePortfolioPulse({
   portfolio = [],
   watchlist = [],
+  flagged = [],
   stockMap = {},
   quotes = new Map(),
   profiles = null,
@@ -320,9 +321,11 @@ export function computeLivePortfolioPulse({
 } = {}) {
   const portTickers = [...new Set((Array.isArray(portfolio) ? portfolio : []).map(normTicker).filter(Boolean))];
   const watchTickers = [...new Set((Array.isArray(watchlist) ? watchlist : []).map(normTicker).filter(Boolean))];
+  const flagTickers = [...new Set((Array.isArray(flagged) ? flagged : []).map(normTicker).filter(Boolean))];
 
   const portSet = new Set(portTickers);
   const watchSet = new Set(watchTickers);
+  const flagSet = new Set(flagTickers);
 
   const seen = new Set();
   const entries = [];
@@ -334,6 +337,12 @@ export function computeLivePortfolioPulse({
     if (!seen.has(t)) {
       seen.add(t);
       entries.push([t, "WATCH"]);
+    }
+  }
+  for (const t of flagTickers) {
+    if (!seen.has(t)) {
+      seen.add(t);
+      entries.push([t, "FLAG"]);
     }
   }
 
@@ -428,6 +437,7 @@ export function computeLivePortfolioPulse({
       list,
       inPf: portSet.has(t),
       inWl: watchSet.has(t),
+      inFlag: flagSet.has(t),
       chg,
       zvr,
       cr,
@@ -452,9 +462,10 @@ export function computeLivePortfolioPulse({
       a.alert.ticker.localeCompare(b.alert.ticker)
   );
 
+  const listRank = (l) => (l === "PORT" ? 0 : l === "WATCH" ? 1 : 2);
   allItems.sort(
     (a, b) =>
-      (a.item.list === b.item.list ? 0 : a.item.list === "PORT" ? -1 : 1) ||
+      (listRank(a.item.list) - listRank(b.item.list)) ||
       b.severity - a.severity ||
       (b.item.chg ?? -999) - (a.item.chg ?? -999) ||
       a.item.ticker.localeCompare(b.item.ticker)
@@ -468,6 +479,7 @@ export function computeLivePortfolioPulse({
     upcomingEarnings,
     portfolioCount: portTickers.length,
     watchlistCount: watchTickers.length,
+    flaggedCount: flagTickers.length,
     isLive: true,
   };
 }

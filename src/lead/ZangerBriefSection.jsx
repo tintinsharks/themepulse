@@ -6,6 +6,7 @@ import {
   EPS_TIP,
   ExtHoursMovers,
   FlagButton,
+  flagHex,
   IndexSpark,
   LEAD_INDEXES,
   RslDot,
@@ -20,6 +21,7 @@ import {
   stockThrust,
   td,
   th,
+  useFlags,
   useRvolProfiles,
   useScanQuotes,
 } from "./core.jsx";
@@ -180,6 +182,11 @@ export default function ZangerBriefSection({
   const [portFilter, setPortFilter] = useState("all"); // "all" | "pf" | "wl" | "alerts"
   const [liveNews, setLiveNews] = useState({});
   const [breadthChartFocus, setBreadthChartFocus] = useState(null);
+  const flags = useFlags();
+  const flaggedTickers = useMemo(
+    () => Object.entries(flags || {}).filter(([, v]) => v?.c).map(([t]) => t),
+    [flags]
+  );
   const profiles = useRvolProfiles();
 
   const openBreadthChart = (chart, slide = 1) => {
@@ -240,16 +247,17 @@ export default function ZangerBriefSection({
   }, [stockMap, tickerLayer, tiers]);
 
   const quoteTickers = useMemo(
-    () => (liveOn ? [...new Set([...INDEX_TKS, ...MACRO_PILL_TKS, ...poolTickers, ...(portfolio || []), ...(watchlist || [])].filter(Boolean))] : []),
-    [liveOn, poolTickers, portfolio, watchlist]
+    () => (liveOn ? [...new Set([...INDEX_TKS, ...MACRO_PILL_TKS, ...poolTickers, ...(portfolio || []), ...(watchlist || []), ...flaggedTickers].filter(Boolean))] : []),
+    [liveOn, poolTickers, portfolio, watchlist, flaggedTickers]
   );
   const { quotes, at } = useScanQuotes(quoteTickers, liveOn && quoteTickers.length > 0);
 
   const livePortAlerts = useMemo(() => {
-    if (!portfolio.length && !watchlist.length) return null;
+    if (!portfolio.length && !watchlist.length && !flaggedTickers.length) return null;
     const res = computeLivePortfolioPulse({
       portfolio,
       watchlist,
+      flagged: flaggedTickers,
       stockMap,
       quotes: liveOn ? quotes : new Map(),
       profiles,
@@ -257,7 +265,7 @@ export default function ZangerBriefSection({
       tiers,
     });
     return { ...res, isLive: liveOn };
-  }, [liveOn, portfolio, watchlist, stockMap, quotes, profiles, tickerLayer, tiers]);
+  }, [liveOn, portfolio, watchlist, flaggedTickers, stockMap, quotes, profiles, tickerLayer, tiers]);
 
   const extMeta = useMemo(() => {
     const pmSnap = pipeline?.last_pm || (pipeline?.pm_sip_movers?.length || pipeline?.pm_earnings_movers?.length
@@ -643,7 +651,8 @@ export default function ZangerBriefSection({
   const showPortPulse = Boolean(
     portItems.length > 0 ||
     portAlerts.portfolioCount > 0 ||
-    portAlerts.watchlistCount > 0
+    portAlerts.watchlistCount > 0 ||
+    portAlerts.flaggedCount > 0
   );
   const portEarnings = livePortAlerts
     ? (livePortAlerts.upcomingEarnings || [])
@@ -745,13 +754,14 @@ export default function ZangerBriefSection({
   const filteredPortRows = portItems.filter((r) => {
     if (portFilter === "pf") return r.inPf ?? r.list === "PORT";
     if (portFilter === "wl") return r.inWl ?? r.list === "WATCH";
+    if (portFilter === "flag") return r.inFlag ?? r.list === "FLAG";
     if (portFilter === "alerts") return (r.tags || []).length > 0;
     return true;
   });
 
   const sortedPortAlerts = [...filteredPortRows].sort((a, b) =>
     cmpSort(a, b, portSort, (r, k) => {
-      if (k === "list") return r.list === "PORT" ? 0 : 1;
+      if (k === "list") return r.list === "PORT" ? 0 : r.list === "WATCH" ? 1 : 2;
       if (k === "thrust") return stockThrust(r.chg, r.zvr);
       return r[k];
     })
@@ -1083,7 +1093,7 @@ export default function ZangerBriefSection({
           {showPortPulse && (
             <Card
               A={A}
-              title="Portfolio & Watchlist Pulse"
+              title="Portfolio, Watchlist &amp; Flagged"
               sub={
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                   {portAlerts.isLive && (
@@ -1103,7 +1113,7 @@ export default function ZangerBriefSection({
                     </span>
                   )}
                   <span>
-                    {portAlerts.portfolioCount || 0} holdings / {portAlerts.watchlistCount || 0} watchlist · {portAlerts.alerts?.length || 0} alerts
+                    {portAlerts.portfolioCount || 0} holdings / {portAlerts.watchlistCount || 0} watchlist / {portAlerts.flaggedCount || 0} flagged · {portAlerts.alerts?.length || 0} alerts
                   </span>
                 </span>
               }
@@ -1114,6 +1124,7 @@ export default function ZangerBriefSection({
                   ["all", "All", portItems.length, A.text],
                   ["pf", "PF", portAlerts.portfolioCount || 0, A.green],
                   ["wl", "WL", portAlerts.watchlistCount || 0, A.cyan],
+                  ["flag", "Flagged", portAlerts.flaggedCount || 0, "#e3b341"],
                   ["alerts", "Alerts", portAlerts.alerts?.length || 0, "#f59e0b"],
                 ].map(([k, lbl, cnt, accent]) => (
                   <button
@@ -1128,7 +1139,7 @@ export default function ZangerBriefSection({
               {sortedPortAlerts.length === 0 ? (
                 <div style={{ fontSize: 11, color: portFilter === "alerts" ? A.green : A.textMuted }}>
                   {portFilter === "alerts"
-                    ? `✅ All ${portAlerts.portfolioCount || 0} holdings / ${portAlerts.watchlistCount || 0} watchlist quiet — no breakdowns or volume alerts.`
+                    ? `✅ All ${portAlerts.portfolioCount || 0} holdings / ${portAlerts.watchlistCount || 0} watchlist / ${portAlerts.flaggedCount || 0} flagged quiet — no breakdowns or volume alerts.`
                     : "No tickers in this filter."}
                 </div>
               ) : (
@@ -1149,6 +1160,17 @@ export default function ZangerBriefSection({
                     <tbody>
                       {sortedPortAlerts.map((a) => {
                         const thr = stockThrust(a.chg, a.zvr);
+                        const flagCol = flags?.[a.ticker]?.c ? flagHex(flags[a.ticker].c, A) : "#e3b341";
+                        const listParts = [];
+                        if (a.inPf || a.list === "PORT") listParts.push("PF");
+                        if (a.inWl || a.list === "WATCH") listParts.push("WL");
+                        if (a.inFlag || a.list === "FLAG") listParts.push("FLG");
+                        const listLabel = listParts.join("·") || "—";
+                        const listColor = (a.inPf || a.list === "PORT")
+                          ? A.green
+                          : (a.inWl || a.list === "WATCH")
+                            ? A.cyan
+                            : flagCol;
                         return (
                         <tr
                           key={a.ticker}
@@ -1161,8 +1183,8 @@ export default function ZangerBriefSection({
                             boxShadow: chartTicker === a.ticker ? `inset 2px 0 0 ${A.green}` : "none",
                           }}
                         >
-                          <td style={{ ...td(A), fontSize: 10, fontFamily: MONO, fontWeight: 700, color: a.list === "PORT" ? A.green : A.cyan }}>
-                            {a.inPf && a.inWl ? "PF·WL" : a.list === "PORT" ? "PF" : "WL"}
+                          <td style={{ ...td(A), fontSize: 10, fontFamily: MONO, fontWeight: 700, color: listColor, whiteSpace: "nowrap" }}>
+                            {listLabel}
                           </td>
                           <td style={td(A)}>
                             <FlagButton t={a.ticker} A={A} />
@@ -1195,11 +1217,11 @@ export default function ZangerBriefSection({
             </Card>
           )}
           {portEarnings.length > 0 && (
-            <Card A={A} title="Upcoming Earnings (Portfolio & Watchlist · 10d)">
+            <Card A={A} title="Upcoming Earnings (PF / WL / Flagged · 10d)">
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 {portEarnings.map((e) => (
                   <div key={e.ticker} style={{ fontSize: 11, display: "flex", gap: 8, alignItems: "center", borderBottom: `1px solid ${A.border}`, paddingBottom: 4 }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, fontFamily: MONO, color: e.list === "PORT" ? A.green : A.cyan }}>{e.list}</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, fontFamily: MONO, color: e.list === "PORT" ? A.green : e.list === "WATCH" ? A.cyan : "#e3b341" }}>{e.list}</span>
                     <Tk t={e.ticker} />
                     <span style={{ color: A.textDim, fontFamily: MONO, marginLeft: "auto" }}>
                       {e.display || "—"} {e.timing ? `(${e.timing})` : ""} · <strong style={{ color: e.days <= 2 ? "#f59e0b" : A.text }}>{e.days === 0 ? "Today" : `${e.days}d`}</strong>

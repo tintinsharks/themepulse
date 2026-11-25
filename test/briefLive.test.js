@@ -261,27 +261,38 @@ test("computeLivePortfolioPulse deduplicates PORT over WATCH and handles empty o
   const dedup = computeLivePortfolioPulse({
     portfolio: ["pltr", "PLTR"],
     watchlist: ["PLTR", "AAPL"],
+    flagged: ["PLTR", "NVDA"],
     quotes,
     now: afterClose,
   });
   assert.equal(dedup.portfolioCount, 1);
   assert.equal(dedup.watchlistCount, 2);
+  assert.equal(dedup.flaggedCount, 2);
   assert.equal(dedup.alerts.length, 1);
   assert.equal(dedup.alerts[0].ticker, "PLTR");
   assert.equal(dedup.alerts[0].list, "PORT");
+  const pltrItem = dedup.items.find((x) => x.ticker === "PLTR");
+  assert.equal(pltrItem.inPf, true);
+  assert.equal(pltrItem.inWl, true);
+  assert.equal(pltrItem.inFlag, true);
+  const nvdaItem = dedup.items.find((x) => x.ticker === "NVDA");
+  assert.equal(nvdaItem.list, "FLAG");
+  assert.equal(nvdaItem.inFlag, true);
 
-  // Quiet non-empty lists still return all portfolio & watchlist items
+  // Quiet non-empty lists still return all portfolio, watchlist & flagged items
   const quiet = computeLivePortfolioPulse({
     portfolio: ["AAPL"],
     watchlist: ["MSFT"],
+    flagged: ["NVDA"],
     quotes,
     now: afterClose,
   });
   assert.equal(quiet.alerts.length, 0);
   assert.equal(quiet.portfolioCount, 1);
   assert.equal(quiet.watchlistCount, 1);
+  assert.equal(quiet.flaggedCount, 1);
   assert.equal(quiet.isLive, true);
-  assert.deepEqual(quiet.items.map((x) => `${x.list}:${x.ticker}`), ["PORT:AAPL", "WATCH:MSFT"]);
+  assert.deepEqual(quiet.items.map((x) => `${x.list}:${x.ticker}`), ["PORT:AAPL", "WATCH:MSFT", "FLAG:NVDA"]);
   assert.deepEqual(quiet.upcomingEarnings, []);
 
   // Completely empty lists
@@ -292,6 +303,7 @@ test("computeLivePortfolioPulse deduplicates PORT over WATCH and handles empty o
     upcomingEarnings: [],
     portfolioCount: 0,
     watchlistCount: 0,
+    flaggedCount: 0,
     isLive: true,
   });
 });
