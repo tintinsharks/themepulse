@@ -1,6 +1,14 @@
 {
-  "latest": "brief-2026-11-25-intraday-0815.json",
+  "latest": "brief-2026-11-25-intraday-0922.json",
   "briefs": [
+    {
+      "id": "brief-2026-11-25-intraday-0922",
+      "date": "2026-11-25",
+      "session": "intraday",
+      "label": "09:22 AM PT Intraday Scan #3 (Midday)",
+      "file": "brief-2026-11-25-intraday-0922.json",
+      "regime": "Selective Tactical Exposure (20%-35% max net long, 0.5x pilot position sizing while VIX > 30)"
+    },
     {
       "id": "brief-2026-11-25-intraday-0815",
       "date": "2026-11-25",
