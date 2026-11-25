@@ -1,6 +1,14 @@
 {
-  "latest": "brief-2026-11-25-intraday-1109.json",
+  "latest": "brief-2026-11-25-intraday-1226.json",
   "briefs": [
+    {
+      "id": "brief-2026-11-25-intraday-1226",
+      "date": "2026-11-25",
+      "session": "intraday",
+      "label": "Intraday Scan #6 — 12:26 PT (3:26 ET Final-Hour Digest)",
+      "file": "brief-2026-11-25-intraday-1226.json",
+      "regime": "Uptrend Under Pressure — Constructive Pre-Holiday Final-Hour Digest (35%-50% Exposure)"
+    },
     {
       "id": "brief-2026-11-25-intraday-1109",
       "date": "2026-11-25",
