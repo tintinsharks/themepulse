@@ -440,6 +440,204 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
         </Card>
       )}
 
+      {!collapsed && arr(normBrief.breakouts).length > 0 && (
+        <Card
+          A={A}
+          title="ThemePulse Breakouts"
+          sub={liveOn ? "Breakouts pulled from ThemePulse with live Price, Chg%, ZVR & CR% overlay · click a ticker to chart" : "Breakouts recorded from ThemePulse"}
+        >
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead style={{ position: "sticky", top: 0, background: A.bgCard, zIndex: 1 }}>
+                <tr>
+                  <th style={th(A)}>Ticker</th>
+                  <th style={th(A)}>Types</th>
+                  <th style={th(A, "right")}>{liveOn ? "Live" : "Price"}</th>
+                  <th style={th(A, "right")}>Chg%</th>
+                  <th style={th(A, "right")}>ZVR</th>
+                  <th style={th(A, "right")}>Thr</th>
+                  <th style={th(A, "right")}>CR%</th>
+                  <th style={th(A, "right")}>RS</th>
+                  <th style={th(A)}>Layer</th>
+                  <th style={th(A)}>Note</th>
+                </tr>
+              </thead>
+              <tbody>
+                {arr(normBrief.breakouts).map((bo, i) => {
+                  const li = liveInfo(bo.ticker);
+                  const px = li?.px ?? bo.price;
+                  const chg = li?.chg ?? bo.chgPct;
+                  const zvr = li?.zvr ?? bo.zvr;
+                  const cr = li?.cr ?? bo.cr;
+                  const thr = typeof chg === "number" && typeof zvr === "number" && zvr > 0 ? +(chg * zvr).toFixed(1) : bo.thrust;
+                  const isCharted = chartTicker === bo.ticker;
+                  return (
+                    <tr
+                      key={`${bo.ticker}-${i}`}
+                      data-nav={bo.ticker}
+                      className={isCharted ? "tp-click-row tp-row-active" : "tp-click-row"}
+                      onClick={() => onTicker(bo.ticker)}
+                      style={{
+                        cursor: "pointer",
+                        background: isCharted ? A.bgHover : "transparent",
+                        boxShadow: isCharted ? `inset 2px 0 0 ${A.green}` : "none",
+                      }}
+                    >
+                      <td style={td()}><FlagButton t={bo.ticker} A={A} /><Tk t={bo.ticker} /></td>
+                      <td style={td()}>
+                        {bo.types.length > 0 ? bo.types.map((t, j) => (
+                          <span key={j} style={{ marginRight: 4, fontSize: 9.5, fontWeight: 800, fontFamily: MONO, padding: "1px 5px", borderRadius: 4, background: `${A.green}1c`, border: `1px solid ${A.green}55`, color: A.green }}>
+                            {t}
+                          </span>
+                        )) : <span style={{ color: A.textMuted }}>—</span>}
+                      </td>
+                      <td style={td("right")}>{num(px)}</td>
+                      <td style={{ ...td("right"), fontWeight: 700, color: pc(chg) }}>{pct(chg, 2)}</td>
+                      <td style={{ ...td("right"), fontWeight: (zvr ?? 0) >= 1.5 ? 700 : 400, color: (zvr ?? 0) >= 2 ? "#fbbf24" : (zvr ?? 0) >= 1.5 ? A.green : A.textDim }}>
+                        {typeof zvr === "number" ? `${zvr.toFixed(1)}x` : "—"}
+                      </td>
+                      <td style={{ ...td("right"), fontWeight: 700, color: pc(thr) }}>{typeof thr === "number" ? `${thr > 0 ? "+" : ""}${thr.toFixed(1)}` : "—"}</td>
+                      <td style={{ ...td("right"), color: cr == null ? A.textMuted : cr >= 70 ? A.green : cr <= 30 ? A.red : A.textDim }}>{typeof cr === "number" ? `${Math.round(cr)}%` : "—"}</td>
+                      <td style={{ ...td("right"), fontWeight: 700, color: rsC(bo.rs) }}>{bo.rs ?? "—"}</td>
+                      <td style={{ ...td(), color: A.textDim }}>{bo.layer || "—"}</td>
+                      <td style={{ ...td(), color: A.textDim, minWidth: 180 }}>{bo.note || "—"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {!collapsed && arr(normBrief.portfolioUpdates).length > 0 && (
+        <Card
+          A={A}
+          title="Portfolio, Watchlist & Flagged Updates"
+          sub={liveOn ? "Pulled from ThemePulse with live intraday overlay · click a ticker to chart" : "Pulled from ThemePulse snapshot"}
+        >
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead style={{ position: "sticky", top: 0, background: A.bgCard, zIndex: 1 }}>
+                <tr>
+                  <th style={th(A)}>List</th>
+                  <th style={th(A)}>Ticker</th>
+                  <th style={th(A, "right")}>{liveOn ? "Live" : "Price"}</th>
+                  <th style={th(A, "right")}>Chg%</th>
+                  <th style={th(A, "right")}>ZVR</th>
+                  <th style={th(A, "right")}>CR%</th>
+                  <th style={th(A, "right")}>RS</th>
+                  <th style={th(A)}>Alerts</th>
+                  <th style={th(A)}>Action / Note</th>
+                </tr>
+              </thead>
+              <tbody>
+                {arr(normBrief.portfolioUpdates).map((p, i) => {
+                  const li = liveInfo(p.ticker);
+                  const px = li?.px ?? p.price;
+                  const chg = li?.chg ?? p.chgPct;
+                  const zvr = li?.zvr ?? p.zvr;
+                  const cr = li?.cr ?? p.cr;
+                  const isCharted = chartTicker === p.ticker;
+                  const listColor = p.list.includes("PORT") ? A.green : p.list.includes("FLG") ? "#f97316" : A.cyan;
+                  return (
+                    <tr
+                      key={`${p.ticker}-${i}`}
+                      data-nav={p.ticker}
+                      className={isCharted ? "tp-click-row tp-row-active" : "tp-click-row"}
+                      onClick={() => onTicker(p.ticker)}
+                      style={{
+                        cursor: "pointer",
+                        background: isCharted ? A.bgHover : "transparent",
+                        boxShadow: isCharted ? `inset 2px 0 0 ${A.green}` : "none",
+                      }}
+                    >
+                      <td style={{ ...td(), fontFamily: MONO, fontSize: 10, fontWeight: 700, color: listColor }}>{p.list}</td>
+                      <td style={td()}><FlagButton t={p.ticker} A={A} /><Tk t={p.ticker} /></td>
+                      <td style={td("right")}>{num(px)}</td>
+                      <td style={{ ...td("right"), fontWeight: 700, color: pc(chg) }}>{pct(chg, 2)}</td>
+                      <td style={{ ...td("right"), color: (zvr ?? 0) >= 1.5 ? A.green : A.textDim }}>{typeof zvr === "number" ? `${zvr.toFixed(1)}x` : "—"}</td>
+                      <td style={{ ...td("right"), color: cr == null ? A.textMuted : cr >= 70 ? A.green : cr <= 30 ? A.red : A.textDim }}>{typeof cr === "number" ? `${Math.round(cr)}%` : "—"}</td>
+                      <td style={{ ...td("right"), fontWeight: 700, color: rsC(p.rs) }}>{p.rs ?? "—"}</td>
+                      <td style={td()}>
+                        {p.alerts.length > 0 ? p.alerts.map((al, j) => {
+                          const bad = /sell|stop|squat|brk|down/i.test(al);
+                          const warn = /er|pb|warn|trim|ext/i.test(al);
+                          const col = bad ? A.red : warn ? "#f59e0b" : A.green;
+                          return (
+                            <span key={j} style={{ marginRight: 4, fontSize: 9.5, fontWeight: 700, fontFamily: MONO, padding: "1px 5px", borderRadius: 4, border: `1px solid ${col}66`, color: col }}>
+                              {al}
+                            </span>
+                          );
+                        }) : <span style={{ color: A.textMuted }}>—</span>}
+                      </td>
+                      <td style={{ ...td(), color: A.textDim, minWidth: 180 }}>{p.note || "—"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {!collapsed && normBrief.layerUpdates && (normBrief.layerUpdates.summary || arr(normBrief.layerUpdates.rows).length > 0) && (
+        <Card A={A} title="Layer & Theme Rotation Updates" sub="Pulled from ThemePulse Layers">
+          {normBrief.layerUpdates.summary && (
+            <div style={{ fontSize: 11.5, color: A.textDim, marginBottom: arr(normBrief.layerUpdates.rows).length ? 8 : 0, lineHeight: 1.45 }}>
+              {normBrief.layerUpdates.summary}
+            </div>
+          )}
+          {arr(normBrief.layerUpdates.rows).length > 0 && (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead style={{ position: "sticky", top: 0, background: A.bgCard, zIndex: 1 }}>
+                  <tr>
+                    <th style={th(A)}>Layer</th>
+                    <th style={th(A)}>Status</th>
+                    <th style={th(A, "right")}>Rank</th>
+                    <th style={th(A, "right")}>1W</th>
+                    <th style={th(A, "right")}>Today</th>
+                    <th style={th(A, "right")}>Thr</th>
+                    <th style={th(A)}>Leaders</th>
+                    <th style={th(A)}>Update</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {arr(normBrief.layerUpdates.rows).map((l, i) => {
+                    const stLow = l.status.toLowerCase();
+                    const stCol = /lead/.test(stLow) ? A.green : /emerg|flip/.test(stLow) ? A.cyan : /weak/.test(stLow) ? "#f59e0b" : /brk|break/.test(stLow) ? A.red : A.textMuted;
+                    return (
+                      <tr key={`${l.layer}-${i}`}>
+                        <td style={td()}>
+                          <strong style={{ color: A.text }}>{l.layer}</strong>
+                          {l.theme && l.theme !== l.layer && <div style={{ fontSize: 10, color: A.textMuted }}>{l.theme}</div>}
+                        </td>
+                        <td style={td()}>
+                          {l.status ? (
+                            <span style={{ fontSize: 10, fontWeight: 700, fontFamily: MONO, color: stCol }}>{l.status}</span>
+                          ) : "—"}
+                        </td>
+                        <td style={{ ...td("right"), fontWeight: 700, color: rsC(l.rank) }}>{l.rank ?? "—"}</td>
+                        <td style={{ ...td("right"), color: pc(l.delta1w) }}>{typeof l.delta1w === "number" ? `${l.delta1w > 0 ? "+" : ""}${l.delta1w}` : "—"}</td>
+                        <td style={{ ...td("right"), fontWeight: 700, color: pc(l.todayPct) }}>{pct(l.todayPct, 2)}</td>
+                        <td style={{ ...td("right"), color: pc(l.thrust) }}>{typeof l.thrust === "number" ? `${l.thrust > 0 ? "+" : ""}${l.thrust.toFixed(1)}` : "—"}</td>
+                        <td style={td()}>
+                          <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 6 }}>
+                            {arr(l.leaders).map((tk) => <Tk key={tk} t={tk} />)}
+                          </span>
+                        </td>
+                        <td style={{ ...td(), color: A.textDim, minWidth: 160 }}>{l.note || "—"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      )}
+
       {!collapsed && arr(normBrief.extendedMovers).length > 0 && (() => {
         const extRowsList = arr(normBrief.extendedMovers).map((m) => {
           const li = liveInfo(m.ticker);

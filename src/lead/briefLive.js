@@ -196,6 +196,117 @@ export function normalizeWrittenBrief(brief) {
       sourceUrl: b.sourceUrl || b.catalystUrl || null,
     }));
 
+  // Normalize ThemePulse-pulled Breakouts section (accepts breakouts / zangerBreakouts / volumeMovers)
+  const rawBreakouts = Array.isArray(brief.breakouts)
+    ? brief.breakouts
+    : Array.isArray(brief.zangerBreakouts)
+      ? brief.zangerBreakouts
+      : Array.isArray(brief.volumeMovers)
+        ? brief.volumeMovers
+        : [];
+  const breakouts = rawBreakouts
+    .filter((x) => x && typeof x === "object" && x.ticker)
+    .map((x) => ({
+      ...x,
+      ticker: String(x.ticker).trim().toUpperCase(),
+      types: Array.isArray(x.types)
+        ? x.types.map(String)
+        : Array.isArray(x.breakoutTypes)
+          ? x.breakoutTypes.map(String)
+          : x.type
+            ? [String(x.type)]
+            : [],
+      price: x.price ?? x.currentPrice ?? null,
+      chgPct: x.chgPct ?? x.changePct ?? null,
+      zvr: x.zvr ?? x.rvol ?? null,
+      thrust: x.thrust ?? null,
+      cr: x.cr ?? x.closingRangePct ?? null,
+      rs: x.rs ?? x.rsRank ?? null,
+      layer: x.layer || x.theme || "",
+      note: x.note || x.catalyst || x.status || "",
+    }));
+
+  // Normalize ThemePulse-pulled Portfolio / Watchlist / Flagged updates
+  const rawPortfolio = Array.isArray(brief.portfolioUpdates)
+    ? brief.portfolioUpdates
+    : Array.isArray(brief.portfolioPulse)
+      ? brief.portfolioPulse
+      : Array.isArray(brief.portfolio)
+        ? brief.portfolio
+        : [];
+  const portfolioUpdates = rawPortfolio
+    .filter((x) => x && typeof x === "object" && x.ticker)
+    .map((x) => ({
+      ...x,
+      ticker: String(x.ticker).trim().toUpperCase(),
+      list: String(x.list || x.bucket || "PORT").toUpperCase(),
+      price: x.price ?? x.currentPrice ?? null,
+      chgPct: x.chgPct ?? x.changePct ?? null,
+      zvr: x.zvr ?? x.rvol ?? null,
+      thrust: x.thrust ?? null,
+      cr: x.cr ?? x.closingRangePct ?? null,
+      rs: x.rs ?? x.rsRank ?? null,
+      alerts: Array.isArray(x.alerts)
+        ? x.alerts.map((a) => (typeof a === "string" ? a : String(a?.label || ""))).filter(Boolean)
+        : Array.isArray(x.tags)
+          ? x.tags.map((a) => (typeof a === "string" ? a : String(a?.label || ""))).filter(Boolean)
+          : x.alert
+            ? [String(x.alert)]
+            : [],
+      note: x.note || x.action || x.status || "",
+    }));
+
+  // Normalize ThemePulse-pulled Layer updates (accepts array of layer rows or object { summary, leading, rotating, weakening, rows })
+  const rawLayers = brief.layerUpdates ?? brief.layers ?? brief.themeUpdates ?? null;
+  let layerUpdates = null;
+  const normLayerRow = (l, defaultStatus = "") => {
+    if (!l || typeof l !== "object") return null;
+    const name = l.layer || l.name || l.theme || "";
+    if (!name) return null;
+    return {
+      layer: String(name),
+      theme: String(l.theme || ""),
+      status: String(l.status || defaultStatus || ""),
+      rank: l.rank ?? l.now ?? null,
+      delta1w: l.delta1w ?? l.w1 ?? null,
+      delta1m: l.delta1m ?? l.m1 ?? null,
+      todayPct: l.todayPct ?? l.dayPct ?? l.chgPct ?? null,
+      thrust: l.thrust ?? null,
+      leaders: Array.isArray(l.leaders)
+        ? l.leaders.map(String)
+        : Array.isArray(l.tickers)
+          ? l.tickers.map(String)
+          : [],
+      note: String(l.note || l.change || ""),
+    };
+  };
+  if (Array.isArray(rawLayers)) {
+    const rows = rawLayers.map((l) => normLayerRow(l)).filter(Boolean);
+    if (rows.length) layerUpdates = { summary: "", rows };
+  } else if (rawLayers && typeof rawLayers === "object") {
+    const rows = [];
+    if (Array.isArray(rawLayers.rows)) {
+      rawLayers.rows.forEach((l) => { const r = normLayerRow(l); if (r) rows.push(r); });
+    }
+    if (Array.isArray(rawLayers.leading)) {
+      rawLayers.leading.forEach((l) => { const r = normLayerRow(l, "Leading"); if (r) rows.push(r); });
+    }
+    if (Array.isArray(rawLayers.emerging)) {
+      rawLayers.emerging.forEach((l) => { const r = normLayerRow(l, "Emerging"); if (r) rows.push(r); });
+    }
+    if (Array.isArray(rawLayers.weakening)) {
+      rawLayers.weakening.forEach((l) => { const r = normLayerRow(l, "Weakening"); if (r) rows.push(r); });
+    }
+    if (Array.isArray(rawLayers.breakingDown)) {
+      rawLayers.breakingDown.forEach((l) => { const r = normLayerRow(l, "Breaking Down"); if (r) rows.push(r); });
+    }
+    if (Array.isArray(rawLayers.flips)) {
+      rawLayers.flips.forEach((l) => { const r = normLayerRow(l, "Status Flip"); if (r) rows.push(r); });
+    }
+    const summary = String(rawLayers.summary || rawLayers.note || "");
+    if (rows.length || summary) layerUpdates = { summary, rows };
+  }
+
   const posture = rg.posture || rg.stance || rg.status || null;
   const note = rg.note || [
     rg.exposurePosture || (rg.grossExposure ? `Gross Exposure ${rg.grossExposure}` : null),
@@ -216,6 +327,9 @@ export function normalizeWrittenBrief(brief) {
     focusTitle: Array.isArray(brief.focusSetups) ? "Focus setups" : "Intraday movers",
     extendedMovers,
     breakdowns,
+    breakouts,
+    portfolioUpdates,
+    layerUpdates,
     radar: Array.isArray(brief.radar) ? brief.radar : [],
     skipTraps: brief.skipTraps ?? {},
     leadingPulse: brief.leadingPulse && typeof brief.leadingPulse === "object" && !Array.isArray(brief.leadingPulse) ? brief.leadingPulse : null,
@@ -235,6 +349,13 @@ export function collectBriefTickers(brief) {
   for (const f of nb.focusSetups) add(f?.ticker);
   for (const m of nb.extendedMovers) add(m?.ticker);
   for (const b of nb.breakdowns) add(b?.ticker);
+  for (const bo of nb.breakouts) add(bo?.ticker);
+  for (const p of nb.portfolioUpdates) add(p?.ticker);
+  if (nb.layerUpdates?.rows) {
+    for (const l of nb.layerUpdates.rows) {
+      for (const tk of l.leaders || []) add(tk);
+    }
+  }
   return [...set];
 }
 

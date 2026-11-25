@@ -307,3 +307,39 @@ test("computeLivePortfolioPulse deduplicates PORT over WATCH and handles empty o
     isLive: true,
   });
 });
+
+test("normalizeWrittenBrief and collectBriefTickers handle breakouts, portfolioUpdates, and layerUpdates", () => {
+  const sample = {
+    id: "brief-2026-11-25-intraday-1130",
+    date: "2026-11-25",
+    session: "intraday",
+    breakouts: [
+      { ticker: "dks", types: ["ZANGER", "SB4%"], price: 161.0, chgPct: 5.11, zvr: 3.8, cr: 88, rs: 81, layer: "Specialty Retail", note: "Building every hour" },
+    ],
+    portfolioUpdates: [
+      { list: "PORT", ticker: "NVDA", price: 141.5, chgPct: -3.2, zvr: 2.1, cr: 35, rs: 84, alerts: ["DOWN ≥3%"], note: "Watch 50d support" },
+      { list: "FLG", ticker: "GEN", price: 30.67, chgPct: 2.39, zvr: 2.1, cr: 92, rs: 87, alerts: ["BO"], note: "Clean pivot breakout" },
+    ],
+    layerUpdates: {
+      summary: "15 Leading vs 12 Breaking Down — Retail & Cyber rotating up.",
+      leading: [{ layer: "Threat Ops", theme: "Cyber", rank: 100, delta1w: 4, todayPct: 1.9, thrust: 3.4, leaders: ["GEN", "OKTA"], note: "Holding top rank" }],
+      breakingDown: [{ layer: "Semis", theme: "Tech", rank: 42, delta1w: -18, todayPct: -2.4, thrust: -4.1, leaders: ["AMBA"], note: "Heavy distribution" }],
+    },
+  };
+  const nb = normalizeWrittenBrief(sample);
+  assert.equal(nb.breakouts.length, 1);
+  assert.equal(nb.breakouts[0].ticker, "DKS");
+  assert.deepEqual(nb.breakouts[0].types, ["ZANGER", "SB4%"]);
+  assert.equal(nb.portfolioUpdates.length, 2);
+  assert.equal(nb.portfolioUpdates[1].list, "FLG");
+  assert.equal(nb.layerUpdates.rows.length, 2);
+  assert.equal(nb.layerUpdates.rows[0].status, "Leading");
+  assert.equal(nb.layerUpdates.rows[1].status, "Breaking Down");
+
+  const tks = collectBriefTickers(sample);
+  assert.ok(tks.includes("DKS"));
+  assert.ok(tks.includes("NVDA"));
+  assert.ok(tks.includes("GEN"));
+  assert.ok(tks.includes("OKTA"));
+  assert.ok(tks.includes("AMBA"));
+});
