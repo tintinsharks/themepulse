@@ -1,0 +1,391 @@
+{
+  "id": "brief-2026-11-25-intraday-0727",
+  "date": "2026-11-25",
+  "session": "intraday",
+  "label": "Intraday Brief — 07:27 PT (Scan #1 Baseline)",
+  "headline": "SPY (-2.75%) & QQQ (-4.19%) Slide as VIX Hits 32.22 on Hot 3.3% Core PCE & Chip Rout; DKS (+2.54%), COGT (+2.64%), & AMTM (+1.96%) Break Out While ETON, A, & OKTA Trigger Defensive Stops",
+  "regime": {
+    "posture": "Selective / Defensive Exposure (35%–50% Equity — 0.5x Pilot Sizing with VIX > 30)",
+    "SPY": {
+      "price": 699.01,
+      "changePct": -2.75,
+      "fromOpenPct": -0.6,
+      "open": 703.21,
+      "high": 705.01,
+      "low": 695.49,
+      "above21d": false,
+      "above50d": false
+    },
+    "QQQ": {
+      "price": 611.39,
+      "changePct": -4.19,
+      "fromOpenPct": -0.93,
+      "open": 617.1,
+      "high": 619.39,
+      "low": 607.74,
+      "above21d": false,
+      "above50d": false
+    },
+    "IWM": {
+      "price": 262.06,
+      "changePct": -1.9,
+      "fromOpenPct": -0.44,
+      "open": 263.23,
+      "high": 263.51,
+      "low": 260.84,
+      "above21d": false,
+      "above50d": true
+    }
+  },
+  "macroTape": {
+    "VIX": {
+      "value": 32.22,
+      "changePct": 22.23,
+      "intradayHigh": 34.95
+    },
+    "US10Y": {
+      "value": 4.86,
+      "changeBps": -6
+    },
+    "WTI": {
+      "value": 80.74,
+      "changePct": 0.71
+    },
+    "DXY": {
+      "value": 103.98,
+      "changePct": 0.16
+    }
+  },
+  "intradayMovers": [
+    {
+      "ticker": "HPQ",
+      "bucket": "Carryover Gainer",
+      "layer": "Enterprise & Commercial PCs",
+      "premarketPrice": 29.31,
+      "open": 29.95,
+      "price": 30.92,
+      "changePct": 10.74,
+      "fromOpenPct": 3.24,
+      "offHighPct": -3.53,
+      "zvr": 5.4,
+      "rs": 68,
+      "eps": 76,
+      "status": "Building / Accumulating"
+    },
+    {
+      "ticker": "COGT",
+      "bucket": "Fresh This Hour",
+      "layer": "Biotech Oncology",
+      "premarketPrice": 32.42,
+      "open": 33.41,
+      "price": 33.88,
+      "changePct": 2.64,
+      "fromOpenPct": 1.41,
+      "offHighPct": -0.56,
+      "zvr": 3.1,
+      "rs": 95,
+      "eps": 75,
+      "status": "Building / Cleared $33.76 ORH Pivot"
+    },
+    {
+      "ticker": "DKS",
+      "bucket": "Fresh This Hour",
+      "layer": "Specialty & Apparel Retail",
+      "premarketPrice": 153.05,
+      "open": 154,
+      "price": 157,
+      "changePct": 2.54,
+      "fromOpenPct": 1.95,
+      "offHighPct": -0.81,
+      "zvr": 2.8,
+      "rs": 81,
+      "eps": 89,
+      "status": "Building / Cleared $153.85 EP Pivot"
+    },
+    {
+      "ticker": "WDAY",
+      "bucket": "Fresh This Hour",
+      "layer": "Enterprise SaaS",
+      "premarketPrice": 170.06,
+      "open": 177.31,
+      "price": 183.63,
+      "changePct": 2.45,
+      "fromOpenPct": 3.56,
+      "offHighPct": 0,
+      "zvr": 2.5,
+      "rs": 72,
+      "eps": 88,
+      "status": "Building / Gap-Down Reversal"
+    },
+    {
+      "ticker": "AMTM",
+      "bucket": "Fresh This Hour",
+      "layer": "Gov IT & Defense Services",
+      "premarketPrice": 24.4,
+      "open": 24.51,
+      "price": 25.28,
+      "changePct": 1.96,
+      "fromOpenPct": 3.14,
+      "offHighPct": -0.47,
+      "zvr": 2.4,
+      "rs": 85,
+      "eps": 82,
+      "status": "Building / Post-EP High $25.40"
+    },
+    {
+      "ticker": "BURL",
+      "bucket": "Carryover Gainer",
+      "layer": "Specialty & Off-Price Retail",
+      "premarketPrice": 246.4,
+      "open": 247,
+      "price": 248.01,
+      "changePct": 1.59,
+      "fromOpenPct": 0.41,
+      "offHighPct": -2.2,
+      "zvr": 1.9,
+      "rs": 79,
+      "eps": 86,
+      "status": "Building / Holding Gain"
+    },
+    {
+      "ticker": "DE",
+      "bucket": "Fresh This Hour",
+      "layer": "Ag & Heavy Machinery",
+      "premarketPrice": 593,
+      "open": 588,
+      "price": 622.38,
+      "changePct": 1.37,
+      "fromOpenPct": 5.85,
+      "offHighPct": -1.43,
+      "zvr": 3.4,
+      "rs": 76,
+      "eps": 78,
+      "status": "Building / Cycle-Floor Earnings Call Reversal"
+    },
+    {
+      "ticker": "ANF",
+      "bucket": "Fresh This Hour",
+      "layer": "Specialty & Apparel Retail",
+      "premarketPrice": 165,
+      "open": 165.58,
+      "price": 170,
+      "changePct": 1.07,
+      "fromOpenPct": 2.67,
+      "offHighPct": -0.78,
+      "zvr": 2.2,
+      "rs": 88,
+      "eps": 92,
+      "status": "Building / Day 2 EP Follow-Through"
+    },
+    {
+      "ticker": "COLM",
+      "bucket": "Carryover Leader",
+      "layer": "Luxury + Apparel",
+      "premarketPrice": 77.69,
+      "open": 78.2,
+      "price": 77.97,
+      "changePct": 0.03,
+      "fromOpenPct": -0.3,
+      "offHighPct": -0.93,
+      "zvr": 1.8,
+      "rs": 94,
+      "eps": 80,
+      "status": "Holding Tight / Printed New 52W High $78.70"
+    },
+    {
+      "ticker": "AMBA",
+      "bucket": "Carryover Decliner",
+      "layer": "Edge AI Semiconductors",
+      "premarketPrice": 31.5,
+      "open": 33.66,
+      "price": 34.81,
+      "changePct": -21.73,
+      "fromOpenPct": 3.43,
+      "offHighPct": -2.28,
+      "zvr": 9.2,
+      "rs": 19,
+      "eps": 32,
+      "status": "Gap-Down Breakdown"
+    },
+    {
+      "ticker": "NTNX",
+      "bucket": "Carryover Decliner",
+      "layer": "Cloud Infrastructure Software",
+      "premarketPrice": 46.8,
+      "open": 45.75,
+      "price": 44.55,
+      "changePct": -18.39,
+      "fromOpenPct": -2.61,
+      "offHighPct": -3.3,
+      "zvr": 5.8,
+      "rs": 35,
+      "eps": 79,
+      "status": "Fading / CEO Departure Selloff"
+    },
+    {
+      "ticker": "URBN",
+      "bucket": "Carryover Decliner",
+      "layer": "Specialty Apparel Retail",
+      "premarketPrice": 77.11,
+      "open": 77.11,
+      "price": 76.27,
+      "changePct": -10.88,
+      "fromOpenPct": -1.09,
+      "offHighPct": -2.44,
+      "zvr": 4.6,
+      "rs": 64,
+      "eps": 84,
+      "status": "Fading / Margin Warning Breakdown"
+    },
+    {
+      "ticker": "MU",
+      "bucket": "Carryover Decliner",
+      "layer": "Memory Semiconductors",
+      "premarketPrice": 576.22,
+      "open": 574.96,
+      "price": 565.01,
+      "changePct": -10.33,
+      "fromOpenPct": -1.73,
+      "offHighPct": -3.33,
+      "zvr": 3.2,
+      "rs": 42,
+      "eps": 95,
+      "status": "Fading / Day 2 Chip Rout"
+    },
+    {
+      "ticker": "DELL",
+      "bucket": "Carryover Decliner",
+      "layer": "AI Server Hardware",
+      "premarketPrice": 272.06,
+      "open": 267.57,
+      "price": 273.95,
+      "changePct": -7.17,
+      "fromOpenPct": 2.38,
+      "offHighPct": -2.54,
+      "zvr": 4.8,
+      "rs": 38,
+      "eps": 91,
+      "status": "Stage 3/4 Breakdown / Barclays PT Cut to $344"
+    }
+  ],
+  "leadingPulse": [
+    {
+      "ticker": "DKS",
+      "price": 157,
+      "changePct": 2.54,
+      "pivot": 153.85,
+      "distanceFromPivotPct": 2.05,
+      "stop": 142.45,
+      "signal": "Breakout Active in 5% Buy Zone (2.8x ZVR)"
+    },
+    {
+      "ticker": "COGT",
+      "price": 33.88,
+      "changePct": 2.64,
+      "pivot": 33.76,
+      "distanceFromPivotPct": 0.36,
+      "stop": 30.7,
+      "signal": "Breakout Active Above $33.76 ORH Pivot (3.1x ZVR)"
+    },
+    {
+      "ticker": "AMTM",
+      "price": 25.28,
+      "changePct": 1.96,
+      "pivot": 24.15,
+      "distanceFromPivotPct": 4.68,
+      "stop": 23.06,
+      "signal": "Upper Edge of 5% Buy Zone (+4.68% above pivot)"
+    },
+    {
+      "ticker": "COLM",
+      "price": 77.97,
+      "changePct": 0.03,
+      "pivot": 76,
+      "distanceFromPivotPct": 2.59,
+      "stop": 70.68,
+      "signal": "Actionable in Buy Zone after $78.70 New 52W High"
+    },
+    {
+      "ticker": "PGNY",
+      "price": 36.385,
+      "changePct": -0.26,
+      "pivot": 36.5,
+      "distanceFromPivotPct": -0.32,
+      "stop": 33.95,
+      "signal": "Coiling 11.5c Below $36.50 Pivot (Touched $36.52)"
+    },
+    {
+      "ticker": "GEN",
+      "price": 29.795,
+      "changePct": -0.52,
+      "pivot": 30.2,
+      "distanceFromPivotPct": -1.34,
+      "stop": 27.15,
+      "signal": "Coiling Below $30.20 Pivot (Touched $30.23 Intraday)"
+    },
+    {
+      "ticker": "CBRL",
+      "price": 74.65,
+      "changePct": -0.72,
+      "pivot": 72.8,
+      "distanceFromPivotPct": 2.54,
+      "stop": 67.7,
+      "signal": "Holding Inside 5% Buy Zone (+2.54% above pivot)"
+    },
+    {
+      "ticker": "DLTR",
+      "price": 152.55,
+      "changePct": -1.36,
+      "pivot": 148.54,
+      "distanceFromPivotPct": 2.7,
+      "stop": 143.82,
+      "signal": "Constructive Day 2 EP Digestion (+2.70% above pivot)"
+    },
+    {
+      "ticker": "VCEL",
+      "price": 59.75,
+      "changePct": -2.34,
+      "pivot": 58.8,
+      "distanceFromPivotPct": 1.62,
+      "stop": 54.68,
+      "signal": "10d EMA ($58.65) & $58.80 Pivot Support Bounce"
+    },
+    {
+      "ticker": "XERS",
+      "price": 17.12,
+      "changePct": -3.22,
+      "pivot": 17.04,
+      "distanceFromPivotPct": 0.47,
+      "stop": 16.29,
+      "signal": "Testing $17.04 Pivot & 10d EMA ($17.00)"
+    },
+    {
+      "ticker": "ETON",
+      "price": 62.34,
+      "changePct": -7.61,
+      "pivot": 62.5,
+      "distanceFromPivotPct": -0.26,
+      "stop": 61.05,
+      "signal": "STOP ALERT: Violated $62.50 Pivot & $61.05 (-7%) Stop at $60.27 Low"
+    },
+    {
+      "ticker": "A",
+      "price": 177.33,
+      "changePct": -3.37,
+      "pivot": 182.99,
+      "distanceFromPivotPct": -3.09,
+      "stop": 179.29,
+      "signal": "STOP ALERT: Violated $179.29 EP Intraday Low Technical Stop"
+    },
+    {
+      "ticker": "OKTA",
+      "price": 187.82,
+      "changePct": -5.2,
+      "pivot": 205,
+      "distanceFromPivotPct": -8.38,
+      "stop": 178.06,
+      "signal": "DEFENSIVE EXIT ALERT: Below 50d SMA ($192.80) Ahead of Dec 1 Earnings"
+    }
+  ],
+  "tradingViewWatchlist": "DKS,COGT,AMTM,COLM,ANF,BURL,PGNY,GEN,CBRL,DLTR,VCEL,XERS,BLMN,WMT,WDAY,DE,HPQ,TGTX"
+}
