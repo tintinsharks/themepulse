@@ -1,0 +1,281 @@
+{
+  "id": "brief-2026-11-25-intraday-0922",
+  "date": "2026-11-25",
+  "session": "intraday",
+  "label": "09:22 AM PT Intraday Scan #3 (Midday)",
+  "headline": "09:22 PT Midday Rebound: SPY/QQQ/IWM Reclaim Opens; COGT (+6.30%), DKS (+4.39%), ANF (+2.91%), COLM (+2.46%, New 52W High $80.21), GEN (+1.14% Breakout) & CBRL (+0.53%, New 52W High $75.61) Lead",
+  "regime": {
+    "posture": "Selective Tactical Exposure (20%-35% max net long, 0.5x pilot position sizing while VIX > 30)",
+    "spy": {
+      "price": 707.99,
+      "changePct": -1.5,
+      "fromOpenPct": 0.68,
+      "above21d": false,
+      "above50d": false,
+      "note": "Reclaimed $703.21 open and testing 50d SMA $708.10 ($708.02 intraday high)"
+    },
+    "qqq": {
+      "price": 621.18,
+      "changePct": -2.65,
+      "fromOpenPct": 0.66,
+      "above21d": false,
+      "above50d": false,
+      "note": "Rebounded +185 bps this hour to reclaim $617.10 open"
+    },
+    "iwm": {
+      "price": 266.28,
+      "changePct": -0.32,
+      "fromOpenPct": 1.16,
+      "above21d": false,
+      "above50d": true,
+      "note": "Surged +148 bps this hour, holding well above 50d SMA $261.40"
+    }
+  },
+  "macroTape": {
+    "vix": {
+      "value": 31.88,
+      "changePct": 20.94,
+      "intradayHigh": 34.95
+    },
+    "us10y": {
+      "value": 4.84,
+      "changeBps": -6
+    },
+    "wtiCrude": {
+      "value": 82.57,
+      "changePct": 0.63
+    },
+    "dxy": {
+      "value": 103.94,
+      "changePct": 0.12
+    },
+    "headlines": [
+      "Dow reclaims 50,018.70 (+0.85%) while SPY/QQQ/IWM turn positive from the 9:30 AM ET open",
+      "Oct New Home Sales 701K SAAR beat (10:00 AM ET), Initial Jobless Claims 189K beat, Q3 Real GDP +4.3% SAAR, Oct Core PCE +3.3% YoY"
+    ]
+  },
+  "intradayMovers": [
+    {
+      "ticker": "COGT",
+      "theme": "Biotech & Oncology",
+      "premarketPrice": 32.42,
+      "openPrice": 33.41,
+      "scan0727Price": 33.88,
+      "scan0815Price": 34.2,
+      "currentPrice": 35.09,
+      "changePct": 6.3,
+      "fromOpenPct": 5.03,
+      "offHighPct": -1.03,
+      "zvr": 4.1,
+      "rs": 95,
+      "eps": 75,
+      "pivot": 33.76,
+      "stop": 30.7,
+      "grade": "A-",
+      "status": "Building / Accumulating Inside 5% Buy Zone"
+    },
+    {
+      "ticker": "DKS",
+      "theme": "Specialty & Apparel Retail",
+      "premarketPrice": 153.05,
+      "openPrice": 154,
+      "scan0727Price": 157,
+      "scan0815Price": 158.97,
+      "currentPrice": 159.9,
+      "changePct": 4.39,
+      "fromOpenPct": 3.83,
+      "offHighPct": -1.3,
+      "zvr": 3.6,
+      "rs": 81,
+      "eps": 89,
+      "pivot": 153.85,
+      "stop": 142.45,
+      "grade": "A-",
+      "status": "Building / Accumulating Inside 5% Buy Zone"
+    },
+    {
+      "ticker": "COLM",
+      "theme": "Specialty & Apparel Retail",
+      "premarketPrice": 77.69,
+      "openPrice": 78.2,
+      "scan0727Price": 77.97,
+      "scan0815Price": 78.65,
+      "currentPrice": 79.86,
+      "changePct": 2.46,
+      "fromOpenPct": 2.12,
+      "offHighPct": -0.43,
+      "zvr": 2.1,
+      "rs": 94,
+      "eps": 80,
+      "pivot": 76,
+      "stop": 70.68,
+      "grade": "A+",
+      "status": "Fresh 52W High ($80.21) / Extended +5.08% Above Pivot"
+    },
+    {
+      "ticker": "ANF",
+      "theme": "Specialty & Apparel Retail",
+      "premarketPrice": 165,
+      "openPrice": 165.58,
+      "scan0727Price": 170,
+      "scan0815Price": 170.16,
+      "currentPrice": 172.99,
+      "changePct": 2.91,
+      "fromOpenPct": 4.48,
+      "offHighPct": -0.36,
+      "zvr": 2.5,
+      "rs": 88,
+      "eps": 92,
+      "pivot": 168.1,
+      "stop": 158.95,
+      "grade": "B+",
+      "status": "Building / Accumulating Inside 5% Buy Zone"
+    },
+    {
+      "ticker": "GEN",
+      "theme": "Cybersecurity",
+      "premarketPrice": 29.25,
+      "openPrice": 29.68,
+      "scan0727Price": 29.8,
+      "scan0815Price": 29.94,
+      "currentPrice": 30.29,
+      "changePct": 1.14,
+      "fromOpenPct": 2.07,
+      "offHighPct": -0.48,
+      "zvr": 1.8,
+      "rs": 87,
+      "eps": 86,
+      "pivot": 30.2,
+      "stop": 27.15,
+      "grade": "A",
+      "status": "Fresh This Hour Flat-Base Breakout Above $30.20"
+    },
+    {
+      "ticker": "CBRL",
+      "theme": "Restaurants & Consumer",
+      "premarketPrice": 75.19,
+      "openPrice": 74.52,
+      "scan0727Price": 74.33,
+      "scan0815Price": 74.6,
+      "currentPrice": 75.59,
+      "changePct": 0.53,
+      "fromOpenPct": 1.44,
+      "offHighPct": -0.03,
+      "zvr": 1.5,
+      "rs": 89,
+      "eps": 81,
+      "pivot": 72.8,
+      "stop": 67.7,
+      "grade": "A-",
+      "status": "Fresh This Hour 52W High ($75.61) Inside 5% Buy Zone"
+    },
+    {
+      "ticker": "LFST",
+      "theme": "Healthcare Services",
+      "premarketPrice": 14.16,
+      "openPrice": 14.18,
+      "scan0727Price": 13.8,
+      "scan0815Price": 14.08,
+      "currentPrice": 14.235,
+      "changePct": 0.53,
+      "fromOpenPct": 0.42,
+      "offHighPct": -0.32,
+      "zvr": 2.4,
+      "rs": 92,
+      "eps": 81,
+      "pivot": 13.5,
+      "stop": 12.56,
+      "grade": "A-",
+      "status": "Fresh This Hour Positive Reversal (+5.06% off $13.55 Low)"
+    },
+    {
+      "ticker": "APPN",
+      "theme": "Enterprise Software",
+      "premarketPrice": 54.8,
+      "openPrice": 53.21,
+      "scan0727Price": 52.61,
+      "scan0815Price": 53.42,
+      "currentPrice": 54.835,
+      "changePct": 0.06,
+      "fromOpenPct": 3.05,
+      "offHighPct": -0.93,
+      "zvr": 1.7,
+      "rs": 94,
+      "eps": 81,
+      "pivot": 54.5,
+      "stop": 50.69,
+      "grade": "A-",
+      "status": "Fresh This Hour Shakeout-and-Reclaim Above $54.50 Pivot"
+    },
+    {
+      "ticker": "XERS",
+      "theme": "Specialty Pharma",
+      "premarketPrice": 17.44,
+      "openPrice": 17.7,
+      "scan0727Price": 17.12,
+      "scan0815Price": 16.85,
+      "currentPrice": 17.07,
+      "changePct": -3.5,
+      "fromOpenPct": -3.56,
+      "offHighPct": -4.1,
+      "zvr": 1.9,
+      "rs": 99,
+      "eps": 74,
+      "pivot": 17.04,
+      "stop": 16.29,
+      "grade": "A-",
+      "status": "Fresh This Hour Reclaim of $17.04 Pivot & 10d EMA"
+    },
+    {
+      "ticker": "AMTM",
+      "theme": "Gov IT & Defense Services",
+      "premarketPrice": 24.4,
+      "openPrice": 24.51,
+      "scan0727Price": 25.28,
+      "scan0815Price": 25.46,
+      "currentPrice": 24.97,
+      "changePct": 0.69,
+      "fromOpenPct": 1.88,
+      "offHighPct": -2.35,
+      "zvr": 2.9,
+      "rs": 85,
+      "eps": 82,
+      "pivot": 24.15,
+      "stop": 22.9,
+      "grade": "B+",
+      "status": "Pulling Back Into 5% Buy Zone (+3.40% Above $24.15 Pivot)"
+    }
+  ],
+  "leadingPulse": {
+    "actionableInsideBuyZone": [
+      "GEN",
+      "CBRL",
+      "COGT",
+      "DKS",
+      "ANF",
+      "AMTM",
+      "APPN",
+      "XERS"
+    ],
+    "extendedHoldCore": [
+      "COLM",
+      "LFST"
+    ],
+    "coilingNearPivot": [
+      "PGNY",
+      "WMT"
+    ],
+    "constructiveSupportTests": [
+      "DLTR",
+      "VCEL",
+      "BLMN",
+      "TGTX",
+      "CDNA"
+    ],
+    "stopAndTrimWatch": [
+      "PRCH",
+      "OKTA"
+    ],
+    "tradingViewWatchlist": "COLM,COGT,DKS,ANF,GEN,CBRL,PGNY,LFST,APPN,XERS,AMTM,DLTR,VCEL,BLMN,BURL,DE,HPQ,WDAY"
+  }
+}
