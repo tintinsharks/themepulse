@@ -1,0 +1,941 @@
+{
+  "id": "brief-2026-11-25-intraday-1226",
+  "date": "2026-11-25",
+  "session": "intraday",
+  "label": "Intraday Scan #6 — 12:26 PT (3:26 ET Final-Hour Digest)",
+  "headline": "IWM (+0.69%) leads into final half hour while SPY (-0.36%, +1.85% fr open) & QQQ (-0.92%, +2.45% fr open) hold 90% closing ranges; COLM ($80.37) hits new 52W high, OKTA ($200.58) reclaims $200, COGT (+8.94%) & DKS (+4.33%) hold EP breakouts, and AMTM (-2.48%) squats to $24.15 pivot",
+  "regime": {
+    "posture": "Uptrend Under Pressure — Constructive Pre-Holiday Final-Hour Digest (35%-50% Exposure)",
+    "spy": {
+      "price": 716.2,
+      "chgPct": -0.36,
+      "fromOpenPct": 1.85,
+      "ema21": 716.5,
+      "sma50": 708.1,
+      "status": "Above 50d SMA ($708.10) & testing 21d EMA ($716.50); 90% intraday closing range"
+    },
+    "qqq": {
+      "price": 632.22,
+      "chgPct": -0.92,
+      "fromOpenPct": 2.45,
+      "ema21": 646.8,
+      "sma50": 639.2,
+      "status": "Erased 81% of morning gap-down (+24.48 pts off $607.74 low; 90% CR), below 50d SMA ($639.20)"
+    },
+    "iwm": {
+      "price": 268.99,
+      "chgPct": 0.69,
+      "fromOpenPct": 2.19,
+      "ema21": 266.9,
+      "sma50": 261.4,
+      "status": "Stage 2 Uptrend above both 21d EMA ($266.90) & 50d SMA ($261.40); 91% CR"
+    },
+    "breadth": {
+      "leadingLayers": 15,
+      "breakingDownLayers": 12,
+      "notes": "15 Leading vs 12 Breaking Down layers; retail, cyber, biotech, and ag machinery lead into Thanksgiving holiday break"
+    }
+  },
+  "macroTape": {
+    "vix": {
+      "value": 27.93,
+      "chgPct": 5.96,
+      "note": "Down -7.02 pts from 34.95 morning peak"
+    },
+    "us10y": {
+      "value": 4.84,
+      "chgBps": -6,
+      "note": "Easing 6 bps despite +4.3% Q3 GDP & +3.3% Core PCE"
+    },
+    "wti": {
+      "value": 82.57,
+      "chgPct": 0.63,
+      "note": "Steady near $82.57/bbl"
+    },
+    "dxy": {
+      "value": 103.94,
+      "chgPct": 0.12,
+      "note": "Firm at 103.94"
+    }
+  },
+  "breakouts": [
+    {
+      "ticker": "HPQ",
+      "types": [
+        "ZANGER",
+        "SB4%",
+        "9M"
+      ],
+      "price": 31.19,
+      "chgPct": 11.71,
+      "zvr": 5.3,
+      "thrust": 62.1,
+      "cr": 63,
+      "rs": 68,
+      "layer": "Commercial PCs",
+      "note": "29.48M vol (9M+ breakout) on Q4 EPS beat ($0.83 vs $0.74) & 35% AI PC mix; low RS 68 (avoid chasing)."
+    },
+    {
+      "ticker": "COGT",
+      "types": [
+        "ZANGER",
+        "SB4%",
+        "QMAG"
+      ],
+      "price": 35.96,
+      "chgPct": 8.94,
+      "zvr": 4.6,
+      "thrust": 41.1,
+      "cr": 88,
+      "rs": 95,
+      "layer": "Biotech",
+      "note": "Extended +6.52% above $33.76 ORH pivot ($35.45 max buy) after hitting $36.35 HOD on FDA GIST approval."
+    },
+    {
+      "ticker": "DE",
+      "types": [
+        "ZANGER",
+        "SB4%",
+        "SB$"
+      ],
+      "price": 642.21,
+      "chgPct": 4.6,
+      "zvr": 4,
+      "thrust": 18.4,
+      "cr": 93,
+      "rs": 76,
+      "layer": "Ag Machinery",
+      "note": "+$28.26 (+9.22% fr $588 open, 93% CR) shakeout-and-reclaim on FY26 North American large-ag cycle trough call."
+    },
+    {
+      "ticker": "DKS",
+      "types": [
+        "ZANGER",
+        "SB4%",
+        "SB$",
+        "QMAG"
+      ],
+      "price": 159.74,
+      "chgPct": 4.33,
+      "zvr": 3.9,
+      "thrust": 16.9,
+      "cr": 73,
+      "rs": 81,
+      "layer": "Specialty Retail",
+      "note": "Actionable inside 5% buy zone (+3.83% above $153.85 pivot, max buy $161.54) on Day-2 Q3 beat & guidance raise."
+    },
+    {
+      "ticker": "ANF",
+      "types": [
+        "ZANGER",
+        "SB$",
+        "QMAG"
+      ],
+      "price": 172.93,
+      "chgPct": 2.81,
+      "zvr": 2.8,
+      "thrust": 7.9,
+      "cr": 82,
+      "rs": 88,
+      "layer": "Apparel Retail",
+      "note": "Actionable inside 5% buy zone (+2.87% above $168.10 Day-2 ORH pivot, max buy $176.51); dual RS 88 / EPS 92."
+    },
+    {
+      "ticker": "COLM",
+      "types": [
+        "ZANGER",
+        "SB$",
+        "QMAG"
+      ],
+      "price": 80.23,
+      "chgPct": 2.94,
+      "zvr": 2.4,
+      "thrust": 7.1,
+      "cr": 95,
+      "rs": 94,
+      "layer": "Apparel Retail",
+      "note": "New 52W high $80.37 (95% CR); just cleared $79.80 5% buy ceiling (+5.57% above $76.00 pivot)."
+    },
+    {
+      "ticker": "LFST",
+      "types": [
+        "ZANGER",
+        "QMAG"
+      ],
+      "price": 14.385,
+      "chgPct": 1.59,
+      "zvr": 2.8,
+      "thrust": 4.5,
+      "cr": 86,
+      "rs": 92,
+      "layer": "Outpatient Healthcare",
+      "note": "Extended +6.56% above $13.50 pivot ($14.18 max buy); +7.11% from $13.43 Tracker Row 10 entry."
+    },
+    {
+      "ticker": "OKTA",
+      "types": [
+        "ZANGER",
+        "SB$",
+        "QMAG"
+      ],
+      "price": 200.58,
+      "chgPct": 1.24,
+      "zvr": 2.5,
+      "thrust": 3.1,
+      "cr": 97,
+      "rs": 82,
+      "layer": "Threat Ops",
+      "note": "Fresh final-hour breakout through $200 (+8.67% off $184.57 low, 97% CR), reclaiming 50d & 21d MAs ahead of Dec 1 Q3 ER."
+    },
+    {
+      "ticker": "GEN",
+      "types": [
+        "ZANGER",
+        "QMAG"
+      ],
+      "price": 30.385,
+      "chgPct": 1.45,
+      "zvr": 2.1,
+      "thrust": 3,
+      "cr": 68,
+      "rs": 87,
+      "layer": "Threat Ops",
+      "note": "Actionable inside 5% buy zone (+0.61% above $30.20 flat-base pivot, max buy $31.71)."
+    },
+    {
+      "ticker": "APPN",
+      "types": [
+        "ZANGER",
+        "QMAG"
+      ],
+      "price": 55.46,
+      "chgPct": 1.2,
+      "zvr": 2.1,
+      "thrust": 2.5,
+      "cr": 84,
+      "rs": 94,
+      "layer": "Enterprise SaaS",
+      "note": "Actionable inside 5% buy zone (+1.76% above $54.50 pivot, max buy $57.23); +4.23% fr open."
+    }
+  ],
+  "portfolioUpdates": [
+    {
+      "list": "PORT",
+      "ticker": "COGT",
+      "price": 35.96,
+      "chgPct": 8.94,
+      "zvr": 4.6,
+      "cr": 88,
+      "rs": 95,
+      "alerts": [
+        "BO",
+        "VOL SURGE"
+      ],
+      "note": "Extended +6.52% above $33.76 ORH pivot (+8.94% from $33.01 Tracker entry); hold core, do not add above $35.45."
+    },
+    {
+      "list": "PORT",
+      "ticker": "DKS",
+      "price": 159.74,
+      "chgPct": 4.33,
+      "zvr": 3.9,
+      "cr": 73,
+      "rs": 81,
+      "alerts": [
+        "BO",
+        "VOL SURGE"
+      ],
+      "note": "Actionable inside 5% buy zone (+3.83% above $153.85 pivot, max buy $161.54); +4.29% from $153.17 Tracker entry."
+    },
+    {
+      "list": "PORT",
+      "ticker": "COLM",
+      "price": 80.23,
+      "chgPct": 2.94,
+      "zvr": 2.4,
+      "cr": 95,
+      "rs": 94,
+      "alerts": [
+        "BO",
+        "VOL SURGE"
+      ],
+      "note": "Hit new 52W high $80.37 and crossed $79.80 5% buy ceiling (+5.57% above $76.00 pivot); switch to hold mode."
+    },
+    {
+      "list": "PORT",
+      "ticker": "LFST",
+      "price": 14.385,
+      "chgPct": 1.59,
+      "zvr": 2.8,
+      "cr": 86,
+      "rs": 92,
+      "alerts": [
+        "BO",
+        "VOL SURGE"
+      ],
+      "note": "Extended +6.56% above $13.50 pivot ($14.18 max buy); hold with stop trailed to $13.50 breakeven pivot."
+    },
+    {
+      "list": "PORT",
+      "ticker": "GEN",
+      "price": 30.385,
+      "chgPct": 1.45,
+      "zvr": 2.1,
+      "cr": 68,
+      "rs": 87,
+      "alerts": [
+        "BO",
+        "VOL SURGE"
+      ],
+      "note": "Actionable inside 5% buy zone (+0.61% above $30.20 flat-base pivot, max buy $31.71, stop $27.15)."
+    },
+    {
+      "list": "PORT",
+      "ticker": "OKTA",
+      "price": 200.58,
+      "chgPct": 1.24,
+      "zvr": 2.5,
+      "cr": 97,
+      "rs": 82,
+      "alerts": [
+        "BO",
+        "VOL SURGE",
+        "ER 6d"
+      ],
+      "note": "Cleared $200 handle (+4.76% from $191.46 Tracker entry, 97% CR) ahead of Dec 1 AMC Q3 earnings (±7.8% implied move)."
+    },
+    {
+      "list": "PORT",
+      "ticker": "APPN",
+      "price": 55.46,
+      "chgPct": 1.2,
+      "zvr": 2.1,
+      "cr": 84,
+      "rs": 94,
+      "alerts": [
+        "BO",
+        "VOL SURGE"
+      ],
+      "note": "Actionable (+1.76% above $54.50 pivot, max buy $57.23; +2.48% from $54.12 Tracker entry)."
+    },
+    {
+      "list": "PORT",
+      "ticker": "AMTM",
+      "price": 24.18,
+      "chgPct": -2.48,
+      "zvr": 3,
+      "cr": 1,
+      "rs": 85,
+      "alerts": [
+        "SQUATTING",
+        "VOL SURGE"
+      ],
+      "note": "Squatted from $25.57 morning high to $24.18 (1% CR), testing $24.15 ORH pivot; pause adds, hard stop $22.90."
+    },
+    {
+      "list": "PORT",
+      "ticker": "A",
+      "price": 179.36,
+      "chgPct": -2.27,
+      "zvr": 1.9,
+      "cr": 61,
+      "rs": 90,
+      "alerts": [
+        "HEAVY SELL"
+      ],
+      "note": "Violated $179.29 Day-1 EP low stop in Scan #1 ($175.66 low); keep exited per EP discipline."
+    },
+    {
+      "list": "PORT",
+      "ticker": "ETON",
+      "price": 65.69,
+      "chgPct": -2.64,
+      "zvr": 2.2,
+      "cr": 72,
+      "rs": 97,
+      "alerts": [
+        "HEAVY SELL"
+      ],
+      "note": "Triggered $61.05 (-7%) hard stop at $60.27 morning low before rebounding near $65.70 pivot; honor stop rule."
+    },
+    {
+      "list": "WATCH",
+      "ticker": "ANF",
+      "price": 172.93,
+      "chgPct": 2.81,
+      "zvr": 2.8,
+      "cr": 82,
+      "rs": 88,
+      "alerts": [
+        "BO",
+        "VOL SURGE"
+      ],
+      "note": "Actionable inside 5% buy zone (+2.87% above $168.10 Day-2 ORH pivot, max buy $176.51, stop $158.95)."
+    },
+    {
+      "list": "WATCH",
+      "ticker": "BURL",
+      "price": 246.93,
+      "chgPct": 1.14,
+      "zvr": 2.9,
+      "cr": 36,
+      "rs": 86,
+      "alerts": [
+        "SQUATTING",
+        "VOL SURGE"
+      ],
+      "note": "Pulled back from $253.58 intraday high to $246.93 (36% CR); wait for reclaim of $250.50+."
+    },
+    {
+      "list": "WATCH",
+      "ticker": "WDAY",
+      "price": 180.95,
+      "chgPct": 0.96,
+      "zvr": 2.9,
+      "cr": 61,
+      "rs": 72,
+      "alerts": [
+        "VOL SURGE"
+      ],
+      "note": "Holding +2.05% above $177.31 open on Q3 beat, but RS 72 remains below 80 threshold."
+    },
+    {
+      "list": "WATCH",
+      "ticker": "DELL",
+      "price": 293.78,
+      "chgPct": -0.45,
+      "zvr": 5.6,
+      "cr": 91,
+      "rs": 84,
+      "alerts": [
+        "VOL SURGE"
+      ],
+      "note": "Rebounded +10.86% off $265.00 low on 22.79M vol ($132.3B AI backlog); watch $295.11 pivot close."
+    },
+    {
+      "list": "WATCH",
+      "ticker": "PGNY",
+      "price": 36.24,
+      "chgPct": -0.66,
+      "zvr": 1.8,
+      "cr": 48,
+      "rs": 91,
+      "alerts": [
+        "SQUATTING"
+      ],
+      "note": "Coiling -0.71% below $36.50 Cup-with-Handle pivot; wait for breakout above $36.50."
+    },
+    {
+      "list": "FLG",
+      "ticker": "NVDA",
+      "price": 148.07,
+      "chgPct": -4.7,
+      "zvr": 2.5,
+      "cr": 90,
+      "rs": 84,
+      "alerts": [
+        "DOWN ≥3%",
+        "HEAVY SELL"
+      ],
+      "note": "Bounced +4.89% off $141.17 52W low (90% CR) on 290.29M vol, but remains below 50d/200d SMAs."
+    },
+    {
+      "list": "FLG",
+      "ticker": "MU",
+      "price": 595.81,
+      "chgPct": -5.4,
+      "zvr": 2.8,
+      "cr": 88,
+      "rs": 76,
+      "alerts": [
+        "DOWN ≥3%",
+        "HEAVY SELL"
+      ],
+      "note": "Rebounded +$47.68 off $548.13 low (88% CR) on 43.61M vol, still in Stage 4 channel below $728.88."
+    },
+    {
+      "list": "FLG",
+      "ticker": "URBN",
+      "price": 75.51,
+      "chgPct": -11.77,
+      "zvr": 4.8,
+      "cr": 32,
+      "rs": 64,
+      "alerts": [
+        "DOWN ≥3%",
+        "HEAVY SELL"
+      ],
+      "note": "Post-earnings breakdown below 50d SMA on 4.46M vol; avoid."
+    },
+    {
+      "list": "FLG",
+      "ticker": "NTNX",
+      "price": 46.53,
+      "chgPct": -14.76,
+      "zvr": 6.5,
+      "cr": 89,
+      "rs": 45,
+      "alerts": [
+        "DOWN ≥3%",
+        "HEAVY SELL"
+      ],
+      "note": "Stage 4 earnings gap down below 200d SMA on 10.31M vol; strict avoid."
+    },
+    {
+      "list": "FLG",
+      "ticker": "AMBA",
+      "price": 36.17,
+      "chgPct": -18.66,
+      "zvr": 7.4,
+      "cr": 93,
+      "rs": 32,
+      "alerts": [
+        "DOWN ≥3%",
+        "HEAVY SELL"
+      ],
+      "note": "Hit $30.50 52W low on 12.20M vol before bouncing to $36.17; Stage 4 breakdown."
+    }
+  ],
+  "layerUpdates": {
+    "summary": "15 Leading vs 12 Breaking Down — Institutional capital is rotating into Specialty/Apparel Retail, Cyber Threat Ops (flipped Emerging to Leading), and Biotech/Healthcare while Gov IT (AMTM) weakened and AI Semis remain in Stage 4 repair.",
+    "rows": [
+      {
+        "layer": "Specialty & Apparel Retail",
+        "theme": "Consumer Discretionary",
+        "status": "Leading",
+        "rank": 99,
+        "delta1w": 6,
+        "todayPct": 2.81,
+        "thrust": 10.6,
+        "leaders": [
+          "DKS",
+          "ANF",
+          "COLM",
+          "BURL"
+        ],
+        "note": "COLM hit new 52W high $80.37 (+2.94%); DKS (+4.33%) & ANF (+2.81%) hold Day-2 EP gains inside 5% buy zones."
+      },
+      {
+        "layer": "Threat Ops",
+        "theme": "Cyber",
+        "status": "Leading",
+        "rank": 98,
+        "delta1w": 4,
+        "todayPct": 1.35,
+        "thrust": 3.1,
+        "leaders": [
+          "GEN",
+          "OKTA"
+        ],
+        "note": "Flipped Emerging to Leading: OKTA cleared $200.58 (+8.67% off low, 97% CR) alongside GEN flat-base breakout ($30.385)."
+      },
+      {
+        "layer": "Biotech & Specialty Pharma",
+        "theme": "Healthcare",
+        "status": "Leading",
+        "rank": 96,
+        "delta1w": 3,
+        "todayPct": 1.52,
+        "thrust": 9.8,
+        "leaders": [
+          "COGT",
+          "XERS",
+          "VCEL"
+        ],
+        "note": "COGT (+8.94%, 4.6x ZVR) leads on FDA GIST approval; XERS ($17.42) & VCEL ($60.88) hold inside 5% buy zones."
+      },
+      {
+        "layer": "Outpatient & Fertility Svcs",
+        "theme": "Healthcare Services",
+        "status": "Leading",
+        "rank": 94,
+        "delta1w": 2,
+        "todayPct": 0.47,
+        "thrust": 2.3,
+        "leaders": [
+          "LFST",
+          "PGNY"
+        ],
+        "note": "LFST (+1.59% at $14.385) holds +7.11% tracker gain; PGNY ($36.24) coiling -0.71% below $36.50 pivot."
+      },
+      {
+        "layer": "Enterprise SaaS",
+        "theme": "Cloud Software",
+        "status": "Leading",
+        "rank": 91,
+        "delta1w": 5,
+        "todayPct": 1.08,
+        "thrust": 2.7,
+        "leaders": [
+          "APPN",
+          "WDAY"
+        ],
+        "note": "APPN (+1.20% at $55.46) holds breakout above $54.50 pivot; WDAY (+0.96% at $180.95) holds Q3 beat."
+      },
+      {
+        "layer": "Ag & Heavy Machinery",
+        "theme": "Industrials",
+        "status": "Emerging",
+        "rank": 84,
+        "delta1w": 11,
+        "todayPct": 4.6,
+        "thrust": 18.4,
+        "leaders": [
+          "DE"
+        ],
+        "note": "Emerging 5 leader: DE surged +9.22% from $588 open to $642.21 (93% CR) on FY26 cycle trough commentary."
+      },
+      {
+        "layer": "Commercial PCs & AI Servers",
+        "theme": "IT Hardware",
+        "status": "Emerging",
+        "rank": 79,
+        "delta1w": 8,
+        "todayPct": 5.63,
+        "thrust": 31.2,
+        "leaders": [
+          "HPQ",
+          "DELL"
+        ],
+        "note": "HPQ (+11.71%, 5.3x ZVR) & DELL (+10.86% off $265 low to $293.78, 5.6x ZVR) lead hardware volume thrust."
+      },
+      {
+        "layer": "Gov IT & Defense Svcs",
+        "theme": "Defense",
+        "status": "Weakening",
+        "rank": 75,
+        "delta1w": -4,
+        "todayPct": -2.48,
+        "thrust": -7.4,
+        "leaders": [
+          "AMTM"
+        ],
+        "note": "Flipped Leading to Weakening: AMTM ($24.18, -2.48%) squatted from $25.57 high back to $24.15 ORH pivot."
+      },
+      {
+        "layer": "AI Compute & HBM Memory",
+        "theme": "Semiconductors",
+        "status": "Breaking Down",
+        "rank": 22,
+        "delta1w": -18,
+        "todayPct": -9.59,
+        "thrust": -38.5,
+        "leaders": [
+          "NVDA",
+          "MU",
+          "AMBA"
+        ],
+        "note": "Despite off-low bounces in NVDA (-4.70%) & MU (-5.40%), group remains in Stage 4 breakdown (AMBA -18.66%)."
+      }
+    ]
+  },
+  "intradayMovers": [
+    {
+      "ticker": "HPQ",
+      "layer": "Commercial PCs",
+      "price": 31.19,
+      "chgPct": 11.71,
+      "fromOpenPct": 4.14,
+      "zvr": 5.3,
+      "rs": 68,
+      "eps": 76,
+      "status": "Holding Tight (Carryover)",
+      "progression": "07:27: +10.74% -> 08:15: +10.52% -> 09:22: +11.38% -> 10:28: +10.34% -> 11:09: +12.36% -> 12:26: +11.71%",
+      "catalyst": "Q4 EPS $0.83 vs $0.74 est (+12.2%) & 35% AI PC shipment mix",
+      "sourceUrl": "https://www.zacks.com/stock/news/3035416/hpq-q4-earnings-call-maps-out-a-pc-margin-recovery"
+    },
+    {
+      "ticker": "COGT",
+      "layer": "Biotech",
+      "price": 35.96,
+      "chgPct": 8.94,
+      "fromOpenPct": 7.63,
+      "zvr": 4.6,
+      "rs": 95,
+      "eps": 75,
+      "status": "Building / Extended (+6.52% > Pivot)",
+      "progression": "07:27: +2.64% -> 08:15: +3.60% -> 09:22: +6.30% -> 10:28: +8.85% -> 11:09: +8.88% -> 12:26: +8.94%",
+      "catalyst": "FDA approval & commercial launch of bezuclastinib in GIST",
+      "sourceUrl": "https://www.fda.gov/drugs/cancer-approvals/fda-approves-bezuclastinib-combination-sunitinib-advanced-gastrointestinal-stromal-tumors"
+    },
+    {
+      "ticker": "DE",
+      "layer": "Ag Machinery",
+      "price": 642.21,
+      "chgPct": 4.6,
+      "fromOpenPct": 9.22,
+      "zvr": 4,
+      "rs": 76,
+      "eps": 78,
+      "status": "Building / Holding Highs (93% CR)",
+      "progression": "07:27: +1.37% -> 08:15: +3.06% -> 09:22: +3.46% -> 10:28: +4.61% -> 11:09: +4.50% -> 12:26: +4.60%",
+      "catalyst": "FY26 North American large-ag cycle trough call on Q4 earnings release",
+      "sourceUrl": "https://mlq.ai/news/deere-forecasts-fiscal-2027-net-income-of-450-billion-to-525-billion-as-north-american-large-ag-demand-starts-to-improve/"
+    },
+    {
+      "ticker": "DKS",
+      "layer": "Specialty Retail",
+      "price": 159.74,
+      "chgPct": 4.33,
+      "fromOpenPct": 3.73,
+      "zvr": 3.9,
+      "rs": 81,
+      "eps": 89,
+      "status": "Actionable Inside 5% Buy Zone (+3.83% > Pivot)",
+      "progression": "07:27: +2.54% -> 08:15: +3.79% -> 09:22: +4.39% -> 10:28: +4.81% -> 11:09: +5.11% -> 12:26: +4.33%",
+      "catalyst": "Day-2 EP continuation after Q3 EPS beat ($2.78 vs $2.62) & FY guidance hike",
+      "sourceUrl": "https://www.trefis.com/stock/dks/articles/628963/what-sent-dks-stock-higher-on-tuesday/2026-11-25"
+    },
+    {
+      "ticker": "COLM",
+      "layer": "Apparel Retail",
+      "price": 80.23,
+      "chgPct": 2.94,
+      "fromOpenPct": 2.6,
+      "zvr": 2.4,
+      "rs": 94,
+      "eps": 80,
+      "status": "Fresh Final-Hour 52W High ($80.37, +5.57% > Pivot)",
+      "progression": "07:27: +0.03% -> 08:15: +0.91% -> 09:22: +2.46% -> 10:28: +2.68% -> 11:09: +2.19% -> 12:26: +2.94%",
+      "catalyst": "Stage 2 breakout to new 52-week high ($80.37), crossing $79.80 5% buy ceiling",
+      "sourceUrl": "https://www.google.com/finance/quote/COLM:NASDAQ"
+    },
+    {
+      "ticker": "ANF",
+      "layer": "Apparel Retail",
+      "price": 172.93,
+      "chgPct": 2.81,
+      "fromOpenPct": 4.44,
+      "zvr": 2.8,
+      "rs": 88,
+      "eps": 92,
+      "status": "Actionable Inside 5% Buy Zone (+2.87% > Pivot)",
+      "progression": "07:27: +1.07% -> 08:15: +1.23% -> 09:22: +2.91% -> 10:28: +3.78% -> 11:09: +3.23% -> 12:26: +2.81%",
+      "catalyst": "Day-2 EP follow-through on Q3 beat & holiday guidance raise",
+      "sourceUrl": "https://www.zacks.com/stock/news/3034883/stock-market-news-for-nov-25-2026"
+    },
+    {
+      "ticker": "OKTA",
+      "layer": "Threat Ops",
+      "price": 200.58,
+      "chgPct": 1.24,
+      "fromOpenPct": 5.98,
+      "zvr": 2.5,
+      "rs": 82,
+      "eps": 88,
+      "status": "Fresh This Hour ($200+ Breakout, 97% CR)",
+      "progression": "07:27: -5.20% -> 08:15: -3.45% -> 09:22: -2.80% -> 10:28: -0.35% -> 11:09: +0.64% -> 12:26: +1.24%",
+      "catalyst": "+8.67% shakeout-and-reclaim off $184.57 low ahead of Dec 1 Q3 earnings",
+      "sourceUrl": "https://www.zacks.com/stock/news/3035055/okta-okta-q3-earnings-on-the-horizon-analysts-insights-on-key-performance-measures"
+    },
+    {
+      "ticker": "DELL",
+      "layer": "AI Servers",
+      "price": 293.78,
+      "chgPct": -0.45,
+      "fromOpenPct": 9.8,
+      "zvr": 5.6,
+      "rs": 84,
+      "eps": 89,
+      "status": "Holding Shakeout Rebound (91% CR)",
+      "progression": "07:27: -7.17% -> 08:15: -8.06% -> 09:22: -3.36% -> 10:28: -1.75% -> 11:09: -0.09% -> 12:26: -0.45%",
+      "catalyst": "Rebounded +10.86% off $265.00 low on record $132.3B AI server backlog & $25B buyback",
+      "sourceUrl": "https://www.tradingkey.com/analysis/stocks/us-stocks/262321429-dell-beats-5-6-billion-outlook-202-billion-dell-295-11-pivot-november-25-2026-tradingkey"
+    },
+    {
+      "ticker": "AMTM",
+      "layer": "Gov IT & Defense",
+      "price": 24.18,
+      "chgPct": -2.48,
+      "fromOpenPct": -1.35,
+      "zvr": 3,
+      "rs": 85,
+      "eps": 82,
+      "status": "Fading / Squatting at $24.15 Pivot (1% CR)",
+      "progression": "07:27: +1.96% -> 08:15: +2.66% -> 09:22: +0.69% -> 10:28: +0.04% -> 11:09: -0.71% -> 12:26: -2.48%",
+      "catalyst": "Faded from $25.57 morning high back to $24.15 ORH pivot into pre-holiday final hour",
+      "sourceUrl": "https://www.stocktitan.net/news/AMTM/amentum-reports-fourth-quarter-and-fiscal-year-2026-2esldjgg4v23.html"
+    }
+  ],
+  "leadingPulse": {
+    "actionableBuyZone": [
+      {
+        "ticker": "DKS",
+        "price": 159.74,
+        "chgPct": 4.33,
+        "pivot": 153.85,
+        "pctFromPivot": 3.83,
+        "maxBuy": 161.54,
+        "stop": 142.45,
+        "zvr": 3.9
+      },
+      {
+        "ticker": "ANF",
+        "price": 172.93,
+        "chgPct": 2.81,
+        "pivot": 168.1,
+        "pctFromPivot": 2.87,
+        "maxBuy": 176.51,
+        "stop": 158.95,
+        "zvr": 2.8
+      },
+      {
+        "ticker": "GEN",
+        "price": 30.385,
+        "chgPct": 1.45,
+        "pivot": 30.2,
+        "pctFromPivot": 0.61,
+        "maxBuy": 31.71,
+        "stop": 27.15,
+        "zvr": 2.1
+      },
+      {
+        "ticker": "APPN",
+        "price": 55.46,
+        "chgPct": 1.2,
+        "pivot": 54.5,
+        "pctFromPivot": 1.76,
+        "maxBuy": 57.23,
+        "stop": 50.69,
+        "zvr": 2.1
+      },
+      {
+        "ticker": "CBRL",
+        "price": 75.12,
+        "chgPct": -0.09,
+        "pivot": 72.8,
+        "pctFromPivot": 3.19,
+        "maxBuy": 76.44,
+        "stop": 67.7,
+        "zvr": 1.7
+      },
+      {
+        "ticker": "XERS",
+        "price": 17.42,
+        "chgPct": -1.53,
+        "pivot": 17.04,
+        "pctFromPivot": 2.23,
+        "maxBuy": 17.89,
+        "stop": 16.29,
+        "zvr": 2.2
+      },
+      {
+        "ticker": "VCEL",
+        "price": 60.88,
+        "chgPct": -0.49,
+        "pivot": 58.8,
+        "pctFromPivot": 3.54,
+        "maxBuy": 61.74,
+        "stop": 54.68,
+        "zvr": 1.6
+      },
+      {
+        "ticker": "TGTX",
+        "price": 68.195,
+        "chgPct": -2.76,
+        "pivot": 65.5,
+        "pctFromPivot": 4.11,
+        "maxBuy": 68.78,
+        "stop": 60.92,
+        "zvr": 1.7
+      },
+      {
+        "ticker": "CDNA",
+        "price": 75.75,
+        "chgPct": -2.67,
+        "pivot": 72.5,
+        "pctFromPivot": 4.48,
+        "maxBuy": 76.13,
+        "stop": 67.43,
+        "zvr": 1.5
+      }
+    ],
+    "extendedHoldOnly": [
+      {
+        "ticker": "COGT",
+        "price": 35.96,
+        "chgPct": 8.94,
+        "pivot": 33.76,
+        "pctFromPivot": 6.52,
+        "maxBuy": 35.45,
+        "stop": 30.7
+      },
+      {
+        "ticker": "LFST",
+        "price": 14.385,
+        "chgPct": 1.59,
+        "pivot": 13.5,
+        "pctFromPivot": 6.56,
+        "maxBuy": 14.18,
+        "stop": 12.56
+      },
+      {
+        "ticker": "COLM",
+        "price": 80.23,
+        "chgPct": 2.94,
+        "pivot": 76,
+        "pctFromPivot": 5.57,
+        "maxBuy": 79.8,
+        "stop": 70.68
+      }
+    ],
+    "coilingAndSupport": [
+      {
+        "ticker": "OKTA",
+        "price": 200.58,
+        "chgPct": 1.24,
+        "note": "Cleared $200 (+8.67% off $184.57 low, 97% CR), above 50d $192.80 & 21d $196.40"
+      },
+      {
+        "ticker": "PGNY",
+        "price": 36.24,
+        "chgPct": -0.66,
+        "note": "Coiling -0.71% below $36.50 Cup-with-Handle pivot"
+      },
+      {
+        "ticker": "DLTR",
+        "price": 151.56,
+        "chgPct": -2,
+        "note": "Digesting +2.03% above $148.54 EP pivot"
+      },
+      {
+        "ticker": "BLMN",
+        "price": 10.45,
+        "chgPct": -1.69,
+        "note": "Holding +1.95% above $10.25 pivot"
+      },
+      {
+        "ticker": "PRCH",
+        "price": 21.6,
+        "chgPct": -1.91,
+        "note": "Defended $20.48 stop by 1.5c at $20.495 low and rebounded +$1.105"
+      },
+      {
+        "ticker": "WMT",
+        "price": 131.89,
+        "chgPct": -0.32,
+        "note": "Tight 10d EMA support below $135.16 flat-base pivot"
+      }
+    ],
+    "stopAndTrimAlerts": [
+      {
+        "ticker": "AMTM",
+        "price": 24.18,
+        "chgPct": -2.48,
+        "note": "Squatted from $25.57 high to $24.18 (1% CR), testing $24.15 ORH pivot; hard stop $22.90"
+      },
+      {
+        "ticker": "A",
+        "price": 179.36,
+        "chgPct": -2.27,
+        "note": "Violated $179.29 Day-1 EP low stop in Scan #1 ($175.66 low)"
+      },
+      {
+        "ticker": "ETON",
+        "price": 65.69,
+        "chgPct": -2.64,
+        "note": "Violated $61.05 (-7%) hard stop at $60.27 morning low before rebounding near $65.70 pivot"
+      }
+    ]
+  }
+}
