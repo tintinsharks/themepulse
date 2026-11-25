@@ -8,6 +8,8 @@ import {
   hvFromAdr,
   analyzeOptionChain,
   findSwingCallSetups,
+  findDirectionalPlays,
+  pickExpirationForHorizon,
   detectUnusualFlow,
   aggregateMultiTickerScan,
 } from "../src/lead/optionsMath.js";
@@ -123,4 +125,38 @@ test("detectUnusualFlow and aggregateMultiTickerScan surface high Vol/OI sweeps 
   assert.equal(agg.swingRows[0].rs, 96);
   assert.ok(agg.flowRows.length >= 1);
   assert.equal(agg.tickerSummaries[0].sentiment, "BULLISH");
+});
+
+test("findDirectionalPlays recommends outright vs spread cleanly for both bullish and bearish outlooks", () => {
+  const chain = buildSampleChain(100, 38);
+
+  // Clean (no ER, cheap IV: adr20=3.5 -> hv20 ~ 0.41 vs atmIv ~ 0.34 -> ivHvRatio < 0.95)
+  const cheapBull = analyzeOptionChain(chain, 100, { ticker: "TEST", adr20: 3.5, earningsDays: 60 });
+  const bull = findDirectionalPlays(cheapBull, "bullish", { earningsDays: 60 });
+  assert.equal(bull.outlook, "bullish");
+  assert.equal(bull.bestId, "primary");
+  assert.equal(bull.plays.length, 3);
+  assert.equal(bull.plays[0].title, "Swing Call");
+  assert.equal(bull.plays[0].recommended, true);
+
+  // Bearish with earnings before expiry -> recommends Bear Put Spread
+  const bearEr = analyzeOptionChain(chain, 100, { ticker: "TEST", adr20: 3.5, earningsDays: 10 });
+  const bear = findDirectionalPlays(bearEr, "bearish", { earningsDays: 10 });
+  assert.equal(bear.outlook, "bearish");
+  assert.equal(bear.bestId, "spread");
+  const spread = bear.plays.find((p) => p.id === "spread");
+  assert.equal(spread.title, "Bear Put Spread");
+  assert.equal(spread.recommended, true);
+  assert.ok(spread.shortStrike < spread.strike);
+
+  // Horizon picker selects short / monthly swing / leaps properly
+  const exps = [
+    { unix: 1, date: "2026-12-04", dte: 9 },
+    { unix: 2, date: "2027-01-08", dte: 44 },
+    { unix: 3, date: "2027-01-15", dte: 51 }, // 3rd Friday monthly OPEX
+    { unix: 4, date: "2027-06-18", dte: 205 },
+  ];
+  assert.equal(pickExpirationForHorizon(exps, "short").unix, 1);
+  assert.equal(pickExpirationForHorizon(exps, "swing").unix, 3);
+  assert.equal(pickExpirationForHorizon(exps, "leaps").unix, 4);
 });

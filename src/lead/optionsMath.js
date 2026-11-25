@@ -526,6 +526,250 @@ export function findSwingCallSetups(analysis, { earningsDays = null } = {}) {
   return setups.filter(Boolean);
 }
 
+// ── Horizon Expiration Picker (Short-Term / Swing / LEAPS) ───────────────────
+function isThirdFriday(iso) {
+  if (!iso || iso.length < 10) return false;
+  const dt = new Date(`${iso}T12:00:00Z`);
+  return dt.getUTCDay() === 5 && dt.getUTCDate() >= 15 && dt.getUTCDate() <= 21;
+}
+
+export function pickExpirationForHorizon(expirations, horizon = "swing") {
+  if (!Array.isArray(expirations) || !expirations.length) return null;
+  const pickClosest = (pool, target) =>
+    [...pool].sort((a, b) => Math.abs(a.dte - target) - Math.abs(b.dte - target))[0] || null;
+
+  if (horizon === "short") {
+    const band = expirations.filter((e) => e.dte >= 5 && e.dte <= 21);
+    return pickClosest(band.length ? band : expirations.filter((e) => e.dte >= 1), 12) || expirations[0];
+  }
+  if (horizon === "leaps") {
+    const band = expirations.filter((e) => e.dte >= 120 && e.dte <= 400);
+    const monthly = band.filter((e) => isThirdFriday(e.date));
+    if (monthly.length) return pickClosest(monthly, 180);
+    if (band.length) return pickClosest(band, 180);
+    const fallback = expirations.filter((e) => e.dte >= 75);
+    return pickClosest(fallback.length ? fallback : expirations, 180);
+  }
+  // Default: "swing" (24–70 DTE, strongly preferring monthly OPEX closest to 45 DTE)
+  const band = expirations.filter((e) => e.dte >= 24 && e.dte <= 70);
+  const monthly = band.filter((e) => isThirdFriday(e.date));
+  if (monthly.length) return pickClosest(monthly, 45);
+  if (band.length) return pickClosest(band, 45);
+  const wider = expirations.filter((e) => e.dte >= 14 && e.dte <= 100);
+  return pickClosest(wider.length ? wider : expirations, 45);
+}
+
+// ── Simplified Bullish / Bearish Playbook Recommender ────────────────────────
+// Given a directional outlook ("bullish" | "bearish"), returns 3 plain-English
+// trade choices (Primary Swing, Defined-Risk Spread, Aggressive) plus a clear
+// ★ BEST FIT recommendation based on IV vs HV and upcoming earnings.
+export function findDirectionalPlays(analysis, outlook = "bullish", { earningsDays = null } = {}) {
+  if (!analysis || !(analysis.spot > 0)) return null;
+  const isBull = outlook !== "bearish";
+  const optType = isBull ? "call" : "put";
+  const sideArr = isBull ? (analysis.calls || []) : (analysis.puts || []);
+  if (!sideArr.length) return null;
+
+  const { spot, dte, expDate, expectedMove, callWall, putWall, atmIv, ivHvRatio } = analysis;
+  const emDollars = expectedMove?.dollars || (atmIv ? spot * atmIv * Math.sqrt(Math.max(dte, 7) / 365) : spot * 0.06);
+  const targetSpot = isBull ? spot + emDollars : Math.max(0.5, spot - emDollars);
+  const remT = Math.max(1, dte * 0.67) / 365;
+  const earningsBeforeExpiry =
+    earningsDays != null && Number.isFinite(earningsDays) && earningsDays >= 0 && earningsDays <= dte;
+
+  const liquid = sideArr.filter(
+    (c) => c.mid >= 0.1 && (c.oi >= 10 || c.vol >= 10) && (c.spreadPct == null || c.spreadPct <= 25)
+  );
+  const pool = liquid.length ? liquid : sideArr.filter((c) => c.mid >= 0.05);
+  if (!pool.length) return null;
+
+  const pickByAbsDelta = (minD, maxD, targetD, exclude = null) => {
+    const inRange = pool.filter((c) => {
+      const ad = Math.abs(c.delta);
+      return ad >= minD && ad <= maxD && (!exclude || !exclude.has(c.strike));
+    });
+    if (!inRange.length) return null;
+    return [...inRange].sort((a, b) => {
+      const score = (c) => {
+        const dErr = Math.abs(Math.abs(c.delta) - targetD) * 40;
+        const sprPen = Math.min(25, c.spreadPct ?? 12) * 1.2;
+        const liqBonus = Math.min(10, Math.log10(Math.max(1, c.oi + c.vol * 2)) * 2.5);
+        return dErr + sprPen - liqBonus;
+      };
+      return score(a) - score(b);
+    })[0];
+  };
+
+  const buildSingle = (id, title, whenToUse, accent, c) => {
+    if (!c) return null;
+    const projPrice = c.iv
+      ? bsPrice(targetSpot, c.strike, remT, RISK_FREE_RATE, c.iv, optType)
+      : (isBull ? Math.max(0, targetSpot - c.strike) : Math.max(0, c.strike - targetSpot));
+    const estGain1Em = c.mid > 0 ? Math.round(((projPrice - c.mid) / c.mid) * 100) : null;
+    return {
+      id,
+      kind: "single",
+      type: optType,
+      title,
+      whenToUse,
+      accent,
+      sym: c.sym,
+      strike: c.strike,
+      expDate,
+      dte,
+      bid: c.bid,
+      ask: c.ask,
+      mid: c.mid,
+      spreadPct: c.spreadPct,
+      delta: c.delta,
+      theta: c.theta,
+      iv: c.iv,
+      oi: c.oi,
+      vol: c.vol,
+      grade: c.grade,
+      breakeven: c.breakeven,
+      breakevenPct: c.breakevenPct,
+      leverage: c.leverage,
+      maxRisk: Math.round(c.mid * 100),
+      estGain1Em,
+      earningsBeforeExpiry,
+      earningsDays,
+    };
+  };
+
+  const used = new Set();
+  const primaryLeg = pickByAbsDelta(0.52, 0.72, 0.62);
+  if (primaryLeg) used.add(primaryLeg.strike);
+  const primary = buildSingle(
+    "primary",
+    isBull ? "Swing Call" : "Swing Put",
+    isBull
+      ? "Cleanest trend ride — moves ~$0.60 per $1 rally with controlled time decay and uncapped upside."
+      : "Cleanest downside ride — moves ~$0.60 per $1 drop with controlled time decay and full downside capture.",
+    isBull ? "#34d399" : "#f87171",
+    primaryLeg
+  );
+
+  // Defined-Risk Debit Spread (Bull Call Spread or Bear Put Spread)
+  let spread = null;
+  const longLeg = primaryLeg || pickByAbsDelta(0.50, 0.72, 0.60);
+  if (longLeg) {
+    const shortCandidates = pool.filter((c) => {
+      const ad = Math.abs(c.delta);
+      const validSide = isBull ? c.strike > longLeg.strike : c.strike < longLeg.strike;
+      return validSide && ad >= 0.18 && ad <= 0.42;
+    });
+    const wallStrike = isBull ? callWall?.strike : putWall?.strike;
+    const idealShort = isBull
+      ? Math.max(longLeg.strike + 1, wallStrike && wallStrike > longLeg.strike ? Math.min(wallStrike, targetSpot * 1.04) : targetSpot)
+      : Math.min(longLeg.strike - 1, wallStrike && wallStrike < longLeg.strike ? Math.max(wallStrike, targetSpot * 0.96) : targetSpot);
+    const shortLeg = [...shortCandidates].sort(
+      (a, b) => Math.abs(a.strike - idealShort) - Math.abs(b.strike - idealShort)
+    )[0];
+
+    if (shortLeg) {
+      const width = Math.round(Math.abs(shortLeg.strike - longLeg.strike) * 100) / 100;
+      const debit = Math.round((longLeg.mid - shortLeg.mid) * 100) / 100;
+      if (width > 0 && debit > 0.05 && debit < width * 0.85) {
+        const maxProfit = Math.round((width - debit) * 100) / 100;
+        const rr = Math.round((maxProfit / debit) * 100) / 100;
+        const be = isBull
+          ? Math.round((longLeg.strike + debit) * 100) / 100
+          : Math.round((longLeg.strike - debit) * 100) / 100;
+        const bePct = spot > 0 ? Math.round(((be - spot) / spot) * 1000) / 10 : null;
+        const costSavingsPct = longLeg.mid > 0 ? Math.round(((longLeg.mid - debit) / longLeg.mid) * 100) : null;
+        const spr = Math.max(longLeg.spreadPct ?? 0, shortLeg.spreadPct ?? 0);
+        spread = {
+          id: "spread",
+          kind: "spread",
+          type: optType,
+          title: isBull ? "Bull Call Spread" : "Bear Put Spread",
+          whenToUse: isBull
+            ? "Best when options are pricey or into earnings — cuts cost & IV crush by capping gains near resistance."
+            : "Best when options are pricey or into earnings — cuts cost & IV crush by targeting support.",
+          accent: "#c084fc",
+          strike: longLeg.strike,
+          shortStrike: shortLeg.strike,
+          width,
+          expDate,
+          dte,
+          mid: debit,
+          spreadPct: spr,
+          delta: Math.round((longLeg.delta - shortLeg.delta) * 1000) / 1000,
+          theta: Math.round((longLeg.theta - shortLeg.theta) * 1000) / 1000,
+          iv: longLeg.iv,
+          oi: Math.min(longLeg.oi, shortLeg.oi),
+          vol: Math.min(longLeg.vol, shortLeg.vol),
+          grade: longLeg.grade <= shortLeg.grade ? shortLeg.grade : longLeg.grade,
+          breakeven: be,
+          breakevenPct: bePct,
+          maxRisk: Math.round(debit * 100),
+          maxProfit: Math.round(maxProfit * 100),
+          rr,
+          costSavingsPct,
+          estGain1Em: Math.round((maxProfit / debit) * 100),
+          earningsBeforeExpiry,
+          earningsDays,
+        };
+      }
+    }
+  }
+
+  const aggLeg = pickByAbsDelta(0.30, 0.54, 0.44, used);
+  const aggressive = buildSingle(
+    "aggressive",
+    isBull ? "Aggressive Breakout Call" : "Aggressive Breakdown Put",
+    isBull
+      ? "Lower upfront cost (~0.42 Δ) for fast, explosive moves — loses value faster if the stock chops."
+      : "Lower upfront cost (~-0.42 Δ) for sharp selloffs — loses value faster if the stock bounces.",
+    "#38bdf8",
+    aggLeg
+  );
+
+  const plays = [primary, spread, aggressive].filter(Boolean);
+  if (!plays.length) return null;
+
+  // Smart recommendation: when to pick outright vs spread
+  const ivExpensive = ivHvRatio != null && ivHvRatio >= 1.25;
+  const ivCheap = ivHvRatio != null && ivHvRatio <= 0.95;
+  const ivRegime = ivCheap ? "cheap" : ivExpensive ? "expensive" : "fair";
+
+  let bestId = primary ? "primary" : plays[0].id;
+  let reason = "";
+  const savingsTxt = spread?.costSavingsPct > 0 ? ` cuts your upfront cost by ${spread.costSavingsPct}% and` : "";
+  const outrightName = isBull ? "Swing Call" : "Swing Put";
+  const spreadName = isBull ? "Bull Call Spread" : "Bear Put Spread";
+
+  if (earningsBeforeExpiry && spread) {
+    bestId = "spread";
+    reason = `Earnings in ${earningsDays}d fall before this expiration — the ${spreadName}${savingsTxt} shields you from post-earnings IV crush.`;
+  } else if (ivExpensive && spread) {
+    bestId = "spread";
+    reason = `Options are priced expensive (IV is ${ivHvRatio.toFixed(2)}× recent volatility) — the ${spreadName}${savingsTxt} offsets high premium & IV drag.`;
+  } else if (ivCheap && primary) {
+    bestId = "primary";
+    reason = `Options are priced cheap (IV is ${ivHvRatio.toFixed(2)}× recent volatility) with no earnings conflict — buy the ${outrightName} outright so upside isn't capped.`;
+  } else if (primary) {
+    bestId = "primary";
+    reason = `Options are fairly priced with no earnings before expiry — the ${outrightName} gives the cleanest ${isBull ? "bullish" : "bearish"} exposure.`;
+  }
+
+  return {
+    outlook: isBull ? "bullish" : "bearish",
+    expDate,
+    dte,
+    ivRegime,
+    ivHvRatio,
+    atmIv,
+    expectedMove,
+    earningsBeforeExpiry,
+    earningsDays,
+    bestId,
+    reason,
+    plays: plays.map((p) => ({ ...p, recommended: p.id === bestId })),
+  };
+}
+
 // ── Unusual Options Activity / Flow Detector ─────────────────────────────────
 export function detectUnusualFlow(analysis, { minVol = 50, minVolOi = 1.5, minNotional = 100_000, limit = 25 } = {}) {
   if (!analysis) return [];
