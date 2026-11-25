@@ -1,6 +1,14 @@
 {
-  "latest": "brief-2026-11-25-intraday-1226.json",
+  "latest": "brief-2026-11-25-intraday-1325.json",
   "briefs": [
+    {
+      "id": "brief-2026-11-25-intraday-1325",
+      "date": "2026-11-25",
+      "session": "intraday",
+      "label": "Intraday Scan #7 — 13:25 PT (4:25 ET Closing Bell Wrap)",
+      "file": "brief-2026-11-25-intraday-1325.json",
+      "regime": "Uptrend Under Pressure — High-CR Shakeout-and-Reclaim Close (35%-50% Exposure)"
+    },
     {
       "id": "brief-2026-11-25-intraday-1226",
       "date": "2026-11-25",
