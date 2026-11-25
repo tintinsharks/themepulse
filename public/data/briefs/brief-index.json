@@ -1,6 +1,14 @@
 {
-  "latest": "brief-2026-11-25-intraday-1325.json",
+  "latest": "brief-2026-11-25-pm.json",
   "briefs": [
+    {
+      "id": "brief-2026-11-25-pm",
+      "date": "2026-11-25",
+      "session": "pm",
+      "label": "Postmarket Brief — Wed, Nov 25, 2026 (Closing Bell & After-Hours)",
+      "file": "brief-2026-11-25-pm.json",
+      "regime": "Transition / Split-Tape Improvement — 40%–55% Net Long Exposure (Selective Pilot & Pyramid Mode)"
+    },
     {
       "id": "brief-2026-11-25-intraday-1325",
       "date": "2026-11-25",
