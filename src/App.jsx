@@ -130,7 +130,7 @@ function AppMain() {
     return localStorage.getItem("themepulse-chart-ticker") || "QQQ";
   });
   const [mainView, setMainView] = useState(() => {
-    const valid = (x) => x === "brief" || x === "scanner";
+    const valid = (x) => x === "brief" || x === "scanner" || x === "qqq";
     const normalize = (x) => (x === "zanger" || x === "lead" ? "brief" : x);
     try {
       const qv = normalize((new URLSearchParams(window.location.search).get("view") || "").trim().toLowerCase());
@@ -150,6 +150,10 @@ function AppMain() {
   const switchView = useCallback((v) => {
     setMainView(v);
     try { localStorage.setItem("themepulse-view", v); } catch {}
+    if (v === "qqq") {
+      setChartTicker("QQQ");
+      try { localStorage.setItem("themepulse-chart-ticker", "QQQ"); } catch {}
+    }
   }, []);
   const handleTickerClick = useCallback((ticker) => {
     if (!ticker) return;
@@ -346,7 +350,7 @@ function AppMain() {
         </div>
         {/* View switcher */}
         <div style={{ display: "flex", gap: 4, marginLeft: 18 }}>
-          {[["brief", "BRIEF"], ["scanner", "SCANNER"]].map(([v, label]) => (
+          {[["brief", "BRIEF"], ["qqq", "QQQ"], ["scanner", "SCANNER"]].map(([v, label]) => (
             <button key={v} onClick={() => switchView(v)}
               style={{
                 background: mainView === v ? (ARIA.glowGreen || "rgba(13,145,99,0.14)") : "transparent",

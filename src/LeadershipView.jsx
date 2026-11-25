@@ -50,6 +50,7 @@ function lazyWithReload(load) {
   );
 }
 const BriefPanel = lazyWithReload(() => import("./lead/Brief.jsx"));
+const QqqPanel = lazyWithReload(() => import("./lead/QqqPanel.jsx"));
 const ScannerPanel = lazyWithReload(() => import("./lead/Scanner.jsx"));
 
 const SPLIT_STORAGE_KEY = "tp-split-pct";
@@ -603,6 +604,19 @@ export default function LeadershipView({
                 chartTicker={chartTicker}
                 tickerLayer={tickerLayer}
                 onLayer={layerOfTicker}
+              />
+            ) : view === "qqq" ? (
+              <QqqPanel
+                A={A}
+                stockMap={stockMapX}
+                tickerLayer={tickerLayer}
+                indexQuotes={indexQuotes}
+                portfolio={portfolio}
+                setPortfolio={setPortfolio}
+                watchlist={watchlist}
+                setWatchlist={setWatchlist}
+                onTicker={onTickerClick}
+                chartTicker={chartTicker}
               />
             ) : (
               <BriefPanel
