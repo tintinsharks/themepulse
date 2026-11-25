@@ -770,6 +770,237 @@ export function findDirectionalPlays(analysis, outlook = "bullish", { earningsDa
   };
 }
 
+// ── Budget Position Sizing & Best-Contract-For-Budget Optimizer ──────────────
+export function sizePlayForBudget(play, budget) {
+  const b = Number(budget);
+  if (!play || !(Number.isFinite(b) && b > 0) || !(play.maxRisk > 0)) return null;
+  const qty = Math.floor(b / play.maxRisk);
+  const totalCost = qty * play.maxRisk;
+  const leftover = Math.max(0, Math.round(b - totalCost));
+  const utilPct = Math.round((totalCost / b) * 100);
+  const perContractGain = play.kind === "spread"
+    ? (play.maxProfit ?? 0)
+    : (play.estGain1Em != null ? Math.round(play.maxRisk * (play.estGain1Em / 100)) : 0);
+  const estProfitDollars = qty > 0 ? qty * perContractGain : 0;
+  return {
+    qty,
+    totalCost,
+    leftover,
+    utilPct,
+    estProfitDollars,
+    fits: qty >= 1,
+  };
+}
+
+export function findBestForBudget(analysis, outlook = "bullish", budget = 0, { earningsDays = null } = {}) {
+  const b = Number(budget);
+  if (!analysis || !(analysis.spot > 0) || !(Number.isFinite(b) && b > 0)) return null;
+  const isBull = outlook !== "bearish";
+  const optType = isBull ? "call" : "put";
+  const sideArr = isBull ? (analysis.calls || []) : (analysis.puts || []);
+  if (!sideArr.length) return null;
+
+  const { spot, dte, expDate, expectedMove, atmIv, ivHvRatio } = analysis;
+  const emDollars = expectedMove?.dollars || (atmIv ? spot * atmIv * Math.sqrt(Math.max(dte, 7) / 365) : spot * 0.06);
+  const targetSpot = isBull ? spot + emDollars : Math.max(0.5, spot - emDollars);
+  const remT = Math.max(1, dte * 0.67) / 365;
+  const earningsBeforeExpiry =
+    earningsDays != null && Number.isFinite(earningsDays) && earningsDays >= 0 && earningsDays <= dte;
+  const ivExpensive = ivHvRatio != null && ivHvRatio >= 1.25;
+  const ivCheap = ivHvRatio != null && ivHvRatio <= 0.95;
+
+  const liquid = sideArr.filter(
+    (c) => c.mid >= 0.15 && (c.oi >= 10 || c.vol >= 10) && (c.spreadPct == null || c.spreadPct <= 20)
+  );
+  const pool = liquid.length ? liquid : sideArr.filter((c) => c.mid >= 0.1);
+  if (!pool.length) return null;
+
+  const gradeFactor = (g) => (g === "A" ? 1.0 : g === "B" ? 0.9 : g === "C" ? 0.75 : 0.55);
+  const candidates = [];
+
+  // 1. Evaluate all liquid single-leg contracts within 0.25..0.85 |Δ| that fit budget
+  const singlePool = pool.filter((c) => {
+    const ad = Math.abs(c.delta);
+    return ad >= 0.25 && ad <= 0.85;
+  });
+  let minCost = Infinity;
+
+  for (const c of singlePool) {
+    const costPerContract = Math.round(c.mid * 100);
+    if (costPerContract <= 0) continue;
+    if (costPerContract < minCost) minCost = costPerContract;
+    if (costPerContract > b) continue;
+
+    const qty = Math.floor(b / costPerContract);
+    const totalCost = qty * costPerContract;
+    const leftover = Math.max(0, Math.round(b - totalCost));
+    const util = totalCost / b;
+    const projPrice = c.iv
+      ? bsPrice(targetSpot, c.strike, remT, RISK_FREE_RATE, c.iv, optType)
+      : (isBull ? Math.max(0, targetSpot - c.strike) : Math.max(0, c.strike - targetSpot));
+    const gainPerSh = Math.max(0, projPrice - c.mid);
+    const totalProjProfit = Math.round(qty * gainPerSh * 100);
+    const totalProjRoiPct = totalCost > 0 ? Math.round((totalProjProfit / totalCost) * 100) : 0;
+
+    // Probability/delta quality curve: peaks in 0.45..0.68 |Δ|, penalizes OTM lotto tickets
+    const ad = Math.abs(c.delta);
+    let deltaFit = 1.0;
+    if (ad < 0.42) deltaFit = Math.max(0.45, 1 - (0.42 - ad) * 2.8);
+    else if (ad > 0.72) deltaFit = Math.max(0.7, 1 - (ad - 0.72) * 1.4);
+
+    const sprPenalty = 1 - Math.min(0.25, ((c.spreadPct ?? 6) / 100) * 1.2);
+    const liqFactor = gradeFactor(c.grade) * sprPenalty;
+    const utilFactor = 0.75 + 0.25 * util;
+    const regimeFactor = (earningsBeforeExpiry || ivExpensive) ? 0.88 : ivCheap ? 1.12 : 1.0;
+    const profitRatio = totalProjProfit / b;
+    const score = profitRatio * deltaFit * liqFactor * utilFactor * regimeFactor;
+
+    candidates.push({
+      kind: "single",
+      type: optType,
+      title: isBull ? "Call" : "Put",
+      sym: c.sym,
+      strike: c.strike,
+      shortStrike: null,
+      expDate,
+      dte,
+      mid: c.mid,
+      costPerContract,
+      qty,
+      totalCost,
+      leftover,
+      utilPct: Math.round(util * 100),
+      totalProjProfit,
+      totalProjRoiPct,
+      maxProfitTotal: null,
+      rr: null,
+      delta: c.delta,
+      theta: c.theta,
+      iv: c.iv,
+      breakeven: c.breakeven,
+      breakevenPct: c.breakevenPct,
+      spreadPct: c.spreadPct,
+      grade: c.grade,
+      oi: c.oi,
+      vol: c.vol,
+      score,
+    });
+  }
+
+  // 2. Evaluate feasible debit spreads (long 0.45..0.72 |Δ|, short 0.18..0.42 |Δ|)
+  const longLegs = pool.filter((c) => {
+    const ad = Math.abs(c.delta);
+    return ad >= 0.45 && ad <= 0.72;
+  }).slice(0, 6);
+  const shortLegs = pool.filter((c) => {
+    const ad = Math.abs(c.delta);
+    return ad >= 0.18 && ad <= 0.42;
+  }).slice(0, 8);
+
+  for (const lg of longLegs) {
+    for (const sh of shortLegs) {
+      const validSide = isBull ? sh.strike > lg.strike : sh.strike < lg.strike;
+      if (!validSide) continue;
+      const width = Math.round(Math.abs(sh.strike - lg.strike) * 100) / 100;
+      const debit = Math.round((lg.mid - sh.mid) * 100) / 100;
+      if (!(width > 0 && debit >= 0.2 && debit < width * 0.82)) continue;
+      const costPerContract = Math.round(debit * 100);
+      if (costPerContract < minCost) minCost = costPerContract;
+      if (costPerContract > b) continue;
+
+      const qty = Math.floor(b / costPerContract);
+      const totalCost = qty * costPerContract;
+      const leftover = Math.max(0, Math.round(b - totalCost));
+      const util = totalCost / b;
+      const maxProfitPerSh = Math.round((width - debit) * 100) / 100;
+      const maxProfitTotal = Math.round(qty * maxProfitPerSh * 100);
+      const rr = Math.round((maxProfitPerSh / debit) * 100) / 100;
+
+      // Project spread value at ±1σ move (remT)
+      const lgProj = lg.iv
+        ? bsPrice(targetSpot, lg.strike, remT, RISK_FREE_RATE, lg.iv, optType)
+        : (isBull ? Math.max(0, targetSpot - lg.strike) : Math.max(0, lg.strike - targetSpot));
+      const shProj = sh.iv
+        ? bsPrice(targetSpot, sh.strike, remT, RISK_FREE_RATE, sh.iv, optType)
+        : (isBull ? Math.max(0, targetSpot - sh.strike) : Math.max(0, sh.strike - targetSpot));
+      const spreadProj = Math.min(width, Math.max(0, lgProj - shProj));
+      const totalProjProfit = Math.round(qty * Math.max(0, spreadProj - debit) * 100);
+      const totalProjRoiPct = totalCost > 0 ? Math.round((totalProjProfit / totalCost) * 100) : 0;
+
+      const worstGrade = lg.grade <= sh.grade ? sh.grade : lg.grade;
+      const spr = Math.max(lg.spreadPct ?? 0, sh.spreadPct ?? 0);
+      const sprPenalty = 1 - Math.min(0.25, (spr / 100) * 1.2);
+      const liqFactor = gradeFactor(worstGrade) * sprPenalty;
+      const utilFactor = 0.75 + 0.25 * util;
+      const regimeFactor = (earningsBeforeExpiry || ivExpensive) ? 1.25 : ivCheap ? 0.92 : 1.02;
+      const score = (totalProjProfit / b) * 0.96 * liqFactor * utilFactor * regimeFactor;
+
+      const be = isBull
+        ? Math.round((lg.strike + debit) * 100) / 100
+        : Math.round((lg.strike - debit) * 100) / 100;
+
+      candidates.push({
+        kind: "spread",
+        type: optType,
+        title: isBull ? "Bull Call Spread" : "Bear Put Spread",
+        sym: `${lg.sym}/${sh.sym}`,
+        strike: lg.strike,
+        shortStrike: sh.strike,
+        width,
+        expDate,
+        dte,
+        mid: debit,
+        costPerContract,
+        qty,
+        totalCost,
+        leftover,
+        utilPct: Math.round(util * 100),
+        totalProjProfit,
+        totalProjRoiPct,
+        maxProfitTotal,
+        rr,
+        delta: Math.round((lg.delta - sh.delta) * 1000) / 1000,
+        theta: Math.round((lg.theta - sh.theta) * 1000) / 1000,
+        iv: lg.iv,
+        breakeven: be,
+        breakevenPct: spot > 0 ? Math.round(((be - spot) / spot) * 1000) / 10 : null,
+        spreadPct: spr,
+        grade: worstGrade,
+        oi: Math.min(lg.oi, sh.oi),
+        vol: Math.min(lg.vol, sh.vol),
+        score,
+      });
+    }
+  }
+
+  if (!candidates.length) {
+    return {
+      budget: b,
+      best: null,
+      alt: null,
+      minRequired: Number.isFinite(minCost) ? minCost : null,
+    };
+  }
+
+  candidates.sort((a, b2) => b2.score - a.score || b2.totalProjProfit - a.totalProjProfit);
+  const best = candidates[0];
+  const alt = candidates.find((c) => c.kind !== best.kind) || null;
+
+  const moveTxt = isBull ? "+1σ rally" : "−1σ drop";
+  const why =
+    `Fits ${best.qty} contract${best.qty === 1 ? "" : "s"} ($${best.totalCost.toLocaleString()} of $${Math.round(b).toLocaleString()} · ${best.utilPct}% deployed), ` +
+    `Grade ${best.grade} liquidity, est. +$${best.totalProjProfit.toLocaleString()} (+${best.totalProjRoiPct}%) on a ${moveTxt}` +
+    (best.kind === "spread" && best.maxProfitTotal ? ` (max +$${best.maxProfitTotal.toLocaleString()} · ${best.rr.toFixed(1)}× R:R)` : "") +
+    ".";
+
+  return {
+    budget: b,
+    best: { ...best, why },
+    alt,
+    minRequired: Number.isFinite(minCost) ? minCost : null,
+  };
+}
+
 // ── Unusual Options Activity / Flow Detector ─────────────────────────────────
 export function detectUnusualFlow(analysis, { minVol = 50, minVolOi = 1.5, minNotional = 100_000, limit = 25 } = {}) {
   if (!analysis) return [];

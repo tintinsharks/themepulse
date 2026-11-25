@@ -10,6 +10,8 @@ import {
   findSwingCallSetups,
   findDirectionalPlays,
   pickExpirationForHorizon,
+  sizePlayForBudget,
+  findBestForBudget,
   detectUnusualFlow,
   aggregateMultiTickerScan,
 } from "../src/lead/optionsMath.js";
@@ -159,4 +161,38 @@ test("findDirectionalPlays recommends outright vs spread cleanly for both bullis
   assert.equal(pickExpirationForHorizon(exps, "short").unix, 1);
   assert.equal(pickExpirationForHorizon(exps, "swing").unix, 3);
   assert.equal(pickExpirationForHorizon(exps, "leaps").unix, 4);
+});
+
+test("sizePlayForBudget and findBestForBudget compute max contracts and pick optimal contract within budget", () => {
+  const s = sizePlayForBudget({ kind: "single", maxRisk: 620, estGain1Em: 50 }, 2000);
+  assert.equal(s.qty, 3);
+  assert.equal(s.totalCost, 1860);
+  assert.equal(s.leftover, 140);
+  assert.equal(s.fits, true);
+  assert.equal(s.estProfitDollars, 930);
+
+  const over = sizePlayForBudget({ kind: "single", maxRisk: 2500, estGain1Em: 50 }, 1000);
+  assert.equal(over.qty, 0);
+  assert.equal(over.fits, false);
+
+  const chain = buildSampleChain(100, 38);
+  const res = analyzeOptionChain(chain, 100, { ticker: "TEST", adr20: 3.5, earningsDays: 60 });
+
+  const bullPick = findBestForBudget(res, "bullish", 2000, { earningsDays: 60 });
+  assert.ok(bullPick?.best);
+  assert.ok(bullPick.best.qty >= 1);
+  assert.ok(bullPick.best.totalCost <= 2000);
+  assert.equal(bullPick.best.totalCost + bullPick.best.leftover, 2000);
+  assert.equal(bullPick.best.type, "call");
+
+  const bearPick = findBestForBudget(res, "bearish", 2000, { earningsDays: 10 });
+  assert.ok(bearPick?.best);
+  assert.ok(bearPick.best.qty >= 1);
+  assert.ok(bearPick.best.totalCost <= 2000);
+  assert.equal(bearPick.best.type, "put");
+
+  // Tiny budget that fits no contract reports minRequired cleanly
+  const tiny = findBestForBudget(res, "bullish", 25, { earningsDays: 60 });
+  assert.equal(tiny.best, null);
+  assert.ok(tiny.minRequired > 25);
 });

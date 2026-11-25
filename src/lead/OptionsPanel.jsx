@@ -18,8 +18,10 @@ import {
   aggregateMultiTickerScan,
   analyzeOptionChain,
   detectUnusualFlow,
+  findBestForBudget,
   findDirectionalPlays,
   pickExpirationForHorizon,
+  sizePlayForBudget,
 } from "./optionsMath.js";
 import { NDX_CONSTITUENTS } from "./qqqMath.js";
 
@@ -66,6 +68,24 @@ export default function OptionsPanel({
 
   const [horizon, setHorizon] = useState("swing"); // "short" | "swing" | "leaps"
   const [customDate, setCustomDate] = useState(null); // explicit expiry override if chosen from dropdown
+
+  // Dedicated $ budget for position sizing & best-contract-for-budget optimizer
+  const [budgetStr, setBudgetStr] = useState(() => {
+    try {
+      const saved = localStorage.getItem("tp-options-budget");
+      if (saved != null) return saved;
+    } catch { /* ignore */ }
+    return "2000";
+  });
+  const setBudgetValue = (val) => {
+    const clean = String(val).replace(/[^\d.]/g, "");
+    setBudgetStr(clean);
+    try { localStorage.setItem("tp-options-budget", clean); } catch { /* ignore */ }
+  };
+  const budget = useMemo(() => {
+    const n = parseFloat(budgetStr);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }, [budgetStr]);
 
   const [tickerInput, setTickerInput] = useState("");
   const [bundle, setBundle] = useState(null);
@@ -175,6 +195,12 @@ export default function OptionsPanel({
   const playbook = useMemo(
     () => (analysis ? findDirectionalPlays(analysis, outlook, { earningsDays }) : null),
     [analysis, outlook, earningsDays]
+  );
+
+  // Best single contract or spread for the user's dedicated $ amount
+  const budgetPick = useMemo(
+    () => (analysis && budget ? findBestForBudget(analysis, outlook, budget, { earningsDays }) : null),
+    [analysis, outlook, budget, earningsDays]
   );
 
   // Quick-switch pools
@@ -504,7 +530,7 @@ export default function OptionsPanel({
           }
         >
           {/* BIG 2-WAY OUTLOOK SWITCHER */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
             <button
               type="button"
               onClick={() => pickOutlook("bullish")}
@@ -549,6 +575,190 @@ export default function OptionsPanel({
               </div>
             </button>
           </div>
+
+          {/* DEDICATED $ BUDGET INPUT BAR */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: 8,
+              background: A.bg,
+              border: `1px solid ${A.border}`,
+              borderRadius: 8,
+              padding: "7px 10px",
+              marginBottom: 10,
+            }}
+          >
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: A.text }}>Dedicated $</span>
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  background: A.bgCard,
+                  border: `1px solid ${budget ? "#fbbf24" : A.border}`,
+                  borderRadius: 6,
+                  padding: "2px 7px",
+                }}
+              >
+                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: "#fbbf24", marginRight: 3 }}>$</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={budgetStr}
+                  onChange={(e) => setBudgetValue(e.target.value)}
+                  placeholder="2000"
+                  aria-label="Dollar amount to dedicate"
+                  style={{
+                    width: 72,
+                    border: "none",
+                    outline: "none",
+                    background: "transparent",
+                    color: A.text,
+                    fontFamily: MONO,
+                    fontSize: 12,
+                    fontWeight: 700,
+                  }}
+                />
+                {budgetStr && (
+                  <button
+                    type="button"
+                    onClick={() => setBudgetValue("")}
+                    title="Clear budget"
+                    style={{ background: "transparent", border: "none", color: A.textMuted, cursor: "pointer", fontSize: 11, padding: "0 0 0 4px" }}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+                {[
+                  [500, "$500"],
+                  [1000, "$1K"],
+                  [2500, "$2.5K"],
+                  [5000, "$5K"],
+                  [10000, "$10K"],
+                ].map(([amt, lbl]) => (
+                  <button
+                    key={amt}
+                    type="button"
+                    onClick={() => setBudgetValue(String(amt))}
+                    style={chipStyle(budget === amt, "#fbbf24")}
+                  >
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <span style={{ fontSize: 10.5, color: A.textMuted }}>
+              Auto-picks best contract &amp; max # of contracts that fit
+            </span>
+          </div>
+
+          {/* BEST CONTRACT FOR YOUR $ BUDGET */}
+          {budgetPick && (
+            budgetPick.best ? (() => {
+              const bp = budgetPick.best;
+              const cp = bp.type === "call" ? "C" : "P";
+              const orderTxt = bp.kind === "spread"
+                ? `BUY ${bp.qty}× $${fmtStrike(bp.strike)}${cp} / SELL $${fmtStrike(bp.shortStrike)}${cp}`
+                : `BUY ${bp.qty}× $${fmtStrike(bp.strike)} ${bp.type === "call" ? "Call" : "Put"}${bp.qty === 1 ? "" : "s"}`;
+              const alt = budgetPick.alt;
+              const altTxt = alt
+                ? (alt.kind === "spread"
+                  ? `${alt.qty}× $${fmtStrike(alt.strike)}/$${fmtStrike(alt.shortStrike)}${cp} Spread ($${alt.totalCost.toLocaleString()} · max +$${alt.maxProfitTotal.toLocaleString()})`
+                  : `${alt.qty}× $${fmtStrike(alt.strike)}${cp} ($${alt.totalCost.toLocaleString()} · est +$${alt.totalProjProfit.toLocaleString()})`)
+                : null;
+              return (
+                <div
+                  style={{
+                    background: "rgba(251, 191, 36, 0.09)",
+                    border: "1.5px solid rgba(251, 191, 36, 0.55)",
+                    borderRadius: 9,
+                    padding: "10px 13px",
+                    marginBottom: 12,
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+                      <span
+                        style={{
+                          fontSize: 9.5,
+                          fontWeight: 800,
+                          fontFamily: MONO,
+                          padding: "2px 6px",
+                          borderRadius: 4,
+                          background: "#fbbf24",
+                          color: "#09090e",
+                          letterSpacing: 0.3,
+                        }}
+                      >
+                        ★ BEST FOR ${Math.round(budget).toLocaleString()}
+                      </span>
+                      <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: A.text }}>
+                        {orderTxt}
+                      </span>
+                      <span style={{ fontFamily: MONO, fontSize: 11, color: A.textMuted }}>
+                        · Exp {fmtExpShort(bp.expDate)} ({bp.dte}d)
+                      </span>
+                    </div>
+                    <span style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 800, color: gradeColor(bp.grade) }}>
+                      Grade {bp.grade}{bp.spreadPct != null ? ` · ${bp.spreadPct.toFixed(1)}% spr` : ""}
+                    </span>
+                  </div>
+
+                  <div style={{ fontSize: 11.5, color: A.textDim, marginTop: 5, lineHeight: 1.4 }}>
+                    {bp.why}
+                  </div>
+
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 16px", marginTop: 7, fontSize: 11, fontFamily: MONO }}>
+                    <span>
+                      <span style={{ color: A.textMuted }}>Qty </span>
+                      <strong style={{ color: "#fbbf24" }}>{bp.qty} contract{bp.qty === 1 ? "" : "s"}</strong>
+                      <span style={{ color: A.textMuted }}> (@ ${bp.mid.toFixed(2)})</span>
+                    </span>
+                    <span>
+                      <span style={{ color: A.textMuted }}>Total </span>
+                      <strong style={{ color: A.text }}>${bp.totalCost.toLocaleString()}</strong>
+                      <span style={{ color: A.textMuted }}> (${bp.leftover.toLocaleString()} left)</span>
+                    </span>
+                    <span>
+                      <span style={{ color: A.textMuted }}>BE </span>
+                      <strong style={{ color: A.text }}>${bp.breakeven.toFixed(2)}</strong>
+                      <span style={{ color: A.textMuted }}> ({fmtPct(bp.breakevenPct, 1)})</span>
+                    </span>
+                    <span>
+                      <span style={{ color: A.textMuted }}>{isBull ? "At +1σ " : "At −1σ "}</span>
+                      <strong style={{ color: A.green }}>+${bp.totalProjProfit.toLocaleString()} (+{bp.totalProjRoiPct}%)</strong>
+                    </span>
+                  </div>
+
+                  {altTxt && (
+                    <div style={{ fontSize: 10.5, color: A.textMuted, fontFamily: MONO, marginTop: 6, paddingTop: 5, borderTop: `1px solid ${A.border}` }}>
+                      Alt ({alt.kind === "spread" ? "Spread" : "Single"}): <span style={{ color: A.textDim }}>{altTxt}</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })() : (
+              <div
+                style={{
+                  background: "rgba(245, 158, 11, 0.1)",
+                  border: "1px solid rgba(245, 158, 11, 0.4)",
+                  borderRadius: 8,
+                  padding: "8px 12px",
+                  marginBottom: 12,
+                  fontSize: 11.5,
+                  color: "#fbbf24",
+                }}
+              >
+                No liquid {outlook} contract fits <strong>${Math.round(budget).toLocaleString()}</strong> on {fmtExpShort(analysis.expDate)}
+                {budgetPick.minRequired ? ` (min ~$${budgetPick.minRequired.toLocaleString()} for 1 contract — try a larger $ amount or Short 1–3w expiry).` : "."}
+              </div>
+            )
+          )}
 
           {/* PLAIN-ENGLISH RECOMMENDATION BANNER */}
           {playbook?.reason && (
@@ -613,6 +823,7 @@ export default function OptionsPanel({
                 const moveLabel = p.kind === "spread"
                   ? "Max Profit"
                   : isBull ? "At +1σ Move" : "At −1σ Move";
+                const sized = budget ? sizePlayForBudget(p, budget) : null;
 
                 return (
                   <div
@@ -673,6 +884,22 @@ export default function OptionsPanel({
                             <span style={{ color: "#c084fc", fontWeight: 700 }}> · {p.costSavingsPct}% cheaper</span>
                           )}
                         </div>
+                        {sized && (
+                          <div
+                            style={{
+                              marginTop: 5,
+                              paddingTop: 4,
+                              borderTop: `1px solid ${A.border}`,
+                              fontSize: 10.5,
+                              fontWeight: 700,
+                              color: sized.fits ? "#fbbf24" : A.red,
+                            }}
+                          >
+                            {sized.fits
+                              ? `Max ${sized.qty} contract${sized.qty === 1 ? "" : "s"} · $${sized.totalCost.toLocaleString()} total${sized.estProfitDollars > 0 ? ` (est +$${sized.estProfitDollars.toLocaleString()})` : ""}`
+                              : `0 contracts — needs $${p.maxRisk.toLocaleString()} (over $${Math.round(budget).toLocaleString()} budget)`}
+                          </div>
+                        )}
                       </div>
 
                       {/* Plain-English When to Use */}
