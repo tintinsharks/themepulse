@@ -1,6 +1,14 @@
 {
-  "latest": "brief-2026-11-25-am.json",
+  "latest": "brief-2026-11-25-intraday-0727.json",
   "briefs": [
+    {
+      "id": "brief-2026-11-25-intraday-0727",
+      "date": "2026-11-25",
+      "session": "intraday",
+      "label": "Intraday Brief — 07:27 PT (Scan #1 Baseline)",
+      "file": "brief-2026-11-25-intraday-0727.json",
+      "regime": "Selective / Defensive Exposure (35%–50% Equity — 0.5x Pilot Sizing with VIX > 30)"
+    },
     {
       "id": "brief-2026-11-25-am",
       "date": "2026-11-25",
