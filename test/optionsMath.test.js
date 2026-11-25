@@ -180,13 +180,16 @@ test("sizePlayForBudget and findBestForBudget compute max contracts and pick opt
 
   const bullPick = findBestForBudget(res, "bullish", 2000, { earningsDays: 60 });
   assert.ok(bullPick?.best);
+  assert.equal(bullPick.best.kind, "single");
   assert.ok(bullPick.best.qty >= 1);
   assert.ok(bullPick.best.totalCost <= 2000);
   assert.equal(bullPick.best.totalCost + bullPick.best.leftover, 2000);
   assert.equal(bullPick.best.type, "call");
 
+  // Even with earnings before expiry, best remains an uncapped outright put when one fits budget
   const bearPick = findBestForBudget(res, "bearish", 2000, { earningsDays: 10 });
   assert.ok(bearPick?.best);
+  assert.equal(bearPick.best.kind, "single");
   assert.ok(bearPick.best.qty >= 1);
   assert.ok(bearPick.best.totalCost <= 2000);
   assert.equal(bearPick.best.type, "put");

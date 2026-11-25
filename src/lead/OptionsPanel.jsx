@@ -576,7 +576,7 @@ export default function OptionsPanel({
             </button>
           </div>
 
-          {/* DEDICATED $ BUDGET INPUT BAR */}
+          {/* MAX RISK $ INPUT BAR */}
           <div
             style={{
               display: "flex",
@@ -592,7 +592,9 @@ export default function OptionsPanel({
             }}
           >
             <div style={{ display: "inline-flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: A.text }}>Dedicated $</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: A.text }} title="Maximum dollar amount you are willing to lose on this trade">
+                Max Risk $
+              </span>
               <div
                 style={{
                   display: "inline-flex",
@@ -610,7 +612,7 @@ export default function OptionsPanel({
                   value={budgetStr}
                   onChange={(e) => setBudgetValue(e.target.value)}
                   placeholder="2000"
-                  aria-label="Dollar amount to dedicate"
+                  aria-label="Maximum dollar amount at risk"
                   style={{
                     width: 72,
                     border: "none",
@@ -626,7 +628,7 @@ export default function OptionsPanel({
                   <button
                     type="button"
                     onClick={() => setBudgetValue("")}
-                    title="Clear budget"
+                    title="Clear max risk"
                     style={{ background: "transparent", border: "none", color: A.textMuted, cursor: "pointer", fontSize: 11, padding: "0 0 0 4px" }}
                   >
                     ✕
@@ -653,7 +655,7 @@ export default function OptionsPanel({
               </div>
             </div>
             <span style={{ fontSize: 10.5, color: A.textMuted }}>
-              Auto-picks best contract &amp; max # of contracts that fit
+              Max loss capped at $ risk · <strong style={{ color: A.green }}>Uncapped gain</strong> (outright {isBull ? "calls" : "puts"})
             </span>
           </div>
 
@@ -695,7 +697,7 @@ export default function OptionsPanel({
                           letterSpacing: 0.3,
                         }}
                       >
-                        ★ BEST FOR ${Math.round(budget).toLocaleString()}
+                        ★ BEST FOR ${Math.round(budget).toLocaleString()} MAX RISK
                       </span>
                       <span style={{ fontFamily: MONO, fontSize: 14, fontWeight: 800, color: A.text }}>
                         {orderTxt}
@@ -720,9 +722,15 @@ export default function OptionsPanel({
                       <span style={{ color: A.textMuted }}> (@ ${bp.mid.toFixed(2)})</span>
                     </span>
                     <span>
-                      <span style={{ color: A.textMuted }}>Total </span>
+                      <span style={{ color: A.textMuted }}>Max Risk </span>
                       <strong style={{ color: A.text }}>${bp.totalCost.toLocaleString()}</strong>
-                      <span style={{ color: A.textMuted }}> (${bp.leftover.toLocaleString()} left)</span>
+                      <span style={{ color: A.textMuted }}> (${bp.leftover.toLocaleString()} unused)</span>
+                    </span>
+                    <span>
+                      <span style={{ color: A.textMuted }}>Gain </span>
+                      <strong style={{ color: bp.kind === "single" ? A.green : "#c084fc" }}>
+                        {bp.kind === "single" ? "Uncapped" : `Capped +$${bp.maxProfitTotal?.toLocaleString()}`}
+                      </strong>
                     </span>
                     <span>
                       <span style={{ color: A.textMuted }}>BE </span>
@@ -737,7 +745,7 @@ export default function OptionsPanel({
 
                   {altTxt && (
                     <div style={{ fontSize: 10.5, color: A.textMuted, fontFamily: MONO, marginTop: 6, paddingTop: 5, borderTop: `1px solid ${A.border}` }}>
-                      Alt ({alt.kind === "spread" ? "Spread" : "Single"}): <span style={{ color: A.textDim }}>{altTxt}</span>
+                      Optional Capped Spread: <span style={{ color: A.textDim }}>{altTxt}</span>
                     </div>
                   )}
                 </div>

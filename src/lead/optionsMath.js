@@ -982,16 +982,24 @@ export function findBestForBudget(analysis, outlook = "bullish", budget = 0, { e
     };
   }
 
-  candidates.sort((a, b2) => b2.score - a.score || b2.totalProjProfit - a.totalProjProfit);
-  const best = candidates[0];
-  const alt = candidates.find((c) => c.kind !== best.kind) || null;
+  // User's $ budget is max willing to put at risk (max loss), with UNCAPPED gain:
+  // Always pick the best outright long Call/Put as `best` when any single-leg fits;
+  // only surface a spread as `alt` (optional capped comparison for high-IV / ER).
+  const singleCands = candidates
+    .filter((c) => c.kind === "single")
+    .sort((a, b2) => b2.score - a.score || b2.totalProjProfit - a.totalProjProfit);
+  const spreadCands = candidates
+    .filter((c) => c.kind === "spread")
+    .sort((a, b2) => b2.score - a.score || b2.totalProjProfit - a.totalProjProfit);
+
+  const best = singleCands[0] || spreadCands[0];
+  const alt = best.kind === "single" ? (spreadCands[0] || null) : null;
 
   const moveTxt = isBull ? "+1σ rally" : "−1σ drop";
+  const capTxt = best.kind === "single" ? "uncapped gain" : `capped max +$${best.maxProfitTotal?.toLocaleString()} (${best.rr?.toFixed(1)}× R:R)`;
   const why =
-    `Fits ${best.qty} contract${best.qty === 1 ? "" : "s"} ($${best.totalCost.toLocaleString()} of $${Math.round(b).toLocaleString()} · ${best.utilPct}% deployed), ` +
-    `Grade ${best.grade} liquidity, est. +$${best.totalProjProfit.toLocaleString()} (+${best.totalProjRoiPct}%) on a ${moveTxt}` +
-    (best.kind === "spread" && best.maxProfitTotal ? ` (max +$${best.maxProfitTotal.toLocaleString()} · ${best.rr.toFixed(1)}× R:R)` : "") +
-    ".";
+    `Max risk $${best.totalCost.toLocaleString()} of $${Math.round(b).toLocaleString()} (${best.qty} contract${best.qty === 1 ? "" : "s"} · ${best.utilPct}% used), ` +
+    `${capTxt}, Grade ${best.grade} liquidity, est. +$${best.totalProjProfit.toLocaleString()} (+${best.totalProjRoiPct}%) on a ${moveTxt}.`;
 
   return {
     budget: b,
