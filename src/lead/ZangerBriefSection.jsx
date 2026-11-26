@@ -30,6 +30,7 @@ import {
 import { authFetch } from "../utils.js";
 import { computeLivePortfolioPulse, filterRecentHeadlines } from "./briefLive.js";
 import { evalScanHits } from "./scannerMath.js";
+import { analyze30mPivot } from "./pivot30mMath.js";
 import BreakoutFollowThroughCard from "./BreakoutFollowThroughCard.jsx";
 import MarketBreadthCard from "../components/MarketBreadthCard.jsx";
 
@@ -39,6 +40,9 @@ const INDEX_TKS = LEAD_INDEXES.map((x) => x.t);
 const MACRO_PILL_TKS = ["VIXY", "UUP", "IBIT", "GLD", "SLV", "USO"];
 const NEWS_TTL_MS = 5 * 60 * 1000;
 const _newsCache = new Map();
+const BARS30_TTL_MS = 2 * 60 * 1000;
+const BARS30_MAX = 48;
+const _bars30Cache = new Map();
 const safeUrl = (u) => (typeof u === "string" && /^https?:\/\//i.test(u) ? u : null);
 
 const BO_COLORS = {
@@ -143,6 +147,12 @@ export default function ZangerBriefSection({
   });
   const [boFilter, setBoFilter] = useState(null); // null | "ZANGER" | "SB4%" | "SB$" | "QMAG"
   const [only9M, setOnly9M] = useState(false); // secondary filter: day share volume >= 8.9M
+  const [onlyOrh, setOnlyOrh] = useState(false); // secondary filter: 30m Opening Range High breakout
+  const [only30m, setOnly30m] = useState(false); // secondary filter: triggered 30-Minute Pivot
+  const [onlyNear52w, setOnlyNear52w] = useState(false); // secondary filter: within 15% of 52-week high
+  const [bars30Map, setBars30Map] = useState({});
+  const [bars30Loading, setBars30Loading] = useState(false);
+  const [bars30Tick, setBars30Tick] = useState(0);
   const [themeFilter, setThemeFilter] = useState(null);
   const [minZvr, setMinZvr] = useState(1.0);
   const [minRs, setMinRs] = useState(70);
@@ -503,6 +513,110 @@ export default function ZangerBriefSection({
     return out;
   }, [adr5LiqTickers, stockMap, liveOn, quotes, profiles, liveComputed, snap, tickerLayer, tiers]);
 
+  // Top 48 active movers across the selected tab for live 30m ORH & Triggered 30m Pivot tagging
+  const pivot30ScanKey = useMemo(() => {
+    if (catTab === "ext") return "";
+    const core = liveComputed ? liveComputed.allScored : [...(snap?.zangerMovers || []), ...(snap?.onDeckRsl || [])];
+    const seen = new Set(core.map((r) => r?.ticker).filter(Boolean));
+    const merged = [...core, ...adr5LiqRows.filter((r) => r?.ticker && !seen.has(r.ticker))];
+    const src = catTab === "adr5liq" ? adr5LiqRows : catTab === "leaders" ? core : merged;
+    const pool = src.filter((r) => {
+      if (catTab === "bo") return Boolean(r.isBreakout);
+      if (catTab === "zanger") return Boolean(r.qualifiesZanger);
+      if (catTab === "rsl") return Boolean(r.rsl);
+      if (catTab === "leaders") return r.tier === "lead" && r.layerStatus === "lead";
+      return true;
+    });
+    return pool
+      .slice()
+      .sort((a, b) => (stockThrust(b.chg, b.zvr) ?? -999) - (stockThrust(a.chg, a.zvr) ?? -999) || (b.rs ?? 0) - (a.rs ?? 0))
+      .slice(0, BARS30_MAX)
+      .map((r) => r.ticker)
+      .join(",");
+  }, [catTab, liveComputed, snap, adr5LiqRows]);
+
+  useEffect(() => {
+    if (!liveOn) return undefined;
+    const id = setInterval(() => {
+      if (!document.hidden) setBars30Tick((n) => n + 1);
+    }, BARS30_TTL_MS);
+    return () => clearInterval(id);
+  }, [liveOn]);
+
+  useEffect(() => {
+    if (!pivot30ScanKey) return undefined;
+    let alive = true;
+    const tickers = pivot30ScanKey.split(",").filter(Boolean);
+    const nowMs = Date.now();
+    const cachedHit = {};
+    const missing = [];
+    for (const tk of tickers) {
+      const entry = _bars30Cache.get(tk);
+      if (entry && nowMs - entry.ts < BARS30_TTL_MS) {
+        cachedHit[tk] = entry.bars;
+      } else {
+        missing.push(tk);
+      }
+    }
+    if (Object.keys(cachedHit).length) {
+      setBars30Map((prev) => ({ ...prev, ...cachedHit }));
+    }
+    if (!missing.length) {
+      setBars30Loading(false);
+      return () => { alive = false; };
+    }
+
+    const ac = new AbortController();
+    setBars30Loading(true);
+    const chunks = [];
+    for (let i = 0; i < missing.length; i += 24) {
+      chunks.push(missing.slice(i, i + 24));
+    }
+    (async () => {
+      try {
+        for (const chunk of chunks) {
+          if (!alive || ac.signal.aborted) break;
+          const resp = await authFetch(
+            `/api/ohlc?tickers=${encodeURIComponent(chunk.join(","))}&interval=30m`,
+            { cache: "no-store", signal: ac.signal }
+          );
+          if (!resp.ok) continue;
+          const d = await resp.json();
+          if (!alive || ac.signal.aborted || !d?.items) continue;
+          const ts = Date.now();
+          const batch = {};
+          for (const tk of chunk) {
+            const bars = Array.isArray(d.items[tk]) ? d.items[tk] : [];
+            _bars30Cache.set(tk, { ts, bars });
+            batch[tk] = bars;
+          }
+          setBars30Map((prev) => ({ ...prev, ...batch }));
+        }
+      } catch {
+        // ignore aborted or transient network errors
+      } finally {
+        if (alive) setBars30Loading(false);
+      }
+    })();
+
+    return () => {
+      alive = false;
+      ac.abort();
+    };
+  }, [pivot30ScanKey, bars30Tick]);
+
+  const pivot30ByTicker = useMemo(() => {
+    const map = new Map();
+    for (const [tk, bars] of Object.entries(bars30Map || {})) {
+      if (!Array.isArray(bars) || !bars.length) continue;
+      const q = liveOn ? quotes.get(tk) : null;
+      const s = stockMap?.[tk];
+      const livePrice = q?.rthPrice ?? q?.price ?? s?.price ?? s?.close ?? undefined;
+      map.set(tk, analyze30mPivot(bars, { livePrice }));
+    }
+    return map;
+  }, [bars30Map, quotes, stockMap, liveOn]);
+
   // Fetch fresh Finviz headlines via /api/live?news=TICKER for top 8 live movers (5m cache)
   const top8Key = useMemo(() => {
     const list = liveComputed ? liveComputed.movers : (snap?.zangerMovers || []);
@@ -823,6 +937,9 @@ export default function ZangerBriefSection({
     return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : null;
   };
   const isRow9M = (r) => Boolean(r?.is9M || (getRowVol(r) ?? 0) >= 8_900_000);
+  const isRowOrh = (r) => pivot30ByTicker.get(r?.ticker)?.openingRange?.status === "ORH_BO";
+  const isRow30m = (r) => pivot30ByTicker.get(r?.ticker)?.pivot?.state === "TRIGGERED";
+  const isRowNear52w = (r) => typeof r?.off52 === "number" && Number.isFinite(r.off52) && r.off52 >= -15;
 
   const tabBaseRows = (catTab === "adr5liq" ? adr5LiqRows : catTab === "leaders" ? corePool : allPool).filter((r) => {
     if (catTab === "bo" && !r.isBreakout) return false;
@@ -833,9 +950,15 @@ export default function ZangerBriefSection({
     return true;
   });
   const count9M = tabBaseRows.filter(isRow9M).length;
+  const countOrh = tabBaseRows.filter(isRowOrh).length;
+  const count30m = tabBaseRows.filter(isRow30m).length;
+  const countNear52w = tabBaseRows.filter(isRowNear52w).length;
 
   const filteredNoTheme = tabBaseRows.filter((r) => {
     if (only9M && !isRow9M(r)) return false;
+    if (onlyOrh && !isRowOrh(r)) return false;
+    if (only30m && !isRow30m(r)) return false;
+    if (onlyNear52w && !isRowNear52w(r)) return false;
     if ((catTab === "zanger" || catTab === "bo" || catTab === "adr5liq") && minZvr > 1.0 && (r.zvr ?? 0) < minZvr) return false;
     if (minRs > 70 && (r.rs ?? 0) < minRs) return false;
     if (minAdr != null && (r.adr ?? -1) < minAdr) return false;
@@ -911,7 +1034,13 @@ export default function ZangerBriefSection({
 
   const sortedMovers = [...filteredRows].sort((a, b) => {
     return cmpSort(a, b, moverSort, (r, k) => {
-      if (k === "sig") return (r.breakoutTypes?.length || 0) * 10 + (r.isNew ? 5 : 0) + (r.rsl ? 1 : 0);
+      if (k === "sig") {
+        return (r.breakoutTypes?.length || 0) * 10
+          + (isRow30m(r) ? 6 : 0)
+          + (isRowOrh(r) ? 3 : 0)
+          + (r.isNew ? 5 : 0)
+          + (r.rsl ? 1 : 0);
+      }
       if (k === "theme") return `${r.theme || ""} ${r.layer || ""}`;
       if (k === "thrust") return stockThrust(r.chg, r.zvr);
       return r[k];
@@ -1539,15 +1668,65 @@ export default function ZangerBriefSection({
                 >
                   9M <span style={{ opacity: 0.75 }}>{count9M}</span>
                 </button>
+                <button
+                  onClick={() => setOnlyOrh((v) => !v)}
+                  title="30m Opening Range High breakout (price > 9:30–10:00 ET high) · combines with TYPE filters · row click opens 30m chart"
+                  style={{ ...chipStyle(onlyOrh, "#22d3ee"), fontFamily: MONO, fontSize: 10.5 }}
+                >
+                  ORH <span style={{ opacity: 0.75 }}>{countOrh}</span>
+                </button>
+                <button
+                  onClick={() => setOnly30m((v) => !v)}
+                  title="Triggered 30-Minute Pivot (broke above last red 30m bar high, not stopped) · combines with TYPE filters · row click opens 30m chart"
+                  style={{ ...chipStyle(only30m, "#10b981"), fontFamily: MONO, fontSize: 10.5 }}
+                >
+                  30m <span style={{ opacity: 0.75 }}>{count30m}</span>
+                </button>
+                <button
+                  onClick={() => setOnlyNear52w((v) => !v)}
+                  title="Within 15% of 52-week high (off 52wH ≥ −15%) · combines with TYPE filters"
+                  style={{ ...chipStyle(onlyNear52w, "#fbbf24"), fontFamily: MONO, fontSize: 10.5 }}
+                >
+                  ≤15% 52wH <span style={{ opacity: 0.75 }}>{countNear52w}</span>
+                </button>
+                {bars30Loading && countOrh === 0 && count30m === 0 && (
+                  <span style={{ fontSize: 9.5, fontFamily: MONO, color: A.textMuted }}>30m…</span>
+                )}
               </div>
             ) : (
-              <button
-                onClick={() => setOnly9M((v) => !v)}
-                title="Secondary filter: ≥ 8.9M shares traded on the day"
-                style={{ ...chipStyle(only9M, "#f97316"), fontFamily: MONO, fontSize: 10.5 }}
-              >
-                9M <span style={{ opacity: 0.75 }}>{count9M}</span>
-              </button>
+              <div style={{ display: "inline-flex", flexWrap: "wrap", alignItems: "center", gap: 4 }}>
+                <button
+                  onClick={() => setOnly9M((v) => !v)}
+                  title="Secondary filter: ≥ 8.9M shares traded on the day"
+                  style={{ ...chipStyle(only9M, "#f97316"), fontFamily: MONO, fontSize: 10.5 }}
+                >
+                  9M <span style={{ opacity: 0.75 }}>{count9M}</span>
+                </button>
+                <button
+                  onClick={() => setOnlyOrh((v) => !v)}
+                  title="30m Opening Range High breakout (price > 9:30–10:00 ET high) · row click opens 30m chart"
+                  style={{ ...chipStyle(onlyOrh, "#22d3ee"), fontFamily: MONO, fontSize: 10.5 }}
+                >
+                  ORH <span style={{ opacity: 0.75 }}>{countOrh}</span>
+                </button>
+                <button
+                  onClick={() => setOnly30m((v) => !v)}
+                  title="Triggered 30-Minute Pivot (broke above last red 30m bar high, not stopped) · row click opens 30m chart"
+                  style={{ ...chipStyle(only30m, "#10b981"), fontFamily: MONO, fontSize: 10.5 }}
+                >
+                  30m <span style={{ opacity: 0.75 }}>{count30m}</span>
+                </button>
+                <button
+                  onClick={() => setOnlyNear52w((v) => !v)}
+                  title="Within 15% of 52-week high (off 52wH ≥ −15%)"
+                  style={{ ...chipStyle(onlyNear52w, "#fbbf24"), fontFamily: MONO, fontSize: 10.5 }}
+                >
+                  ≤15% 52wH <span style={{ opacity: 0.75 }}>{countNear52w}</span>
+                </button>
+                {bars30Loading && countOrh === 0 && count30m === 0 && (
+                  <span style={{ fontSize: 9.5, fontFamily: MONO, color: A.textMuted }}>30m…</span>
+                )}
+              </div>
             )}
             <div style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6 }}>
               <button
@@ -1675,12 +1854,31 @@ export default function ZangerBriefSection({
                     ...warnFlags.map(([, msg]) => `⚠ ${msg}`),
                     onLayer ? "Click to open layer" : null,
                   ].filter(Boolean).join(" — ");
+                  const p30 = pivot30ByTicker.get(m.ticker);
+                  const rowOrh = p30?.openingRange?.status === "ORH_BO";
+                  const row30m = p30?.pivot?.state === "TRIGGERED";
+                  const open30m = (e) => {
+                    e.stopPropagation();
+                    onTicker && onTicker(m.ticker);
+                    try { window.dispatchEvent(new CustomEvent("tp-chart-tf", { detail: "30m" })); } catch { /* ignore */ }
+                  };
+                  const orhTip = rowOrh && p30?.openingRange
+                    ? `30m ORH Breakout · ORH $${p30.openingRange.orh.toFixed(2)} / ORL $${p30.openingRange.orl.toFixed(2)} — click to open 30m chart`
+                    : "";
+                  const p30Tip = row30m && p30?.pivot
+                    ? `30m Pivot TRIGGERED · Entry $${p30.pivot.entry?.toFixed(2)} · Stop $${p30.pivot.stop?.toFixed(2)}${p30.pivot.riskPct != null ? ` (-${p30.pivot.riskPct.toFixed(1)}%)` : ""}${p30.pivot.target2R != null ? ` · +2R $${p30.pivot.target2R.toFixed(2)}` : ""}${p30.pivot.rMultipleNow != null ? ` · ${p30.pivot.rMultipleNow >= 0 ? "+" : ""}${p30.pivot.rMultipleNow.toFixed(1)}R` : ""} — click to open 30m chart`
+                    : "";
                   return (
                   <tr
                     key={m.ticker}
                     data-nav={m.ticker}
                     className="tp-click-row"
-                    onClick={() => onTicker && onTicker(m.ticker)}
+                    onClick={() => {
+                      onTicker && onTicker(m.ticker);
+                      if (onlyOrh || only30m) {
+                        try { window.dispatchEvent(new CustomEvent("tp-chart-tf", { detail: "30m" })); } catch { /* ignore */ }
+                      }
+                    }}
                     style={{
                       cursor: "pointer",
                       background: chartTicker === m.ticker ? A.bgHover : m.isNew ? "rgba(56,189,248,0.06)" : "transparent",
@@ -1688,7 +1886,7 @@ export default function ZangerBriefSection({
                     }}
                   >
                     <td style={mtd()}>
-                      <span style={{ display: "inline-flex", gap: 2, flexWrap: "wrap", maxWidth: 78 }}>
+                      <span style={{ display: "inline-flex", gap: 2, flexWrap: "wrap", maxWidth: 92 }}>
                         {m.isNew && (
                           <span style={{ fontSize: 10, fontWeight: 800, fontFamily: MONO, padding: "1px 3px", lineHeight: 1.15, borderRadius: 3, background: "rgba(56,189,248,0.2)", color: A.cyan, border: `1px solid ${A.cyan}` }}>NEW</span>
                         )}
@@ -1725,6 +1923,24 @@ export default function ZangerBriefSection({
                             style={{ fontSize: 10, fontWeight: 800, fontFamily: MONO, padding: "1px 3px", lineHeight: 1.15, borderRadius: 3, background: "rgba(249,115,22,0.18)", color: "#f97316", border: "1px solid rgba(249,115,22,0.6)" }}
                           >
                             9M
+                          </span>
+                        )}
+                        {row30m && (
+                          <span
+                            onClick={open30m}
+                            title={p30Tip}
+                            style={{ fontSize: 9.5, fontWeight: 800, fontFamily: MONO, padding: "1px 3px", lineHeight: 1.15, borderRadius: 3, background: "rgba(16,185,129,0.18)", color: "#10b981", border: "1px solid rgba(16,185,129,0.65)", cursor: "pointer" }}
+                          >
+                            30m
+                          </span>
+                        )}
+                        {rowOrh && (
+                          <span
+                            onClick={open30m}
+                            title={orhTip}
+                            style={{ fontSize: 9.5, fontWeight: 800, fontFamily: MONO, padding: "1px 3px", lineHeight: 1.15, borderRadius: 3, background: "rgba(34,211,238,0.16)", color: "#22d3ee", border: "1px solid rgba(34,211,238,0.6)", cursor: "pointer" }}
+                          >
+                            ORH
                           </span>
                         )}
                       </span>
