@@ -40,8 +40,10 @@ const PIVOT30_NOTE =
 const PIVOT30_UNIVERSES = [
   ["both", "Both"],
   ["elite", "Elite RS"],
+  ["adr5liq", "ADR 5%+ Liquid"],
   ["user", "Port · Watch · Flg"],
 ];
+const VALID_PIVOT_UNIVERSES = new Set(PIVOT30_UNIVERSES.map(([k]) => k));
 
 const VALID_SCANS = new Set([...ALL_SCANS.map(([k]) => k), PIVOT30_SCAN]);
 const ELITE_IDS = new Set(ELITE_RS_SCANS.map(([k]) => k));
@@ -115,7 +117,17 @@ function ScannerPanel({
   });
 
   // 30m Pivot tab state
-  const [pivotUniverse, setPivotUniverse] = useState("both");
+  const [pivotUniverse, setPivotUniverse] = useState(() => {
+    try {
+      const saved = localStorage.getItem("tp-pivot30-univ");
+      if (VALID_PIVOT_UNIVERSES.has(saved)) return saved;
+    } catch { /* ignore */ }
+    return "both";
+  });
+  const pickPivotUniverse = (k) => {
+    setPivotUniverse(k);
+    try { localStorage.setItem("tp-pivot30-univ", k); } catch { /* ignore */ }
+  };
   const [actionableOnly, setActionableOnly] = useState(true);
   const [pivotBars, setPivotBars] = useState({});
   const [pivotLoading, setPivotLoading] = useState(false);
@@ -205,10 +217,26 @@ function ScannerPanel({
     return arr.slice(0, PIVOT30_MAX).map((x) => x.t);
   }, [stockMap, passesFilters]);
 
+  // Top ADR 5%+ Liquid screen hits (Mkt cap > $100M, ADR > 5%, 10D vol > 500K, > 200d SMA, 1W $vol > $300M)
+  const adr5LiqPivotCandidates = useMemo(() => {
+    const arr = [];
+    Object.values(stockMap || {}).forEach((s) => {
+      if (!passesFilters(s)) return;
+      if (!evalScanHits(s, null, null)?.adr5liq) return;
+      const rs = s.rs_rank ?? 0;
+      const rvol = s.rel_volume > 0 ? s.rel_volume : null;
+      const thr = stockThrust(s.change_pct, rvol);
+      arr.push({ t: s.ticker, thr, rs });
+    });
+    arr.sort((a, b) => (b.thr ?? -999) - (a.thr ?? -999) || b.rs - a.rs || a.t.localeCompare(b.t));
+    return arr.slice(0, PIVOT30_MAX).map((x) => x.t);
+  }, [stockMap, passesFilters]);
+
   // Capped 24-ticker candidate list for 30m Pivot batch scan
   const pivotCandidates = useMemo(() => {
     if (pivotUniverse === "user") return userTickers.slice(0, PIVOT30_MAX);
     if (pivotUniverse === "elite") return elitePivotCandidates.slice(0, PIVOT30_MAX);
+    if (pivotUniverse === "adr5liq") return adr5LiqPivotCandidates.slice(0, PIVOT30_MAX);
     const seen = new Set();
     const out = [];
     for (const t of userTickers) {
@@ -226,7 +254,7 @@ function ScannerPanel({
       }
     }
     return out;
-  }, [pivotUniverse, userTickers, elitePivotCandidates]);
+  }, [pivotUniverse, userTickers, elitePivotCandidates, adr5LiqPivotCandidates]);
 
   const pivotCandidatesKey = pivotCandidates.join(",");
 
@@ -700,11 +728,13 @@ function ScannerPanel({
             <span style={{ fontSize: 10, fontWeight: 700, color: A.textMuted, letterSpacing: 0.45, marginRight: 2 }}>UNIVERSE</span>
             {PIVOT30_UNIVERSES.map(([k, label]) => {
               const active = pivotUniverse === k;
+              const tip = k === "adr5liq" ? SCAN_NOTES.adr5liq : undefined;
               return (
                 <button
                   key={k}
                   type="button"
-                  onClick={() => setPivotUniverse(k)}
+                  title={tip}
+                  onClick={() => pickPivotUniverse(k)}
                   style={{
                     background: active ? `${PIVOT30_ACCENT}1f` : "transparent",
                     border: `1px solid ${active ? PIVOT30_ACCENT : A.border}`,
