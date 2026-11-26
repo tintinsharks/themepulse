@@ -41,6 +41,7 @@ const PIVOT30_UNIVERSES = [
   ["both", "Both"],
   ["elite", "Elite RS"],
   ["adr5liq", "ADR 5%+ Liquid"],
+  ["topdv", "Top $Vol"],
   ["user", "Port · Watch · Flg"],
 ];
 const VALID_PIVOT_UNIVERSES = new Set(PIVOT30_UNIVERSES.map(([k]) => k));
@@ -232,11 +233,25 @@ function ScannerPanel({
     return arr.slice(0, PIVOT30_MAX).map((x) => x.t);
   }, [stockMap, passesFilters]);
 
+  // Top 24 highest daily $ volume stocks (mega-cap & institutional liquid bounce/reclaim plays like NVDA, TSLA, META)
+  const topDvPivotCandidates = useMemo(() => {
+    const arr = [];
+    Object.values(stockMap || {}).forEach((s) => {
+      if (!passesFilters(s)) return;
+      const adv = s.avg_dollar_vol_raw ?? 0;
+      if (adv < 100e6) return;
+      arr.push({ t: s.ticker, adv });
+    });
+    arr.sort((a, b) => b.adv - a.adv || a.t.localeCompare(b.t));
+    return arr.slice(0, PIVOT30_MAX).map((x) => x.t);
+  }, [stockMap, passesFilters]);
+
   // Capped 24-ticker candidate list for 30m Pivot batch scan
   const pivotCandidates = useMemo(() => {
     if (pivotUniverse === "user") return userTickers.slice(0, PIVOT30_MAX);
     if (pivotUniverse === "elite") return elitePivotCandidates.slice(0, PIVOT30_MAX);
     if (pivotUniverse === "adr5liq") return adr5LiqPivotCandidates.slice(0, PIVOT30_MAX);
+    if (pivotUniverse === "topdv") return topDvPivotCandidates.slice(0, PIVOT30_MAX);
     const seen = new Set();
     const out = [];
     for (const t of userTickers) {
@@ -254,7 +269,7 @@ function ScannerPanel({
       }
     }
     return out;
-  }, [pivotUniverse, userTickers, elitePivotCandidates, adr5LiqPivotCandidates]);
+  }, [pivotUniverse, userTickers, elitePivotCandidates, adr5LiqPivotCandidates, topDvPivotCandidates]);
 
   const pivotCandidatesKey = pivotCandidates.join(",");
 
@@ -728,7 +743,11 @@ function ScannerPanel({
             <span style={{ fontSize: 10, fontWeight: 700, color: A.textMuted, letterSpacing: 0.45, marginRight: 2 }}>UNIVERSE</span>
             {PIVOT30_UNIVERSES.map(([k, label]) => {
               const active = pivotUniverse === k;
-              const tip = k === "adr5liq" ? SCAN_NOTES.adr5liq : undefined;
+              const tip = k === "adr5liq"
+                ? SCAN_NOTES.adr5liq
+                : k === "topdv"
+                ? "Top 24 highest daily $ volume names (NVDA, TSLA, AMD, META, etc.) — catches liquid mega-cap bounces even below 200d SMA"
+                : undefined;
               return (
                 <button
                   key={k}

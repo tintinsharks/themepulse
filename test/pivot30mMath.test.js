@@ -169,7 +169,7 @@ test("computeOpeningRange classifies ORH_BO, ORL_BD, FAILED_HIGH, FAILED_LOW, an
   assert.equal(liveBo.status, "ORH_BO");
 });
 
-test("analyze30mPivot detects ARMED after 3 red bars + green reversal", () => {
+test("analyze30mPivot detects ARMED on last red bar of 3-red pullback (@1ChartMaster style)", () => {
   const day1 = makeSessionBars("2026-11-24", [
     { o: 96, h: 98, l: 95, c: 97.5 },
     { o: 97.5, h: 99.5, l: 97, c: 99 },
@@ -179,8 +179,8 @@ test("analyze30mPivot detects ARMED after 3 red bars + green reversal", () => {
     { o: 101, h: 106, l: 100.5, c: 105 }, // OR bar (green)
     { o: 105, h: 105.2, l: 103.5, c: 103.8 }, // red 1
     { o: 103.8, h: 104.0, l: 102.2, c: 102.5 }, // red 2
-    { o: 102.5, h: 102.8, l: 101.0, c: 101.4 }, // red 3 (pullback low = 101.0)
-    { o: 101.5, h: 103.0, l: 101.2, c: 102.8 }, // green reversal pivot (entry = 103.0, stop = 101.0)
+    { o: 102.5, h: 103.0, l: 101.0, c: 101.4 }, // red 3 = pivot bar (entry = 103.0, stop = 101.0)
+    { o: 101.5, h: 102.7, l: 101.2, c: 102.6 }, // green inside pause bar (hasn't broken 103.0 yet)
   ]);
 
   const res = analyze30mPivot([...day1, ...day2], { livePrice: 102.6 });
@@ -195,7 +195,8 @@ test("analyze30mPivot detects ARMED after 3 red bars + green reversal", () => {
   assert.equal(res.pivot.riskPct, 1.94);
   assert.equal(res.pivot.target2R, 107);
   assert.equal(res.pivot.target3R, 109);
-  assert.equal(res.pivot.barsSincePivot, 0);
+  assert.equal(res.pivot.pivotBarIdx, 6);
+  assert.equal(res.pivot.barsSincePivot, 1);
   assert.equal(res.pivot.triggerBarIdx, null);
   assert.equal(res.pivot.triggerTime, null);
   assert.equal(res.pivot.distToEntryPct, 0.39);
@@ -205,13 +206,12 @@ test("analyze30mPivot detects ARMED after 3 red bars + green reversal", () => {
   assert.equal(res.floorPivots.bias, "ABOVE_CPR");
 });
 
-test("analyze30mPivot detects TRIGGERED with +2R target and live R-multiple", () => {
+test("analyze30mPivot detects TRIGGERED on break of last red bar high with +2R target and live R-multiple", () => {
   const bars = makeSessionBars("2026-11-25", [
     { o: 100, h: 105, l: 99.5, c: 104.5 }, // green
     { o: 104.5, h: 104.6, l: 103.0, c: 103.2 }, // red 1
-    { o: 103.2, h: 103.4, l: 102.0, c: 102.2 }, // red 2 (pullback low = 102.0)
-    { o: 102.3, h: 104.0, l: 102.1, c: 103.8 }, // green pivot (entry = 104.0, stop = 102.0, risk = 2.0)
-    { o: 103.9, h: 106.5, l: 103.8, c: 106.0 }, // trigger bar
+    { o: 103.2, h: 104.0, l: 102.0, c: 102.2 }, // red 2 = pivot bar (entry = 104.0, stop = 102.0, risk = 2.0)
+    { o: 102.3, h: 106.5, l: 102.1, c: 106.0 }, // green breakout trigger bar (breaks above 104.0)
   ]);
 
   const res = analyze30mPivot(bars, { livePrice: 107.0 });
@@ -223,39 +223,81 @@ test("analyze30mPivot detects TRIGGERED with +2R target and live R-multiple", ()
   assert.equal(res.pivot.target2R, 108);
   assert.equal(res.pivot.target3R, 110);
   assert.equal(res.pivot.rMultipleNow, 1.5);
-  assert.equal(res.pivot.pivotBarIdx, 3);
-  assert.equal(res.pivot.triggerBarIdx, 4);
-  assert.equal(res.pivot.triggerTime, bars[4].time);
+  assert.equal(res.pivot.pivotBarIdx, 2);
+  assert.equal(res.pivot.triggerBarIdx, 3);
+  assert.equal(res.pivot.triggerTime, bars[3].time);
   assert.equal(res.openingRange.status, "ORH_BO");
 });
 
-test("analyze30mPivot detects active PULLBACK on trailing red streak", () => {
+test("analyze30mPivot catches NVDA-style morning 3-red tight pivot and keeps it TRIGGERED (+5.27R) through session close", () => {
   const bars = makeSessionBars("2026-11-25", [
-    { o: 100, h: 104, l: 99.5, c: 103.5 },
-    { o: 103.5, h: 105, l: 103, c: 104.5 },
-    { o: 104.5, h: 104.6, l: 103.1, c: 103.3 }, // red 1
-    { o: 103.3, h: 103.5, l: 102.0, c: 102.2 }, // red 2
-    { o: 102.2, h: 102.5, l: 101.2, c: 101.5 }, // red 3
+    { o: 144.0, h: 146.0, l: 143.8, c: 145.6 }, // 09:30 green
+    { o: 145.6, h: 145.7, l: 143.2, c: 143.5 }, // 10:00 red 1
+    { o: 143.5, h: 143.7, l: 142.1, c: 142.3 }, // 10:30 red 2
+    { o: 142.3, h: 142.79, l: 141.55, c: 141.9 }, // 11:00 red 3 (tight pivot: Entry 142.79, Stop 141.55, Risk 1.24 / 0.87%)
+    { o: 142.0, h: 144.3, l: 141.8, c: 144.1 }, // 11:30 green trigger bar (breaks 142.79)
+    { o: 144.1, h: 146.2, l: 144.0, c: 146.0 }, // 12:00
+    { o: 146.0, h: 147.8, l: 145.9, c: 147.5 }, // 12:30
+    { o: 147.5, h: 148.4, l: 147.3, c: 148.2 }, // 13:00
+    { o: 148.2, h: 148.7, l: 148.0, c: 148.5 }, // 13:30
+    { o: 148.5, h: 148.9, l: 148.3, c: 148.7 }, // 14:00
+    { o: 148.7, h: 149.1, l: 148.5, c: 148.9 }, // 14:30
+    { o: 148.9, h: 149.3, l: 148.8, c: 149.1 }, // 15:00
+    { o: 149.1, h: 150.37, l: 149.0, c: 149.32 }, // 15:30 close (9 bars after 11:00 pivot)
   ]);
 
-  const res = analyze30mPivot(bars);
+  const res = analyze30mPivot(bars, { livePrice: 149.32 });
   assert.equal(res.ok, true);
-  assert.equal(res.pivot.state, "PULLBACK");
-  assert.equal(res.pivot.shortLabel, "PULLBACK");
-  assert.equal(res.pivot.label, "PULLBACK (3 red)");
-  assert.equal(res.pivot.tone, "cyan");
-  assert.equal(res.pivot.redCount, 3);
-  assert.equal(res.pivot.entry, 102.5);
-  assert.equal(res.pivot.stop, 101.2);
+  assert.equal(res.pivot.state, "TRIGGERED");
+  assert.equal(res.pivot.entry, 142.79);
+  assert.equal(res.pivot.stop, 141.55);
+  assert.equal(res.pivot.riskPct, 0.87);
+  assert.equal(res.pivot.rMultipleNow, 5.27);
+  assert.equal(res.pivot.pivotBarIdx, 3);
+  assert.equal(res.pivot.triggerBarIdx, 4);
+  assert.equal(res.pivot.barsSincePivot, 9);
+});
+
+test("analyze30mPivot detects active PULLBACK on wide trailing red selloff vs ARMED on tight trailing red bar", () => {
+  // Wide heavy red selloff (last bar range > 2.5% and close far below high) -> PULLBACK
+  const wideBars = makeSessionBars("2026-11-25", [
+    { o: 100, h: 106, l: 99.5, c: 105.5 },
+    { o: 105.5, h: 106.5, l: 105, c: 106.0 },
+    { o: 106.0, h: 106.1, l: 103.5, c: 103.8 }, // red 1
+    { o: 103.8, h: 104.0, l: 101.2, c: 101.5 }, // red 2
+    { o: 101.5, h: 102.5, l: 98.5, c: 99.0 }, // wide red 3 (riskPct 3.9%, dist 3.5%)
+  ]);
+  const pb = analyze30mPivot(wideBars);
+  assert.equal(pb.ok, true);
+  assert.equal(pb.pivot.state, "PULLBACK");
+  assert.equal(pb.pivot.shortLabel, "PULLBACK");
+  assert.equal(pb.pivot.label, "PULLBACK (3 red)");
+  assert.equal(pb.pivot.tone, "cyan");
+  assert.equal(pb.pivot.redCount, 3);
+  assert.equal(pb.pivot.entry, 102.5);
+  assert.equal(pb.pivot.stop, 98.5);
+
+  // Tight stabilizing 3rd red bar (riskPct ~0.9%) -> ARMED immediately so buy-stop can be placed
+  const tightBars = makeSessionBars("2026-11-25", [
+    { o: 144.0, h: 146.0, l: 143.8, c: 145.6 },
+    { o: 145.6, h: 145.7, l: 143.2, c: 143.5 },
+    { o: 143.5, h: 143.7, l: 142.1, c: 142.3 },
+    { o: 142.3, h: 142.79, l: 141.55, c: 141.9 },
+  ]);
+  const armed = analyze30mPivot(tightBars);
+  assert.equal(armed.pivot.state, "ARMED");
+  assert.equal(armed.pivot.label, "BUY > $142.79");
+  assert.equal(armed.pivot.stop, 141.55);
+  assert.equal(armed.pivot.pivotBarIdx, 3);
 });
 
 test("analyze30mPivot marks pivot STOPPED when subsequent bar or livePrice breaks stop", () => {
   const bars = makeSessionBars("2026-11-25", [
     { o: 100, h: 105, l: 99.5, c: 104.5 },
     { o: 104.5, h: 104.6, l: 103.0, c: 103.2 }, // red 1
-    { o: 103.2, h: 103.3, l: 102.0, c: 102.2 }, // red 2 (low = 102.0)
-    { o: 102.3, h: 104.0, l: 102.1, c: 103.8 }, // green pivot (entry = 104.0, stop = 102.0)
-    { o: 103.8, h: 104.5, l: 101.4, c: 101.8 }, // breaks below stop 102.0
+    { o: 103.2, h: 104.0, l: 102.0, c: 102.2 }, // red 2 = pivot bar (entry = 104.0, stop = 102.0)
+    { o: 102.3, h: 104.5, l: 102.1, c: 104.2 }, // green breakout bar (triggers above 104.0)
+    { o: 104.1, h: 104.2, l: 101.4, c: 101.6 }, // single red bar breaks below stop 102.0
   ]);
 
   const res = analyze30mPivot(bars);
@@ -266,24 +308,24 @@ test("analyze30mPivot marks pivot STOPPED when subsequent bar or livePrice break
 });
 
 test("analyze30mPivot detects 1-red EMA-touch pullback pivot", () => {
-  // Build 10 steady bars around 100 so EMA10 settles near 100.5, then 1 red bar dipping to EMA10, then green reversal.
+  // Build 10 steady bars around 100 so EMA10 settles near 100.75, then 1 red bar dipping to EMA10.
   const specs = [];
   for (let i = 0; i < 10; i++) {
     const base = 100 + i * 0.1;
     specs.push({ o: base, h: base + 0.4, l: base - 0.1, c: base + 0.3 });
   }
-  // At bar 9, EMA10 ~ 100.75. Bar 10 is 1 red candle dipping to 100.70 (right into EMA10).
+  // Bar 10 is 1 red candle dipping to 100.70 (right into EMA10) with high 101.5.
   specs.push({ o: 101.4, h: 101.5, l: 100.7, c: 100.9 });
-  // Bar 11 is green reversal closing in upper half.
-  specs.push({ o: 100.95, h: 101.8, l: 100.85, c: 101.7 });
+  // Bar 11 is green bar holding inside (hasn't broken 101.5 yet -> ARMED; if it broke 101.5 -> TRIGGERED).
+  specs.push({ o: 100.95, h: 101.45, l: 100.85, c: 101.4 });
 
   const bars = makeSessionBars("2026-11-25", specs);
-  const res = analyze30mPivot(bars, { livePrice: 101.6 });
+  const res = analyze30mPivot(bars, { livePrice: 101.4 });
   assert.equal(res.ok, true);
   assert.equal(res.pivot.state, "ARMED");
   assert.equal(res.pivot.redCount, 1);
   assert.equal(res.pivot.nearEma, true);
-  assert.equal(res.pivot.entry, 101.8);
+  assert.equal(res.pivot.entry, 101.5);
   assert.equal(res.pivot.stop, 100.7);
 });
 

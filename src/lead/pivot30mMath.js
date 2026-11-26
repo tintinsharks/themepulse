@@ -254,15 +254,6 @@ function isRedBar(bars, idx) {
   return false;
 }
 
-function isGreenPivotBar(bars, idx) {
-  const b = bars[idx];
-  if (!b || !(b.close > b.open)) return false;
-  const range = b.high - b.low;
-  const closesInUpperHalf = range > 0 ? b.close >= b.low + range * 0.5 : true;
-  const closesAbovePrior = idx > 0 && bars[idx - 1] ? b.close > bars[idx - 1].close : false;
-  return closesInUpperHalf || closesAbovePrior;
-}
-
 function isBarNearEma(bar, emaVal, tol = 0.006) {
   if (!bar || typeof emaVal !== "number" || !Number.isFinite(emaVal) || emaVal <= 0) {
     return false;
@@ -318,6 +309,7 @@ export function analyze30mPivot(bars30m, opts = {}) {
     emaFast = 10,
     emaSlow = 20,
     maxWindowBars = 5,
+    maxTriggeredLookback = 18,
   } = opts;
 
   const lastIdx = bars30m.length - 1;
@@ -356,20 +348,25 @@ export function analyze30mPivot(bars30m, opts = {}) {
   const openingRange = computeOpeningRange(bars30m, livePrice);
 
   let pivot = null;
-  const minScanIdx = Math.max(1, lastIdx - (maxWindowBars + 2));
+  const minScanIdx = Math.max(0, lastIdx - Math.max(maxWindowBars + 2, maxTriggeredLookback));
 
-  // Scan backward for most recent valid green pullback reversal candle.
+  // Scan backward for the most recent valid 30m pullback pivot (@1ChartMaster style):
+  // The pivot candle is the LAST RED BAR of a red pullback sequence (≥2 red bars, or ≥1 red bar near 10/20 EMA).
+  // Entry triggers on a break above that pivot bar's HIGH; initial stop sits below its LOW.
+  // Untriggered ARMED setups expire after maxWindowBars; active TRIGGERED trades stay tracked across the session.
   for (let i = lastIdx; i >= minScanIdx; i--) {
-    if (!isGreenPivotBar(bars30m, i)) continue;
+    if (!isRedBar(bars30m, i)) continue;
+    // Only evaluate the terminal (last) red bar of a consecutive red sequence.
+    if (i < lastIdx && isRedBar(bars30m, i + 1)) continue;
 
     let redCount = 0;
-    for (let k = i - 1; k >= 0; k--) {
+    for (let k = i; k >= 0; k--) {
       if (isRedBar(bars30m, k)) redCount++;
       else break;
     }
     if (redCount === 0) continue;
 
-    const pbStart = i - redCount;
+    const pbStart = i - redCount + 1;
     let nearEma = false;
     for (let k = pbStart; k <= i; k++) {
       if (
@@ -386,11 +383,14 @@ export function analyze30mPivot(bars30m, opts = {}) {
     if (!(redCount >= 2 || (redCount >= 1 && nearEma))) continue;
 
     const entry = round2(bars30m[i].high);
-    let pullbackLow = Infinity;
-    for (let k = i - Math.max(1, redCount); k <= i; k++) {
-      if (bars30m[k].low < pullbackLow) pullbackLow = bars30m[k].low;
+    let stop = round2(bars30m[i].low);
+    if (entry != null && (stop == null || entry - stop <= 0)) {
+      let minLow = Infinity;
+      for (let k = pbStart; k <= i; k++) {
+        if (bars30m[k].low < minLow) minLow = bars30m[k].low;
+      }
+      stop = round2(minLow);
     }
-    const stop = round2(pullbackLow);
     if (entry == null || stop == null || entry - stop <= 0) continue;
 
     const risk = entry - stop;
@@ -398,6 +398,10 @@ export function analyze30mPivot(bars30m, opts = {}) {
     const target2R = round2(entry + 2 * risk);
     const target3R = round2(entry + 3 * risk);
     const barsSincePivot = lastIdx - i;
+    const distToEntryPct =
+      entry != null && lastPrice != null && lastPrice > 0
+        ? round2(((entry - lastPrice) / lastPrice) * 100)
+        : null;
 
     const laterBars = bars30m.slice(i + 1);
     const brokeStop =
@@ -414,11 +418,41 @@ export function analyze30mPivot(bars30m, opts = {}) {
     let triggerBarIdx = null;
     let triggerTime = null;
 
-    if (brokeStop) {
-      state = "STOPPED";
-      shortLabel = "STOPPED";
-      label = "STOPPED";
-      tone = "red";
+    if (i === lastIdx) {
+      // Active pullback ending on the current bar
+      if (lastPrice != null && lastPrice > entry) {
+        state = "TRIGGERED";
+        shortLabel = "TRIGGERED";
+        label = "TRIGGERED";
+        tone = "green";
+        rMultipleNow = round2((lastPrice - entry) / risk);
+        triggerBarIdx = lastIdx;
+        triggerTime = bars30m[lastIdx]?.time ?? null;
+      } else if (lastPrice != null && lastPrice < stop) {
+        state = "PULLBACK";
+        shortLabel = "PULLBACK";
+        label = `PULLBACK (${redCount} red)`;
+        tone = "cyan";
+      } else if (riskPct <= 2.5 || (distToEntryPct != null && distToEntryPct <= 1.2)) {
+        state = "ARMED";
+        shortLabel = "ARMED";
+        label = `BUY > $${entry.toFixed(2)}`;
+        tone = "amber";
+      } else {
+        state = "PULLBACK";
+        shortLabel = "PULLBACK";
+        label = `PULLBACK (${redCount} red)`;
+        tone = "cyan";
+      }
+    } else if (brokeStop) {
+      if (barsSincePivot <= maxWindowBars) {
+        state = "STOPPED";
+        shortLabel = "STOPPED";
+        label = "STOPPED";
+        tone = "red";
+      } else {
+        continue;
+      }
     } else if (brokeEntry) {
       state = "TRIGGERED";
       shortLabel = "TRIGGERED";
@@ -436,11 +470,6 @@ export function analyze30mPivot(bars30m, opts = {}) {
       // Stale pivot that never triggered within maxWindowBars
       continue;
     }
-
-    const distToEntryPct =
-      entry != null && lastPrice != null && lastPrice > 0
-        ? round2(((entry - lastPrice) / lastPrice) * 100)
-        : null;
 
     pivot = {
       state,
@@ -463,70 +492,6 @@ export function analyze30mPivot(bars30m, opts = {}) {
       distToEntryPct,
     };
     break;
-  }
-
-  // Fallback: check for an active trailing red pullback ending at the last bar.
-  if (!pivot) {
-    let trailingRed = 0;
-    for (let k = lastIdx; k >= 0; k--) {
-      if (isRedBar(bars30m, k)) trailingRed++;
-      else break;
-    }
-
-    if (trailingRed > 0) {
-      const pbStart = lastIdx - trailingRed + 1;
-      let nearEma = false;
-      for (let k = pbStart; k <= lastIdx; k++) {
-        if (
-          isBarNearEma(bars30m[k], ema10[k]) ||
-          isBarNearEma(bars30m[k], ema20[k]) ||
-          isBarNearEma(bars30m[k], ema10[lastIdx]) ||
-          isBarNearEma(bars30m[k], ema20[lastIdx])
-        ) {
-          nearEma = true;
-          break;
-        }
-      }
-
-      if (trailingRed >= 2 || (trailingRed >= 1 && nearEma)) {
-        const entry = round2(lastBar.high);
-        let minLow = Infinity;
-        for (let k = pbStart; k <= lastIdx; k++) {
-          if (bars30m[k].low < minLow) minLow = bars30m[k].low;
-        }
-        const stop = round2(minLow);
-        const risk = entry != null && stop != null ? entry - stop : 0;
-        const validRisk = risk > 0;
-        const riskPct = validRisk ? round2((risk / entry) * 100) : null;
-        const target2R = validRisk ? round2(entry + 2 * risk) : null;
-        const target3R = validRisk ? round2(entry + 3 * risk) : null;
-        const distToEntryPct =
-          entry != null && lastPrice != null && lastPrice > 0
-            ? round2(((entry - lastPrice) / lastPrice) * 100)
-            : null;
-
-        pivot = {
-          state: "PULLBACK",
-          label: `PULLBACK (${trailingRed} red)`,
-          shortLabel: "PULLBACK",
-          tone: "cyan",
-          redCount: trailingRed,
-          nearEma,
-          pivotBarIdx: null,
-          pivotTime: null,
-          triggerBarIdx: null,
-          triggerTime: null,
-          entry,
-          stop,
-          riskPct,
-          target2R,
-          target3R,
-          rMultipleNow: null,
-          barsSincePivot: null,
-          distToEntryPct,
-        };
-      }
-    }
   }
 
   if (!pivot) {
