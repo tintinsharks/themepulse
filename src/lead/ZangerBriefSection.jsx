@@ -755,43 +755,6 @@ export default function ZangerBriefSection({
     try { localStorage.setItem("tp-brief-cat", t); } catch { /* ignore */ }
     setMoverSort({ k: "thrust", d: -1 });
   };
-  const topThemes = (() => {
-    const list = (themes || [])
-      .filter((t) => t.st === "lead" || t.st === "emerg")
-      .slice()
-      .sort((a, b) => {
-        const ta = a.dayFlow?.thrust;
-        const tb = b.dayFlow?.thrust;
-        if (ta != null && tb != null && tb !== ta) return tb - ta;
-        if (ta == null && tb != null) return 1;
-        if (ta != null && tb == null) return -1;
-        return (b.today ?? -999) - (a.today ?? -999) || (b.now ?? 0) - (a.now ?? 0);
-      })
-      .slice(0, 12);
-    const hitCount = {};
-    if (catTab === "adr5liq") {
-      for (const r of adr5LiqRows) {
-        if (r.theme) hitCount[r.theme] = (hitCount[r.theme] || 0) + 1;
-      }
-    } else {
-      for (const r of allPool) {
-        if (!r.theme) continue;
-        const inTab = catTab === "bo"
-          ? r.isBreakout
-          : catTab === "rsl"
-          ? r.rsl
-          : catTab === "leaders"
-          ? (r.tier === "lead" && r.layerStatus === "lead")
-          : r.qualifiesZanger;
-        if (inTab) hitCount[r.theme] = (hitCount[r.theme] || 0) + 1;
-      }
-    }
-    return list.map((t) => {
-      const hasWarn = (t.layers || []).some((l) => (l.flags || []).some(([k]) => k === "distrib" || k === "exiting"));
-      return { ...t, hits: hitCount[t.theme] || 0, hasWarn };
-    });
-  })();
-  const extraThemeChip = themeFilter && !topThemes.some((t) => t.theme === themeFilter) ? themeFilter : null;
   const ph = snap?.phase || { id: "midday", label: "INTRADAY UPDATE", subtitle: "", accent: A.green };
   const portAlerts = livePortAlerts || snap?.portfolioAlerts || {};
   const portItems = Array.isArray(portAlerts.items) ? portAlerts.items : (portAlerts.alerts || []);
@@ -871,9 +834,8 @@ export default function ZangerBriefSection({
   });
   const count9M = tabBaseRows.filter(isRow9M).length;
 
-  const filteredRows = tabBaseRows.filter((r) => {
+  const filteredNoTheme = tabBaseRows.filter((r) => {
     if (only9M && !isRow9M(r)) return false;
-    if (themeFilter && r.theme !== themeFilter) return false;
     if ((catTab === "zanger" || catTab === "bo" || catTab === "adr5liq") && minZvr > 1.0 && (r.zvr ?? 0) < minZvr) return false;
     if (minRs > 70 && (r.rs ?? 0) < minRs) return false;
     if (minAdr != null && (r.adr ?? -1) < minAdr) return false;
@@ -888,6 +850,64 @@ export default function ZangerBriefSection({
     if (cleanOnly && ((r.layerFlags?.length ? r.layerFlags : tickerLayer?.[r.ticker]?.flags) || []).some(([k]) => k === "distrib" || k === "exiting")) return false;
     return true;
   });
+
+  // Cover 100% of themes with >= 1 row in the current filtered table (no lead/emerg or 12-pill cutoff),
+  // sorted left-to-right by live Day Thrust descending.
+  const topThemes = (() => {
+    const themeMeta = new Map();
+    for (const t of themes || []) {
+      if (t?.theme) themeMeta.set(t.theme, t);
+    }
+    const buckets = new Map();
+    for (const r of filteredNoTheme) {
+      const name = r?.theme;
+      if (!name || name === "—") continue;
+      let b = buckets.get(name);
+      if (!b) {
+        b = { hits: 0, thrSum: 0, thrN: 0, chgSum: 0, chgN: 0 };
+        buckets.set(name, b);
+      }
+      b.hits += 1;
+      const sthr = stockThrust(r.chg, r.zvr);
+      if (sthr != null && Number.isFinite(sthr)) { b.thrSum += sthr; b.thrN += 1; }
+      if (typeof r.chg === "number" && Number.isFinite(r.chg)) { b.chgSum += r.chg; b.chgN += 1; }
+    }
+    const out = [];
+    for (const [name, b] of buckets.entries()) {
+      const meta = themeMeta.get(name);
+      if (meta) {
+        const hasWarn = (meta.layers || []).some((l) => (l.flags || []).some(([k]) => k === "distrib" || k === "exiting"));
+        out.push({ ...meta, hits: b.hits, hasWarn });
+      } else {
+        const fallbackThr = b.thrN > 0 ? Math.round((b.thrSum / b.thrN) * 10) / 10 : null;
+        const fallbackToday = b.chgN > 0 ? Math.round((b.chgSum / b.chgN) * 100) / 100 : null;
+        out.push({
+          theme: name,
+          themeId: `sec:${name}`,
+          st: "lag",
+          now: null,
+          today: fallbackToday,
+          dayFlow: { thrust: fallbackThr },
+          hits: b.hits,
+          hasWarn: false,
+        });
+      }
+    }
+    out.sort((a, b) => {
+      const ta = a.dayFlow?.thrust;
+      const tb = b.dayFlow?.thrust;
+      if (ta != null && tb != null && tb !== ta) return tb - ta;
+      if (ta == null && tb != null) return 1;
+      if (ta != null && tb == null) return -1;
+      return (b.today ?? -999) - (a.today ?? -999) || (b.hits ?? 0) - (a.hits ?? 0) || (b.now ?? -1) - (a.now ?? -1) || a.theme.localeCompare(b.theme);
+    });
+    return out;
+  })();
+  const extraThemeChip = themeFilter && !topThemes.some((t) => t.theme === themeFilter) ? themeFilter : null;
+
+  const filteredRows = themeFilter
+    ? filteredNoTheme.filter((r) => r.theme === themeFilter)
+    : filteredNoTheme;
 
   const sortedMovers = [...filteredRows].sort((a, b) => {
     return cmpSort(a, b, moverSort, (r, k) => {
@@ -1463,7 +1483,7 @@ export default function ZangerBriefSection({
             }}
           >
             <span
-              title="Leading & emerging themes ordered left-to-right by live Day Thrust"
+              title="All themes with stocks in the current table, ordered left-to-right by live Day Thrust"
               style={{ fontSize: 10, fontWeight: 700, color: A.textMuted, letterSpacing: 0.5, marginRight: 2, flexShrink: 0 }}
             >
               THEMES
@@ -1473,12 +1493,13 @@ export default function ZangerBriefSection({
               const active = themeFilter === t.theme;
               const c = statusColor(t.st, A);
               const thr = t.dayFlow?.thrust;
-              const thrTip = thr != null ? `Day Thrust ${thr > 0 ? "+" : ""}${thr.toFixed(1)} · ` : "";
+              const thrTip = thr != null ? `Day Thrust ${thr > 0 ? "+" : ""}${thr.toFixed(1)}` : null;
+              const rankTip = t.now != null ? `rank ${Math.round(t.now)}` : "sector";
               return (
                 <button
                   key={t.themeId || t.theme}
                   onClick={() => setThemeFilter(active ? null : t.theme)}
-                  title={`${t.theme} · ${thrTip}rank ${Math.round(t.now)}${t.hasWarn ? " · contains layers with distrib/exiting flags" : ""}`}
+                  title={`${t.theme} · ${[thrTip, rankTip].filter(Boolean).join(" · ")}${t.hasWarn ? " · contains layers with distrib/exiting flags" : ""}`}
                   style={chipStyle(active, c)}
                 >
                   {t.theme}
