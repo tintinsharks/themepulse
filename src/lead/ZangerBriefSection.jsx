@@ -756,7 +756,18 @@ export default function ZangerBriefSection({
     setMoverSort({ k: "thrust", d: -1 });
   };
   const topThemes = (() => {
-    const list = (themes || []).filter((t) => t.st === "lead" || t.st === "emerg").slice(0, 12);
+    const list = (themes || [])
+      .filter((t) => t.st === "lead" || t.st === "emerg")
+      .slice()
+      .sort((a, b) => {
+        const ta = a.dayFlow?.thrust;
+        const tb = b.dayFlow?.thrust;
+        if (ta != null && tb != null && tb !== ta) return tb - ta;
+        if (ta == null && tb != null) return 1;
+        if (ta != null && tb == null) return -1;
+        return (b.today ?? -999) - (a.today ?? -999) || (b.now ?? 0) - (a.now ?? 0);
+      })
+      .slice(0, 12);
     const hitCount = {};
     if (catTab === "adr5liq") {
       for (const r of adr5LiqRows) {
@@ -1451,16 +1462,23 @@ export default function ZangerBriefSection({
               borderRadius: 6,
             }}
           >
-            <span style={{ fontSize: 10, fontWeight: 700, color: A.textMuted, letterSpacing: 0.5, marginRight: 2, flexShrink: 0 }}>THEMES</span>
+            <span
+              title="Leading & emerging themes ordered left-to-right by live Day Thrust"
+              style={{ fontSize: 10, fontWeight: 700, color: A.textMuted, letterSpacing: 0.5, marginRight: 2, flexShrink: 0 }}
+            >
+              THEMES
+            </span>
             <button onClick={() => setThemeFilter(null)} style={chipStyle(!themeFilter, A.green)}>All</button>
             {topThemes.map((t) => {
               const active = themeFilter === t.theme;
               const c = statusColor(t.st, A);
+              const thr = t.dayFlow?.thrust;
+              const thrTip = thr != null ? `Day Thrust ${thr > 0 ? "+" : ""}${thr.toFixed(1)} · ` : "";
               return (
                 <button
                   key={t.themeId || t.theme}
                   onClick={() => setThemeFilter(active ? null : t.theme)}
-                  title={`${t.theme} (rank ${Math.round(t.now)})${t.hasWarn ? " · contains layers with distrib/exiting flags" : ""}`}
+                  title={`${t.theme} · ${thrTip}rank ${Math.round(t.now)}${t.hasWarn ? " · contains layers with distrib/exiting flags" : ""}`}
                   style={chipStyle(active, c)}
                 >
                   {t.theme}
