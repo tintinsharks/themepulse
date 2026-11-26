@@ -16,6 +16,7 @@ import {
   indexStats,
   isHealthcareItem,
   pinReason,
+  rsLeads,
   scoreZangerCandidate,
   statusColor,
   stockThrust,
@@ -24,9 +25,11 @@ import {
   useFlags,
   useRvolProfiles,
   useScanQuotes,
+  zvrFor,
 } from "./core.jsx";
 import { authFetch } from "../utils.js";
 import { computeLivePortfolioPulse, filterRecentHeadlines } from "./briefLive.js";
+import { evalScanHits } from "./scannerMath.js";
 import BreakoutFollowThroughCard from "./BreakoutFollowThroughCard.jsx";
 import MarketBreadthCard from "../components/MarketBreadthCard.jsx";
 
@@ -56,6 +59,7 @@ const BO_KEYS = ["ZANGER", "SB4%", "SB$", "QMAG"];
 const CAT_TABS = [
   ["bo", "🔥 Breakouts", "#fbbf24", "Any of the 4 breakouts: Zanger, Stockbee 4%, Stockbee $, Qullamaggie"],
   ["zanger", "⚡ All Movers", "#4ade80", "Any breakout OR ZVR ≥ 1.5x volume surge in a leading/emerging theme"],
+  ["adr5liq", "🚀 ADR 5%+ Liq", "#fb923c", "Base filter: Mkt cap > $100M · ADR > 5% · Avg vol (10D) > 500K · Price > 200d SMA · 1W $vol > $300M"],
   ["rsl", "🔵 RS Leading", "#38bdf8", "RS line at a new 52-week high on a green close while basing 5–15% off highs"],
   ["leaders", "⭐ Core Leaders", "#f59e0b", "RS 90+ Tier Leaders in Leading theme layers"],
   ["ext", "🌙 Pre/Postmarket", "#c084fc", "Pre-market & after-hours movers with earnings flags and catalysts"],
@@ -98,7 +102,7 @@ function CrMeter({ cr, A }) {
   );
 }
 
-const VALID_CAT_TABS = new Set(["bo", "zanger", "rsl", "leaders", "ext"]);
+const VALID_CAT_TABS = new Set(["bo", "zanger", "adr5liq", "rsl", "leaders", "ext"]);
 
 export default function ZangerBriefSection({
   A,
@@ -246,9 +250,31 @@ export default function ZangerBriefSection({
     return out;
   }, [stockMap, tickerLayer, tiers]);
 
+  // Separate base filter universe: ADR 5%+ Liquid (Mkt cap > $100M, ADR > 5%, 10D vol > 500K, > 200d SMA, 1W $vol > $300M)
+  const adr5LiqTickers = useMemo(() => {
+    const out = [];
+    for (const [t, s] of Object.entries(stockMap || {})) {
+      if (!s?.ticker) continue;
+      if (evalScanHits(s, null, null)?.adr5liq) {
+        out.push(t);
+        continue;
+      }
+      // Include names within -4% of 200d SMA so intraday reclaims enter live
+      if (
+        (s.market_cap_raw ?? 0) > 100e6 &&
+        (s.adr20 ?? s.adr_pct ?? 0) > 5 &&
+        (s.avg_vol_10d ?? s.avg_volume_raw ?? 0) > 500e3 &&
+        (s.sma200_pct ?? -99) >= -4
+      ) {
+        out.push(t);
+      }
+    }
+    return out;
+  }, [stockMap]);
+
   const quoteTickers = useMemo(
-    () => (liveOn ? [...new Set([...INDEX_TKS, ...MACRO_PILL_TKS, ...poolTickers, ...(portfolio || []), ...(watchlist || []), ...flaggedTickers].filter(Boolean))] : []),
-    [liveOn, poolTickers, portfolio, watchlist, flaggedTickers]
+    () => (liveOn ? [...new Set([...INDEX_TKS, ...MACRO_PILL_TKS, ...poolTickers, ...adr5LiqTickers, ...(portfolio || []), ...(watchlist || []), ...flaggedTickers].filter(Boolean))] : []),
+    [liveOn, poolTickers, adr5LiqTickers, portfolio, watchlist, flaggedTickers]
   );
   const { quotes, at } = useScanQuotes(quoteTickers, liveOn && quoteTickers.length > 0);
 
@@ -378,6 +404,91 @@ export default function ZangerBriefSection({
       onDeck,
     };
   }, [liveOn, quotes, poolTickers, stockMap, tickerLayer, tiers, profiles, snap]);
+
+  // Live rows for the ADR 5%+ Liquid base filter view (preserves breakout tags from Zanger pool when present)
+  const adr5LiqRows = useMemo(() => {
+    if (!adr5LiqTickers.length) return [];
+    const now = new Date();
+    const scoredMap = new Map();
+    const srcScored = liveComputed ? liveComputed.allScored : [...(snap?.zangerMovers || []), ...(snap?.onDeckRsl || [])];
+    for (const r of srcScored) {
+      if (r?.ticker && !scoredMap.has(r.ticker)) scoredMap.set(r.ticker, r);
+    }
+    const out = [];
+    for (const t of adr5LiqTickers) {
+      const s = stockMap?.[t];
+      if (!s) continue;
+      const q = liveOn ? (quotes.get(t) || null) : null;
+      let zvr = q ? zvrFor(s, q, profiles, now) : null;
+      if (zvr == null && s.rel_volume > 0) zvr = s.rel_volume;
+      if (!evalScanHits(s, q, zvr)?.adr5liq) continue;
+
+      const existing = scoredMap.get(t);
+      if (existing) {
+        out.push(existing);
+        continue;
+      }
+
+      const layer = tickerLayer?.[t] || null;
+      const tier = tiers?.leaders?.has(t) ? "lead" : tiers?.emerging?.has(t) ? "emerg" : null;
+      const px = q?.rthPrice ?? q?.price ?? s.price ?? s.close ?? null;
+      const chg = q?.change ?? s.change_pct ?? null;
+      const volume = (typeof q?.volume === "number" && Number.isFinite(q.volume) && q.volume > 0)
+        ? q.volume
+        : (typeof s.volume === "number" && Number.isFinite(s.volume) && s.volume > 0 ? s.volume : null);
+      const is9M = volume != null && volume >= 8_900_000;
+      const cr = closingRange(q, s);
+      const adr = s.adr20 ?? s.adr_pct ?? null;
+      const hi52 = Math.max(s.hi52_lvl || 0, q?.yearHigh || 0) || null;
+      const off52 = hi52 && px ? ((px / hi52) - 1) * 100 : (s.off_52w_high ?? s.pct_from_high ?? null);
+      const rs = s.rs_rank ?? 0;
+      const eps = s.eps_rating ?? null;
+      const fromOpen = q?.open > 0 && px > 0 ? ((px / q.open) - 1) * 100 : null;
+      const dollarMove =
+        q?.price != null && q?.previousClose > 0
+          ? q.price - q.previousClose
+          : px != null && chg != null && chg > -99
+          ? px - px / (1 + chg / 100)
+          : null;
+      const breakoutTypes = [];
+      if (px != null && px >= 3 && chg != null && chg >= 4.0 && (zvr == null || zvr >= 1.0) && (cr == null || cr >= 60)) {
+        breakoutTypes.push("SB4%");
+      }
+      if (dollarMove != null && dollarMove >= 0.9 && chg != null && chg >= 1.5 && zvr != null && zvr >= 1.2 && (cr == null || cr >= 60)) {
+        breakoutTypes.push("SB$");
+      }
+      out.push({
+        ticker: t,
+        company: s.company || "",
+        theme: layer?.theme || s.sector || "—",
+        themeId: layer?.themeId || null,
+        layer: layer?.name || s.industry || "—",
+        layerStatus: layer?.st || "lag",
+        layerRank: layer?.now ?? null,
+        layerFlags: layer?.flags || [],
+        tier,
+        price: px,
+        chg,
+        volume,
+        is9M,
+        dollarMove: dollarMove != null ? Math.round(dollarMove * 100) / 100 : null,
+        fromOpen,
+        zvr: zvr != null ? Math.round(zvr * 100) / 100 : null,
+        cr,
+        adr,
+        off52: off52 != null ? Math.round(off52 * 10) / 10 : null,
+        rs,
+        eps,
+        rsl: Boolean(rsLeads(s)),
+        breakoutTypes,
+        isBreakout: breakoutTypes.length > 0,
+        qualifiesZanger: breakoutTypes.length > 0,
+        score: stockThrust(chg, zvr) ?? 0,
+        isNew: false,
+      });
+    }
+    return out;
+  }, [adr5LiqTickers, stockMap, liveOn, quotes, profiles, liveComputed, snap, tickerLayer, tiers]);
 
   // Fetch fresh Finviz headlines via /api/live?news=TICKER for top 8 live movers (5m cache)
   const top8Key = useMemo(() => {
@@ -599,12 +710,13 @@ export default function ZangerBriefSection({
   const catCounts = {
     bo: bos.length,
     zanger: liveComputed ? allPool.filter((r) => r.qualifiesZanger).length : (snap?.zangerMovers || []).length,
+    adr5liq: adr5LiqRows.length,
     rsl: allPool.filter((r) => r.rsl).length,
     leaders: allPool.filter((r) => r.tier === "lead" && r.layerStatus === "lead").length,
     ext: extMeta.count,
   };
   const boTypeCounts = { ZANGER: 0, "SB4%": 0, "SB$": 0, QMAG: 0 };
-  for (const r of allPool) {
+  for (const r of (catTab === "adr5liq" ? adr5LiqRows : allPool)) {
     for (const k of r.breakoutTypes || []) if (boTypeCounts[k] != null) boTypeCounts[k]++;
   }
   const chipStyle = (active, accent) => ({
@@ -621,23 +733,29 @@ export default function ZangerBriefSection({
   });
   const pickCatTab = (t) => {
     setCatTab(t);
-    if (t !== "bo" && t !== "zanger") setBoFilter(null);
+    if (t !== "bo" && t !== "zanger" && t !== "adr5liq") setBoFilter(null);
     try { localStorage.setItem("tp-brief-cat", t); } catch { /* ignore */ }
     setMoverSort({ k: "thrust", d: -1 });
   };
   const topThemes = (() => {
     const list = (themes || []).filter((t) => t.st === "lead" || t.st === "emerg").slice(0, 12);
     const hitCount = {};
-    for (const r of allPool) {
-      if (!r.theme) continue;
-      const inTab = catTab === "bo"
-        ? r.isBreakout
-        : catTab === "rsl"
-        ? r.rsl
-        : catTab === "leaders"
-        ? (r.tier === "lead" && r.layerStatus === "lead")
-        : r.qualifiesZanger;
-      if (inTab) hitCount[r.theme] = (hitCount[r.theme] || 0) + 1;
+    if (catTab === "adr5liq") {
+      for (const r of adr5LiqRows) {
+        if (r.theme) hitCount[r.theme] = (hitCount[r.theme] || 0) + 1;
+      }
+    } else {
+      for (const r of allPool) {
+        if (!r.theme) continue;
+        const inTab = catTab === "bo"
+          ? r.isBreakout
+          : catTab === "rsl"
+          ? r.rsl
+          : catTab === "leaders"
+          ? (r.tier === "lead" && r.layerStatus === "lead")
+          : r.qualifiesZanger;
+        if (inTab) hitCount[r.theme] = (hitCount[r.theme] || 0) + 1;
+      }
     }
     return list.map((t) => {
       const hasWarn = (t.layers || []).some((l) => (l.flags || []).some(([k]) => k === "distrib" || k === "exiting"));
@@ -714,7 +832,7 @@ export default function ZangerBriefSection({
   };
   const isRow9M = (r) => Boolean(r?.is9M || (getRowVol(r) ?? 0) >= 8_900_000);
 
-  const tabBaseRows = allPool.filter((r) => {
+  const tabBaseRows = (catTab === "adr5liq" ? adr5LiqRows : allPool).filter((r) => {
     if (catTab === "bo" && !r.isBreakout) return false;
     if (catTab === "zanger" && !r.qualifiesZanger) return false;
     if (catTab === "rsl" && !r.rsl) return false;
@@ -727,7 +845,7 @@ export default function ZangerBriefSection({
   const filteredRows = tabBaseRows.filter((r) => {
     if (only9M && !isRow9M(r)) return false;
     if (themeFilter && r.theme !== themeFilter) return false;
-    if ((catTab === "zanger" || catTab === "bo") && minZvr > 1.0 && (r.zvr ?? 0) < minZvr) return false;
+    if ((catTab === "zanger" || catTab === "bo" || catTab === "adr5liq") && minZvr > 1.0 && (r.zvr ?? 0) < minZvr) return false;
     if (minRs > 70 && (r.rs ?? 0) < minRs) return false;
     if (minAdr != null && (r.adr ?? -1) < minAdr) return false;
     if (noHealth && isHealthcareItem({
@@ -771,7 +889,7 @@ export default function ZangerBriefSection({
     cmpSort(a, b, flowSort, (r, k) => r[k], (r) => r.theme)
   );
 
-  const showZvrFilter = catTab === "bo" || catTab === "zanger";
+  const showZvrFilter = catTab === "bo" || catTab === "zanger" || catTab === "adr5liq";
   const activeFilterCount =
     (showZvrFilter && minZvr > 1.0 ? 1 : 0) +
     (minRs > 70 ? 1 : 0) +
@@ -1244,6 +1362,8 @@ export default function ZangerBriefSection({
         sub={
           catTab === "ext"
             ? `Pre-market (${extMeta.pmCount}) & after-hours (${extMeta.ahCount}) · click any row to chart`
+            : catTab === "adr5liq"
+            ? `Base: Mkt cap > $100M · ADR > 5% · 10D vol > 500K · > 200d SMA · 1W $vol > $300M · ${sortedMovers.length} shown · click any row to chart`
             : `${liveComputed ? "Live 60s scan · " : ""}${sortedMovers.length} shown · click any row to chart`
         }
         right={
