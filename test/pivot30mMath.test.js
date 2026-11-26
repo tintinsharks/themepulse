@@ -196,6 +196,8 @@ test("analyze30mPivot detects ARMED after 3 red bars + green reversal", () => {
   assert.equal(res.pivot.target2R, 107);
   assert.equal(res.pivot.target3R, 109);
   assert.equal(res.pivot.barsSincePivot, 0);
+  assert.equal(res.pivot.triggerBarIdx, null);
+  assert.equal(res.pivot.triggerTime, null);
   assert.equal(res.pivot.distToEntryPct, 0.39);
   // Floor pivots derived from day1 (H=101, L=95, C=100.5)
   assert.ok(res.floorPivots);
@@ -221,6 +223,9 @@ test("analyze30mPivot detects TRIGGERED with +2R target and live R-multiple", ()
   assert.equal(res.pivot.target2R, 108);
   assert.equal(res.pivot.target3R, 110);
   assert.equal(res.pivot.rMultipleNow, 1.5);
+  assert.equal(res.pivot.pivotBarIdx, 3);
+  assert.equal(res.pivot.triggerBarIdx, 4);
+  assert.equal(res.pivot.triggerTime, bars[4].time);
   assert.equal(res.openingRange.status, "ORH_BO");
 });
 

@@ -231,6 +231,8 @@ function emptyPivot() {
     nearEma: false,
     pivotBarIdx: null,
     pivotTime: null,
+    triggerBarIdx: null,
+    triggerTime: null,
     entry: null,
     stop: null,
     riskPct: null,
@@ -400,15 +402,17 @@ export function analyze30mPivot(bars30m, opts = {}) {
     const laterBars = bars30m.slice(i + 1);
     const brokeStop =
       laterBars.some((b) => b.low < stop) || (lastPrice != null && lastPrice < stop);
+    const firstTriggerRel = laterBars.findIndex((b) => b.high > entry);
     const brokeEntry =
-      (lastPrice != null && lastPrice > entry) ||
-      laterBars.some((b) => b.high > entry);
+      (lastPrice != null && lastPrice > entry) || firstTriggerRel >= 0;
 
     let state = null;
     let shortLabel = null;
     let label = null;
     let tone = null;
     let rMultipleNow = null;
+    let triggerBarIdx = null;
+    let triggerTime = null;
 
     if (brokeStop) {
       state = "STOPPED";
@@ -421,6 +425,8 @@ export function analyze30mPivot(bars30m, opts = {}) {
       label = "TRIGGERED";
       tone = "green";
       rMultipleNow = lastPrice != null ? round2((lastPrice - entry) / risk) : null;
+      triggerBarIdx = firstTriggerRel >= 0 ? i + 1 + firstTriggerRel : lastIdx;
+      triggerTime = bars30m[triggerBarIdx]?.time ?? null;
     } else if (barsSincePivot <= maxWindowBars) {
       state = "ARMED";
       shortLabel = "ARMED";
@@ -445,6 +451,8 @@ export function analyze30mPivot(bars30m, opts = {}) {
       nearEma,
       pivotBarIdx: i,
       pivotTime: bars30m[i].time ?? null,
+      triggerBarIdx,
+      triggerTime,
       entry,
       stop,
       riskPct,
@@ -506,6 +514,8 @@ export function analyze30mPivot(bars30m, opts = {}) {
           nearEma,
           pivotBarIdx: null,
           pivotTime: null,
+          triggerBarIdx: null,
+          triggerTime: null,
           entry,
           stop,
           riskPct,

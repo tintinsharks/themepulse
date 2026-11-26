@@ -353,18 +353,41 @@ export function DailyChartSVG({
     const candleElements = [];
     const volElements = [];
     const chLight = CH_ARIA.bg === "#f8f9fc";
+    const pvActive = isIntraday ? pivot30?.pivot : null;
+    const entryGlobalIdx =
+      pvActive?.state === "TRIGGERED" && pvActive.triggerBarIdx != null
+        ? pvActive.triggerBarIdx
+        : pvActive?.state === "ARMED" && pvActive.pivotBarIdx != null
+          ? pvActive.pivotBarIdx
+          : null;
+    const pivotGlobalIdx = pvActive?.pivotBarIdx ?? null;
+    const entryHiColor = pvActive?.state === "TRIGGERED" ? "#22c55e" : "#f59e0b";
     bars.forEach((b, i) => {
       const gi = start + i;
       const x = pad.l + i * (bw + gap);
       const isUp = b.close >= b.open;
       const candleColor = isUp ? "#2bb886" : "#f87171";
+      const isEntryBar = isIntraday && entryGlobalIdx != null && gi === entryGlobalIdx;
+      const isSetupPivotBar =
+        isIntraday &&
+        pvActive?.state === "TRIGGERED" &&
+        pivotGlobalIdx != null &&
+        gi === pivotGlobalIdx &&
+        !isEntryBar;
       const bodyTop = py(Math.max(b.open, b.close));
       const bodyBot = py(Math.min(b.open, b.close));
-      const bodyH = Math.max(1, bodyBot - bodyTop);
+      const bodyH = Math.max(isEntryBar ? 2 : 1, bodyBot - bodyTop);
       const wickX = x + bw / 2;
       candleElements.push(
-        <line key={`w${i}`} x1={wickX} y1={py(b.high)} x2={wickX} y2={py(b.low)} stroke={candleColor} strokeWidth={0.9} opacity={0.9} />,
-        <rect key={`b${i}`} x={x} y={bodyTop} width={bw} height={bodyH} fill={candleColor} rx={Math.min(1, bw / 4)} stroke="rgba(0,0,0,0.35)" strokeWidth={0.4} />
+        <line key={`w${i}`} x1={wickX} y1={py(b.high)} x2={wickX} y2={py(b.low)}
+          stroke={isEntryBar ? entryHiColor : candleColor}
+          strokeWidth={isEntryBar ? 1.5 : 0.9}
+          opacity={isEntryBar ? 1 : 0.9} />,
+        <rect key={`b${i}`} x={x} y={bodyTop} width={bw} height={bodyH}
+          fill={candleColor} rx={Math.min(1, bw / 4)}
+          stroke={isEntryBar ? entryHiColor : isSetupPivotBar ? "#f59e0b" : "rgba(0,0,0,0.35)"}
+          strokeWidth={isEntryBar ? 1.6 : isSetupPivotBar ? 1.1 : 0.4}
+          filter={isEntryBar ? "url(#tpGlow)" : undefined} />
       );
       const vol = b.volume || 0;
       const vh = Math.max(0.5, (vol / vMax) * volH);
@@ -372,7 +395,11 @@ export function DailyChartSVG({
       if (isIntraday) {
         const vColor = isUp ? "#2bb886cc" : (chLight ? "#94a3b8cc" : "#f8717199");
         volElements.push(
-          <rect key={`v${i}`} x={x} y={vy} width={bw} height={vh} fill={vColor} opacity={0.72} rx={0.4} />
+          <rect key={`v${i}`} x={x} y={vy} width={bw} height={vh}
+            fill={isEntryBar ? entryHiColor : vColor}
+            stroke={isEntryBar ? entryHiColor : undefined}
+            strokeWidth={isEntryBar ? 1.1 : 0}
+            opacity={isEntryBar ? 0.95 : 0.72} rx={0.4} />
         );
       } else {
         let vColor;
@@ -537,8 +564,9 @@ export function DailyChartSVG({
       });
     }
 
-    // ── 30m Intraday Overlays: CPR (behind candles), Opening Range, Pivot marker & lines ──
+    // ── 30m Intraday Overlays: CPR (behind candles), Entry Bar Band, Opening Range, Pivot marker & lines ──
     const cprElements = [];
+    const pivotBgElements = [];
     const orElements = [];
     const pivotElements = [];
     if (isIntraday && pivot30) {
@@ -613,28 +641,87 @@ export function DailyChartSVG({
         }
       }
 
-      // 3) Pivot candle highlight + Entry / Stop / +2R lines with right-edge tags
+      // 3) Entry bar highlight + Pivot candle marker + Entry / Stop / +2R lines with right-edge tags
       const pv = pivot30.pivot;
       if (pv) {
-        if (pv.pivotBarIdx != null) {
+        // Highlight the Entry bar (trigger bar when TRIGGERED; reversal pivot bar when ARMED)
+        if (entryGlobalIdx != null) {
+          const visEntryIdx = entryGlobalIdx - start;
+          if (visEntryIdx >= 0 && visEntryIdx < bars.length) {
+            const eb = bars[visEntryIdx];
+            const bx0 = pad.l + visEntryIdx * (bw + gap) - Math.max(1.5, gap / 2);
+            const bandW = bw + Math.max(3, gap);
+            const cx = pad.l + visEntryIdx * (bw + gap) + bw / 2;
+            const isTrig = pv.state === "TRIGGERED";
+            const hiColor = isTrig ? "#22c55e" : "#f59e0b";
+            const badgeText = isTrig ? "ENTRY" : "PIVOT";
+            const badgeW = badgeText.length * 4.8 + 8;
+            const barTopY = py(eb.high);
+            const barBotY = py(eb.low);
+            const placeAbove = barTopY - pad.t >= 24;
+            const badgeX = Math.max(pad.l + 1, Math.min(chartRight - badgeW - 2, cx - badgeW / 2));
+            const badgeY = placeAbove
+              ? Math.max(pad.t + 2, barTopY - 21)
+              : Math.min(pad.t + priceH - 15, barBotY + 9);
+            const arrowPts = placeAbove
+              ? `${cx},${barTopY - 3} ${cx - 4},${barTopY - 8.5} ${cx + 4},${barTopY - 8.5}`
+              : `${cx},${barBotY + 3} ${cx - 4},${barBotY + 8.5} ${cx + 4},${barBotY + 8.5}`;
+            const tipTitle = `${isTrig ? "30m Entry bar" : "30m Pivot setup bar"} (${fmtEtBarLabel(eb)})${pv.entry != null ? ` · Entry $${fmtPrice(pv.entry)}` : ""}${pv.stop != null ? ` · Stop $${fmtPrice(pv.stop)}` : ""}${pv.target2R != null ? ` · +2R $${fmtPrice(pv.target2R)}` : ""}`;
+
+            // Vertical translucent highlight column behind candle & volume bar
+            pivotBgElements.push(
+              <g key="pv_entry_band">
+                <rect x={bx0} y={pad.t} width={bandW} height={volTop + volH - pad.t}
+                  fill={hiColor} fillOpacity={chLight ? 0.14 : 0.16} rx={2} />
+                <line x1={bx0} y1={pad.t} x2={bx0} y2={volTop + volH}
+                  stroke={hiColor} strokeWidth={0.75} strokeDasharray="2,2" opacity={0.55} />
+                <line x1={bx0 + bandW} y1={pad.t} x2={bx0 + bandW} y2={volTop + volH}
+                  stroke={hiColor} strokeWidth={0.75} strokeDasharray="2,2" opacity={0.55} />
+              </g>
+            );
+
+            // Foreground ENTRY / PIVOT badge + pointer arrow + trigger price dot
+            pivotElements.push(
+              <g key="pv_entry_callout">
+                <title>{tipTitle}</title>
+                <polygon points={arrowPts} fill={hiColor} stroke={CH_ARIA.bg} strokeWidth={0.7} />
+                <rect x={badgeX} y={badgeY} width={badgeW} height={12.5} rx={3}
+                  fill={hiColor} stroke={CH_ARIA.bg} strokeWidth={0.8} />
+                <text x={badgeX + badgeW / 2} y={badgeY + 9} textAnchor="middle"
+                  fontSize={7.2} fontWeight={800} fontFamily="ui-monospace,monospace" fill="#06120c">
+                  {badgeText}
+                </text>
+                {pv.entry != null && pv.entry >= pMin && pv.entry <= pMax && (
+                  <circle cx={cx} cy={py(pv.entry)} r={3.2}
+                    fill={hiColor} stroke={CH_ARIA.bg} strokeWidth={1.1} filter="url(#tpGlow)" />
+                )}
+              </g>
+            );
+          }
+        }
+
+        // Secondary compact triangle on the setup pivot candle (when TRIGGERED on a later bar, or STOPPED)
+        if (pv.pivotBarIdx != null && pv.pivotBarIdx !== entryGlobalIdx) {
           const visIdx = pv.pivotBarIdx - start;
           if (visIdx >= 0 && visIdx < bars.length) {
             const cx = pad.l + visIdx * (bw + gap) + bw / 2;
             const tipY = Math.min(pad.t + priceH - 9, py(bars[visIdx].low) + 4);
-            const triColor = pv.state === "TRIGGERED" ? "#22c55e"
-              : pv.state === "STOPPED" ? "#f87171"
-              : pv.state === "PULLBACK" ? "#22d3ee"
-              : "#f59e0b";
+            const triColor = pv.state === "STOPPED" ? "#f87171" : "#f59e0b";
             pivotElements.push(
               <polygon key="pv_tri"
-                points={`${cx},${tipY} ${cx - 4.5},${tipY + 7.5} ${cx + 4.5},${tipY + 7.5}`}
+                points={`${cx},${tipY} ${cx - 4},${tipY + 7} ${cx + 4},${tipY + 7}`}
                 fill={triColor} stroke={CH_ARIA.bg} strokeWidth={0.8}>
-                <title>{`30m Pivot candle${pv.entry != null ? ` · Entry $${fmtPrice(pv.entry)}` : ""}${pv.stop != null ? ` · Stop $${fmtPrice(pv.stop)}` : ""}`}</title>
+                <title>{`30m Pivot candle (${fmtEtBarLabel(bars[visIdx])})${pv.entry != null ? ` · Trigger $${fmtPrice(pv.entry)}` : ""}${pv.stop != null ? ` · Stop $${fmtPrice(pv.stop)}` : ""}`}</title>
               </polygon>
             );
           }
         }
+
         if (pv.state === "TRIGGERED" || pv.state === "ARMED" || pv.state === "PULLBACK") {
+          const anchorIdx = pv.pivotBarIdx != null ? pv.pivotBarIdx - start : (entryGlobalIdx != null ? entryGlobalIdx - start : 0);
+          const lineStartX = anchorIdx > 0 && anchorIdx < bars.length
+            ? pad.l + anchorIdx * (bw + gap)
+            : pad.l;
           const rawLines = [];
           if (pv.entry != null && pv.entry >= pMin && pv.entry <= pMax) {
             rawLines.push({
@@ -681,7 +768,7 @@ export function DailyChartSVG({
             const tagW = ln.tag.length * 4.9 + 8;
             pivotElements.push(
               <g key={`pv_${ln.key}`}>
-                <line x1={pad.l} y1={ln.y} x2={chartRight} y2={ln.y}
+                <line x1={lineStartX} y1={ln.y} x2={chartRight} y2={ln.y}
                   stroke={ln.color} strokeWidth={ln.width} strokeDasharray={ln.dash} opacity={0.9} />
                 <rect x={chartRight - tagW - 2} y={ty - 6.5} width={tagW} height={13} rx={2.5}
                   fill={CH_ARIA.bg} fillOpacity={0.94} stroke={ln.color} strokeWidth={0.85} />
@@ -827,7 +914,7 @@ export function DailyChartSVG({
       barsVis: bars, bwPx: bw, gapPx: gap,
       lastDot: bars.length ? { x: pad.l + (bars.length - 1) * (bw + gap) + bw / 2, y: py(bars[bars.length - 1].close), color: bars[bars.length - 1].close >= bars[bars.length - 1].open ? "#2bb886" : "#f87171" } : null,
       candleElements, volElements, erMarkers, yAxisElements, xAxisElements,
-      cprElements, orElements, pivotElements,
+      cprElements, pivotBgElements, orElements, pivotElements,
       maEma21hi: isIntraday ? null : maPoints(ema21hi),
       maEma21lo: isIntraday ? null : maPoints(ema21lo),
       maEma21close: isIntraday ? null : maPoints(ema21close),
@@ -930,6 +1017,7 @@ export function DailyChartSVG({
         {chartData.xAxisElements}
         {chartData.yAxisElements}
         {chartData.cprElements}
+        {chartData.pivotBgElements}
         <line x1={0} y1={chartData.sepY} x2={chartData.chartRight} y2={chartData.sepY} stroke={CH_ARIA.borderLight} strokeWidth={0.5} />
         <line x1={chartData.chartRight} y1={0} x2={chartData.chartRight} y2={chartData.totalH} stroke={CH_ARIA.borderLight} strokeWidth={0.5} />
         {isIntraday ? (
