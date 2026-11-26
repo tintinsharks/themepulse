@@ -65,6 +65,13 @@ export default function OptionsPanel({
     setOutlook(o);
     try { localStorage.setItem("tp-options-outlook", o); } catch { /* ignore */ }
   };
+  useEffect(() => {
+    const onSync = (e) => {
+      if (e?.detail === "bullish" || e?.detail === "bearish") setOutlook(e.detail);
+    };
+    window.addEventListener("tp-options-outlook", onSync);
+    return () => window.removeEventListener("tp-options-outlook", onSync);
+  }, []);
 
   const [horizon, setHorizon] = useState("swing"); // "short" | "swing" | "leaps"
   const [customDate, setCustomDate] = useState(null); // explicit expiry override if chosen from dropdown

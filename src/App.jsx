@@ -160,6 +160,18 @@ function AppMain() {
     setChartTicker(ticker);
     try { localStorage.setItem("themepulse-chart-ticker", ticker); } catch {}
   }, []);
+  const handleOpenOptions = useCallback((ticker, outlook) => {
+    if (ticker) {
+      setChartTicker(ticker);
+      try { localStorage.setItem("themepulse-chart-ticker", ticker); } catch {}
+    }
+    if (outlook === "bullish" || outlook === "bearish") {
+      try { localStorage.setItem("tp-options-outlook", outlook); } catch {}
+      try { window.dispatchEvent(new CustomEvent("tp-options-outlook", { detail: outlook })); } catch {}
+    }
+    setMainView("options");
+    try { localStorage.setItem("themepulse-view", "options"); } catch {}
+  }, []);
 
   // Listen for ETF pill clicks from the Themes view (or anywhere else
   // that wants to load a chart without prop-drilling).
@@ -486,6 +498,7 @@ function AppMain() {
             stockMap={stockMap}
             chartTicker={chartTicker}
             onTickerClick={handleTickerClick}
+            onOpenOptions={handleOpenOptions}
             portfolio={portfolio}
             setPortfolio={setPortfolio}
             watchlist={watchlist}

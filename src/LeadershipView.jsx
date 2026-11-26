@@ -77,6 +77,7 @@ export default function LeadershipView({
   ARIA: A,
   stockMap: stockMapIn,
   onTickerClick,
+  onOpenOptions,
   chartTicker,
   chartSlot,
   indexQuotes,
@@ -627,6 +628,7 @@ export default function LeadershipView({
                 watchlist={watchlist}
                 setWatchlist={setWatchlist}
                 onTicker={onTickerClick}
+                onOpenOptions={onOpenOptions}
                 chartTicker={chartTicker}
               />
             ) : (

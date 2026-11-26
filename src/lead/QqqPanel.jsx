@@ -22,6 +22,8 @@ import {
   buildQqqBreadthSeries,
   computeNdxInternals,
   computeQqqBreadthTrend,
+  computeQqqIntradayPredictor,
+  computeQqqShortTermBias,
   computeQqqTechnicals,
 } from "./qqqMath.js";
 
@@ -403,6 +405,7 @@ export default function QqqPanel({
   watchlist = [],
   setWatchlist,
   onTicker,
+  onOpenOptions,
   chartTicker,
 }) {
   const { quotes, at } = useScanQuotes(ALL_QUOTE_TKS, true);
@@ -500,6 +503,14 @@ export default function QqqPanel({
   const breadthTrend = useMemo(
     () => computeQqqBreadthTrend(breadthSeries),
     [breadthSeries]
+  );
+  const intradayPred = useMemo(
+    () => computeQqqIntradayPredictor({ qqqQ, qqqeQ, internals, quotes, stockMap }),
+    [qqqQ, qqqeQ, internals, quotes, stockMap]
+  );
+  const shortTermBias = useMemo(
+    () => computeQqqShortTermBias({ qqqBars, qqqQ, tech, internals, breadthTrend, intradayPredictor: intradayPred, stockMap }),
+    [qqqBars, qqqQ, tech, internals, breadthTrend, intradayPred, stockMap]
   );
   const trendColor = !breadthTrend
     ? A.textMuted
@@ -643,6 +654,7 @@ export default function QqqPanel({
       >
         {[
           ["qqq-tech", "Technicals"],
+          ["qqq-predictor", "Bias & Predictor"],
           ["qqq-internals", "NDX Breadth"],
           ["qqq-leverage", "TQQQ & Levels"],
           ["qqq-holdings", `Holdings (${internals.count})`],
@@ -855,6 +867,220 @@ export default function QqqPanel({
           </div>
         </Card>
       </div>
+
+      {/* 1B. Short-Term Options Bias & Live Intraday Recovery Predictor */}
+      {(shortTermBias || intradayPred) && (() => {
+        const toneCol = (t) => (t === "good" ? A.green : t === "cyan" ? A.cyan : t === "warn" ? "#f59e0b" : t === "bad" ? A.red : A.textMuted);
+        const biasCol = shortTermBias ? toneCol(shortTermBias.tone) : A.textMuted;
+        const predCol = intradayPred ? toneCol(intradayPred.tone) : A.textMuted;
+        const gapCol = intradayPred ? toneCol(intradayPred.gapTone) : A.textMuted;
+        return (
+          <div id="qqq-predictor" style={{ scrollMarginTop: 96 }}>
+            <Card
+              A={A}
+              title="Short-Term Options Bias & Intraday Recovery Predictor"
+              sub="Weighted NDX internals + 5d breadth velocity + live reversal confirmation"
+              right={
+                shortTermBias && onOpenOptions ? (
+                  <button
+                    type="button"
+                    onClick={() => onOpenOptions("QQQ", shortTermBias.outlook)}
+                    style={{
+                      background: `${biasCol}20`,
+                      border: `1px solid ${biasCol}`,
+                      color: biasCol,
+                      borderRadius: 6,
+                      padding: "3px 9px",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    Open QQQ {shortTermBias.outlook === "bearish" ? "Bearish" : "Bullish"} Options →
+                  </button>
+                ) : null
+              }
+            >
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 12 }}>
+                {/* LEFT: Short-Term Trend (3–15d) & Options Bias */}
+                {shortTermBias && (
+                  <div style={{ background: A.bg, border: `1px solid ${biasCol}44`, borderTop: `2px solid ${biasCol}`, borderRadius: 8, padding: "10px 12px" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+                      <div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: A.textMuted, letterSpacing: 0.45, textTransform: "uppercase" }}>
+                          Short-Term Trend &amp; Options Bias (3–15d)
+                        </div>
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: 7, marginTop: 2 }}>
+                          <span style={{ fontSize: 15, fontWeight: 800, color: biasCol }}>
+                            {shortTermBias.outlook === "bearish" ? "▼" : shortTermBias.score >= 15 ? "▲" : "◆"} {shortTermBias.label}
+                          </span>
+                          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "1px 6px", borderRadius: 4, background: `${biasCol}20`, color: biasCol }}>
+                            {shortTermBias.score > 0 ? "+" : ""}{shortTermBias.score} / 100
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ fontSize: 11.5, color: A.text, marginTop: 6, lineHeight: 1.4 }}>
+                      {shortTermBias.optionPlay}
+                    </div>
+
+                    {/* 5 Signed Factor Bars */}
+                    <div style={{ marginTop: 9, display: "flex", flexDirection: "column", gap: 6 }}>
+                      {shortTermBias.factors.map((f) => {
+                        const colr = f.pts > 0 ? A.green : f.pts < 0 ? A.red : A.textMuted;
+                        const pctW = Math.min(50, (Math.abs(f.pts) / f.max) * 50);
+                        return (
+                          <div key={f.key}>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10.5, marginBottom: 2 }}>
+                              <span style={{ color: A.textDim, fontWeight: 600 }}>{f.label}</span>
+                              <span style={{ fontFamily: MONO, color: A.textMuted, fontSize: 10 }}>
+                                {f.detail}{" "}
+                                <strong style={{ color: colr }}>({f.pts > 0 ? "+" : ""}{f.pts})</strong>
+                              </span>
+                            </div>
+                            <div style={{ position: "relative", height: 5, borderRadius: 3, background: A.border, overflow: "hidden" }}>
+                              <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, background: A.textMuted, opacity: 0.4 }} />
+                              <div
+                                style={{
+                                  position: "absolute",
+                                  top: 0,
+                                  bottom: 0,
+                                  left: f.pts >= 0 ? "50%" : `${50 - pctW}%`,
+                                  width: `${pctW}%`,
+                                  background: colr,
+                                  borderRadius: 3,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Bullish Trigger & Downside Invalidation */}
+                    {(shortTermBias.bullTrigger || shortTermBias.bearTrigger) && (
+                      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6, marginTop: 9, paddingTop: 7, borderTop: `1px solid ${A.border}`, fontSize: 10.5, fontFamily: MONO }}>
+                        {shortTermBias.bullTrigger && (
+                          <span style={{ color: A.green }}>
+                            ▲ Confirm: {shortTermBias.bullTrigger.label} ${shortTermBias.bullTrigger.px.toFixed(2)}
+                          </span>
+                        )}
+                        {shortTermBias.bearTrigger && (
+                          <span style={{ color: A.red }}>
+                            ▼ Risk/Stop: {shortTermBias.bearTrigger.label} ${shortTermBias.bearTrigger.px.toFixed(2)}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* RIGHT: Live Intraday Recovery / Reversal Predictor */}
+                {intradayPred && (
+                  <div style={{ background: A.bg, border: `1px solid ${predCol}44`, borderTop: `2px solid ${predCol}`, borderRadius: 8, padding: "10px 12px" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+                      <div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: A.textMuted, letterSpacing: 0.45, textTransform: "uppercase" }}>
+                          Intraday Recovery / Reversal Predictor
+                        </div>
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: 7, marginTop: 2 }}>
+                          <span style={{ fontSize: 15, fontWeight: 800, color: predCol }}>{intradayPred.verdict}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "1px 6px", borderRadius: 4, background: `${predCol}20`, color: predCol }}>
+                            {intradayPred.score} / 100
+                          </span>
+                        </div>
+                      </div>
+                      <span
+                        title={intradayPred.gapHint}
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          fontFamily: MONO,
+                          padding: "2px 6px",
+                          borderRadius: 4,
+                          border: `1px solid ${gapCol}66`,
+                          color: gapCol,
+                        }}
+                      >
+                        {intradayPred.gapLabel}
+                        {intradayPred.qqqGapPct != null ? ` (${fmtPct(intradayPred.qqqGapPct, 1)})` : ""}
+                      </span>
+                    </div>
+
+                    <div style={{ fontSize: 11, color: A.textDim, marginTop: 5, lineHeight: 1.4 }}>
+                      {intradayPred.gapHint}
+                      {intradayPred.eqMinusCapGap != null && (
+                        <span style={{ fontFamily: MONO, color: A.textMuted }}> · Eq−Cap gap {fmtPct(intradayPred.eqMinusCapGap, 2)}</span>
+                      )}
+                    </div>
+
+                    {/* 4 Component Progress Gauges */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7, marginTop: 9 }}>
+                      {intradayPred.components.map((c) => {
+                        const pctFill = Math.round((c.pts / c.max) * 100);
+                        const barCol = c.ok ? A.green : pctFill >= 50 ? A.cyan : "#f59e0b";
+                        return (
+                          <div key={c.key} style={{ background: A.bgCard, border: `1px solid ${A.border}`, borderRadius: 6, padding: "6px 8px" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: A.textMuted }}>
+                              <span>{c.label}</span>
+                              <strong style={{ fontFamily: MONO, color: barCol }}>{c.pts}/{c.max}</strong>
+                            </div>
+                            <div style={{ fontFamily: MONO, fontSize: 11.5, fontWeight: 700, color: A.text, marginTop: 2 }}>
+                              {c.value}
+                            </div>
+                            <div style={{ height: 4, borderRadius: 2, background: A.border, marginTop: 4, overflow: "hidden" }}>
+                              <div style={{ height: "100%", width: `${pctFill}%`, background: barCol }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Top-8 Weight Anchors Live Move From Open */}
+                    {intradayPred.anchorDrivers.length > 0 && (
+                      <div style={{ marginTop: 9, paddingTop: 7, borderTop: `1px solid ${A.border}` }}>
+                        <div style={{ fontSize: 9.5, fontWeight: 700, color: A.textMuted, letterSpacing: 0.4, textTransform: "uppercase", marginBottom: 4 }}>
+                          Top Weight Anchors vs Open ({intradayPred.fromOpenBps >= 0 ? "+" : ""}{intradayPred.fromOpenBps} bps NDX net)
+                        </div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                          {intradayPred.anchorDrivers.slice(0, 8).map((a) => {
+                            const colr = (a.fromOpen ?? a.chg ?? 0) >= 0 ? A.green : A.red;
+                            return (
+                              <button
+                                key={a.ticker}
+                                type="button"
+                                onClick={() => onTicker && onTicker(a.ticker)}
+                                title={`${a.ticker} (${a.weightPct}% wt) · Day ${fmtPct(a.chg, 2)} · vs Open ${fmtPct(a.fromOpen, 2)} (${a.fromOpenBps != null ? `${a.fromOpenBps >= 0 ? "+" : ""}${a.fromOpenBps} bps` : "—"})`}
+                                style={{
+                                  background: `${colr}14`,
+                                  border: `1px solid ${colr}44`,
+                                  color: A.text,
+                                  borderRadius: 5,
+                                  padding: "2px 6px",
+                                  fontSize: 10,
+                                  fontFamily: MONO,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                <strong>{a.ticker}</strong>{" "}
+                                <span style={{ color: colr, fontWeight: 700 }}>
+                                  {a.fromOpenBps != null ? `${a.fromOpenBps >= 0 ? "+" : ""}${a.fromOpenBps.toFixed(0)}bp` : fmtPct(a.chg, 1)}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </Card>
+          </div>
+        );
+      })()}
 
       {/* 2. Nasdaq-100 Internals & Breadth */}
       <div id="qqq-internals" style={{ scrollMarginTop: 96 }}>

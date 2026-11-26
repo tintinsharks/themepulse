@@ -686,3 +686,393 @@ export function computeQqqBreadthTrend(series) {
     sessions: n,
   };
 }
+
+const ANCHOR_TICKERS = new Set(["NVDA", "AAPL", "MSFT", "AMZN", "GOOGL", "GOOG", "META", "TSLA", "AVGO"]);
+
+// ── Live QQQ Intraday Reversal / Recovery Predictor ──────────────────────────
+// Combines opening gap structure (Broad Panic 83% 2Y bounce vs Narrow Mega Shock 31%)
+// with 4 live constituent internals: New-Low Exhaustion, Open-Reclaim Breadth,
+// Top-8 Weight Anchor Hold (~65% of QQQ), and QQQ Intraday Closing Range.
+export function computeQqqIntradayPredictor({ qqqQ, qqqeQ, internals, quotes, stockMap } = {}) {
+  const rows = internals?.rows || [];
+  if (!rows.length) return null;
+
+  const qPx = qqqQ?.rthPrice ?? qqqQ?.price ?? stockMap?.QQQ?.close ?? null;
+  const qPrev = qqqQ?.previousClose ?? (qPx && qqqQ?.change != null ? qPx / (1 + qqqQ.change / 100) : null);
+  const qOpen = qqqQ?.open ?? null;
+  const qLow = qqqQ?.dayLow ?? null;
+  const qHigh = qqqQ?.dayHigh ?? null;
+
+  const qqqGapPct = qOpen && qPrev ? +(((qOpen / qPrev) - 1) * 100).toFixed(2) : null;
+  const qqqFromOpenPct = qPx && qOpen ? +(((qPx / qOpen) - 1) * 100).toFixed(2) : null;
+  const qqqCr = qPx != null && qHigh != null && qLow != null && qHigh > qLow
+    ? Math.max(0, Math.min(100, Math.round(((qPx - qLow) / (qHigh - qLow)) * 100)))
+    : (stockMap?.QQQ?.cr_pct ?? null);
+
+  let validOpen = 0, greenFromOpen = 0;
+  let validRange = 0, nearLow = 0, nearHigh = 0;
+  let eqGapSum = 0, eqGapN = 0;
+  let fromOpenBps = 0;
+  let anchorTotalW = 0, anchorHoldingLowW = 0, anchorGreenOpenW = 0;
+  const anchorDrivers = [];
+
+  for (const r of rows) {
+    const q = quotes?.get?.(r.ticker);
+    const px = q?.rthPrice ?? q?.price ?? r.price;
+    const open = q?.open ?? null;
+    const prev = q?.previousClose ?? (px && r.chg != null ? px / (1 + r.chg / 100) : null);
+    const lo = q?.dayLow ?? null;
+    const hi = q?.dayHigh ?? null;
+    const w = r.weightPct || 0;
+
+    if (open && prev) {
+      eqGapSum += ((open / prev) - 1) * 100;
+      eqGapN++;
+    }
+
+    const fromOpen = r.fromOpen ?? (px && open ? ((px / open) - 1) * 100 : null);
+    if (fromOpen != null && Number.isFinite(fromOpen)) {
+      validOpen++;
+      if (fromOpen > 0) greenFromOpen++;
+      if (w > 0) fromOpenBps += w * fromOpen;
+    }
+
+    let offLowPct = null;
+    if (px && lo && hi && hi > lo) {
+      validRange++;
+      offLowPct = ((px / lo) - 1) * 100;
+      const offHiPct = ((hi / px) - 1) * 100;
+      if (offLowPct <= 0.35) nearLow++;
+      if (offHiPct <= 0.35) nearHigh++;
+    }
+
+    if (ANCHOR_TICKERS.has(r.ticker) && w > 0) {
+      anchorTotalW += w;
+      const holdingLow = (offLowPct != null && offLowPct >= 0.75) || (fromOpen != null && fromOpen > 0);
+      if (holdingLow) anchorHoldingLowW += w;
+      if (fromOpen != null && fromOpen > 0) anchorGreenOpenW += w;
+      anchorDrivers.push({
+        ticker: r.ticker,
+        weightPct: +w.toFixed(1),
+        chg: r.chg,
+        fromOpen: fromOpen != null ? +fromOpen.toFixed(2) : null,
+        offLowPct: offLowPct != null ? +offLowPct.toFixed(2) : null,
+        fromOpenBps: fromOpen != null ? +(w * fromOpen).toFixed(1) : null,
+        holdingLow,
+      });
+    }
+  }
+
+  // Equal-weight opening gap (prefer QQQE quote if open+prevClose present, else NDX average)
+  const qqqeGap = qqqeQ?.open && qqqeQ?.previousClose
+    ? ((qqqeQ.open / qqqeQ.previousClose) - 1) * 100
+    : null;
+  const eqGapPct = qqqeGap != null
+    ? +qqqeGap.toFixed(2)
+    : (eqGapN >= 10 ? +(eqGapSum / eqGapN).toFixed(2) : null);
+  const eqMinusCapGap = eqGapPct != null && qqqGapPct != null ? +(eqGapPct - qqqGapPct).toFixed(2) : null;
+
+  const pctNearLow = validRange > 0 ? Math.round((nearLow / validRange) * 100) : null;
+  const pctNearHigh = validRange > 0 ? Math.round((nearHigh / validRange) * 100) : null;
+  const pctGreenFromOpen = validOpen > 0 ? Math.round((greenFromOpen / validOpen) * 100) : internals.pctAdv;
+  const anchorHoldPct = anchorTotalW > 0 ? Math.round((anchorHoldingLowW / anchorTotalW) * 100) : null;
+  const anchorGreenPct = anchorTotalW > 0 ? Math.round((anchorGreenOpenW / anchorTotalW) * 100) : null;
+
+  // Gap regime classification (2-year 107-session study)
+  let gapRegime = "FLAT_OPEN";
+  let gapLabel = "Normal Open";
+  let gapHint = "No major overnight gap — watch live breadth & open-reclaim thrust.";
+  let gapTone = "muted";
+  if (qqqGapPct != null && qqqGapPct <= -1.0) {
+    if (eqMinusCapGap != null && eqMinusCapGap < 0.30) {
+      gapRegime = "BROAD_PANIC_GAP";
+      gapLabel = "Broad Panic Gap Down";
+      gapHint = "Indiscriminate gap down (Eq−Cap < +0.30%) — 83% 2Y historical open-to-close bounce rate.";
+      gapTone = "cyan";
+    } else {
+      gapRegime = "NARROW_SHOCK_GAP";
+      gapLabel = "Narrow Mega/Semi Shock";
+      gapHint = "Mega-cap/Semi-driven gap (Eq−Cap ≥ +0.30%) — only 31% bounce at open; require intraday confirmation below.";
+      gapTone = "warn";
+    }
+  } else if (qqqGapPct != null && qqqGapPct <= -0.4) {
+    gapRegime = "GAP_DOWN";
+    gapLabel = "Mild Gap Down";
+    gapHint = "Watch for New-Low Exhaustion (<15%) and >50% NDX green from open.";
+    gapTone = "warn";
+  } else if (qqqGapPct != null && qqqGapPct >= 0.4) {
+    gapRegime = "GAP_UP";
+    gapLabel = "Gap Up Open";
+    gapHint = "Watch for >50% holding above open to confirm continuation vs. gap-fade risk.";
+    gapTone = "good";
+  }
+
+  // 4-Signal 0..100 Intraday Recovery / Strength Score
+  // 1. New-Low Exhaustion (0..30)
+  const lowExhPts = pctNearLow != null
+    ? Math.round(Math.max(0, Math.min(30, ((45 - pctNearLow) / 35) * 30)))
+    : (qqqCr != null ? Math.round((qqqCr / 100) * 30) : 15);
+  // 2. Open-Reclaim Breadth (0..25)
+  const openBreadthPts = pctGreenFromOpen != null
+    ? Math.round(Math.max(0, Math.min(25, ((pctGreenFromOpen - 15) / 55) * 25)))
+    : 12;
+  // 3. Top-8 Weight Anchor Hold (0..25)
+  const anchorPts = anchorHoldPct != null
+    ? Math.round(Math.max(0, Math.min(25, (anchorHoldPct / 100) * 17 + ((anchorGreenPct ?? 0) / 100) * 8)))
+    : 12;
+  // 4. QQQ Tape Confirmation (0..20)
+  const crPts = qqqCr != null ? Math.round((qqqCr / 100) * 14) : 7;
+  const openPts = qqqFromOpenPct != null ? (qqqFromOpenPct >= 0.3 ? 6 : qqqFromOpenPct > 0 ? 4 : qqqFromOpenPct > -0.5 ? 2 : 0) : 3;
+  const tapePts = Math.min(20, crPts + openPts);
+
+  const score = Math.max(0, Math.min(100, lowExhPts + openBreadthPts + anchorPts + tapePts));
+
+  let state = "BALANCED";
+  let verdict = "Balanced Tape";
+  let tone = "muted";
+  if (gapRegime === "BROAD_PANIC_GAP" || gapRegime === "NARROW_SHOCK_GAP" || gapRegime === "GAP_DOWN") {
+    if (score >= 68 && (pctGreenFromOpen ?? 0) >= 50) {
+      state = "RECOVERY_TRIGGERED";
+      verdict = "Recovery Triggered";
+      tone = "good";
+    } else if (score >= 48) {
+      state = "BUILDING_REVERSAL";
+      verdict = "Building Reversal";
+      tone = "cyan";
+    } else {
+      state = "SELLOFF_ACTIVE";
+      verdict = "Wait — Selloff Active";
+      tone = "bad";
+    }
+  } else if (gapRegime === "GAP_UP") {
+    if (score >= 65 && (pctGreenFromOpen ?? 0) >= 50) {
+      state = "BULL_CONTINUATION";
+      verdict = "Bullish Continuation";
+      tone = "good";
+    } else if (score <= 38 && (pctGreenFromOpen ?? 100) < 42) {
+      state = "FADE_WARNING";
+      verdict = "Gap-Up Fade Warning";
+      tone = "bad";
+    } else {
+      state = "DIGESTING_GAP";
+      verdict = "Digesting Gap Up";
+      tone = "cyan";
+    }
+  } else {
+    if (score >= 68) { state = "ACCUMULATION"; verdict = "Intraday Accumulation"; tone = "good"; }
+    else if (score <= 32) { state = "DISTRIBUTION"; verdict = "Intraday Distribution"; tone = "bad"; }
+    else { state = "BALANCED"; verdict = "Balanced Tape"; tone = "muted"; }
+  }
+
+  anchorDrivers.sort((a, b) => (b.fromOpenBps ?? -999) - (a.fromOpenBps ?? -999));
+
+  return {
+    score,
+    state,
+    verdict,
+    tone,
+    gapRegime,
+    gapLabel,
+    gapHint,
+    gapTone,
+    qqqGapPct,
+    eqGapPct,
+    eqMinusCapGap,
+    qqqFromOpenPct,
+    qqqCr,
+    pctNearLow,
+    pctNearHigh,
+    pctGreenFromOpen,
+    fromOpenBps: +fromOpenBps.toFixed(1),
+    anchorHoldPct,
+    anchorGreenPct,
+    anchorDrivers,
+    components: [
+      { key: "lowExh", label: "New-Low Exhaustion", pts: lowExhPts, max: 30, value: pctNearLow != null ? `${pctNearLow}% at low` : "—", ok: pctNearLow != null && pctNearLow <= 15 },
+      { key: "openBreadth", label: "Open-Reclaim Breadth", pts: openBreadthPts, max: 25, value: pctGreenFromOpen != null ? `${pctGreenFromOpen}% > open` : "—", ok: (pctGreenFromOpen ?? 0) >= 50 },
+      { key: "anchors", label: "Top-8 Weight Anchors", pts: anchorPts, max: 25, value: anchorHoldPct != null ? `${anchorHoldPct}% holding` : "—", ok: (anchorHoldPct ?? 0) >= 65 },
+      { key: "tape", label: "QQQ Tape / CR", pts: tapePts, max: 20, value: qqqCr != null ? `CR ${qqqCr}%` : "—", ok: (qqqCr ?? 0) >= 65 },
+    ],
+  };
+}
+
+// ── Short-Term Trend (3–15d) & QQQ Options Bias Engine ───────────────────────
+// Combines 5 weighted factors (-100..+100):
+//   1. Short-Term EMA Structure & 5D Momentum (±25)
+//   2. 5D/10D NDX Breadth Thrust & Hook (±25)
+//   3. Mag-7 + Semi Weight Participation (~78% of QQQ) (±20)
+//   4. Equal-Weight vs Cap-Weight Health (±15)
+//   5. Live Intraday Reversal / Tape Confirmation (±15)
+export function computeQqqShortTermBias({
+  qqqBars = [],
+  qqqQ = null,
+  tech = null,
+  internals = null,
+  breadthTrend = null,
+  intradayPredictor = null,
+  stockMap = {},
+} = {}) {
+  if (!tech && !internals && !breadthTrend) return null;
+
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(v)));
+
+  // 1. Short-Term EMA & 5D Momentum (±25)
+  let emaPts = 0;
+  let emaDetail = "No bar history";
+  const closes = (Array.isArray(qqqBars) ? qqqBars : [])
+    .map((b) => b?.close)
+    .filter((v) => typeof v === "number" && Number.isFinite(v) && v > 0);
+  const px = tech?.price ?? qqqQ?.rthPrice ?? qqqQ?.price ?? (closes.length ? closes[closes.length - 1] : null);
+  let ema5 = null, ret5d = null;
+  if (closes.length >= 10 && px) {
+    const e5Series = ema(closes, 5);
+    ema5 = e5Series[e5Series.length - 1];
+    const c5Ago = closes[Math.max(0, closes.length - 6)];
+    ret5d = c5Ago ? +(((px / c5Ago) - 1) * 100).toFixed(2) : null;
+  }
+  const ema10 = tech?.ema10?.val ?? null;
+  const ema21 = tech?.ema21?.val ?? null;
+  if (px && ema10 && ema21) {
+    if (ema5 && px > ema5) emaPts += 6; else if (ema5) emaPts -= 6;
+    if (px > ema10) emaPts += 7; else emaPts -= 7;
+    if (px > ema21) emaPts += 6; else emaPts -= 6;
+    if (ema10 > ema21) emaPts += 3; else emaPts -= 3;
+    if (ret5d != null) emaPts += ret5d >= 1.5 ? 3 : ret5d <= -1.5 ? -3 : 0;
+    emaPts = clamp(emaPts, -25, 25);
+    const aboveList = [ema5 && px > ema5 ? "5E" : null, px > ema10 ? "10E" : null, px > ema21 ? "21E" : null].filter(Boolean);
+    emaDetail = aboveList.length ? `Above ${aboveList.join("/")} · 5d ${ret5d != null ? `${ret5d >= 0 ? "+" : ""}${ret5d}%` : "—"}` : `Below 5/10/21E · 5d ${ret5d != null ? `${ret5d >= 0 ? "+" : ""}${ret5d}%` : "—"}`;
+  }
+
+  // 2. Short-Term NDX Breadth Thrust & Velocity (±25)
+  let breadthPts = 0;
+  let breadthDetail = "No breadth history";
+  if (breadthTrend) {
+    const p20 = breadthTrend.p20 ?? 50;
+    const d5p20 = breadthTrend.d5?.p20 ?? 0;
+    const d5p50 = breadthTrend.d5?.p50 ?? 0;
+    // Level vs 50%
+    breadthPts += ((p20 - 50) / 50) * 12;
+    // 5-day velocity (captures fast thrusts & hooks!)
+    breadthPts += Math.max(-10, Math.min(10, d5p20 * 0.7));
+    breadthPts += Math.max(-5, Math.min(5, d5p50 * 0.5));
+    breadthPts = clamp(breadthPts, -25, 25);
+    breadthDetail = `>20d ${p20}% (${d5p20 >= 0 ? "+" : ""}${d5p20} 5d) · >50d ${breadthTrend.p50}%`;
+  }
+
+  // 3. Mag-7 + Semi Weight Participation (~78% of QQQ) (±20)
+  let enginePts = 0;
+  let engineDetail = "—";
+  const rows = internals?.rows || [];
+  let engTotalW = 0, engAbove20W = 0, engUp1wW = 0;
+  for (const r of rows) {
+    if (r.group !== "mag7" && r.group !== "semi") continue;
+    const w = r.weightPct || 0;
+    if (!(w > 0)) continue;
+    engTotalW += w;
+    if ((r.sma20 ?? -1) > 0) engAbove20W += w;
+    const r1w = stockMap?.[r.ticker]?.return_1w;
+    if ((r1w ?? (r.chg ?? 0)) > 0) engUp1wW += w;
+  }
+  const engineAbove20Pct = engTotalW > 0 ? Math.round((engAbove20W / engTotalW) * 100) : null;
+  const engineUp1wPct = engTotalW > 0 ? Math.round((engUp1wW / engTotalW) * 100) : null;
+  if (engineAbove20Pct != null) {
+    enginePts = clamp(((engineAbove20Pct - 50) / 50) * 13 + (((engineUp1wPct ?? 50) - 50) / 50) * 7, -20, 20);
+    engineDetail = `${engineAbove20Pct}% wt >20d · ${engineUp1wPct}% wt up 1W`;
+  }
+
+  // 4. Equal-Weight vs Cap-Weight Participation (±15)
+  let eqPts = 0;
+  let eqDetail = "—";
+  if (internals) {
+    const advPct = internals.pctAdv ?? 50;
+    const eqSpread = internals.eqWeightChg != null && internals.capWeightEstChg != null
+      ? +(internals.eqWeightChg - internals.capWeightEstChg).toFixed(2)
+      : 0;
+    eqPts = clamp(((advPct - 50) / 50) * 11 + Math.max(-4, Math.min(4, eqSpread * 2.5)), -15, 15);
+    eqDetail = `${advPct}% adv · Eq−Cap ${eqSpread >= 0 ? "+" : ""}${eqSpread}%`;
+  }
+
+  // 5. Intraday Tape / Reversal Signal (±15)
+  let intraPts = 0;
+  let intraDetail = "—";
+  if (intradayPredictor) {
+    intraPts = clamp(((intradayPredictor.score - 50) / 50) * 15, -15, 15);
+    intraDetail = `${intradayPredictor.verdict} (${intradayPredictor.score}/100)`;
+  }
+
+  const score = clamp(emaPts + breadthPts + enginePts + eqPts + intraPts, -100, 100);
+
+  let bias = "NEUTRAL";
+  let label = "Neutral / Chop";
+  let outlook = "bullish";
+  let suggestedHorizon = "swing";
+  let tone = "muted";
+  let optionPlay = "Wait for confirmation · Light size or stay cash";
+  if (score >= 40) {
+    bias = "STRONG_BULLISH";
+    label = "Strong Bullish";
+    outlook = "bullish";
+    suggestedHorizon = "swing";
+    tone = "good";
+    optionPlay = "Favor QQQ Swing Calls (30–60d) — broad trend & mega-cap weight aligned";
+  } else if (score >= 15) {
+    bias = "TACTICAL_BULLISH";
+    label = "Tactical Bullish";
+    outlook = "bullish";
+    suggestedHorizon = "short";
+    tone = "cyan";
+    optionPlay = "Favor Tactical Calls (1–3w) or Bull Call Spread — rebound/hook building";
+  } else if (score <= -40) {
+    bias = "STRONG_BEARISH";
+    label = "Strong Bearish";
+    outlook = "bearish";
+    suggestedHorizon = "swing";
+    tone = "bad";
+    optionPlay = "Favor QQQ Swing Puts (30–60d) — short-term EMAs & breadth pointing down";
+  } else if (score <= -15) {
+    bias = "TACTICAL_BEARISH";
+    label = "Tactical Bearish";
+    outlook = "bearish";
+    suggestedHorizon = "short";
+    tone = "warn";
+    optionPlay = "Favor Tactical Puts (1–3w) or Bear Put Spread on weak bounces";
+  }
+
+  // Actionable trigger & invalidation levels
+  const keyLvls = [
+    ema10 ? { label: "10 EMA", px: +ema10.toFixed(2) } : null,
+    ema21 ? { label: "21 EMA", px: +ema21.toFixed(2) } : null,
+    tech?.sma50?.val ? { label: "50 SMA", px: +tech.sma50.val.toFixed(2) } : null,
+    qqqQ?.dayHigh ? { label: "Today High", px: +qqqQ.dayHigh.toFixed(2) } : null,
+    qqqQ?.dayLow ? { label: "Today Low", px: +qqqQ.dayLow.toFixed(2) } : null,
+  ].filter(Boolean);
+
+  const bullTrigger = px
+    ? keyLvls.filter((l) => l.px > px * 1.001).sort((a, b) => a.px - b.px)[0] || null
+    : null;
+  const bearTrigger = px
+    ? keyLvls.filter((l) => l.px < px * 0.999).sort((a, b) => b.px - a.px)[0] || null
+    : null;
+
+  return {
+    score,
+    bias,
+    label,
+    outlook,
+    suggestedHorizon,
+    tone,
+    optionPlay,
+    ret5d,
+    engineAbove20Pct,
+    engineUp1wPct,
+    bullTrigger,
+    bearTrigger,
+    factors: [
+      { key: "ema", label: "Short-Term EMAs (5/10/21)", pts: emaPts, max: 25, detail: emaDetail },
+      { key: "breadth", label: "5D Breadth Thrust (>20d)", pts: breadthPts, max: 25, detail: breadthDetail },
+      { key: "engine", label: "Mag-7 + Semi Weight (78%)", pts: enginePts, max: 20, detail: engineDetail },
+      { key: "eq", label: "Equal-Wt vs Cap-Wt", pts: eqPts, max: 15, detail: eqDetail },
+      { key: "intra", label: "Intraday Reversal Signal", pts: intraPts, max: 15, detail: intraDetail },
+    ],
+  };
+}

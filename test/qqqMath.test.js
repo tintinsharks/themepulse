@@ -10,6 +10,8 @@ import {
   computeNdxInternals,
   computeNdxWeights,
   computeQqqBreadthTrend,
+  computeQqqIntradayPredictor,
+  computeQqqShortTermBias,
   computeQqqTechnicals,
 } from "../src/lead/qqqMath.js";
 
@@ -139,4 +141,103 @@ test("buildQqqBreadthSeries and computeQqqBreadthTrend classify uptrend, downtre
   const trend = computeQqqBreadthTrend(series);
   assert.ok(["UPTREND", "ROLLING_OVER", "BOUNCE_HOOK", "DOWNTREND"].includes(trend.state));
   assert.ok(trend.pctile >= 0 && trend.pctile <= 100);
+});
+
+test("computeQqqIntradayPredictor detects gap-down recovery trigger vs active selloff", () => {
+  const mini = [
+    { t: "NVDA", g: "mag7" },
+    { t: "AAPL", g: "mag7" },
+    { t: "MSFT", g: "mag7" },
+    { t: "AVGO", g: "semi" },
+    { t: "CRWD", g: "soft" },
+    { t: "COST", g: "cons" },
+  ];
+  const stockMap = Object.fromEntries(mini.map((c) => [c.t, { ticker: c.t, close: 100, market_cap_raw: c.g === "mag7" ? 3e12 : 300e9, sma20_pct: 2, return_1w: 3 }]));
+
+  // Scenario A: Narrow gap down (-3% QQQ vs -1.2% QQQE) that recovers strongly off lows & reclaims open across all names
+  const recQuotes = new Map([
+    ["NVDA", { price: 98.5, previousClose: 100, open: 94, dayLow: 93, dayHigh: 99, change: -1.5 }],
+    ["AAPL", { price: 100.5, previousClose: 100, open: 99, dayLow: 98, dayHigh: 101, change: 0.5 }],
+    ["MSFT", { price: 99.5, previousClose: 100, open: 97.5, dayLow: 96, dayHigh: 100, change: -0.5 }],
+    ["AVGO", { price: 99.0, previousClose: 100, open: 95, dayLow: 93.5, dayHigh: 99.5, change: -1.0 }],
+    ["CRWD", { price: 101.0, previousClose: 100, open: 98.5, dayLow: 97, dayHigh: 101.5, change: 1.0 }],
+    ["COST", { price: 101.5, previousClose: 100, open: 99.5, dayLow: 99, dayHigh: 102, change: 1.5 }],
+  ]);
+  const recInternals = computeNdxInternals({ constituents: mini, stockMap, quotes: recQuotes });
+  const recPred = computeQqqIntradayPredictor({
+    qqqQ: { price: 632, previousClose: 638, open: 618, dayLow: 608, dayHigh: 634, change: -0.94 },
+    qqqeQ: { price: 100, previousClose: 101, open: 99.8, change: -1.0 },
+    internals: recInternals,
+    quotes: recQuotes,
+    stockMap,
+  });
+  assert.equal(recPred.gapRegime, "NARROW_SHOCK_GAP");
+  assert.equal(recPred.state, "RECOVERY_TRIGGERED");
+  assert.ok(recPred.score >= 70);
+  assert.equal(recPred.pctNearLow, 0);
+  assert.equal(recPred.pctGreenFromOpen, 100);
+
+  // Scenario B: Broad panic gap down (-2.5% QQQ & -2.4% QQQE) still cascading at lows
+  const sellQuotes = new Map(mini.map((c) => [c.t, { price: 95.1, previousClose: 100, open: 97.6, dayLow: 95.0, dayHigh: 98.0, change: -4.9 }]));
+  const sellInternals = computeNdxInternals({ constituents: mini, stockMap, quotes: sellQuotes });
+  const sellPred = computeQqqIntradayPredictor({
+    qqqQ: { price: 609, previousClose: 638, open: 622, dayLow: 608.5, dayHigh: 624, change: -4.55 },
+    qqqeQ: { price: 96, previousClose: 100, open: 97.6, change: -4.0 },
+    internals: sellInternals,
+    quotes: sellQuotes,
+    stockMap,
+  });
+  assert.equal(sellPred.gapRegime, "BROAD_PANIC_GAP");
+  assert.equal(sellPred.state, "SELLOFF_ACTIVE");
+  assert.ok(sellPred.score < 30);
+});
+
+test("computeQqqShortTermBias scores bullish vs bearish options bias accurately", () => {
+  const upBars = Array.from({ length: 60 }, (_, i) => ({ open: 500 + i, high: 502 + i, low: 498 + i, close: 500 + i }));
+  const upTech = computeQqqTechnicals(upBars, { price: 562, previousClose: 559, open: 560, dayHigh: 563, dayLow: 559 });
+  const upBreadth = { p20: 78, p50: 72, d5: { p20: 14, p50: 8 } };
+  const upInternals = {
+    pctAdv: 82,
+    eqWeightChg: 1.8,
+    capWeightEstChg: 1.5,
+    rows: [
+      { ticker: "NVDA", group: "mag7", weightPct: 11, sma20: 5, chg: 2.5 },
+      { ticker: "AVGO", group: "semi", weightPct: 5, sma20: 4, chg: 2.0 },
+    ],
+  };
+  const bull = computeQqqShortTermBias({
+    qqqBars: upBars,
+    qqqQ: { price: 562, dayHigh: 563, dayLow: 559 },
+    tech: upTech,
+    internals: upInternals,
+    breadthTrend: upBreadth,
+    intradayPredictor: { score: 82, verdict: "Recovery Triggered" },
+    stockMap: { NVDA: { return_1w: 5 }, AVGO: { return_1w: 4 } },
+  });
+  assert.equal(bull.bias, "STRONG_BULLISH");
+  assert.equal(bull.outlook, "bullish");
+  assert.ok(bull.score >= 50);
+
+  const dnBars = Array.from({ length: 60 }, (_, i) => ({ open: 600 - i, high: 602 - i, low: 598 - i, close: 600 - i }));
+  const dnTech = computeQqqTechnicals(dnBars, { price: 538, previousClose: 541, open: 540, dayHigh: 541, dayLow: 537 });
+  const bear = computeQqqShortTermBias({
+    qqqBars: dnBars,
+    qqqQ: { price: 538, dayHigh: 541, dayLow: 537 },
+    tech: dnTech,
+    internals: {
+      pctAdv: 18,
+      eqWeightChg: -2.2,
+      capWeightEstChg: -1.8,
+      rows: [
+        { ticker: "NVDA", group: "mag7", weightPct: 11, sma20: -6, chg: -3.0 },
+        { ticker: "AVGO", group: "semi", weightPct: 5, sma20: -5, chg: -2.5 },
+      ],
+    },
+    breadthTrend: { p20: 20, p50: 25, d5: { p20: -15, p50: -10 } },
+    intradayPredictor: { score: 15, verdict: "Wait — Selloff Active" },
+    stockMap: { NVDA: { return_1w: -6 }, AVGO: { return_1w: -5 } },
+  });
+  assert.equal(bear.bias, "STRONG_BEARISH");
+  assert.equal(bear.outlook, "bearish");
+  assert.ok(bear.score <= -50);
 });
