@@ -10,7 +10,15 @@ import { useAriaTheme } from "../themeContext.js";
 import { useLocalStorageList } from "../hooks/useUserData.js";
 import { useLiveQuotes } from "../hooks/useLiveQuotes.js";
 import { zvrFor, useRvolProfiles, useJson, TierMark } from "../LeadershipView.jsx";
-import { classifyWeinsteinStage, classifyWeinsteinStageFromBars, computeEmaAtrExtensions } from "../lead/math.js";
+import {
+  classifyWeinsteinStage,
+  classifyWeinsteinStageFromBars,
+  computeEmaAtrExtensions,
+  etClock,
+  expectedVolAt,
+  rthMinute,
+  sessionElapsedFrac,
+} from "../lead/math.js";
 import { analyze30mPivot } from "../lead/pivot30mMath.js";
 import { ErrorBoundary } from "./ErrorBoundary.jsx";
 import { DailyChartSVG } from "./DailyChartSVG.jsx";
@@ -325,6 +333,49 @@ export function ChartPanelInline({
   const rvolProfiles = useRvolProfiles();
   const zvr = zvrFor(stockInfo.ticker ? stockInfo : { ...stockInfo, ticker }, liveQuote, rvolProfiles);
   const fromOpenPct = o > 0 && c > 0 ? (c / o - 1) * 100 : null;
+
+  // Avg 30d volume (from last 30 completed daily bars when cached/loaded, fallback avg_volume_raw)
+  // + Projected full-day volume at current intraday pace (ticker RVol profile → U-shaped RTH curve).
+  const avg30Vol = useMemo(() => {
+    const dailyBars = ohlcState.interval === "1d"
+      ? ohlcState.bars
+      : (_ttlGet(_tickerOhlcCache, `${ticker}:1d`, TICKER_CACHE_TTL_MS) || null);
+    if (Array.isArray(dailyBars) && dailyBars.length >= 5) {
+      const clock = etClock();
+      const last = dailyBars[dailyBars.length - 1];
+      const end = last?.date === clock.today ? dailyBars.length - 1 : dailyBars.length;
+      const slice = dailyBars.slice(Math.max(0, end - 30), end).filter((b) => (b?.volume ?? 0) > 0);
+      if (slice.length >= 5) {
+        return slice.reduce((acc, b) => acc + b.volume, 0) / slice.length;
+      }
+    }
+    return avgVol > 0 ? avgVol : null;
+  }, [ohlcState, ticker, avgVol]);
+
+  const projectedVol = useMemo(() => {
+    if (!liveVol || liveVol <= 0) return null;
+    const clock = etClock();
+    if (!clock.rth) return liveVol;
+    const rm = rthMinute();
+    const prof = rvolProfiles?.p?.[ticker];
+    const expNow = expectedVolAt(prof, rm);
+    const expFull = Array.isArray(prof) && prof.length >= 78 ? prof[77] : null;
+    if (expNow > 0 && expFull > 0) {
+      const frac = Math.min(1, expNow / expFull);
+      return frac > 0 ? liveVol / frac : liveVol;
+    }
+    const frac = sessionElapsedFrac();
+    return frac > 0 ? liveVol / frac : liveVol;
+  }, [liveVol, rvolProfiles, ticker]);
+
+  const fmtVolShort = (v) => {
+    if (v == null || !Number.isFinite(v) || v <= 0) return "\u2014";
+    if (v >= 1e9) return `${(v / 1e9).toFixed(2)}B`;
+    if (v >= 1e7) return `${(v / 1e6).toFixed(1)}M`;
+    if (v >= 1e6) return `${(v / 1e6).toFixed(2)}M`;
+    if (v >= 1e3) return `${Math.round(v / 1e3)}K`;
+    return String(Math.round(v));
+  };
 
   // 9M badge: today's volume >= 8.9M but avg < 8.9M (unusual institutional)
   const todayVol = avgVol * (rvol || 0);
@@ -962,24 +1013,49 @@ export function ChartPanelInline({
             {stockInfo.company || ticker}
           </div>
           {liveQuote && (
-            <div style={{ display: "flex", gap: 12, fontSize: 10, fontFamily: MONO, margin: "1px 0 3px", flexWrap: "wrap" }}>
-              {[
-                ["Day", chgPct, "Change vs yesterday's close"],
-                ["From open", fromOpenPct, "Change since today's open"],
-              ].map(([lbl, v, tip]) => (
-                <span key={lbl} title={tip}>
-                  <span style={{ color: ARIA.textMuted }}>{lbl} </span>
-                  <span style={{ color: v == null ? ARIA.textMuted : v >= 0 ? ARIA.green : ARIA.red, fontWeight: 700 }}>
-                    {v == null ? "\u2014" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`}</span>
+            <>
+              <div style={{ display: "flex", gap: 12, fontSize: 10, fontFamily: MONO, margin: "1px 0 2px", flexWrap: "wrap" }}>
+                {[
+                  ["Day", chgPct, "Change vs yesterday's close"],
+                  ["From open", fromOpenPct, "Change since today's open"],
+                ].map(([lbl, v, tip]) => (
+                  <span key={lbl} title={tip}>
+                    <span style={{ color: ARIA.textMuted }}>{lbl} </span>
+                    <span style={{ color: v == null ? ARIA.textMuted : v >= 0 ? ARIA.green : ARIA.red, fontWeight: 700 }}>
+                      {v == null ? "\u2014" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`}</span>
+                  </span>
+                ))}
+                <span title="ZVR — today's volume ÷ a normal day's volume by this time (the ticker's own intraday profile; 1.00× = normal pace). After the close: full-day volume ÷ 10-day average.">
+                  <span style={{ color: ARIA.textMuted }}>ZVR </span>
+                  <span style={{ color: zvr == null ? ARIA.textMuted : zvr >= 2 ? ARIA.purple : zvr >= 1.3 ? ARIA.green : zvr < 0.7 ? ARIA.textMuted : ARIA.textDim, fontWeight: 700 }}>
+                    {zvr == null ? "\u2014" : `${zvr.toFixed(2)}×`}</span>
                 </span>
-              ))}
-              <span title="ZVR — today's volume ÷ a normal day's volume by this time (the ticker's own intraday profile; 1.00× = normal pace). After the close: full-day volume ÷ 10-day average.">
-                <span style={{ color: ARIA.textMuted }}>ZVR </span>
-                <span style={{ color: zvr == null ? ARIA.textMuted : zvr >= 2 ? ARIA.purple : zvr >= 1.3 ? ARIA.green : zvr < 0.7 ? ARIA.textMuted : ARIA.textDim, fontWeight: 700 }}>
-                  {zvr == null ? "\u2014" : `${zvr.toFixed(2)}×`}</span>
-              </span>
-              <TierMark t={ticker} label />
-            </div>
+                <TierMark t={ticker} label />
+              </div>
+              {(() => {
+                const projMult = projectedVol && avg30Vol ? projectedVol / avg30Vol : null;
+                const projColor = projMult == null ? ARIA.textMuted : projMult >= 2 ? ARIA.purple : projMult >= 1.3 ? ARIA.green : projMult < 0.7 ? ARIA.textMuted : ARIA.textDim;
+                return (
+                  <div style={{ display: "flex", gap: 12, fontSize: 10, fontFamily: MONO, margin: "0 0 4px", flexWrap: "wrap" }}>
+                    <span title="30-day average daily share volume (completed sessions)">
+                      <span style={{ color: ARIA.textMuted }}>Avg 30d </span>
+                      <span style={{ color: ARIA.textDim, fontWeight: 600 }}>{fmtVolShort(avg30Vol)}</span>
+                    </span>
+                    <span title="Today's cumulative share volume so far">
+                      <span style={{ color: ARIA.textMuted }}>Today </span>
+                      <span style={{ color: liveVol > 0 ? ARIA.text : ARIA.textMuted, fontWeight: 700 }}>{fmtVolShort(liveVol)}</span>
+                    </span>
+                    <span title={`Projected full-day volume at current intraday pace${projMult != null ? ` (${projMult.toFixed(2)}× Avg 30d)` : ""}`}>
+                      <span style={{ color: ARIA.textMuted }}>Proj </span>
+                      <span style={{ color: projColor, fontWeight: 700 }}>
+                        {fmtVolShort(projectedVol)}
+                        {projMult != null ? ` (${projMult.toFixed(1)}×)` : ""}
+                      </span>
+                    </span>
+                  </div>
+                );
+              })()}
+            </>
           )}
           {description
             ? <div style={{ fontSize: 10.5, color: "#6a6a7a", lineHeight: 1.4 }}>{description}</div>

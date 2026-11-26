@@ -57,9 +57,9 @@ const BO_META = {
 const BO_KEYS = ["ZANGER", "SB4%", "SB$", "QMAG"];
 
 const CAT_TABS = [
-  ["bo", "🔥 Breakouts", "#fbbf24", "Any of the 4 breakouts: Zanger, Stockbee 4%, Stockbee $, Qullamaggie"],
-  ["zanger", "⚡ All Movers", "#4ade80", "Any breakout OR ZVR ≥ 1.5x volume surge in a leading/emerging theme"],
-  ["adr5liq", "🚀 ADR 5%+ Liq", "#fb923c", "Base filter: Mkt cap > $100M · ADR > 5% · Avg vol (10D) > 500K · Price > 200d SMA · 1W $vol > $300M"],
+  ["bo", "🔥 Breakouts", "#fbbf24", "Any of the 4 breakouts (Zanger, Stockbee 4%, Stockbee $, Qullamaggie) across Leaders + ADR 5%+ Liquid"],
+  ["zanger", "⚡ All Movers", "#4ade80", "Any breakout OR ZVR ≥ 1.5x volume surge across Leaders + ADR 5%+ Liquid"],
+  ["adr5liq", "🚀 ADR 5%+ Liq", "#fb923c", "Full ADR 5%+ Liquid base screen: Mkt cap > $100M · ADR > 5% · Avg vol (10D) > 500K · Price > 200d SMA · 1W $vol > $300M"],
   ["rsl", "🔵 RS Leading", "#38bdf8", "RS line at a new 52-week high on a green close while basing 5–15% off highs"],
   ["leaders", "⭐ Core Leaders", "#f59e0b", "RS 90+ Tier Leaders in Leading theme layers"],
   ["ext", "🌙 Pre/Postmarket", "#c084fc", "Pre-market & after-hours movers with earnings flags and catalysts"],
@@ -457,6 +457,13 @@ export default function ZangerBriefSection({
       if (dollarMove != null && dollarMove >= 0.9 && chg != null && chg >= 1.5 && zvr != null && zvr >= 1.2 && (cr == null || cr >= 60)) {
         breakoutTypes.push("SB$");
       }
+      const qualifiesVolSurge =
+        zvr != null && zvr >= 1.5 &&
+        chg != null && chg >= Math.min(1.5, (adr ?? 3) * 0.6) &&
+        (cr == null || cr >= 60);
+      const sma50Lvl = s.sma50_lvl ?? (s.close > 0 && s.sma50_pct != null ? s.close / (1 + s.sma50_pct / 100) : null);
+      const reclaim50 = !s.above_50ma && Boolean(sma50Lvl && px != null && px >= sma50Lvl);
+      const below50 = sma50Lvl && px != null ? px < sma50Lvl : !s.above_50ma;
       out.push({
         ticker: t,
         company: s.company || "",
@@ -479,10 +486,16 @@ export default function ZangerBriefSection({
         off52: off52 != null ? Math.round(off52 * 10) / 10 : null,
         rs,
         eps,
+        earningsDays: s.earnings_days ?? null,
+        earningsDisplay: s.earnings_display || "",
         rsl: Boolean(rsLeads(s)),
+        rslTip: rsLeads(s) || "",
         breakoutTypes,
         isBreakout: breakoutTypes.length > 0,
-        qualifiesZanger: breakoutTypes.length > 0,
+        qualifiesZanger: breakoutTypes.length > 0 || qualifiesVolSurge,
+        fromAdr5Liq: true,
+        reclaim50,
+        below50,
         score: stockThrust(chg, zvr) ?? 0,
         isNew: false,
       });
@@ -705,14 +718,19 @@ export default function ZangerBriefSection({
   const decColor = dec === "YES" ? A.green : dec === "CAUTION" ? "#f59e0b" : A.red;
 
   const movers = liveComputed ? liveComputed.movers : (snap?.zangerMovers || []);
-  const allPool = liveComputed ? liveComputed.allScored : [...(snap?.zangerMovers || []), ...(snap?.onDeckRsl || [])];
+  const corePool = liveComputed ? liveComputed.allScored : [...(snap?.zangerMovers || []), ...(snap?.onDeckRsl || [])];
+  const coreSeen = new Set(corePool.map((r) => r?.ticker).filter(Boolean));
+  const adr5Extras = adr5LiqRows.filter((r) => r?.ticker && !coreSeen.has(r.ticker));
+  const allPool = [...corePool, ...adr5Extras];
   const bos = allPool.filter((m) => m.isBreakout);
   const catCounts = {
     bo: bos.length,
-    zanger: liveComputed ? allPool.filter((r) => r.qualifiesZanger).length : (snap?.zangerMovers || []).length,
+    zanger: liveComputed
+      ? allPool.filter((r) => r.qualifiesZanger).length
+      : (snap?.zangerMovers || []).length + adr5Extras.filter((r) => r.qualifiesZanger).length,
     adr5liq: adr5LiqRows.length,
     rsl: allPool.filter((r) => r.rsl).length,
-    leaders: allPool.filter((r) => r.tier === "lead" && r.layerStatus === "lead").length,
+    leaders: corePool.filter((r) => r.tier === "lead" && r.layerStatus === "lead").length,
     ext: extMeta.count,
   };
   const boTypeCounts = { ZANGER: 0, "SB4%": 0, "SB$": 0, QMAG: 0 };
@@ -832,7 +850,7 @@ export default function ZangerBriefSection({
   };
   const isRow9M = (r) => Boolean(r?.is9M || (getRowVol(r) ?? 0) >= 8_900_000);
 
-  const tabBaseRows = (catTab === "adr5liq" ? adr5LiqRows : allPool).filter((r) => {
+  const tabBaseRows = (catTab === "adr5liq" ? adr5LiqRows : catTab === "leaders" ? corePool : allPool).filter((r) => {
     if (catTab === "bo" && !r.isBreakout) return false;
     if (catTab === "zanger" && !r.qualifiesZanger) return false;
     if (catTab === "rsl" && !r.rsl) return false;
@@ -1643,7 +1661,23 @@ export default function ZangerBriefSection({
                           );
                         }) : (
                           <span style={{ fontSize: 10, fontWeight: 700, fontFamily: MONO, padding: "1px 3px", lineHeight: 1.15, borderRadius: 3, background: m.rsl ? "rgba(56,189,248,0.16)" : m.qualifiesZanger ? "rgba(34,197,94,0.16)" : "transparent", color: m.rsl ? A.cyan : m.qualifiesZanger ? A.green : A.textDim, border: m.rsl || m.qualifiesZanger ? "none" : `1px solid ${A.border}` }}>
-                            {m.rsl ? "RSL" : m.qualifiesZanger ? "VOL" : "LEAD"}
+                            {m.rsl ? "RSL" : m.qualifiesZanger ? "VOL" : m.fromAdr5Liq ? "ADR5" : "LEAD"}
+                          </span>
+                        )}
+                        {m.reclaim50 && (
+                          <span
+                            title="Reclaiming 50d SMA intraday (entered via ADR 5%+ Liquid base)"
+                            style={{ fontSize: 9.5, fontWeight: 800, fontFamily: MONO, padding: "1px 3px", lineHeight: 1.15, borderRadius: 3, background: "rgba(34,197,94,0.18)", color: A.green, border: `1px solid ${A.green}80` }}
+                          >
+                            50d↑
+                          </span>
+                        )}
+                        {!m.reclaim50 && m.below50 && (
+                          <span
+                            title="Below 50d SMA, above 200d SMA (entered via ADR 5%+ Liquid base)"
+                            style={{ fontSize: 9.5, fontWeight: 700, fontFamily: MONO, padding: "1px 3px", lineHeight: 1.15, borderRadius: 3, background: "rgba(251,146,60,0.16)", color: "#fb923c", border: "1px solid rgba(251,146,60,0.55)" }}
+                          >
+                            50d↓
                           </span>
                         )}
                         {isRow9M(m) && (
