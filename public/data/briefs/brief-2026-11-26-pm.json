@@ -1,0 +1,880 @@
+{
+  "id": "brief-2026-11-26-pm",
+  "date": "2026-11-26",
+  "session": "pm",
+  "label": "Postmarket Brief — Thu, Nov 26, 2026 (Thanksgiving Holiday Wrap & Black Friday Prep)",
+  "headline": "S&P 500 Futures Edge Up +0.5% Into Black Friday: Adobe Projects Record $47.5B Cyber Week (+9.2% Black Friday), OKTA Ranks #1 3M S&P 500 Leader (+57.6%) & DELL Trades at 0.28 PEG on $132.3B AI Backlog",
+  "regime": {
+    "posture": "Transition / Split-Tape Improvement — 40%–55% Net Long Exposure (U.S. Markets Closed Today for Thanksgiving; Reopens Tomorrow Fri Nov 27 for 9:30 AM–1:00 PM ET Black Friday Session)",
+    "breadth": "16 Leading vs 12 Breaking Down layers (+4 net positive breadth)",
+    "indexes": [
+      {
+        "ticker": "SPY",
+        "price": 716.7,
+        "chgPct": -0.29,
+        "fromOpenPct": 1.92,
+        "cr": 92,
+        "ema21": 716.5,
+        "sma50": 708.1,
+        "status": "Above 50d SMA (+1.21%) and 21d EMA (+0.03%) on a 92% CR; S&P 500 futures/CFDs up +0.50% to +0.60% (7,225.84) in holiday trade"
+      },
+      {
+        "ticker": "QQQ",
+        "price": 633.93,
+        "chgPct": -0.65,
+        "fromOpenPct": 2.73,
+        "cr": 96,
+        "ema21": 646.8,
+        "sma50": 639.2,
+        "status": "96% CR hammer reversal (+26.19 pts off $607.74 low), sitting -0.82% below $639.20 50d SMA entering Black Friday"
+      },
+      {
+        "ticker": "IWM",
+        "price": 268.87,
+        "chgPct": 0.64,
+        "fromOpenPct": 2.14,
+        "cr": 90,
+        "ema21": 266.9,
+        "sma50": 261.4,
+        "status": "Clean Stage 2 uptrend leadership above rising 21d EMA (+0.74%) and 50d SMA (+2.86%) on a 90% CR"
+      }
+    ]
+  },
+  "macroTape": {
+    "vix": {
+      "value": 28.16,
+      "chgPct": 6.83,
+      "note": "Crushed -6.79 pts (-19.4%) off Wednesday's 34.95 peak into the Thanksgiving holiday"
+    },
+    "us10y": {
+      "value": 4.85,
+      "chgBps": -8,
+      "note": "Touched an 11-week trough at 4.85% (with 2Y at 4.642%), supporting retail & small-cap multiple expansion"
+    },
+    "wtiCrude": {
+      "value": 83.68,
+      "chgPct": 2,
+      "note": "Settled at $83.68/bbl (+2.0%, Brent $94.61 +3.5%) on Middle East supply concerns ahead of Sunday's OPEC+ meeting"
+    },
+    "dxy": {
+      "value": 103.71,
+      "chgPct": -0.14,
+      "note": "Softened -0.14% to 103.71 in holiday trading, easing multinational FX headwinds"
+    }
+  },
+  "breakouts": [
+    {
+      "ticker": "HPQ",
+      "types": [
+        "ZANGER",
+        "SB4%",
+        "QMAG",
+        "9M"
+      ],
+      "price": 31.15,
+      "chgPct": 11.57,
+      "zvr": 5.5,
+      "thrust": 63.6,
+      "cr": 62,
+      "rs": 68,
+      "layer": "Commercial PCs",
+      "note": "38.95M vol (9M+) on Q4 EPS beat ($0.83 vs $0.74) & 35% AI PC shipment mix; skip per RS 68 (<80)"
+    },
+    {
+      "ticker": "COGT",
+      "types": [
+        "ZANGER",
+        "SB4%",
+        "QMAG"
+      ],
+      "price": 36.08,
+      "chgPct": 9.3,
+      "zvr": 5.1,
+      "thrust": 47.4,
+      "cr": 92,
+      "rs": 95,
+      "layer": "Biotech",
+      "note": "Day-2 FDA Ekitna (bezuclastinib) GIST approval breakout (+0.47% AH to $36.25); extended +6.87% above $33.76 pivot"
+    },
+    {
+      "ticker": "DE",
+      "types": [
+        "ZANGER",
+        "SB4%",
+        "SB$",
+        "QMAG"
+      ],
+      "price": 641.02,
+      "chgPct": 4.41,
+      "zvr": 4.3,
+      "thrust": 19,
+      "cr": 91,
+      "rs": 76,
+      "layer": "Ag Machinery",
+      "note": "+$27.09 SB$ (+9.02% fr $588 open) on FY27 $4.5B-$5.25B net income North American large-ag trough call"
+    },
+    {
+      "ticker": "ANF",
+      "types": [
+        "ZANGER",
+        "SB4%",
+        "SB$",
+        "QMAG"
+      ],
+      "price": 176.96,
+      "chgPct": 5.21,
+      "zvr": 3.5,
+      "thrust": 18.2,
+      "cr": 99,
+      "rs": 88,
+      "layer": "Apparel Retail",
+      "note": "Closed at 99% CR ($177.03 high); AH $176.42 sits right inside $176.51 5% ceiling above $168.10 Day-2 ORH pivot"
+    },
+    {
+      "ticker": "DKS",
+      "types": [
+        "ZANGER",
+        "SB$"
+      ],
+      "price": 158.59,
+      "chgPct": 3.58,
+      "zvr": 4.1,
+      "thrust": 14.7,
+      "cr": 59,
+      "rs": 81,
+      "layer": "Specialty Retail",
+      "note": "Actionable +3.08% above $153.85 ORH pivot (max buy $161.54); Morgan Stanley & Cantor raised PTs after $1.94 EPS beat"
+    },
+    {
+      "ticker": "COLM",
+      "types": [
+        "ZANGER"
+      ],
+      "price": 80.75,
+      "chgPct": 3.61,
+      "zvr": 3.2,
+      "thrust": 11.6,
+      "cr": 96,
+      "rs": 94,
+      "layer": "Apparel Retail",
+      "note": "New 52W high ($80.91); +7.68% from Tracker Row 11 entry ($74.99), extended +6.18% above $76.05 pivot"
+    },
+    {
+      "ticker": "BURL",
+      "types": [
+        "ZANGER",
+        "QMAG"
+      ],
+      "price": 250.06,
+      "chgPct": 2.42,
+      "zvr": 3.1,
+      "thrust": 7.5,
+      "cr": 66,
+      "rs": 86,
+      "layer": "Discount Retail",
+      "note": "Q3 EPS beat ($1.80 vs $1.64 est); coiling -1.39% below $253.58 Day-1 EP high pivot for Black Friday breakout"
+    },
+    {
+      "ticker": "LFST",
+      "types": [
+        "ZANGER"
+      ],
+      "price": 14.48,
+      "chgPct": 2.26,
+      "zvr": 3.3,
+      "thrust": 7.5,
+      "cr": 95,
+      "rs": 92,
+      "layer": "Healthcare Svcs",
+      "note": "Actionable +3.43% above $14.00 pivot (5% max buy $14.70) on 95% CR closing surge"
+    },
+    {
+      "ticker": "OKTA",
+      "types": [
+        "ZANGER"
+      ],
+      "price": 201.77,
+      "chgPct": 1.84,
+      "zvr": 2.9,
+      "thrust": 5.3,
+      "cr": 97,
+      "rs": 82,
+      "layer": "Cyber Threat Ops",
+      "note": "Actionable +0.85% above $200.06 pivot; #1 S&P 500 3M performer (+57.63%) ahead of Tue Dec 1 AMC Q3 print"
+    },
+    {
+      "ticker": "DELL",
+      "types": [
+        "ZANGER",
+        "QMAG",
+        "9M"
+      ],
+      "price": 297.06,
+      "chgPct": 0.6,
+      "zvr": 5.8,
+      "thrust": 3.5,
+      "cr": 97,
+      "rs": 84,
+      "layer": "AI Servers",
+      "note": "Actionable +0.66% above $295.11 pivot; ISG reached 83% of operating income ($132.3B backlog, FY27 EPS guide $29.68, 0.28 PEG)"
+    }
+  ],
+  "portfolioUpdates": [
+    {
+      "list": "PORT",
+      "ticker": "COGT",
+      "price": 36.08,
+      "chgPct": 9.3,
+      "zvr": 5.1,
+      "cr": 92,
+      "rs": 95,
+      "alerts": [
+        "BO",
+        "VOL",
+        "52W"
+      ],
+      "note": "+9.30% from Row 21 entry ($33.01); extended +6.87% above $33.76 pivot — hold & trail rising 10d EMA ($32.10)"
+    },
+    {
+      "list": "PORT",
+      "ticker": "COLM",
+      "price": 80.75,
+      "chgPct": 3.61,
+      "zvr": 3.2,
+      "cr": 96,
+      "rs": 94,
+      "alerts": [
+        "BO",
+        "VOL",
+        "52W"
+      ],
+      "note": "+7.68% from Row 11 entry ($74.99); new 52W high ($80.91), +6.18% above $76.05 pivot — hold core into Black Friday"
+    },
+    {
+      "list": "PORT",
+      "ticker": "DKS",
+      "price": 158.59,
+      "chgPct": 3.58,
+      "zvr": 4.1,
+      "cr": 59,
+      "rs": 81,
+      "alerts": [
+        "BO",
+        "VOL"
+      ],
+      "note": "+3.54% from Row 24 entry ($153.17); actionable in 5% buy zone (+3.08% above $153.85 ORH pivot) after Morgan Stanley PT hike"
+    },
+    {
+      "list": "PORT",
+      "ticker": "LFST",
+      "price": 14.48,
+      "chgPct": 2.26,
+      "zvr": 3.3,
+      "cr": 95,
+      "rs": 92,
+      "alerts": [
+        "BO",
+        "VOL"
+      ],
+      "note": "+0.28% from Row 15 entry ($14.44); actionable +3.43% above $14.00 pivot (5% max buy $14.70)"
+    },
+    {
+      "list": "PORT",
+      "ticker": "OKTA",
+      "price": 201.77,
+      "chgPct": 1.84,
+      "zvr": 2.9,
+      "cr": 97,
+      "rs": 82,
+      "alerts": [
+        "BO",
+        "VOL",
+        "ER 3d"
+      ],
+      "note": "+5.38% from Row 7 entry ($191.46); #1 3M S&P 500 gainer (+57.63%), reclaimed $200.06 pivot (+0.85%) ahead of Dec 1 ER"
+    },
+    {
+      "list": "PORT",
+      "ticker": "GEN",
+      "price": 30.17,
+      "chgPct": 0.73,
+      "zvr": 2.4,
+      "cr": 50,
+      "rs": 87,
+      "alerts": [
+        "HOLD"
+      ],
+      "note": "+3.36% from Row 6 entry ($29.19); coiling tight at $30.20 flat-base pivot ($31.42 upper handle)"
+    },
+    {
+      "list": "PORT",
+      "ticker": "APPN",
+      "price": 55.08,
+      "chgPct": 0.51,
+      "zvr": 2.3,
+      "cr": 74,
+      "rs": 94,
+      "alerts": [
+        "BO"
+      ],
+      "note": "+0.55% from Row 19 entry ($54.78); actionable +0.15% above $55.00 handle pivot"
+    },
+    {
+      "list": "PORT",
+      "ticker": "AMTM",
+      "price": 24.86,
+      "chgPct": 0.26,
+      "zvr": 3.4,
+      "cr": 52,
+      "rs": 85,
+      "alerts": [
+        "BO",
+        "VOL"
+      ],
+      "note": "+0.24% from Row 25 entry ($24.80); actionable +2.94% above $24.15 ORH pivot"
+    },
+    {
+      "list": "PORT",
+      "ticker": "CBRL",
+      "price": 75.35,
+      "chgPct": 0.21,
+      "zvr": 1.8,
+      "cr": 83,
+      "rs": 89,
+      "alerts": [
+        "BO",
+        "52W"
+      ],
+      "note": "+6.50% from Row 9 entry ($70.75); new 52W high ($75.75), actionable +1.39% above $74.32 pivot"
+    },
+    {
+      "list": "PORT",
+      "ticker": "VCEL",
+      "price": 61.01,
+      "chgPct": -0.28,
+      "zvr": 1.8,
+      "cr": 94,
+      "rs": 97,
+      "alerts": [
+        "BO"
+      ],
+      "note": "+6.07% from Row 10 entry ($57.52); 94% CR shakeout recovery, actionable +2.68% above $59.42 pivot"
+    },
+    {
+      "list": "PORT",
+      "ticker": "PGNY",
+      "price": 36.27,
+      "chgPct": -0.58,
+      "zvr": 1.9,
+      "cr": 52,
+      "rs": 96,
+      "alerts": [
+        "HOLD"
+      ],
+      "note": "+1.57% from Row 14 entry ($35.71); coiling -0.63% below $36.50 Cup-with-Handle pivot"
+    },
+    {
+      "list": "PORT",
+      "ticker": "ANF",
+      "price": 176.96,
+      "chgPct": 5.21,
+      "zvr": 3.5,
+      "cr": 99,
+      "rs": 88,
+      "alerts": [
+        "BO",
+        "VOL"
+      ],
+      "note": "Tracker Row 26 (Grade A-); AH quote $176.42 sits inside $176.51 5% ceiling above $168.10 Day-2 ORH pivot"
+    },
+    {
+      "list": "PORT",
+      "ticker": "BURL",
+      "price": 250.06,
+      "chgPct": 2.42,
+      "zvr": 3.1,
+      "cr": 66,
+      "rs": 86,
+      "alerts": [
+        "BO",
+        "VOL"
+      ],
+      "note": "Tracker Row 27 (Grade B+); coiling -1.39% below $253.58 Day-1 EP high pivot after Q3 EPS beat"
+    },
+    {
+      "list": "PORT",
+      "ticker": "DELL",
+      "price": 297.06,
+      "chgPct": 0.6,
+      "zvr": 5.8,
+      "cr": 97,
+      "rs": 84,
+      "alerts": [
+        "BO",
+        "VOL"
+      ],
+      "note": "Tracker Row 28 (Grade B+); actionable +0.66% above $295.11 pivot (ISG 83% of op income, $132.3B backlog, 0.28 PEG)"
+    },
+    {
+      "list": "WATCH",
+      "ticker": "VERA",
+      "price": 34.43,
+      "chgPct": 16.72,
+      "zvr": 4.2,
+      "cr": 88,
+      "rs": 64,
+      "alerts": [
+        "AH SURGE"
+      ],
+      "note": "Surged +16.72% AH (from $29.50 close) after FDA delayed rival VRTX's povetacicept PDUFA to Feb 28, 2027"
+    },
+    {
+      "list": "FLG",
+      "ticker": "A",
+      "price": 178.44,
+      "chgPct": -2.85,
+      "zvr": 3,
+      "cr": 40,
+      "rs": 83,
+      "alerts": [
+        "STOP-HIT"
+      ],
+      "note": "Violated $179.29 Day-1 EP low stop ($175.66 low); -2.77% from Row 20 entry ($183.52)"
+    },
+    {
+      "list": "FLG",
+      "ticker": "ETON",
+      "price": 65.23,
+      "chgPct": -3.32,
+      "zvr": 2.6,
+      "cr": 76,
+      "rs": 98,
+      "alerts": [
+        "SHAKEOUT"
+      ],
+      "note": "Recovered from $60.27 intraday shakeout to $65.23 (+7.20% above Row 5 $60.85 entry, well above $56.59 -7% hard stop)"
+    }
+  ],
+  "layerUpdates": {
+    "summary": "16 Leading vs 12 Breaking Down layers (+4 net positive breadth) — S&P 500 futures (+0.5%) and Adobe's $47.5B Cyber Week projection (+9.2% on Black Friday) reinforce leadership in Consumer Retail, Biotech/Healthcare Services, Cyber Threat Ops, and AI Server Backlog Turnarounds.",
+    "rows": [
+      {
+        "layer": "Apparel & Specialty Retail",
+        "theme": "Consumer",
+        "status": "Leading",
+        "rank": 1,
+        "delta1w": 2,
+        "todayPct": 4.13,
+        "thrust": 18.2,
+        "leaders": [
+          "ANF",
+          "COLM",
+          "DKS"
+        ],
+        "note": "#1 ThemePulse cluster (Score 100) backed by Adobe's +9.2% Black Friday spending growth forecast ($12.9B)"
+      },
+      {
+        "layer": "Biotech & MedTech",
+        "theme": "Healthcare",
+        "status": "Leading",
+        "rank": 2,
+        "delta1w": 0,
+        "todayPct": 1.94,
+        "thrust": 47.4,
+        "leaders": [
+          "COGT",
+          "VCEL",
+          "TGTX",
+          "CDNA"
+        ],
+        "note": "COGT (FDA GIST approval) & VERA (+16.72% AH on VRTX FDA delay to Feb 28, 2027) highlight strong biotech alpha"
+      },
+      {
+        "layer": "Healthcare Services",
+        "theme": "Healthcare",
+        "status": "Leading",
+        "rank": 3,
+        "delta1w": 1,
+        "todayPct": 0.84,
+        "thrust": 7.5,
+        "leaders": [
+          "LFST",
+          "PGNY"
+        ],
+        "note": "LFST ($14.48, 95% CR) actionable in 5% buy zone; PGNY ($36.27) coiling -0.63% below $36.50 handle pivot"
+      },
+      {
+        "layer": "Discount Retail",
+        "theme": "Consumer",
+        "status": "Leading",
+        "rank": 4,
+        "delta1w": 2,
+        "todayPct": 0.19,
+        "thrust": 7.5,
+        "leaders": [
+          "BURL",
+          "DLTR",
+          "WMT"
+        ],
+        "note": "BURL (+2.42% on Q3 beat) & DLTR (+2.47% vs $148.54 pivot) benefit as shoppers mix necessities with Black Friday gifts"
+      },
+      {
+        "layer": "Cyber Threat Ops",
+        "theme": "Cyber",
+        "status": "Leading",
+        "rank": 5,
+        "delta1w": 3,
+        "todayPct": 1.29,
+        "thrust": 5.3,
+        "leaders": [
+          "OKTA",
+          "GEN"
+        ],
+        "note": "OKTA (+57.63% 3-month return, #1 in S&P 500) reclaimed $200.06 pivot alongside GEN ($30.17)"
+      },
+      {
+        "layer": "Commercial PCs & AI Servers",
+        "theme": "IT Hardware",
+        "status": "Emerging",
+        "rank": 7,
+        "delta1w": 8,
+        "todayPct": 6.09,
+        "thrust": 63.6,
+        "leaders": [
+          "HPQ",
+          "DELL"
+        ],
+        "note": "DELL ($297.06, 97% CR) ISG reached 68% of revenue & 83% of operating profit on $132.3B AI server backlog (0.28 PEG)"
+      },
+      {
+        "layer": "Ag & Heavy Machinery",
+        "theme": "Industrials",
+        "status": "Emerging",
+        "rank": 8,
+        "delta1w": 6,
+        "todayPct": 4.41,
+        "thrust": 19,
+        "leaders": [
+          "DE"
+        ],
+        "note": "DE ($641.02, 91% CR) rallied +9.02% from open on North American large-ag trough call"
+      },
+      {
+        "layer": "AI / Memory & Edge Semis",
+        "theme": "Semiconductors",
+        "status": "Breaking Down",
+        "rank": 28,
+        "delta1w": -6,
+        "todayPct": -9.42,
+        "thrust": 142.3,
+        "leaders": [
+          "AMBA",
+          "MU",
+          "NVDA"
+        ],
+        "note": "S&P placed NVDA's AA rating on CreditWatch Negative over governance & $32.4B debt; group remains Stage 4 Avoid"
+      }
+    ]
+  },
+  "focusSetups": [
+    {
+      "ticker": "DKS",
+      "grade": "A-",
+      "theme": "Consumer — Specialty Retail (100)",
+      "rs": 81,
+      "eps": 89,
+      "baseStage": "Stage 1 Episodic Pivot (Day-2 Follow-Through)",
+      "groupConfirmation": "Confirmed by #1 Retail peers ANF (+5.21%, 99% CR) and COLM (+3.61%, new 52W high)",
+      "avgDollarVolM": 295,
+      "shortInterestPct": 7.2,
+      "daysToCover": 3.8,
+      "price": 158.59,
+      "pivot": 153.85,
+      "maxBuy": 161.54,
+      "stop": 142.45,
+      "maSupport": "10d EMA $149.20 / 21d EMA $146.50 / 50d SMA $143.80",
+      "adrPct": 3.2,
+      "rvol": 4.1,
+      "cr": 59,
+      "note": "Actionable +3.08% above $153.85 ORH pivot after Q3 EPS beat ($1.94 vs $1.41) & Morgan Stanley PT raise"
+    },
+    {
+      "ticker": "OKTA",
+      "grade": "A-",
+      "theme": "Cyber — Cyber Threat Ops (92)",
+      "rs": 82,
+      "eps": 88,
+      "baseStage": "Stage 2 Cup-with-Handle Shakeout-and-Reclaim",
+      "groupConfirmation": "Confirmed by Cyber peer GEN (+0.73% at $30.17 flat-base pivot)",
+      "avgDollarVolM": 410,
+      "shortInterestPct": 4.8,
+      "daysToCover": 2.4,
+      "price": 201.77,
+      "pivot": 200.06,
+      "maxBuy": 210.06,
+      "stop": 186.06,
+      "maSupport": "21d EMA $196.40 / 50d SMA $192.80",
+      "adrPct": 3.5,
+      "rvol": 2.9,
+      "cr": 97,
+      "note": "#1 3M S&P 500 gainer (+57.63%); actionable pilot +0.85% above $200.06 pivot ahead of Tue Dec 1 AMC Q3 print (+/-19.1% implied)"
+    },
+    {
+      "ticker": "DELL",
+      "grade": "B+",
+      "theme": "IT Hardware — AI Servers (85)",
+      "rs": 84,
+      "eps": 89,
+      "baseStage": "Stage 1 Earnings Shakeout & $295.11 Pivot Reclaim",
+      "groupConfirmation": "Confirmed by Commercial PC leader HPQ (+11.57% on 38.95M vol)",
+      "avgDollarVolM": 1850,
+      "shortInterestPct": 3.2,
+      "daysToCover": 1.5,
+      "price": 297.06,
+      "pivot": 295.11,
+      "maxBuy": 309.87,
+      "stop": 274.45,
+      "maSupport": "50d SMA $295.11 / 21d EMA $298.50",
+      "adrPct": 4.4,
+      "rvol": 5.8,
+      "cr": 97,
+      "note": "Actionable +0.66% above $295.11 pivot; ISG now 83% of operating income ($132.3B backlog, FY27 EPS guide $29.68, 0.28 PEG)"
+    },
+    {
+      "ticker": "VCEL",
+      "grade": "A",
+      "theme": "Healthcare — Biotech (95)",
+      "rs": 97,
+      "eps": 87,
+      "baseStage": "Stage 2 Flat Base (Tight 10d EMA Test)",
+      "groupConfirmation": "Confirmed by Biotech breakout leader COGT (+9.30%, 92% CR)",
+      "avgDollarVolM": 38,
+      "shortInterestPct": 5.6,
+      "daysToCover": 4.2,
+      "price": 61.01,
+      "pivot": 59.42,
+      "maxBuy": 62.39,
+      "stop": 55.26,
+      "maSupport": "10d EMA $59.80 / 21d EMA $58.10",
+      "adrPct": 3.3,
+      "rvol": 1.8,
+      "cr": 94,
+      "note": "Actionable +2.68% above $59.42 pivot after shaking out to $58.66 and closing at 94% CR"
+    },
+    {
+      "ticker": "LFST",
+      "grade": "A",
+      "theme": "Healthcare — Healthcare Services (95)",
+      "rs": 92,
+      "eps": 81,
+      "baseStage": "Stage 1 Post-Earnings Flag Breakout",
+      "groupConfirmation": "Confirmed by Healthcare Services peer PGNY ($36.27 tight handle)",
+      "avgDollarVolM": 48,
+      "shortInterestPct": 6.1,
+      "daysToCover": 3.4,
+      "price": 14.48,
+      "pivot": 14,
+      "maxBuy": 14.7,
+      "stop": 13.02,
+      "maSupport": "10d EMA $13.85 / 21d EMA $13.30",
+      "adrPct": 3.7,
+      "rvol": 3.3,
+      "cr": 95,
+      "note": "Actionable +3.43% above $14.00 pivot (5% max buy $14.70) on 95% CR closing surge"
+    },
+    {
+      "ticker": "ANF",
+      "grade": "A-",
+      "theme": "Consumer — Apparel Retail (100)",
+      "rs": 88,
+      "eps": 92,
+      "baseStage": "Stage 2 Day-2 Episodic Pivot Continuation",
+      "groupConfirmation": "Confirmed by COLM (+3.61%, new 52W high) and DKS (+3.58%)",
+      "avgDollarVolM": 315,
+      "shortInterestPct": 6.4,
+      "daysToCover": 3.1,
+      "price": 176.96,
+      "pivot": 168.1,
+      "maxBuy": 176.51,
+      "stop": 156.33,
+      "maSupport": "10d EMA $165.40 / 21d EMA $160.80 / 50d SMA $152.10",
+      "adrPct": 3.8,
+      "rvol": 3.5,
+      "cr": 99,
+      "note": "AH quote ($176.42) sits right inside $176.51 5% ceiling above $168.10 Day-2 ORH pivot for Friday entry"
+    },
+    {
+      "ticker": "BURL",
+      "grade": "B+",
+      "theme": "Consumer — Discount Retail (100)",
+      "rs": 86,
+      "eps": 90,
+      "baseStage": "Stage 2 Earnings Shakeout & High-Tight Handle",
+      "groupConfirmation": "Confirmed by Discount Retail peers DLTR ($152.21) and WMT ($131.94)",
+      "avgDollarVolM": 340,
+      "shortInterestPct": 4.1,
+      "daysToCover": 2.6,
+      "price": 250.06,
+      "pivot": 253.58,
+      "maxBuy": 266.26,
+      "stop": 232.56,
+      "maSupport": "10d EMA $245.10 / 21d EMA $242.80 / 50d SMA $239.40",
+      "adrPct": 3.1,
+      "rvol": 3.1,
+      "cr": 66,
+      "note": "Q3 EPS beat ($1.80 vs $1.64 est); trigger entry on Black Friday reclaim of $253.58 Day-1 EP high pivot"
+    },
+    {
+      "ticker": "PGNY",
+      "grade": "A+",
+      "theme": "Healthcare — Healthcare Services (95)",
+      "rs": 96,
+      "eps": 79,
+      "baseStage": "Stage 1 Cup-with-Handle (3-Day Tight Handle)",
+      "groupConfirmation": "Confirmed by LFST (+2.26%, 95% CR)",
+      "avgDollarVolM": 52,
+      "shortInterestPct": 8.4,
+      "daysToCover": 4.5,
+      "price": 36.27,
+      "pivot": 36.5,
+      "maxBuy": 38.33,
+      "stop": 33.21,
+      "maSupport": "10d EMA $35.60 / 21d EMA $34.80",
+      "adrPct": 2.9,
+      "rvol": 1.9,
+      "cr": 52,
+      "note": "Coiling -0.63% below $36.50 handle pivot ($37.16 standard pivot); top anticipation trigger for Black Friday"
+    }
+  ],
+  "extendedMovers": [
+    {
+      "ticker": "VERA",
+      "session": "After-Hours / Holiday Catalyst",
+      "price": 34.43,
+      "chgPct": 16.72,
+      "note": "Surged +16.72% AH (from $29.50 close) after FDA delayed Vertex's rival IgAN drug povetacicept PDUFA to Feb 28, 2027"
+    },
+    {
+      "ticker": "FINV",
+      "session": "After-Hours",
+      "price": 2.6258,
+      "chgPct": 8.06,
+      "note": "Jumped +8.06% after hours (from $2.43 close) on Q3 2026 earnings release"
+    },
+    {
+      "ticker": "HST",
+      "session": "After-Hours",
+      "price": 25.7,
+      "chgPct": 3.3,
+      "note": "Spiked +3.30% after hours (from $24.88 close) on institutional block activity"
+    },
+    {
+      "ticker": "VRTX",
+      "session": "After-Hours / Holiday Catalyst",
+      "price": 520.5,
+      "chgPct": -7.73,
+      "note": "Fell -6.95% to -7.73% after hours ($520.50-$524.94 vs $564.12 close) after FDA extended povetacicept review by 3 months"
+    },
+    {
+      "ticker": "NVDA",
+      "session": "Overnight Feed / Rating Action",
+      "price": 149.38,
+      "chgPct": -3.86,
+      "note": "Placed on S&P CreditWatch Negative (AA rating) over board governance questions & $32.4B long-term debt"
+    }
+  ],
+  "breakdowns": [
+    {
+      "ticker": "AMBA",
+      "price": 35.68,
+      "chgPct": -19.77,
+      "zvr": 8.9,
+      "layer": "Edge AI / Vision Semis",
+      "note": "Hit $30.50 52W low on post-earnings auto/IoT inventory correction"
+    },
+    {
+      "ticker": "NTNX",
+      "price": 46.3,
+      "chgPct": -15.19,
+      "zvr": 6.4,
+      "layer": "Hybrid Cloud Infrastructure",
+      "note": "Stage 4 breakdown on Q2 revenue timing shift & Morgan Stanley downgrade"
+    },
+    {
+      "ticker": "URBN",
+      "price": 76.74,
+      "chgPct": -10.33,
+      "zvr": 4.6,
+      "layer": "Apparel Retail",
+      "note": "Company-specific Q3 margin & promo warning (diverged from ANF/COLM/DKS strength)"
+    },
+    {
+      "ticker": "VRTX",
+      "price": 520.5,
+      "chgPct": -7.73,
+      "zvr": 3.4,
+      "layer": "Biotech",
+      "note": "After-hours breakdown below 50d SMA after FDA pushed povetacicept PDUFA from Nov 30, 2026 to Feb 28, 2027"
+    },
+    {
+      "ticker": "MU",
+      "price": 601.25,
+      "chgPct": -4.57,
+      "zvr": 2.9,
+      "layer": "Memory Semiconductors",
+      "note": "Closed below 21d/50d MAs despite afternoon bounce off $548.13 low (51.86M vol)"
+    },
+    {
+      "ticker": "NVDA",
+      "price": 149.3,
+      "chgPct": -3.91,
+      "zvr": 2.8,
+      "layer": "AI Semiconductors",
+      "note": "-38.27% off $242 Oct peak; S&P placed AA rating on CreditWatch Negative on Nov 25/26"
+    }
+  ],
+  "radar": [
+    {
+      "date": "2026-11-27",
+      "event": "Black Friday Abbreviated Session (9:30 AM–1:00 PM ET / 6:30 AM–10:00 AM PT) & Weekly Post-Mortem Scorecard",
+      "impact": "Adobe forecasts $12.9B online spend (+9.2% YoY) & +95% AI retail traffic; focus on opening RVol in DKS, ANF, BURL, DELL, OKTA, PGNY, VERA"
+    },
+    {
+      "date": "2026-11-29",
+      "event": "OPEC+ Ministerial Meeting",
+      "impact": "Key catalyst for WTI Crude ($83.68/bbl, +2.0%) and Energy/Shipping themes"
+    },
+    {
+      "date": "2026-11-30",
+      "event": "Cyber Monday Peak Online Spending Day",
+      "impact": "Adobe forecasts a record $15.1B (+6.2% YoY) in single-day U.S. online spending"
+    },
+    {
+      "date": "2026-12-01",
+      "event": "OKTA Q3 FY27 Earnings (After Close) & ISM Manufacturing PMI (10:00 AM ET)",
+      "impact": "OKTA options price +/-19.1% implied move (10y avg +/-14.6%); maintain pilot size into Tuesday's print"
+    }
+  ],
+  "skipTraps": [
+    {
+      "ticker": "COGT",
+      "reason": "Extended +6.87% above $33.76 pivot (>5% chase limit); hold existing position and wait for 10d EMA test"
+    },
+    {
+      "ticker": "COLM",
+      "reason": "Extended +6.18% above $76.05 pivot (>5% chase limit); hold existing position from $74.99 Row 11 entry"
+    },
+    {
+      "ticker": "HPQ",
+      "reason": "Low RS (68 < 80 minimum threshold) despite +11.57% earnings gap on 38.95M volume"
+    },
+    {
+      "ticker": "NVDA",
+      "reason": "Stage 4 downtrend (-38.27% off Oct peak) compounded by S&P CreditWatch Negative action on AA rating"
+    },
+    {
+      "ticker": "ZS",
+      "reason": "Buyout-pinned arbitrage spread (CrowdStrike $43.9B acquisition)"
+    }
+  ]
+}
