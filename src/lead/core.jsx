@@ -982,7 +982,27 @@ export function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, 
       if (aboveLo == null || aboveLo < 30) return;
       if (!(px > b.sma200) || !(b.ema50 && px > b.ema50)) return;
       const L = tickerLayer[b.t];
-      out.push({ t: b.t, px, zvr, chg, thrust: stockThrust(chg, zvr), fromOpen, adr: b.adr, offHi, rs: b.rs, eps: b.eps, epsTip: b.epsTip, epsAcc: b.epsAcc, layer: L?.name, layerSt: L?.st });
+      const dv = vol > 0 ? px * vol : (b.avgDv ?? null);
+      out.push({
+        t: b.t,
+        px,
+        dv,
+        avgDv: b.avgDv ?? null,
+        er: b.earningsDays ?? null,
+        erTip: b.earningsDisplay || "",
+        zvr,
+        chg,
+        thrust: stockThrust(chg, zvr),
+        fromOpen,
+        adr: b.adr,
+        offHi,
+        rs: b.rs,
+        eps: b.eps,
+        epsTip: b.epsTip,
+        epsAcc: b.epsAcc,
+        layer: L?.name,
+        layerSt: L?.st,
+      });
     });
     const k = sort.k, d = sort.d;
     out.sort((x, y) => {
@@ -1011,7 +1031,7 @@ export function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, 
   }, [quotes, base, clock.rth, clock.today, profiles]);
   const col = (k, label, align = "right", title) => (
     <th style={{ ...th(A, align), cursor: "pointer", color: sort.k === k ? A.text : A.textMuted }} title={title}
-      onClick={() => setSort((p) => ({ k, d: p.k === k ? -p.d : -1 }))}>{label}{sort.k === k ? (sort.d < 0 ? " ▼" : " ▲") : ""}</th>
+      onClick={() => setSort((p) => ({ k, d: p.k === k ? -p.d : (k === "er" ? 1 : -1) }))}>{label}{sort.k === k ? (sort.d < 0 ? " ▼" : " ▲") : ""}</th>
   );
   const pct = (v, dgt = 1) => (v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(dgt)}%`);
   return (
@@ -1028,14 +1048,18 @@ export function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, 
             <thead style={{ position: "sticky", top: 0, background: A.bgCard || A.bg, zIndex: 1 }}>
               <tr>
                 <th style={th(A)}>Ticker</th>
+                {col("px", "Price")}
                 {col("zvr", "ZVR", "right", "Relative volume at time (TradingView-style): today's volume ÷ the 10-session average × the share of a normal day's volume done by now. 1.00 = normal pace. After hours: the last value from the session")}{col("chg", "Chg")}{col("thrust", "Thrust", "right", "Stock Thrust: Chg% × ZVR")}{col("fromOpen", "From open")}
+                {col("dv", "$Vol", "right", "Today's dollar volume (Price × Live Volume; falls back to avg daily $vol)")}
                 {col("adr", "ADR")}{col("offHi", "Off high")}{col("rs", "RS")}{col("eps", "EPS", "right", EPS_TIP)}
+                {col("er", "ER", "right", "Calendar days until next earnings report")}
                 <th style={th(A)}>Layer</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => {
                 const on = chartTicker === r.t;
+                const erCol = r.er == null ? A.textMuted : r.er <= 5 ? A.red : r.er <= 14 ? "#fbbf24" : A.textMuted;
                 return (
                 <tr
                   key={r.t}
@@ -1049,14 +1073,17 @@ export function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, 
                   }}
                 >
                   <td style={td(A)}><FlagButton t={r.t} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: MONO }}>{r.t}</span><TierMark t={r.t} /></td>
+                  <td style={{ ...td(A, "right"), color: A.text }}>${r.px.toFixed(2)}</td>
                   <td style={{ ...td(A, "right"), color: r.zvr >= 1.5 ? A.green : r.zvr >= 1 ? A.text : A.textMuted, fontWeight: r.zvr >= 1.5 ? 700 : 400 }}>{r.zvr == null ? "—" : r.zvr.toFixed(2)}</td>
                   <td style={{ ...td(A, "right"), color: A.green }}>{pct(r.chg, 2)}</td>
                   <td style={{ ...td(A, "right"), color: r.thrust == null ? A.textMuted : r.thrust > 0 ? A.green : r.thrust < 0 ? A.red : A.textMuted, fontWeight: r.thrust != null && Math.abs(r.thrust) >= 5 ? 700 : 500, fontFamily: MONO }}>{r.thrust != null ? `${r.thrust > 0 ? "+" : ""}${r.thrust.toFixed(1)}` : "—"}</td>
                   <td style={{ ...td(A, "right"), color: (r.fromOpen ?? 0) >= 0 ? A.green : A.red, fontWeight: 700 }}>{pct(r.fromOpen, 2)}</td>
+                  <td title={r.avgDv ? `Avg daily $Vol: ${fmtDollarVol(r.avgDv)}` : undefined} style={{ ...td(A, "right"), color: (r.dv ?? 0) >= 100e6 ? A.text : A.textDim }}>{fmtDollarVol(r.dv)}</td>
                   <td style={td(A, "right")}>{r.adr == null ? "—" : `${r.adr.toFixed(1)}%`}</td>
                   <td style={td(A, "right")}>{pct(r.offHi)}</td>
                   <td style={{ ...td(A, "right"), color: r.rs >= 90 ? A.green : r.rs >= 70 ? A.yellow : A.red }}>{r.rs ?? "—"}</td>
                   <td title={r.epsTip || ""} style={{ ...td(A, "right"), color: r.eps >= 80 ? A.green : r.eps >= 50 ? A.yellow : r.eps != null ? A.red : A.textMuted }}>{r.eps ?? "—"}{r.epsAcc ? <span style={{ color: A.green, fontSize: 9.5 }}>▲</span> : null}</td>
+                  <td title={r.erTip || ""} style={{ ...td(A, "right"), color: erCol, fontWeight: r.er != null && r.er <= 14 ? 700 : 400 }}>{r.er == null ? "—" : r.er === 0 ? "0d" : `${r.er}d`}</td>
                   <td style={{ ...td(A), fontSize: 11, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis" }}>
                     <LayerLink r={r} A={A} onLayer={onLayer} />
                   </td>

@@ -352,7 +352,23 @@ export function scanBase(s, session) {
   if (!(sma50 && sma200 && sma50 > sma200)) return null;
   if (!(rev > 0)) return null;
   const avg10 = (s.last_bar_date && s.last_bar_date === session && s.avg_vol_10d_prior) || s.avg_vol_10d || s.avg_volume_raw;
-  return { t: s.ticker, sma200, ema50, hi52, lo52, avgVol: s.avg_volume_raw, avg10, adr, rs: s.rs_rank, eps: s.eps_rating ?? null, epsTip: s.eps_tip, epsAcc: s.eps_accel };
+  return {
+    t: s.ticker,
+    sma200,
+    ema50,
+    hi52,
+    lo52,
+    avgVol: s.avg_volume_raw,
+    avg10,
+    avgDv: adv,
+    adr,
+    rs: s.rs_rank,
+    eps: s.eps_rating ?? null,
+    epsTip: s.eps_tip,
+    epsAcc: s.eps_accel,
+    earningsDays: s.earnings_days ?? null,
+    earningsDisplay: s.earnings_display || "",
+  };
 }
 
 export function rthMinute(now = new Date()) {

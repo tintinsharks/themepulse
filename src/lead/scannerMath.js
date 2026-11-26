@@ -58,7 +58,10 @@ export function evalScanHits(s, q = null, zvr = null) {
   const fl = s.shares_float_raw ?? (mcap && s.close ? mcap / s.close : null);
   const sma20 = s.sma20_lvl ? ((c / s.sma20_lvl) - 1) * 100 : s.sma20_pct;
   const sma50 = s.sma50_lvl ? ((c / s.sma50_lvl) - 1) * 100 : s.sma50_pct;
-  const ema20 = s.ema20_pct ?? sma20;
+  const ema20Lvl = s.ema20_lvl ?? (s.close > 0 && s.ema20_pct != null ? s.close / (1 + s.ema20_pct / 100) : null);
+  const ema20 = ema20Lvl ? ((c / ema20Lvl) - 1) * 100 : (s.ema20_pct ?? sma20);
+  const ma8wLvl = s.ma8w_lvl ?? (s.close > 0 && s.pct_from_8w != null ? s.close / (1 + s.pct_from_8w / 100) : null);
+  const pct8w = ma8wLvl ? ((c / ma8wLvl) - 1) * 100 : s.pct_from_8w;
   const lo = s.above_52w_low ?? 0;
   const hi52 = Math.max(s.hi52_lvl || 0, q?.yearHigh || 0) || null;
   const off = hi52 ? ((c / hi52) - 1) * 100 : (s.off_52w_high ?? s.pct_from_high);
@@ -91,7 +94,7 @@ export function evalScanHits(s, q = null, zvr = null) {
   if (
     liquidRs &&
     rs >= 90 &&
-    (s.pct_from_8w ?? -1) > 0 &&
+    (pct8w ?? -1) > 0 &&
     Boolean(s.ma8w_rising) &&
     (ema20 ?? -1) > 0 &&
     off != null &&

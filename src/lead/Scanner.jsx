@@ -9,6 +9,7 @@ import {
   MONO,
   RslDot,
   TierMark,
+  fmtDollarVol,
   isHealthcareItem,
   rsLeads,
   stockThrust,
@@ -78,15 +79,23 @@ function ScannerPanel({ A, stockMap, onTicker, chartTicker, tickerLayer, onLayer
     return m;
   }, [stockMap]);
 
-  // Quote all hits for active scan + wider candidate nets for live-driven scans (grnred, rsvol, antic, hot)
+  // Quote all hits for active scan + widened live candidate nets for all 5 Elite RS scans
+  // (plus antic/hot) so names crossing 50d/8w/20EMA or rallying into 52wH bands enter live every 60s.
   const live = useMemo(() => {
     const set = new Set();
     for (const [t, h] of Object.entries(pre)) {
       if (h[scan]) { set.add(t); continue; }
       const s = stockMap?.[t];
       if (!s) continue;
-      if (scan === "grnred" && (s.rs_rank ?? 0) >= 85 && (s.avg_dollar_vol_raw ?? 0) >= 20e6 && (s.sma50_pct ?? -1) > 0 && (s.off_52w_high ?? -99) >= -15) set.add(t);
-      else if (scan === "rsvol" && (s.rs_rank ?? 0) >= 90 && (s.avg_dollar_vol_raw ?? 0) >= 20e6 && (s.sma50_pct ?? -1) > 0 && (s.off_52w_high ?? -99) >= -12) set.add(t);
+      const adv = s.avg_dollar_vol_raw ?? 0;
+      const rs = s.rs_rank ?? 0;
+      const s50 = s.sma50_pct ?? -99;
+      const off = s.off_52w_high ?? s.pct_from_high ?? -99;
+      if (scan === "rs95" && rs >= 95 && adv >= 20e6 && s50 >= -5) set.add(t);
+      else if (scan === "bluedot" && rs >= 90 && adv >= 20e6 && (s.rs_line_new_high || (s.rsl_hi_ago != null && s.rsl_hi_ago <= 5) || rsLeads(s)) && s50 >= -5 && off >= -22) set.add(t);
+      else if (scan === "resil" && rs >= 90 && adv >= 20e6 && s.ma8w_rising && off >= -16 && (s.pct_from_8w ?? -99) >= -5) set.add(t);
+      else if (scan === "rsvol" && rs >= 90 && adv >= 20e6 && s50 >= -4 && off >= -18) set.add(t);
+      else if (scan === "grnred" && rs >= 85 && adv >= 20e6 && s50 >= -4 && off >= -20) set.add(t);
       else if (scan === "antic" && (s.ti65 ?? 0) >= 1.05) set.add(t);
       else if (scan === "hot" && (s.return_1m ?? 0) > 30) set.add(t);
     }
@@ -141,11 +150,20 @@ function ScannerPanel({ A, stockMap, onTicker, chartTicker, tickerLayer, onLayer
       const thrust = stockThrust(chg, zvr);
       const hi52 = Math.max(s.hi52_lvl || 0, q?.yearHigh || 0) || null;
       const off = hi52 && px ? ((px / hi52) - 1) * 100 : (s.off_52w_high ?? s.pct_from_high);
+      const liveVol = q?.volume > 0 ? q.volume : null;
+      const avgDv = s.avg_dollar_vol_raw || (s.avg_volume_raw && px ? s.avg_volume_raw * px : null);
+      const dv = liveVol && px ? liveVol * px : avgDv;
+      const ma8wLvl = s.ma8w_lvl ?? (s.close > 0 && s.pct_from_8w != null ? s.close / (1 + s.pct_from_8w / 100) : null);
+      const p8w = ma8wLvl && px ? ((px / ma8wLvl) - 1) * 100 : (s.pct_from_8w ?? null);
       out.push({
         t: s.ticker,
         company: s.company || "",
         tag: typeof h[scan] === "string" ? h[scan] : null,
         px,
+        dv,
+        avgDv,
+        er: s.earnings_days ?? null,
+        erTip: s.earnings_display || "",
         chg,
         zvr,
         thrust,
@@ -166,7 +184,7 @@ function ScannerPanel({ A, stockMap, onTicker, chartTicker, tickerLayer, onLayer
         ti65: s.ti65,
         rsl: rsLeads(s),
         rslAgo: s.rsl_hi_ago ?? null,
-        p8w: s.pct_from_8w ?? null,
+        p8w,
         pp30: s.pp_count_30d ?? null,
         udv: s.udv20 ?? null,
         layer: L?.name || s.industry || "",
@@ -203,7 +221,7 @@ function ScannerPanel({ A, stockMap, onTicker, chartTicker, tickerLayer, onLayer
         color: sort.k === k ? A.text : A.textMuted,
       }}
       title={title}
-      onClick={() => setSort((p) => ({ k, d: p.k === k ? -p.d : (k === "ago" || k === "rslAgo" ? 1 : -1) }))}
+      onClick={() => setSort((p) => ({ k, d: p.k === k ? -p.d : (k === "ago" || k === "rslAgo" || k === "er" ? 1 : -1) }))}
     >
       {label}{sort.k === k ? (sort.d < 0 ? "▼" : "▲") : ""}
     </th>
@@ -349,9 +367,11 @@ function ScannerPanel({ A, stockMap, onTicker, chartTicker, tickerLayer, onLayer
                 {col("r1m", "1M")}
                 {col("r3m", "3M")}
                 {col("adr", "ADR")}
+                {col("dv", "$Vol", "Today's dollar volume (Price × Live Volume; falls back to avg daily $vol)")}
                 {col("off", "52wH", "% off 52-week high")}
                 {col("rs", "RS")}
                 {col("eps", "EPS", EPS_TIP)}
+                {col("er", "ER", "Calendar days until next earnings report")}
                 <th style={{ ...th(A), padding: "5px 5px", fontSize: 10 }}>Layer</th>
               </tr>
             </thead>
@@ -393,10 +413,14 @@ function ScannerPanel({ A, stockMap, onTicker, chartTicker, tickerLayer, onLayer
                     <td style={std("right", { fontFamily: MONO, color: pc(r.r1m), whiteSpace: "nowrap" })}>{pct(r.r1m)}</td>
                     <td style={std("right", { fontFamily: MONO, color: pc(r.r3m), whiteSpace: "nowrap" })}>{pct(r.r3m)}</td>
                     <td style={std("right", { fontFamily: MONO, color: (r.adr ?? 0) >= 4 ? A.cyan : A.textDim, whiteSpace: "nowrap" })}>{r.adr == null ? "—" : `${r.adr.toFixed(1)}%`}</td>
+                    <td title={r.avgDv ? `Avg daily $Vol: ${fmtDollarVol(r.avgDv)}` : undefined} style={std("right", { fontFamily: MONO, color: (r.dv ?? 0) >= 100e6 ? A.text : A.textDim, whiteSpace: "nowrap" })}>{fmtDollarVol(r.dv)}</td>
                     <td style={std("right", { fontFamily: MONO, color: (r.off ?? -99) >= -5 ? A.green : A.textDim, whiteSpace: "nowrap" })}>{pct(r.off)}</td>
                     <td style={std("right", { fontFamily: MONO, fontWeight: 700, color: r.rs >= 90 ? A.green : r.rs >= 70 ? A.yellow : r.rs != null ? A.red : A.textMuted })}>{r.rs ?? "—"}</td>
                     <td title={r.epsTip || ""} style={std("right", { fontFamily: MONO, color: r.eps >= 80 ? A.green : r.eps >= 50 ? A.yellow : r.eps != null ? A.red : A.textMuted, whiteSpace: "nowrap" })}>
                       {r.eps ?? "—"}{r.epsAcc ? <span style={{ color: A.green, fontSize: 10 }}>▲</span> : null}
+                    </td>
+                    <td title={r.erTip || ""} style={std("right", { fontFamily: MONO, fontWeight: r.er != null && r.er <= 14 ? 700 : 400, color: r.er == null ? A.textMuted : r.er <= 5 ? A.red : r.er <= 14 ? "#fbbf24" : A.textMuted, whiteSpace: "nowrap" })}>
+                      {r.er == null ? "—" : `${r.er}d`}
                     </td>
                     <td style={std("left", { fontSize: 10.5, maxWidth: 145, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" })}>
                       <LayerLink r={r} A={A} onLayer={onLayer} />

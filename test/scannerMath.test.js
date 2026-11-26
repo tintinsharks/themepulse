@@ -53,4 +53,25 @@ test("evalScanHits classifies all 5 Elite RS scans accurately", () => {
   const h4 = evalScanHits(buyout, null, 2.0);
   assert.equal(h4.rs95, undefined);
   assert.equal(h4.bluedot, undefined);
+
+  // 5. Live intraday quote lifting a stock back above 8w/20EMA/50d and within -10% of 52wH enters resil & rs95 live
+  const intradayReclaim = {
+    ticker: "RECL",
+    close: 88,
+    hi52_lvl: 100,
+    sma50_lvl: 89.5,
+    sma50_pct: -1.68,
+    ema20_pct: -1.5,
+    pct_from_8w: -1.2,
+    ma8w_rising: 1,
+    off_52w_high: -12.0,
+    avg_dollar_vol_raw: 80e6,
+    rs_rank: 96,
+    adr20: 4.0,
+  };
+  assert.equal(evalScanHits(intradayReclaim, null, null).resil, undefined);
+  assert.equal(evalScanHits(intradayReclaim, null, null).rs95, undefined);
+  const liveHits = evalScanHits(intradayReclaim, { price: 92, change: 4.55 }, 1.8);
+  assert.equal(liveHits.resil, true);
+  assert.equal(liveHits.rs95, true);
 });
