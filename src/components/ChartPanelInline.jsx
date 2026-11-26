@@ -11,6 +11,7 @@ import { useLocalStorageList } from "../hooks/useUserData.js";
 import { useLiveQuotes } from "../hooks/useLiveQuotes.js";
 import { zvrFor, useRvolProfiles, useJson, TierMark } from "../LeadershipView.jsx";
 import { classifyWeinsteinStage, classifyWeinsteinStageFromBars, computeEmaAtrExtensions } from "../lead/math.js";
+import { analyze30mPivot } from "../lead/pivot30mMath.js";
 import { ErrorBoundary } from "./ErrorBoundary.jsx";
 import { DailyChartSVG } from "./DailyChartSVG.jsx";
 import { EarningsBox } from "./EarningsBox.jsx";
@@ -157,11 +158,12 @@ const _tickerNewsCache = new Map();
 const _tickerOhlcCache = new Map();
 const _tickerEarningsCache = new Map();
 const TICKER_CACHE_TTL_MS = 5 * 60 * 1000;
+const INTRADAY_CACHE_TTL_MS = 45 * 1000;
 const TICKER_DEBOUNCE_MS = 120;
-function _ttlGet(map, key) {
+function _ttlGet(map, key, ttlMs = TICKER_CACHE_TTL_MS) {
   const hit = map.get(key);
   if (!hit) return null;
-  if (Date.now() - hit.ts > TICKER_CACHE_TTL_MS) { map.delete(key); return null; }
+  if (Date.now() - hit.ts > ttlMs) { map.delete(key); return null; }
   return hit.data;
 }
 function _ttlSet(map, key, data) {
@@ -182,7 +184,26 @@ export function ChartPanelInline({
     () => (chainLayers || []).filter((e) => Array.isArray(e.tickers) && e.tickers.includes(ticker)),
     [chainLayers, ticker]
   );
-  const [tf, setTf] = useState(() => localStorage.getItem("themepulse-chart-tf") || "D");
+  const [tf, setTf] = useState(() => {
+    try {
+      const saved = localStorage.getItem("themepulse-chart-tf");
+      return saved === "30m" || saved === "D" || saved === "W" ? saved : "D";
+    } catch {
+      return "D";
+    }
+  });
+  const [showCpr, setShowCpr] = useState(false);
+  useEffect(() => {
+    const onChartTf = (e) => {
+      const next = e?.detail;
+      if (next === "30m" || next === "D" || next === "W") {
+        setTf(next);
+        try { localStorage.setItem("themepulse-chart-tf", next); } catch {}
+      }
+    };
+    window.addEventListener("tp-chart-tf", onChartTf);
+    return () => window.removeEventListener("tp-chart-tf", onChartTf);
+  }, []);
   const [tickerInput, setTickerInput] = useState("");
   const tickerInputRef = useRef(null);
   useEffect(() => {
@@ -207,7 +228,7 @@ export function ChartPanelInline({
   const [newsOpen, setNewsOpen] = useState(true);
   const [description, setDescription] = useState("");
   const [liveEarningsDate, setLiveEarningsDate] = useState(null);
-  const [ohlcBars, setOhlcBars] = useState([]);
+  const [ohlcState, setOhlcState] = useState({ bars: [], interval: "1d" });
   const [showTrade, setShowTrade] = useState(false);
   const [tradeSettings, setTradeSettings] = useState(() => {
     try { return JSON.parse(localStorage.getItem("themepulse-risk-settings") || "null") ||
@@ -254,13 +275,15 @@ export function ChartPanelInline({
     return () => { clearTimeout(tid); ac.abort(); };
   }, [ticker]);
 
-  // Fetch OHLC bars for inline SVG daily chart
+  // Fetch OHLC bars for inline SVG chart (30m / 1d / 1wk)
+  const activeInterval = tf === "30m" ? "30m" : tf === "W" ? "1wk" : "1d";
   useEffect(() => {
     if (!ticker) return;
-    const interval = tf === "W" ? "1wk" : "1d";
+    const interval = activeInterval;
     const key = `${ticker}:${interval}`;
-    const cached = _ttlGet(_tickerOhlcCache, key);
-    if (cached) { setOhlcBars(cached); return; }
+    const ttl = interval === "30m" ? INTRADAY_CACHE_TTL_MS : TICKER_CACHE_TTL_MS;
+    const cached = _ttlGet(_tickerOhlcCache, key, ttl);
+    if (cached) { setOhlcState({ bars: cached, interval }); return; }
     const ac = new AbortController();
     const tid = setTimeout(() => {
       authFetch(`/api/ohlc?ticker=${encodeURIComponent(ticker)}&interval=${interval}`, { signal: ac.signal })
@@ -268,12 +291,16 @@ export function ChartPanelInline({
         .then((d) => {
           if (ac.signal.aborted || !d?.ohlc) return;
           _ttlSet(_tickerOhlcCache, key, d.ohlc);
-          setOhlcBars(d.ohlc);
+          setOhlcState({ bars: d.ohlc, interval });
         })
         .catch(() => {});
     }, TICKER_DEBOUNCE_MS);
     return () => { clearTimeout(tid); ac.abort(); };
-  }, [ticker, tf]);
+  }, [ticker, activeInterval]);
+  const ohlcBars = useMemo(
+    () => (ohlcState.interval === activeInterval ? ohlcState.bars : []),
+    [ohlcState, activeInterval]
+  );
   // Right pane subtab: 'chart' (intraday OHLC) or 'picks' (agent picks list)
 
   // Draggable split between daily (left) and intraday (right) panes.
@@ -359,18 +386,30 @@ export function ChartPanelInline({
   const epsPct = useMemo(() => globalPct("eps_yoy"), [globalPct]);
   const revPct = useMemo(() => globalPct("sales_yoy"), [globalPct]);
 
+  // 30-Minute Pivot + Opening Range + Floor Pivot / CPR analytics (30m mode only)
+  const liveOrStockPrice = liveQuote?.price ?? stockInfo?.price;
+  const pivot30 = useMemo(
+    () => (tf === "30m" ? analyze30mPivot(ohlcBars, { livePrice: liveOrStockPrice }) : null),
+    [tf, ohlcBars, liveOrStockPrice]
+  );
+
   // Risk Management — ATR + 5 stop scenarios (mirrors ThinkScript indicator)
-  const dailyATR = useMemo(() => calcWilderATR(ohlcBars, tradeSettings.atrLen), [ohlcBars, tradeSettings.atrLen]);
-  const riskEntry = c > 0 ? c : (ohlcBars[ohlcBars.length - 1]?.close ?? null);
-  const riskDayLow = l > 0 ? l : (ohlcBars[ohlcBars.length - 1]?.low ?? null);
-  const riskPDL = ohlcBars[ohlcBars.length - 1]?.low ?? null;
+  // Avoid computing daily ATR / EMA extensions on 30m intraday bars; reuse cached 1d bars if available.
+  const dailyBarsForMetrics = useMemo(
+    () => (tf === "30m" ? (_ttlGet(_tickerOhlcCache, `${ticker}:1d`) || []) : ohlcBars),
+    [ticker, tf, ohlcBars]
+  );
+  const dailyATR = useMemo(() => calcWilderATR(dailyBarsForMetrics, tradeSettings.atrLen), [dailyBarsForMetrics, tradeSettings.atrLen]);
+  const riskEntry = c > 0 ? c : (dailyBarsForMetrics[dailyBarsForMetrics.length - 1]?.close ?? ohlcBars[ohlcBars.length - 1]?.close ?? null);
+  const riskDayLow = l > 0 ? l : (dailyBarsForMetrics[dailyBarsForMetrics.length - 1]?.low ?? null);
+  const riskPDL = dailyBarsForMetrics[dailyBarsForMetrics.length - 1]?.low ?? null;
   const weinsteinStage = useMemo(
-    () => classifyWeinsteinStage(stockInfo) ?? classifyWeinsteinStageFromBars(ohlcBars, riskEntry),
-    [stockInfo, ohlcBars, riskEntry]
+    () => classifyWeinsteinStage(stockInfo) ?? classifyWeinsteinStageFromBars(dailyBarsForMetrics, riskEntry),
+    [stockInfo, dailyBarsForMetrics, riskEntry]
   );
   const emaExt = useMemo(
-    () => computeEmaAtrExtensions(ohlcBars, riskEntry, dailyATR),
-    [ohlcBars, riskEntry, dailyATR]
+    () => computeEmaAtrExtensions(dailyBarsForMetrics, riskEntry, dailyATR),
+    [dailyBarsForMetrics, riskEntry, dailyATR]
   );
   const riskScenarios = useMemo(() => {
     if (!riskEntry || !dailyATR) return null;
@@ -560,8 +599,156 @@ export function ChartPanelInline({
         boxShadow: ARIA.shadow,
       }}
     >
-      {/* SVG D/W Chart */}
-      <div style={{ height: 600, overflow: "hidden", flexShrink: 0 }}>
+      {/* 1-line 30m Pivot Action Bar (30m mode only) */}
+      {tf === "30m" && pivot30?.ok && (() => {
+        const pv = pivot30.pivot;
+        const orng = pivot30.openingRange;
+        const fp = pivot30.floorPivots;
+        const fmtPx = (v) => (v == null ? "—" : v >= 1000 ? v.toFixed(0) : v.toFixed(2));
+        const toneColor = (tone) => ({
+          green: ARIA.green || "#22c55e",
+          amber: "#f59e0b",
+          cyan: ARIA.cyan || "#22d3ee",
+          red: ARIA.red || "#f87171",
+          muted: ARIA.textMuted,
+        }[tone] || ARIA.textMuted);
+        const stColor = toneColor(pv?.tone);
+        const orColor = orng?.status === "ORH_BO"
+          ? (ARIA.green || "#22c55e")
+          : orng?.status === "ORL_BD"
+            ? (ARIA.red || "#f87171")
+            : (orng?.status === "FAILED_HIGH" || orng?.status === "FAILED_LOW")
+              ? "#f59e0b"
+              : (ARIA.cyan || "#22d3ee");
+        const orTip = orng
+          ? `Opening Range (${orng.sessionDate}): ORH $${fmtPx(orng.orh)} · ORL $${fmtPx(orng.orl)}${orng.rangePct != null ? ` (${orng.rangePct.toFixed(1)}% range)` : ""}`
+          : "";
+        const cprTip = fp
+          ? `Floor Pivots (${fp.bias ? fp.bias.replace(/_/g, " ") : "neutral"}): P $${fmtPx(fp.p)} · BC $${fmtPx(fp.bc)}–TC $${fmtPx(fp.tc)} · R1 $${fmtPx(fp.r1)} · S1 $${fmtPx(fp.s1)}${fp.cprWidthPct != null ? ` · width ${fp.cprWidthPct.toFixed(2)}%` : ""}`
+          : "Floor Pivots / CPR (requires prior session)";
+        return (
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            flexWrap: "wrap",
+            padding: "5px 12px",
+            borderBottom: `1px solid ${ARIA.border}`,
+            background: ARIA.bgCard,
+            flexShrink: 0,
+            fontSize: 11,
+          }}>
+            <span
+              title={pivot30.summary}
+              style={{
+                fontFamily: MONO,
+                fontSize: 10.5,
+                fontWeight: 800,
+                padding: "1px 7px",
+                borderRadius: 4,
+                color: stColor,
+                background: `${stColor}1f`,
+                border: `1px solid ${stColor}88`,
+                letterSpacing: 0.3,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {pv?.label || "NO SETUP"}
+            </span>
+            {pv?.entry != null && (
+              <span style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 10,
+                flexWrap: "wrap",
+                fontFamily: MONO,
+                fontSize: 11,
+                fontVariantNumeric: "tabular-nums",
+              }}>
+                <span style={{ color: ARIA.textDim }}>
+                  <span style={{ color: ARIA.textMuted }}>Entry </span>
+                  <strong style={{ color: ARIA.text }}>${fmtPx(pv.entry)}</strong>
+                </span>
+                {pv.stop != null && (
+                  <span style={{ color: ARIA.textDim }}>
+                    <span style={{ color: ARIA.textMuted }}>Stop </span>
+                    <strong style={{ color: ARIA.red || "#f87171" }}>${fmtPx(pv.stop)}</strong>
+                    {pv.riskPct != null && (
+                      <span style={{ color: ARIA.textMuted }}> (-{Math.abs(pv.riskPct).toFixed(1)}%)</span>
+                    )}
+                  </span>
+                )}
+                {pv.target2R != null && (
+                  <span style={{ color: ARIA.textDim }}>
+                    <span style={{ color: ARIA.textMuted }}>+2R </span>
+                    <strong style={{ color: ARIA.green || "#22c55e" }}>${fmtPx(pv.target2R)}</strong>
+                  </span>
+                )}
+                {pv.state === "TRIGGERED" && pv.rMultipleNow != null && (
+                  <span
+                    title="Current live R-multiple from pivot entry"
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 800,
+                      padding: "0 5px",
+                      borderRadius: 3,
+                      color: pv.rMultipleNow >= 0 ? (ARIA.green || "#22c55e") : (ARIA.red || "#f87171"),
+                      background: pv.rMultipleNow >= 0 ? "rgba(34,197,94,0.14)" : "rgba(248,113,113,0.14)",
+                      border: `1px solid ${pv.rMultipleNow >= 0 ? "rgba(34,197,94,0.5)" : "rgba(248,113,113,0.5)"}`,
+                    }}
+                  >
+                    {pv.rMultipleNow >= 0 ? "+" : ""}{pv.rMultipleNow.toFixed(1)}R
+                  </span>
+                )}
+              </span>
+            )}
+            <div style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+              {orng && (
+                <span
+                  title={orTip}
+                  style={{
+                    fontFamily: MONO,
+                    fontSize: 10,
+                    fontWeight: 700,
+                    padding: "1px 6px",
+                    borderRadius: 4,
+                    color: orColor,
+                    background: `${orColor}1a`,
+                    border: `1px solid ${orColor}70`,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {orng.label}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowCpr((v) => !v)}
+                disabled={!fp}
+                title={cprTip}
+                style={{
+                  fontFamily: MONO,
+                  fontSize: 10,
+                  fontWeight: 700,
+                  padding: "1px 7px",
+                  borderRadius: 4,
+                  cursor: fp ? "pointer" : "default",
+                  opacity: fp ? 1 : 0.45,
+                  background: showCpr && fp ? "rgba(167,139,250,0.22)" : "transparent",
+                  border: `1px solid ${showCpr && fp ? "#a78bfa" : (ARIA.borderLight || ARIA.border)}`,
+                  color: showCpr && fp ? "#a78bfa" : ARIA.textDim,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {showCpr && fp ? "CPR ON" : "CPR"}
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* SVG 30m/D/W Chart */}
+      <div style={{ height: tf === "30m" && pivot30?.ok ? 570 : 600, overflow: "hidden", flexShrink: 0 }}>
         <ErrorBoundary>
           <DailyChartSVG
             ohlc={ohlcBars}
@@ -572,7 +759,10 @@ export function ChartPanelInline({
             owned={inPF || inFC || inWL}
             rsRating={rsRating}
             rsRatingColor={rsRatingColor}
-            stopLines={[
+            isIntraday={tf === "30m"}
+            pivot30={tf === "30m" ? pivot30 : null}
+            showCpr={tf === "30m" && showCpr}
+            stopLines={tf === "30m" ? [] : [
               ...(showTrade && riskScenarios ? [
                 { price: riskScenarios.tight?.stopPrice, color: "#ef4444", label: "0.5x", dashed: true },
                 { price: riskScenarios.base?.stopPrice,  color: "#f97316", label: "1x",   dashed: true },
@@ -637,9 +827,9 @@ export function ChartPanelInline({
           </span>
         )}
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-          {["D", "W"].map(tfOpt => (
+          {["30m", "D", "W"].map(tfOpt => (
             <button key={tfOpt} onClick={() => { setTf(tfOpt); try { localStorage.setItem("themepulse-chart-tf", tfOpt); } catch {} }}
-              style={{ fontSize: 10.5, padding: "2px 7px", borderRadius: 4, cursor: "pointer", background: tf === tfOpt ? "#0d9163" : "transparent", border: "1px solid #0d9163", color: tf === tfOpt ? "#fff" : "#0d9163", fontWeight: 600, minWidth: 22 }}>
+              style={{ fontSize: 10.5, padding: "2px 7px", borderRadius: 4, cursor: "pointer", background: tf === tfOpt ? "#0d9163" : "transparent", border: "1px solid #0d9163", color: tf === tfOpt ? "#fff" : "#0d9163", fontWeight: 600, minWidth: tfOpt === "30m" ? 30 : 22 }}>
               {tfOpt}
             </button>
           ))}

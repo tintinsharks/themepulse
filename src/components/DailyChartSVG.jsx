@@ -7,6 +7,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { authFetch } from "../utils.js";
 import { useAriaTheme } from "../themeContext.js";
+import { formatEtTime } from "../lead/pivot30mMath.js";
 
 // Cached daily OHLC fetch (shared across chart selections).
 const _ohlcCache = new Map();
@@ -46,13 +47,42 @@ export function useSpyCloses() {
   return m;
 }
 
-export function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], owned = false, rsRating = null, rsRatingColor = null }) {
+function fmtEtShortDate(dateStr) {
+  if (!dateStr) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return `${dateStr.slice(5, 7)}/${dateStr.slice(8, 10)}`;
+  return dateStr;
+}
+
+function fmtEtBarLabel(bar) {
+  if (!bar) return "";
+  if (bar.time != null) {
+    const et = formatEtTime(bar.time);
+    if (et && (et.date || et.hhmm)) {
+      const md = fmtEtShortDate(et.date);
+      return `${md}${md && et.hhmm ? " " : ""}${et.hhmm || ""} ET`.trim();
+    }
+  }
+  return bar.date || "";
+}
+
+export function DailyChartSVG({
+  ohlc,
+  quarters,
+  height = 400,
+  stopLines = [],
+  owned = false,
+  rsRating = null,
+  rsRatingColor = null,
+  isIntraday = false,
+  pivot30 = null,
+  showCpr = false,
+}) {
   const MAX_BARS = 375;
-  const DEFAULT_BARS = 168;   // ~8 months of sessions (was 113 ≈ 5.5 months)
-  const MIN_VISIBLE = 30;
+  const defaultBars = isIntraday ? Math.min(ohlc?.length || 65, 65) : 168;   // ~8 months daily or ~5d 30m
+  const minVisible = isIntraday ? 15 : 30;
 
   // Visible window: endIdx is always the right edge (exclusive), visibleCount is how many bars to show
-  const [visibleCount, setVisibleCount] = useState(DEFAULT_BARS);
+  const [visibleCount, setVisibleCount] = useState(defaultBars);
   const [endIdx, setEndIdx] = useState(null);
   const svgRef = React.useRef(null);
   const containerRef = React.useRef(null);
@@ -81,11 +111,11 @@ export function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], ow
     return () => ro.disconnect();
   }, []);
 
-  // Reset view when ticker changes (ohlc reference changes)
+  // Reset view when ticker or timeframe changes (ohlc / isIntraday changes)
   useEffect(() => {
-    setVisibleCount(DEFAULT_BARS);
+    setVisibleCount(isIntraday ? Math.min(ohlc?.length || 65, 65) : 168);
     setEndIdx(null);
-  }, [ohlc]);
+  }, [ohlc, isIntraday]);
 
   // Pre-compute MAs and VCP scores on the full dataset (expensive, only when ohlc changes)
   const precomputed = useMemo(() => {
@@ -189,6 +219,7 @@ export function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], ow
 
     return {
       ema10: calcEMA(fullC, 10),
+      ema20: calcEMA(fullC, 20),
       ema21hi: calcEMA(fullH, 21),
       ema21close: calcEMA(fullC, 21),
       ema21lo: calcEMA(fullL, 21),
@@ -222,18 +253,55 @@ export function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], ow
     const chartRight = W - pad.r;
     const bw = Math.max(2, (chartRight - pad.l) / bars.length - 1);
     const gap = 1;
-    const pMax = Math.max(...bars.map(b => b.high));
-    const pMin = Math.min(...bars.map(b => b.low));
+    const rawMax = Math.max(...bars.map(b => b.high));
+    const rawMin = Math.min(...bars.map(b => b.low));
+    let pMax = rawMax;
+    let pMin = rawMin;
+
+    // In 30m intraday mode, include pivot / OR / CPR levels in y-axis scale
+    // ONLY when reasonably close to visible candle highs/lows (within 12%) so
+    // a distant R2/S2 or stale level never squashes the candles.
+    if (isIntraday) {
+      const candidates = [];
+      const pv = pivot30?.pivot;
+      if (pv && (pv.state === "TRIGGERED" || pv.state === "ARMED" || pv.state === "PULLBACK")) {
+        if (pv.entry != null) candidates.push(pv.entry);
+        if (pv.stop != null) candidates.push(pv.stop);
+        if (pv.target2R != null) candidates.push(pv.target2R);
+      }
+      if (pivot30?.openingRange) {
+        if (pivot30.openingRange.orh != null) candidates.push(pivot30.openingRange.orh);
+        if (pivot30.openingRange.orl != null) candidates.push(pivot30.openingRange.orl);
+      }
+      if (showCpr && pivot30?.floorPivots) {
+        const fp = pivot30.floorPivots;
+        if (fp.p != null) candidates.push(fp.p);
+        if (fp.bc != null) candidates.push(fp.bc);
+        if (fp.tc != null) candidates.push(fp.tc);
+        if (fp.r1 != null) candidates.push(fp.r1);
+        if (fp.s1 != null) candidates.push(fp.s1);
+      }
+      for (const v of candidates) {
+        if (Number.isFinite(v) && v > 0 && v <= rawMax * 1.12 && v >= rawMin * 0.88) {
+          if (v > pMax) pMax = v;
+          if (v < pMin) pMin = v;
+        }
+      }
+      const padY = (pMax - pMin || rawMax * 0.01) * 0.04;
+      pMax += padY;
+      pMin = Math.max(0.01, pMin - padY);
+    }
+
     const pRange = pMax - pMin || 1;
     const vMax = Math.max(...bars.map(b => b.volume)) || 1;
     const py = (v) => pad.t + (1 - (v - pMin) / pRange) * priceH;
     const volTop = pad.t + priceH + volGap;
 
-    // Sell-discipline violation marker (held names only): the most recent bar
+    // Sell-discipline violation marker (held names only, daily/weekly only): the most recent bar
     // where price closed below a key MA while still above the 200-day — a leader
     // cracking support. Drawn as a 🔻 above that candle if it's in view.
     let violMarker = null;
-    if (owned && total > 50) {
+    if (!isIntraday && owned && total > 50) {
       const s50 = precomputed.sma50, s20 = precomputed.sma20, e200 = precomputed.ema200;
       const N = total - 1, lastC = ohlc[N].close;
       const above200 = e200[N] != null && lastC > e200[N];
@@ -257,7 +325,10 @@ export function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], ow
 
     // Slice MAs to visible window
     const sliceMA = (ma) => ma.slice(start, end);
-    const ema10 = sliceMA(precomputed.ema10);
+    const ema10Src = isIntraday && Array.isArray(pivot30?.ema10) && pivot30.ema10.length === total ? pivot30.ema10 : precomputed.ema10;
+    const ema20Src = isIntraday && Array.isArray(pivot30?.ema20) && pivot30.ema20.length === total ? pivot30.ema20 : precomputed.ema20;
+    const ema10 = sliceMA(ema10Src);
+    const ema20 = sliceMA(ema20Src);
     const ema21hi = sliceMA(precomputed.ema21hi);
     const ema21close = sliceMA(precomputed.ema21close);
     const ema21lo = sliceMA(precomputed.ema21lo);
@@ -273,13 +344,15 @@ export function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], ow
       return pts.length >= 2 ? pts.join(" ") : null;
     };
     const volMaPoints = () => {
+      const src = isIntraday ? volMA20 : volMA;
       const pts = [];
-      volMA.forEach((v, i) => { if (v != null) pts.push(`${pad.l + i * (bw + gap) + bw / 2},${volTop + (1 - v / vMax) * volH}`); });
+      src.forEach((v, i) => { if (v != null) pts.push(`${pad.l + i * (bw + gap) + bw / 2},${volTop + (1 - v / vMax) * volH}`); });
       return pts.length >= 2 ? pts.join(" ") : null;
     };
 
     const candleElements = [];
     const volElements = [];
+    const chLight = CH_ARIA.bg === "#f8f9fc";
     bars.forEach((b, i) => {
       const gi = start + i;
       const x = pad.l + i * (bw + gap);
@@ -294,57 +367,62 @@ export function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], ow
         <rect key={`b${i}`} x={x} y={bodyTop} width={bw} height={bodyH} fill={candleColor} rx={Math.min(1, bw / 4)} stroke="rgba(0,0,0,0.35)" strokeWidth={0.4} />
       );
       const vol = b.volume || 0;
-      const chLight = CH_ARIA.bg === "#f8f9fc";
-      let vColor;
-      if (!isUp) {
-        vColor = chLight ? "#94a3b8cc" : "#6b7280cc";
-      } else {
-        const downVols = [];
-        for (let j = gi - 1; j >= 0 && downVols.length < 10; j--) {
-          if (ohlc[j].close < ohlc[j].open) downVols.push(ohlc[j].volume || 0);
-        }
-        if (downVols.length >= 10 && vol > Math.max(...downVols.slice(0, 10))) {
-          vColor = "#2563eb";
-        } else if (downVols.length >= 5 && vol > Math.max(...downVols.slice(0, 5))) {
-          vColor = "#0d9488";
-        } else {
-          vColor = chLight ? "#64748bcc" : "#ffffffcc";
-        }
-      }
       const vh = Math.max(0.5, (vol / vMax) * volH);
       const vy = volTop + volH - vh;
-      volElements.push(
-        <rect key={`v${i}`} x={x} y={vy} width={bw} height={vh} fill={vColor} opacity={0.7} rx={0.3} />
-      );
-      const prevClose = gi > 0 ? ohlc[gi - 1].close : b.open;
-      const prevVol = gi > 0 ? (ohlc[gi - 1].volume || 0) : 0;
-      const chg = prevClose > 0 ? (b.close - prevClose) / prevClose * 100 : 0;
-      if (chg >= 4 && vol > prevVol && vol > 100000) {
-        const slope = bw * 0.4;
-        for (let dy = 3; dy < vh - 1; dy += 5) {
-          const y1 = vy + dy, y2 = y1 - slope;
-          if (y2 >= vy) volElements.push(<line key={`bo${i}_${dy}`} x1={x} y1={y1} x2={x + bw} y2={y2} stroke={chLight ? "#a16207" : "#fbbf24"} strokeWidth={0.8} opacity={0.85} />);
+      if (isIntraday) {
+        const vColor = isUp ? "#2bb886cc" : (chLight ? "#94a3b8cc" : "#f8717199");
+        volElements.push(
+          <rect key={`v${i}`} x={x} y={vy} width={bw} height={vh} fill={vColor} opacity={0.72} rx={0.4} />
+        );
+      } else {
+        let vColor;
+        if (!isUp) {
+          vColor = chLight ? "#94a3b8cc" : "#6b7280cc";
+        } else {
+          const downVols = [];
+          for (let j = gi - 1; j >= 0 && downVols.length < 10; j--) {
+            if (ohlc[j].close < ohlc[j].open) downVols.push(ohlc[j].volume || 0);
+          }
+          if (downVols.length >= 10 && vol > Math.max(...downVols.slice(0, 10))) {
+            vColor = "#2563eb";
+          } else if (downVols.length >= 5 && vol > Math.max(...downVols.slice(0, 5))) {
+            vColor = "#0d9488";
+          } else {
+            vColor = chLight ? "#64748bcc" : "#ffffffcc";
+          }
         }
-      } else if (chg <= -4 && vol > prevVol && vol > 100000) {
-        const slope = bw * 0.4;
-        for (let dy = 3; dy < vh - 1; dy += 5) {
-          const y1 = vy + dy, y2 = y1 + slope;
-          if (y2 <= vy + vh) volElements.push(<line key={`bd${i}_${dy}`} x1={x} y1={y1} x2={x + bw} y2={y2} stroke={chLight ? "#b91c1ccc" : "#f8717180"} strokeWidth={0.8} />);
+        volElements.push(
+          <rect key={`v${i}`} x={x} y={vy} width={bw} height={vh} fill={vColor} opacity={0.7} rx={0.3} />
+        );
+        const prevClose = gi > 0 ? ohlc[gi - 1].close : b.open;
+        const prevVol = gi > 0 ? (ohlc[gi - 1].volume || 0) : 0;
+        const chg = prevClose > 0 ? (b.close - prevClose) / prevClose * 100 : 0;
+        if (chg >= 4 && vol > prevVol && vol > 100000) {
+          const slope = bw * 0.4;
+          for (let dy = 3; dy < vh - 1; dy += 5) {
+            const y1 = vy + dy, y2 = y1 - slope;
+            if (y2 >= vy) volElements.push(<line key={`bo${i}_${dy}`} x1={x} y1={y1} x2={x + bw} y2={y2} stroke={chLight ? "#a16207" : "#fbbf24"} strokeWidth={0.8} opacity={0.85} />);
+          }
+        } else if (chg <= -4 && vol > prevVol && vol > 100000) {
+          const slope = bw * 0.4;
+          for (let dy = 3; dy < vh - 1; dy += 5) {
+            const y1 = vy + dy, y2 = y1 + slope;
+            if (y2 <= vy + vh) volElements.push(<line key={`bd${i}_${dy}`} x1={x} y1={y1} x2={x + bw} y2={y2} stroke={chLight ? "#b91c1ccc" : "#f8717180"} strokeWidth={0.8} />);
+          }
         }
-      }
-      const vAvg20 = volMA20[i] || 0;
-      if (vAvg20 > 0 && vol < vAvg20 * 0.5 && vol > 0) {
-        volElements.push(<circle key={`du${i}`} cx={x + bw / 2} cy={vy - 3} r={1.5} fill={chLight ? "#0f766e" : "#2dd4bf"} opacity={0.9} />);
-      }
-      const vScore = vcpScores[i];
-      if (vScore != null && vScore <= 10) {
-        volElements.push(<text key={`t${i}`} x={x + bw / 2} y={vy + vh - 1} textAnchor="middle" fontSize={Math.min(bw + 1, 7)} fontWeight={900} fontFamily="monospace" fill={chLight ? "#92400e" : "#fbbf24"} opacity={0.95}>T</text>);
+        const vAvg20 = volMA20[i] || 0;
+        if (vAvg20 > 0 && vol < vAvg20 * 0.5 && vol > 0) {
+          volElements.push(<circle key={`du${i}`} cx={x + bw / 2} cy={vy - 3} r={1.5} fill={chLight ? "#0f766e" : "#2dd4bf"} opacity={0.9} />);
+        }
+        const vScore = vcpScores[i];
+        if (vScore != null && vScore <= 10) {
+          volElements.push(<text key={`t${i}`} x={x + bw / 2} y={vy + vh - 1} textAnchor="middle" fontSize={Math.min(bw + 1, 7)} fontWeight={900} fontFamily="monospace" fill={chLight ? "#92400e" : "#fbbf24"} opacity={0.95}>T</text>);
+        }
       }
     });
 
     const erMarkers = [];
-    if (quarters && quarters.length) {
-      const chLight = CH_ARIA.bg === "#f8f9fc";
+    if (!isIntraday && quarters && quarters.length) {
       const barDateIdx = {};
       bars.forEach((b, i) => { barDateIdx[b.date] = i; });
       for (const q of quarters) {
@@ -396,28 +474,227 @@ export function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], ow
       );
     }
 
-    // X-axis month labels at the top
+    // X-axis labels at the top: ET session dividers for 30m intraday, month labels for D/W
     const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
     const xAxisElements = [];
-    let prevMonth = null;
-    bars.forEach((b, i) => {
-      if (!b.date) return;
-      const d = new Date(b.date + "T00:00:00");
-      const m = d.getMonth();
-      const y = d.getFullYear();
-      const key = `${y}-${m}`;
-      if (key !== prevMonth) {
-        prevMonth = key;
+    if (isIntraday) {
+      let prevSession = null;
+      let lastLabelX = -Infinity;
+      bars.forEach((b, i) => {
+        const et = b.time != null ? formatEtTime(b.time) : null;
+        if (!et || !et.date) return;
         const x = pad.l + i * (bw + gap) + bw / 2;
-        if (x > pad.l + 10 && x < chartRight - 20) {
-          const label = m === 0 ? `${MONTHS[m]} '${String(y).slice(2)}` : MONTHS[m];
-          xAxisElements.push(
-            <line key={`xg${key}`} x1={x} y1={pad.t} x2={x} y2={pad.t + priceH} stroke={CH_ARIA.border} strokeWidth={0.5} strokeDasharray="2,4" />,
-            <text key={`xl${key}`} x={x} y={pad.t - 4} fontSize={8} fill="#6a6a7a" fontFamily="ui-monospace,monospace" textAnchor="start">{label}</text>
+        if (et.date !== prevSession) {
+          const isFirstVisible = prevSession === null;
+          prevSession = et.date;
+          if (!isFirstVisible) {
+            const divX = x - (bw + gap) / 2;
+            xAxisElements.push(
+              <line key={`sdiv_${et.date}_${i}`} x1={divX} y1={pad.t} x2={divX} y2={pad.t + priceH}
+                stroke={CH_ARIA.borderLight || CH_ARIA.border} strokeWidth={0.8} strokeDasharray="3,3" opacity={0.75} />
+            );
+          }
+          if (x < chartRight - 24 && x - lastLabelX >= 36) {
+            lastLabelX = x;
+            xAxisElements.push(
+              <text key={`slbl_${et.date}_${i}`} x={Math.max(pad.l + 2, x)} y={pad.t - 4} fontSize={8} fontWeight={600}
+                fill={CH_ARIA.textDim || "#8a8a9a"} fontFamily="ui-monospace,monospace" textAnchor="start">
+                {fmtEtShortDate(et.date)}
+              </text>
+            );
+          }
+        } else if (et.hhmm === "10:00" || et.hhmm === "13:00") {
+          if (x > pad.l + 18 && x < chartRight - 28 && x - lastLabelX >= 52) {
+            lastLabelX = x;
+            xAxisElements.push(
+              <text key={`tlbl_${et.date}_${et.hhmm}_${i}`} x={x} y={pad.t - 4} fontSize={7.5}
+                fill={CH_ARIA.textMuted || "#6a6a7a"} fontFamily="ui-monospace,monospace" textAnchor="start" opacity={0.8}>
+                {et.hhmm}
+              </text>
+            );
+          }
+        }
+      });
+    } else {
+      let prevMonth = null;
+      bars.forEach((b, i) => {
+        if (!b.date) return;
+        const d = new Date(b.date + "T00:00:00");
+        const m = d.getMonth();
+        const y = d.getFullYear();
+        const key = `${y}-${m}`;
+        if (key !== prevMonth) {
+          prevMonth = key;
+          const x = pad.l + i * (bw + gap) + bw / 2;
+          if (x > pad.l + 10 && x < chartRight - 20) {
+            const label = m === 0 ? `${MONTHS[m]} '${String(y).slice(2)}` : MONTHS[m];
+            xAxisElements.push(
+              <line key={`xg${key}`} x1={x} y1={pad.t} x2={x} y2={pad.t + priceH} stroke={CH_ARIA.border} strokeWidth={0.5} strokeDasharray="2,4" />,
+              <text key={`xl${key}`} x={x} y={pad.t - 4} fontSize={8} fill="#6a6a7a" fontFamily="ui-monospace,monospace" textAnchor="start">{label}</text>
+            );
+          }
+        }
+      });
+    }
+
+    // ── 30m Intraday Overlays: CPR (behind candles), Opening Range, Pivot marker & lines ──
+    const cprElements = [];
+    const orElements = [];
+    const pivotElements = [];
+    if (isIntraday && pivot30) {
+      // 1) Floor Pivot / CPR (only when toggled on)
+      if (showCpr && pivot30.floorPivots) {
+        const fp = pivot30.floorPivots;
+        if (fp.bc != null && fp.tc != null) {
+          const hiBand = Math.max(fp.bc, fp.tc);
+          const loBand = Math.min(fp.bc, fp.tc);
+          if (hiBand >= pMin && loBand <= pMax) {
+            const yTop = Math.max(pad.t, py(hiBand));
+            const yBot = Math.min(pad.t + priceH, py(loBand));
+            const hBand = Math.max(1.5, yBot - yTop);
+            cprElements.push(
+              <rect key="cpr_band" x={pad.l} y={yTop} width={chartRight - pad.l} height={hBand}
+                fill="#818cf8" opacity={chLight ? 0.14 : 0.13} />
+            );
+            if (fp.tc >= pMin && fp.tc <= pMax) {
+              cprElements.push(<line key="cpr_tc" x1={pad.l} y1={py(fp.tc)} x2={chartRight} y2={py(fp.tc)} stroke="#818cf8" strokeWidth={0.6} strokeDasharray="2,3" opacity={0.45} />);
+            }
+            if (fp.bc >= pMin && fp.bc <= pMax) {
+              cprElements.push(<line key="cpr_bc" x1={pad.l} y1={py(fp.bc)} x2={chartRight} y2={py(fp.bc)} stroke="#818cf8" strokeWidth={0.6} strokeDasharray="2,3" opacity={0.45} />);
+            }
+          }
+        }
+        const fpLines = [
+          { key: "r1", val: fp.r1, label: "R1", color: "#34d399" },
+          { key: "p",  val: fp.p,  label: "P",  color: "#a78bfa" },
+          { key: "s1", val: fp.s1, label: "S1", color: "#fb7185" },
+        ];
+        fpLines.forEach(({ key, val, label, color }) => {
+          if (val == null || val < pMin || val > pMax) return;
+          const ly = py(val);
+          cprElements.push(
+            <g key={`fp_${key}`}>
+              <line x1={pad.l} y1={ly} x2={chartRight} y2={ly} stroke={color} strokeWidth={0.85} strokeDasharray="2,3" opacity={0.68} />
+              <text x={pad.l + 4} y={Math.max(pad.t + 8, ly - 2)} fontSize={7} fontWeight={700}
+                fontFamily="ui-monospace,monospace" fill={color} opacity={0.9}>
+                {label} ${fmtPrice(val)}
+              </text>
+            </g>
           );
+        });
+      }
+
+      // 2) Opening Range (ORH / ORL)
+      if (pivot30.openingRange) {
+        const orng = pivot30.openingRange;
+        const visOrIdx = orng.barIdx != null ? orng.barIdx - start : 0;
+        if (visOrIdx < bars.length) {
+          const x0 = visOrIdx > 0 ? pad.l + visOrIdx * (bw + gap) : pad.l;
+          const anchorEnd = chartRight - x0 < 62;
+          const lblX = anchorEnd ? chartRight - 3 : x0 + 3;
+          const anchor = anchorEnd ? "end" : "start";
+          [
+            { key: "orh", val: orng.orh, tag: "ORH", above: true },
+            { key: "orl", val: orng.orl, tag: "ORL", above: false },
+          ].forEach(({ key, val, tag, above }) => {
+            if (val == null || val < pMin || val > pMax) return;
+            const ly = py(val);
+            const txtY = above ? Math.max(pad.t + 8, ly - 3) : Math.min(pad.t + priceH - 2, ly + 8);
+            orElements.push(
+              <g key={`or_${key}`}>
+                <line x1={x0} y1={ly} x2={chartRight} y2={ly} stroke="#22d3ee" strokeWidth={0.95} strokeDasharray="4,3" opacity={0.7} />
+                <text x={lblX} y={txtY} textAnchor={anchor} fontSize={7.5} fontWeight={700}
+                  fontFamily="ui-monospace,monospace" fill="#22d3ee" opacity={0.9}>
+                  {tag} ${fmtPrice(val)}
+                </text>
+              </g>
+            );
+          });
         }
       }
-    });
+
+      // 3) Pivot candle highlight + Entry / Stop / +2R lines with right-edge tags
+      const pv = pivot30.pivot;
+      if (pv) {
+        if (pv.pivotBarIdx != null) {
+          const visIdx = pv.pivotBarIdx - start;
+          if (visIdx >= 0 && visIdx < bars.length) {
+            const cx = pad.l + visIdx * (bw + gap) + bw / 2;
+            const tipY = Math.min(pad.t + priceH - 9, py(bars[visIdx].low) + 4);
+            const triColor = pv.state === "TRIGGERED" ? "#22c55e"
+              : pv.state === "STOPPED" ? "#f87171"
+              : pv.state === "PULLBACK" ? "#22d3ee"
+              : "#f59e0b";
+            pivotElements.push(
+              <polygon key="pv_tri"
+                points={`${cx},${tipY} ${cx - 4.5},${tipY + 7.5} ${cx + 4.5},${tipY + 7.5}`}
+                fill={triColor} stroke={CH_ARIA.bg} strokeWidth={0.8}>
+                <title>{`30m Pivot candle${pv.entry != null ? ` · Entry $${fmtPrice(pv.entry)}` : ""}${pv.stop != null ? ` · Stop $${fmtPrice(pv.stop)}` : ""}`}</title>
+              </polygon>
+            );
+          }
+        }
+        if (pv.state === "TRIGGERED" || pv.state === "ARMED" || pv.state === "PULLBACK") {
+          const rawLines = [];
+          if (pv.entry != null && pv.entry >= pMin && pv.entry <= pMax) {
+            rawLines.push({
+              key: "ent",
+              price: pv.entry,
+              y: py(pv.entry),
+              tag: `ENT $${fmtPrice(pv.entry)}`,
+              color: pv.state === "TRIGGERED" ? "#22c55e" : "#f59e0b",
+              dash: "5,3",
+              width: 1.3,
+            });
+          }
+          if (pv.stop != null && pv.stop >= pMin && pv.stop <= pMax) {
+            rawLines.push({
+              key: "stp",
+              price: pv.stop,
+              y: py(pv.stop),
+              tag: `STP $${fmtPrice(pv.stop)}`,
+              color: "#f87171",
+              dash: "5,3",
+              width: 1.2,
+            });
+          }
+          if (pv.target2R != null && pv.target2R >= pMin && pv.target2R <= pMax) {
+            rawLines.push({
+              key: "t2r",
+              price: pv.target2R,
+              y: py(pv.target2R),
+              tag: `2R $${fmtPrice(pv.target2R)}`,
+              color: "#34d399",
+              dash: "2,3",
+              width: 1.1,
+            });
+          }
+          // Avoid overlapping right-edge tag pills while keeping lines at exact prices
+          rawLines.sort((a, b) => a.y - b.y);
+          let lastTagY = -Infinity;
+          rawLines.forEach((ln) => {
+            const minY = pad.t + 7;
+            const maxY = pad.t + priceH - 7;
+            let ty = Math.max(minY, Math.min(maxY, ln.y));
+            if (ty - lastTagY < 14) ty = Math.min(maxY, lastTagY + 14);
+            lastTagY = ty;
+            const tagW = ln.tag.length * 4.9 + 8;
+            pivotElements.push(
+              <g key={`pv_${ln.key}`}>
+                <line x1={pad.l} y1={ln.y} x2={chartRight} y2={ln.y}
+                  stroke={ln.color} strokeWidth={ln.width} strokeDasharray={ln.dash} opacity={0.9} />
+                <rect x={chartRight - tagW - 2} y={ty - 6.5} width={tagW} height={13} rx={2.5}
+                  fill={CH_ARIA.bg} fillOpacity={0.94} stroke={ln.color} strokeWidth={0.85} />
+                <text x={chartRight - tagW / 2 - 2} y={ty + 2.7} textAnchor="middle"
+                  fontSize={7.5} fontWeight={800} fontFamily="ui-monospace,monospace" fill={ln.color}>
+                  {ln.tag}
+                </text>
+              </g>
+            );
+          });
+        }
+      }
+    }
 
     const sepY = pad.t + priceH + volGap / 2;
 
@@ -450,12 +727,9 @@ export function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], ow
       : null;
 
     // ── Mansfield RS oscillator: (stock/SPY) ÷ its own 21-day MA − 1, drawn
-    // zero-centered in a bottom band of the price panel. Above zero (green
-    // fill) = in an outperformance trend; below (red fill) = underperforming.
-    // The zero-cross IS the turn: ▲ = fresh cross into leadership, ▼ = lost it.
-    // Pink dots = RS New High Before Price (raw RS leading price — bullish).
+    // zero-centered in a bottom band of the price panel. Disabled in intraday mode.
     let rsLinePts = "", rsDots = [], rsCross = [], rsLabelY = null, rsEnd = null, rsBandTop = null, rsBandBot = null, divTint = [], rsPosD = null, rsNegD = null, rsZeroY = null;
-    if (benchMap && benchMap.size) {
+    if (!isIntraday && benchMap && benchMap.size) {
       let lastSpy = null;
       const rsRaw = bars.map((b) => {
         const sp = benchMap.get(b.date);
@@ -553,16 +827,22 @@ export function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], ow
       barsVis: bars, bwPx: bw, gapPx: gap,
       lastDot: bars.length ? { x: pad.l + (bars.length - 1) * (bw + gap) + bw / 2, y: py(bars[bars.length - 1].close), color: bars[bars.length - 1].close >= bars[bars.length - 1].open ? "#2bb886" : "#f87171" } : null,
       candleElements, volElements, erMarkers, yAxisElements, xAxisElements,
-      maEma21hi: maPoints(ema21hi), maEma21lo: maPoints(ema21lo),
-      maEma21close: maPoints(ema21close), maEma10: maPoints(ema10),
-      maSma50: maPoints(sma50), maEma200: maPoints(ema200),
+      cprElements, orElements, pivotElements,
+      maEma21hi: isIntraday ? null : maPoints(ema21hi),
+      maEma21lo: isIntraday ? null : maPoints(ema21lo),
+      maEma21close: isIntraday ? null : maPoints(ema21close),
+      maEma10: maPoints(ema10),
+      maEma20: isIntraday ? maPoints(ema20) : null,
+      maSma50: isIntraday ? null : maPoints(sma50),
+      maEma200: isIntraday ? null : maPoints(ema200),
       volMaPts: volMaPoints(),
-      startDate: bars[0]?.date, endDate: bars[bars.length - 1]?.date,
+      startDate: isIntraday ? fmtEtBarLabel(bars[0]) : bars[0]?.date,
+      endDate: isIntraday ? fmtEtBarLabel(bars[bars.length - 1]) : bars[bars.length - 1]?.date,
       pMin, pMax, pRange, padT: pad.t, padL: pad.l, priceH, violMarker,
       volTop, volH, y60, y40, rsiPathD, lastRsiX, lastRsiY, lastRsi,
       rsiOverboughtPathD, rsiOversoldPathD,
     };
-  }, [ohlc, precomputed, quarters, visibleCount, endIdx, containerW, containerH, benchMap, owned, CH_ARIA]);
+  }, [ohlc, precomputed, quarters, visibleCount, endIdx, containerW, containerH, benchMap, owned, CH_ARIA, isIntraday, pivot30, showCpr]);
 
   // Wheel zoom — LightweightCharts style: right edge stays pinned,
   // ~3 bars per wheel tick (deltaY normalized to ±1 for trackpad smoothness)
@@ -572,8 +852,9 @@ export function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], ow
     // Normalize: mouse wheel gives ±100–120, trackpad gives small floats
     const ticks = Math.sign(e.deltaY) * Math.max(1, Math.min(5, Math.abs(e.deltaY) / 30));
     const delta = Math.round(ticks * 3);
-    setVisibleCount((prev) => Math.max(MIN_VISIBLE, Math.min(MAX_BARS, prev + delta)));
-  }, [ohlc]);
+    const maxVis = isIntraday ? Math.max(65, ohlc.length) : MAX_BARS;
+    setVisibleCount((prev) => Math.max(minVisible, Math.min(maxVis, prev + delta)));
+  }, [ohlc, minVisible, isIntraday]);
 
   // Drag to pan — LightweightCharts style: drag right = see older data
   const handleMouseDown = useCallback((e) => {
@@ -584,11 +865,12 @@ export function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], ow
     const onMove = (ev) => {
       if (!dragRef.current || !svgRef.current || !ohlc) return;
       const rect = svgRef.current.getBoundingClientRect();
-      const pxPerBar = rect.width / visibleCount;
+      const t = ohlc.length;
+      const vis = Math.max(1, Math.min(visibleCount, t));
+      const pxPerBar = rect.width / vis;
       const dx = ev.clientX - dragRef.current.startX;
       const barShift = Math.round(dx / pxPerBar);
-      const t = ohlc.length;
-      const newEnd = Math.max(visibleCount, Math.min(t, dragRef.current.startEndIdx - barShift));
+      const newEnd = Math.max(vis, Math.min(t, dragRef.current.startEndIdx - barShift));
       setEndIdx(newEnd);
     };
     const onUp = () => {
@@ -602,9 +884,9 @@ export function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], ow
 
   // Double-click to reset view
   const handleDblClick = useCallback(() => {
-    setVisibleCount(DEFAULT_BARS);
+    setVisibleCount(defaultBars);
     setEndIdx(null);
-  }, []);
+  }, [defaultBars]);
 
   if (!chartData) {
     return (
@@ -647,15 +929,27 @@ export function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], ow
         </defs>
         {chartData.xAxisElements}
         {chartData.yAxisElements}
+        {chartData.cprElements}
         <line x1={0} y1={chartData.sepY} x2={chartData.chartRight} y2={chartData.sepY} stroke={CH_ARIA.borderLight} strokeWidth={0.5} />
         <line x1={chartData.chartRight} y1={0} x2={chartData.chartRight} y2={chartData.totalH} stroke={CH_ARIA.borderLight} strokeWidth={0.5} />
-        {chartData.maEma21hi && <polyline points={chartData.maEma21hi} fill="none" stroke="#80808060" strokeWidth={1} />}
-        {chartData.maEma21lo && <polyline points={chartData.maEma21lo} fill="none" stroke="#80808060" strokeWidth={1} />}
-        {chartData.maEma21close && <polyline points={chartData.maEma21close} fill="none" stroke="#808080" strokeWidth={1.5} />}
-        {chartData.maEma10 && <polyline points={chartData.maEma10} fill="none" stroke="#ff828c" strokeWidth={1} />}
-        {chartData.maSma50 && <polyline points={chartData.maSma50} fill="none" stroke="#2dd4bf" strokeWidth={1} strokeDasharray="4,2" />}
-        {chartData.maEma200 && <polyline points={chartData.maEma200} fill="none" stroke="#8232c8" strokeWidth={1} />}
+        {isIntraday ? (
+          <>
+            {chartData.maEma10 && <polyline points={chartData.maEma10} fill="none" stroke="#38bdf8" strokeWidth={1.25} />}
+            {chartData.maEma20 && <polyline points={chartData.maEma20} fill="none" stroke="#fbbf24" strokeWidth={1.25} />}
+          </>
+        ) : (
+          <>
+            {chartData.maEma21hi && <polyline points={chartData.maEma21hi} fill="none" stroke="#80808060" strokeWidth={1} />}
+            {chartData.maEma21lo && <polyline points={chartData.maEma21lo} fill="none" stroke="#80808060" strokeWidth={1} />}
+            {chartData.maEma21close && <polyline points={chartData.maEma21close} fill="none" stroke="#808080" strokeWidth={1.5} />}
+            {chartData.maEma10 && <polyline points={chartData.maEma10} fill="none" stroke="#ff828c" strokeWidth={1} />}
+            {chartData.maSma50 && <polyline points={chartData.maSma50} fill="none" stroke="#2dd4bf" strokeWidth={1} strokeDasharray="4,2" />}
+            {chartData.maEma200 && <polyline points={chartData.maEma200} fill="none" stroke="#8232c8" strokeWidth={1} />}
+          </>
+        )}
         {chartData.candleElements}
+        {chartData.orElements}
+        {chartData.pivotElements}
         {chartData.lastDot && (
           <circle cx={chartData.lastDot.x} cy={chartData.lastDot.y} r={2.6} fill={chartData.lastDot.color} filter="url(#tpGlow)">
             <animate attributeName="opacity" values="1;0.35;1" dur="2.2s" repeatCount="indefinite" />
@@ -671,7 +965,8 @@ export function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], ow
           const up = chg == null ? b.close >= b.open : chg >= 0;
           const fmtP = (v) => v >= 1000 ? v.toFixed(0) : v >= 100 ? v.toFixed(1) : v.toFixed(2);
           const fmtV = (v) => v >= 1e9 ? (v / 1e9).toFixed(1) + "B" : v >= 1e6 ? (v / 1e6).toFixed(1) + "M" : v >= 1e3 ? (v / 1e3).toFixed(0) + "K" : String(v || 0);
-          const txt = `${b.date}   O ${fmtP(b.open)}  H ${fmtP(b.high)}  L ${fmtP(b.low)}  C ${fmtP(b.close)}${chg != null ? `  ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%` : ""}  V ${fmtV(b.volume)}`;
+          const tsLabel = isIntraday ? fmtEtBarLabel(b) : (b.date || "");
+          const txt = `${tsLabel}   O ${fmtP(b.open)}  H ${fmtP(b.high)}  L ${fmtP(b.low)}  C ${fmtP(b.close)}${chg != null ? `  ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%` : ""}  V ${fmtV(b.volume)}`;
           const tw = txt.length * 5.1 + 12;
           const left = cx <= chartData.chartRight / 2;
           const bx = left ? Math.min(cx + 10, chartData.chartRight - tw - 4) : Math.max(4, cx - 10 - tw);
@@ -682,7 +977,7 @@ export function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], ow
               <circle cx={cx} cy={cy} r={2.6} fill={up ? "#2bb886" : "#f87171"} stroke={CH_ARIA.bg} strokeWidth={0.8} />
               <rect x={bx} y={chartData.padT + 2} width={tw} height={15} rx={3} fill={CH_ARIA.bg} opacity={0.94} stroke={CH_ARIA.borderLight} strokeWidth={0.6} />
               <text x={bx + 6} y={chartData.padT + 12.5} fontSize={8} fill={CH_ARIA.text} fontFamily="ui-monospace,monospace">
-                {b.date}   O {fmtP(b.open)}  H {fmtP(b.high)}  L {fmtP(b.low)}  C <tspan fill={up ? "#2bb886" : "#f87171"} fontWeight="700">{fmtP(b.close)}</tspan>{chg != null ? <tspan fill={up ? "#2bb886" : "#f87171"}>{`  ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%`}</tspan> : null}  V {fmtV(b.volume)}
+                {tsLabel}   O {fmtP(b.open)}  H {fmtP(b.high)}  L {fmtP(b.low)}  C <tspan fill={up ? "#2bb886" : "#f87171"} fontWeight="700">{fmtP(b.close)}</tspan>{chg != null ? <tspan fill={up ? "#2bb886" : "#f87171"}>{`  ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%`}</tspan> : null}  V {fmtV(b.volume)}
               </text>
             </g>
           );
@@ -692,7 +987,7 @@ export function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], ow
             <title>{`Sell-discipline violation — closed below the ${chartData.violMarker.label} (leader cracking support). Ryan's trailing-stop trigger.`}</title>🔻
           </text>
         )}
-        {showRS && chartData.rsLinePts && (
+        {!isIntraday && showRS && chartData.rsLinePts && (
           <>
             {(chartData.divTint || []).map((d, i) => (
               <rect key={`div${i}`} x={d.x0} y={chartData.rsBandTop} width={Math.max(1, d.x1 - d.x0)} height={(chartData.rsBandBot || 0) - (chartData.rsBandTop || 0)} fill={d.type === "bull" ? "#22c55e" : "#f59e0b"} opacity={0.28}>
@@ -729,11 +1024,13 @@ export function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], ow
             })()}
           </>
         )}
-        <text x={chartData.padL + 3} y={10} fontSize={8} fontFamily="ui-monospace,monospace" fontWeight={700}
-          fill={showRS ? "#3b82f6" : "#4a4a5a"} style={{ cursor: "pointer" }}
-          onClick={() => setShowRS((v) => { const n = !v; try { localStorage.setItem("tp-chart-rs", n ? "1" : "0"); } catch {} return n; })}>
-          <title>Toggle the IBD-style RS line (stock ÷ SPY)</title>RS
-        </text>
+        {!isIntraday && (
+          <text x={chartData.padL + 3} y={10} fontSize={8} fontFamily="ui-monospace,monospace" fontWeight={700}
+            fill={showRS ? "#3b82f6" : "#4a4a5a"} style={{ cursor: "pointer" }}
+            onClick={() => setShowRS((v) => { const n = !v; try { localStorage.setItem("tp-chart-rs", n ? "1" : "0"); } catch {} return n; })}>
+            <title>Toggle the IBD-style RS line (stock ÷ SPY)</title>RS
+          </text>
+        )}
         {volSubTab === "vol" && chartData.volElements}
         {volSubTab === "vol" && chartData.volMaPts && <polyline points={chartData.volMaPts} fill="none" stroke="#fbbf24" strokeWidth={1} opacity={0.5} />}
         {volSubTab === "rsi" && (() => {
@@ -787,28 +1084,54 @@ export function DailyChartSVG({ ohlc, quarters, height = 400, stopLines = [], ow
       </svg>
       {/* Legend + zoom info */}
       <div style={{ display: "flex", gap: 10, padding: "4px 8px", fontSize: 8, fontFamily: "monospace", color: "#7a7a8a", flexWrap: "wrap" }}>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
-          <span style={{ color: "#ff828c" }}>EMA10</span>
-          <span style={{ color: "#808080" }}>EMA21</span>
-          <span style={{ color: "#2dd4bf" }}>SMA50</span>
-          <span style={{ color: "#8232c8" }}>EMA200</span>
-          <span style={{ color: "#fbbf24" }}>Vol MA</span>
-        </span>
-        {chartData.barCount < chartData.totalBars && (
-          <span style={{ color: "#5a5a6a" }} title="Double-click to reset view">
-            {chartData.startDate} → {chartData.endDate} · {chartData.barCount}d
-          </span>
+        {isIntraday ? (
+          <>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <span style={{ color: "#38bdf8", fontWeight: 700 }}>10E</span>
+              <span style={{ color: "#5a5a6a" }}>·</span>
+              <span style={{ color: "#fbbf24", fontWeight: 700 }}>20E</span>
+              <span style={{ color: "#5a5a6a" }}>·</span>
+              <span style={{ color: "#fbbf24", opacity: 0.7 }}>Vol20</span>
+            </span>
+            {chartData.barCount < chartData.totalBars && (
+              <span style={{ color: "#5a5a6a" }} title="Double-click to reset view">
+                {chartData.startDate} → {chartData.endDate} · {chartData.barCount} bars
+              </span>
+            )}
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 10, marginLeft: "auto" }}>
+              <span style={{ color: "#22d3ee" }}>--- ORH/ORL</span>
+              <span style={{ color: "#f59e0b" }}>--- ENT</span>
+              <span style={{ color: "#f87171" }}>--- STP</span>
+              <span style={{ color: "#34d399" }}>··· 2R</span>
+              {showCpr && <span style={{ color: "#a78bfa" }}>▓ CPR</span>}
+            </span>
+          </>
+        ) : (
+          <>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+              <span style={{ color: "#ff828c" }}>EMA10</span>
+              <span style={{ color: "#808080" }}>EMA21</span>
+              <span style={{ color: "#2dd4bf" }}>SMA50</span>
+              <span style={{ color: "#8232c8" }}>EMA200</span>
+              <span style={{ color: "#fbbf24" }}>Vol MA</span>
+            </span>
+            {chartData.barCount < chartData.totalBars && (
+              <span style={{ color: "#5a5a6a" }} title="Double-click to reset view">
+                {chartData.startDate} → {chartData.endDate} · {chartData.barCount}d
+              </span>
+            )}
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 10, marginLeft: "auto" }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, background: "#2563eb", borderRadius: 1, display: "inline-block" }} />PP 10d</span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, background: "#0d9488", borderRadius: 1, display: "inline-block" }} />PP 5d</span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, background: `repeating-linear-gradient(135deg,transparent,transparent 2px,${CH_ARIA.yellow} 2px,${CH_ARIA.yellow} 3px)`, border: `1px solid ${CH_ARIA.yellow}80`, borderRadius: 1, display: "inline-block" }} />+4% BO</span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, background: "repeating-linear-gradient(45deg,transparent,transparent 2px,#f87171 2px,#f87171 3px)", border: "1px solid #f8717180", borderRadius: 1, display: "inline-block" }} />-4% BD</span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, background: CH_ARIA.glass, color: CH_ARIA.yellow, fontSize: 7, fontWeight: 900, textAlign: "center", lineHeight: "8px", fontFamily: "monospace", border: `1px solid ${CH_ARIA.borderLight}`, borderRadius: 1, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>T</span>Tight</span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, background: `radial-gradient(circle,${CH_ARIA.bg === "#f8f9fc" ? "#0f766e" : "#2dd4bf"} 3px,transparent 3px)`, borderRadius: 1, display: "inline-block" }} />Dry-Up</span>
+            </span>
+          </>
         )}
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 10, marginLeft: "auto" }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, background: "#2563eb", borderRadius: 1, display: "inline-block" }} />PP 10d</span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, background: "#0d9488", borderRadius: 1, display: "inline-block" }} />PP 5d</span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, background: `repeating-linear-gradient(135deg,transparent,transparent 2px,${CH_ARIA.yellow} 2px,${CH_ARIA.yellow} 3px)`, border: `1px solid ${CH_ARIA.yellow}80`, borderRadius: 1, display: "inline-block" }} />+4% BO</span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, background: "repeating-linear-gradient(45deg,transparent,transparent 2px,#f87171 2px,#f87171 3px)", border: "1px solid #f8717180", borderRadius: 1, display: "inline-block" }} />-4% BD</span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, background: CH_ARIA.glass, color: CH_ARIA.yellow, fontSize: 7, fontWeight: 900, textAlign: "center", lineHeight: "8px", fontFamily: "monospace", border: `1px solid ${CH_ARIA.borderLight}`, borderRadius: 1, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>T</span>Tight</span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 8, height: 8, background: `radial-gradient(circle,${CH_ARIA.bg === "#f8f9fc" ? "#0f766e" : "#2dd4bf"} 3px,transparent 3px)`, borderRadius: 1, display: "inline-block" }} />Dry-Up</span>
-        </span>
       </div>
-      {showRS && (
+      {!isIntraday && showRS && (
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 9, padding: "0 8px 5px", fontSize: 8, fontFamily: "monospace", color: "#7a7a8a", flexWrap: "wrap", alignItems: "center" }}>
           <span style={{ color: "#3b82f6", fontWeight: 700 }}>RS:</span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><span style={{ width: 12, height: 2, background: "#3b82f6", display: "inline-block" }} />vs SPY</span>

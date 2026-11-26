@@ -607,6 +607,8 @@ export default function LeadershipView({
                 tickerLayer={tickerLayer}
                 onLayer={layerOfTicker}
                 indexQuotes={indexQuotes}
+                portfolio={portfolio}
+                watchlist={watchlist}
               />
             ) : view === "options" ? (
               <OptionsPanel
