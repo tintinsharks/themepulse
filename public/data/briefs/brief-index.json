@@ -1,6 +1,14 @@
 {
-  "latest": "brief-2026-11-25-pm.json",
+  "latest": "brief-2026-11-26-pm.json",
   "briefs": [
+    {
+      "id": "brief-2026-11-26-pm",
+      "date": "2026-11-26",
+      "session": "pm",
+      "label": "Postmarket Brief — Thu, Nov 26, 2026 (Thanksgiving Holiday Wrap & Black Friday Prep)",
+      "file": "brief-2026-11-26-pm.json",
+      "regime": "Transition / Split-Tape Improvement — 40%–55% Net Long Exposure (U.S. Markets Closed Today for Thanksgiving; Reopens Tomorrow Fri Nov 27 for 9:30 AM–1:00 PM ET Black Friday Session)"
+    },
     {
       "id": "brief-2026-11-25-pm",
       "date": "2026-11-25",
