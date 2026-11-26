@@ -1269,3 +1269,97 @@ export function computeQqqShortTermBias({
     ],
   };
 }
+
+// ── Dead-Simple 1-Glance QQQ Action Signal ───────────────────────────────────
+// Synthesizes bias + intraday tape + price ladder into ONE clear call:
+//   BUY CALLS | BUY PUTS | WAIT
+// plus just 3 plain numbers (Spot/Trigger, Target, Stop) and 1 plain sentence.
+export function buildSimpleQqqSignal({ shortTermBias, intradayPred, priceLadder } = {}) {
+  if (!shortTermBias) return null;
+  const factors = shortTermBias.factors || [];
+  const bullCount = factors.filter((f) => f.pts >= 3).length;
+  const bearCount = factors.filter((f) => f.pts <= -3).length;
+  const total = factors.length || 6;
+
+  const spot = priceLadder?.spot ?? null;
+  const res = priceLadder?.nearestResistance || null;
+  const sup = priceLadder?.nearestSupport || null;
+  // Pick a meaningful Target at least ~1.2% away if available, else nearest level
+  const pickTarget = (list, fallback) => {
+    const arr = Array.isArray(list) ? list : [];
+    const far = arr.find((x) => Math.abs(x.pct) >= 1.2);
+    return far || fallback || arr[0] || null;
+  };
+  const bullTarget = pickTarget([...(priceLadder?.resistance || [])].reverse(), res);
+  const bearTarget = pickTarget(priceLadder?.support || [], sup);
+
+  const sellingHard = intradayPred?.state === "SELLOFF_ACTIVE";
+  const fadingHard = intradayPred?.state === "FADE_WARNING";
+  const recovering = intradayPred?.state === "RECOVERY_TRIGGERED";
+
+  let action = "WAIT";
+  let headline = "WAIT — NO CLEAR EDGE";
+  let tone = "warn";
+  let outlook = shortTermBias.outlook || "bullish";
+  let why = "";
+  let trigger = res ? `Above $${res.price.toFixed(2)} (${res.label})` : "Wait for breakout";
+  let target = bullTarget;
+  let stop = sup;
+
+  if (shortTermBias.score >= 20 && !sellingHard && !fadingHard) {
+    action = "BUY_CALLS";
+    headline = "BUY CALLS (BULLISH)";
+    tone = "good";
+    outlook = "bullish";
+    trigger = recovering
+      ? `Active now (~$${spot?.toFixed(2) ?? "—"})`
+      : (res && Math.abs(res.pct) <= 0.8 ? `Break $${res.price.toFixed(2)}` : `Dips toward $${sup?.price?.toFixed(2) ?? spot?.toFixed(2) ?? "—"}`);
+    target = bullTarget;
+    stop = sup;
+    why = `${bullCount} of ${total} signals are bullish` +
+      (recovering ? " and intraday buyers just triggered a reversal." : " with trend, mega-caps, and tape supporting upside.");
+  } else if (shortTermBias.score <= -20 && !recovering) {
+    action = "BUY_PUTS";
+    headline = "BUY PUTS (BEARISH)";
+    tone = "bad";
+    outlook = "bearish";
+    trigger = sellingHard || fadingHard
+      ? `Active now (~$${spot?.toFixed(2) ?? "—"})`
+      : (sup && Math.abs(sup.pct) <= 0.8 ? `Break $${sup.price.toFixed(2)}` : `Bounces near $${res?.price?.toFixed(2) ?? spot?.toFixed(2) ?? "—"}`);
+    target = bearTarget;
+    stop = res;
+    why = `${bearCount} of ${total} signals are bearish` +
+      (sellingHard ? " and sellers are still in control intraday." : " with short-term trend and breadth pointing lower.");
+  } else {
+    action = "WAIT";
+    headline = "WAIT — STAY PATIENT";
+    tone = "warn";
+    if (sellingHard && shortTermBias.score > -20) {
+      why = "Selloff is still active intraday — wait for >50% of Nasdaq-100 to turn green from the open before buying calls.";
+    } else if (recovering && shortTermBias.score < 20) {
+      why = "Intraday bounce is underway, but broader short-term trend is still mixed — wait for confirmation above resistance.";
+    } else {
+      why = `Mixed tape (${bullCount} bullish vs ${bearCount} bearish out of ${total}) — no forced QQQ trade until price breaks a key level.`;
+    }
+    trigger = res && sup
+      ? `Calls > $${res.price.toFixed(2)} · Puts < $${sup.price.toFixed(2)}`
+      : "Wait for directional break";
+    target = bullTarget;
+    stop = sup;
+  }
+
+  return {
+    action,
+    headline,
+    tone,
+    outlook,
+    why,
+    bullCount,
+    bearCount,
+    total,
+    spot,
+    trigger,
+    target,
+    stop,
+  };
+}

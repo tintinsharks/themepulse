@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import {
   NDX_CONSTITUENTS,
   buildQqqBreadthSeries,
+  buildSimpleQqqSignal,
   computeAtr14,
   computeNdxInternals,
   computeNdxWeights,
@@ -298,4 +299,15 @@ test("computeQqqPriceLadder computes VWAPs, unfilled gaps, options magnets, and 
   assert.equal(bias.gammaRegime.state, "NEGATIVE_GEX");
   assert.equal(bias.outlook, "bullish");
   assert.ok(bias.score >= 40);
+
+  // Dead-simple 1-glance signal: BUY_CALLS when bullish & not selling off; WAIT if active selloff; BUY_PUTS when bearish
+  const sigBull = buildSimpleQqqSignal({ shortTermBias: bias, intradayPred: { state: "RECOVERY_TRIGGERED", score: 78 }, priceLadder: ladder });
+  assert.equal(sigBull.action, "BUY_CALLS");
+  assert.ok(sigBull.target && sigBull.stop);
+
+  const sigWait = buildSimpleQqqSignal({ shortTermBias: bias, intradayPred: { state: "SELLOFF_ACTIVE", score: 25 }, priceLadder: ladder });
+  assert.equal(sigWait.action, "WAIT");
+
+  const sigBear = buildSimpleQqqSignal({ shortTermBias: { ...bias, score: -45, outlook: "bearish" }, intradayPred: { state: "SELLOFF_ACTIVE", score: 20 }, priceLadder: ladder });
+  assert.equal(sigBear.action, "BUY_PUTS");
 });
