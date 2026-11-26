@@ -75,3 +75,37 @@ test("evalScanHits classifies all 5 Elite RS scans accurately", () => {
   assert.equal(liveHits.resil, true);
   assert.equal(liveHits.rs95, true);
 });
+
+test("evalScanHits classifies ADR 5%+ Liquid (adr5liq) screen accurately", () => {
+  const base = {
+    ticker: "ANF",
+    close: 175,
+    market_cap_raw: 8e9,
+    adr20: 5.54,
+    avg_vol_10d: 1.6e6,
+    avg_volume_raw: 1.24e6,
+    avg_dollar_vol_raw: 220e6,
+    dvol_ratio_5_20: 1.2, // 1W $vol = 220M * 1.2 * 5 = $1.32B > $300M
+    sma200_lvl: 140,
+    sma200_pct: 25,
+  };
+  assert.equal(evalScanHits(base).adr5liq, true);
+
+  // Fails Mkt Cap <= $100M
+  assert.equal(evalScanHits({ ...base, market_cap_raw: 95e6 }).adr5liq, undefined);
+  // Fails ADR <= 5%
+  assert.equal(evalScanHits({ ...base, adr20: 4.95 }).adr5liq, undefined);
+  // Fails 10D Avg Vol <= 500K
+  assert.equal(evalScanHits({ ...base, avg_vol_10d: 480e3 }).adr5liq, undefined);
+  // Fails Price <= SMA 200
+  assert.equal(evalScanHits({ ...base, close: 138, sma200_lvl: 140, sma200_pct: -1.4 }).adr5liq, undefined);
+  // Live intraday reclaim above SMA 200 enters live
+  assert.equal(
+    evalScanHits({ ...base, close: 138, sma200_lvl: 140, sma200_pct: -1.4 }, { price: 142 }).adr5liq,
+    true
+  );
+  // Fails 1W $vol <= $300M (uses dvol_ratio_5_20 when present: 80M * 0.6 * 5 = $240M)
+  assert.equal(evalScanHits({ ...base, avg_dollar_vol_raw: 80e6, dvol_ratio_5_20: 0.6 }).adr5liq, undefined);
+  // Passes 1W $vol fallback when dvol_ratio_5_20 is absent: 70M * 5 = $350M > $300M
+  assert.equal(evalScanHits({ ...base, avg_dollar_vol_raw: 70e6, dvol_ratio_5_20: null }).adr5liq, true);
+});

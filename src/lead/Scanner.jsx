@@ -308,6 +308,13 @@ function ScannerPanel({
       else if (scan === "grnred" && rs >= 85 && adv >= 20e6 && s50 >= -4 && off >= -20) set.add(t);
       else if (scan === "antic" && (s.ti65 ?? 0) >= 1.05) set.add(t);
       else if (scan === "hot" && (s.return_1m ?? 0) > 30) set.add(t);
+      else if (
+        scan === "adr5liq" &&
+        (s.market_cap_raw ?? 0) > 100e6 &&
+        (s.adr20 ?? s.adr_pct ?? 0) > 5 &&
+        (s.avg_vol_10d ?? s.avg_volume_raw ?? 0) > 500e3 &&
+        (s.sma200_pct ?? -99) >= -4
+      ) set.add(t);
     }
     return [...set];
   }, [pre, scan, stockMap, pivotCandidates]);

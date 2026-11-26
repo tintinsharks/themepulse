@@ -21,6 +21,7 @@ export const CLASSIC_SCANS = [
   ["antic", "Bullish Anticipation"],
   ["hot", "Hottest Stocks"],
   ["liquid", "Liquid Leaders"],
+  ["adr5liq", "ADR 5%+ Liquid"],
 ];
 
 export const ALL_SCANS = [...ELITE_RS_SCANS, ...CLASSIC_SCANS];
@@ -40,6 +41,7 @@ export const SCAN_NOTES = {
   antic: "Stockbee: quiet day (−1% to +1%) · TI65 (7d ÷ 65d avg close) ≥ 1.05 · above SMA20 & SMA50 · within 15% of the high · ADR ≥ 2.5% · price ≥ $5, avg $vol ≥ $10M",
   hot: "TradingView Hottest Stock: mkt cap > $25M · perf 1M > 30% · avg vol > 300K · vol > 100K · price > $1 · float < 75M · volatility 1W > 3% · perf 1W −10% to +10%",
   liquid: "Price > $10 · mkt cap ≥ $300M · avg vol ≥ 1M · avg $vol ≥ $100M · ADR > 3% · EPS growth this year > 20% or 5y sales growth > 15% · RS ≥ 70 · above the 50-day",
+  adr5liq: "Mkt cap > $100M · ADR > 5% · Avg vol (10D) > 500K · Price > 200d SMA · 1W $vol (Price × vol 5D) > $300M",
 };
 
 /**
@@ -154,6 +156,14 @@ export function evalScanHits(s, q = null, zvr = null) {
   const epsY = s.eps_this_y ?? s.eps_past_5y;
   if (c > 10 && mcap >= 300e6 && av >= 1e6 && adv >= 100e6 && adr > 3 && rs >= 70 && sma50 > 0 &&
       ((epsY != null && epsY > 20) || (s.sales_past_5y != null && s.sales_past_5y > 15))) out.liquid = true;
+
+  // High-ADR Liquid above 200d SMA: Mkt cap > $100M, ADR > 5%, Avg vol 10D > 500K, Price > SMA200, 1W $vol > $300M
+  const av10 = s.avg_vol_10d ?? av;
+  const sma200 = s.sma200_lvl ? ((c / s.sma200_lvl) - 1) * 100 : s.sma200_pct;
+  const dv1w = (s.dvol_ratio_5_20 > 0 && adv > 0 ? adv * s.dvol_ratio_5_20 : adv) * 5;
+  if (mcap > 100e6 && adr > 5 && av10 > 500e3 && sma200 != null && sma200 > 0 && dv1w > 300e6) {
+    out.adr5liq = true;
+  }
 
   return out;
 }
