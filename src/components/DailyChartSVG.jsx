@@ -258,9 +258,12 @@ export function DailyChartSVG({
 
     const W = containerW, volH = 80, yAxisW = 48, pad = { l: 0, r: yAxisW, t: 16, b: 0 };
     const volGap = 6;
-    // Price panel fills the available container height so the chart grows into
-    // the panel (the ~24px reserve is the legend row + x-axis below the SVG).
-    const priceH = Math.max(220, Math.min(900, (containerH || 380) - volH - volGap - pad.t - pad.b - 24));
+    // Price panel fills the available container height while reserving exact space
+    // for the legend row + optional RVol@T persistence strip (or daily RS legend).
+    const hasRvolStrip = Boolean(isIntraday && volSubTab === "rvol" && rvolAtTime?.summary);
+    const hasRsStrip = Boolean(!isIntraday && showRS);
+    const footerReserve = 24 + (hasRvolStrip ? 26 : 0) + (hasRsStrip ? 18 : 0);
+    const priceH = Math.max(170, Math.min(900, (containerH || 380) - volH - volGap - pad.t - pad.b - footerReserve));
     const totalH = priceH + volGap + volH + pad.t + pad.b;
     const chartRight = W - pad.r;
     const bw = Math.max(2, (chartRight - pad.l) / bars.length - 1);
@@ -1014,7 +1017,7 @@ export function DailyChartSVG({
       volTop, volH, y60, y40, rsiPathD, lastRsiX, lastRsiY, lastRsi,
       rsiOverboughtPathD, rsiOversoldPathD, rvolPane, rvolSlice,
     };
-  }, [ohlc, precomputed, quarters, visibleCount, endIdx, containerW, containerH, benchMap, owned, CH_ARIA, isIntraday, pivot30, showCpr, rvolAtTime]);
+  }, [ohlc, precomputed, quarters, visibleCount, endIdx, containerW, containerH, benchMap, owned, CH_ARIA, isIntraday, pivot30, showCpr, rvolAtTime, volSubTab, showRS]);
 
   // Wheel zoom — LightweightCharts style: right edge stays pinned,
   // ~3 bars per wheel tick (deltaY normalized to ±1 for trackpad smoothness)
@@ -1213,17 +1216,22 @@ export function DailyChartSVG({
           const { rvolBarElements, rvolCumPathD, lastCumX, lastCumY, lastCumVal, refLevels } = chartData.rvolPane;
           return (
             <>
-              {refLevels.map((rf) => (
-                <g key={`rvref_${rf.label}`}>
-                  <line x1={padL} y1={rf.y} x2={chartRight} y2={rf.y}
-                    stroke={rf.color} strokeWidth={rf.mult === 1 ? 0.75 : 0.55}
-                    strokeDasharray={rf.dash} opacity={rf.opacity} />
-                  <text x={chartRight + 4} y={rf.y + 2.5} fontSize={7}
-                    fill={rf.color} fontFamily="ui-monospace,monospace" opacity={0.85}>
-                    {rf.label}
-                  </text>
-                </g>
-              ))}
+              {refLevels.map((rf) => {
+                const collidesLive = lastCumY != null && lastCumVal != null && Math.abs(rf.y - lastCumY) < 9;
+                return (
+                  <g key={`rvref_${rf.label}`}>
+                    <line x1={padL} y1={rf.y} x2={chartRight} y2={rf.y}
+                      stroke={rf.color} strokeWidth={rf.mult === 1 ? 0.75 : 0.55}
+                      strokeDasharray={rf.dash} opacity={rf.opacity} />
+                    {!collidesLive && (
+                      <text x={chartRight + 4} y={rf.y + 2.5} fontSize={7}
+                        fill={rf.color} fontFamily="ui-monospace,monospace" opacity={0.85}>
+                        {rf.label}
+                      </text>
+                    )}
+                  </g>
+                );
+              })}
               {rvolBarElements}
               {rvolCumPathD && (
                 <path d={rvolCumPathD} fill="none" stroke="#fb923c" strokeWidth={1.6} opacity={0.95} />
