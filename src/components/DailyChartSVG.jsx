@@ -7,7 +7,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { authFetch } from "../utils.js";
 import { useAriaTheme } from "../themeContext.js";
-import { formatEtTime } from "../lead/pivot30mMath.js";
+import { computeRvolAtTime, formatEtTime } from "../lead/pivot30mMath.js";
 
 // Cached daily OHLC fetch (shared across chart selections).
 const _ohlcCache = new Map();
@@ -89,11 +89,15 @@ export function DailyChartSVG({
   const dragRef = React.useRef(null);
   const [containerW, setContainerW] = useState(900);
   const [containerH, setContainerH] = useState(380);
-  const [volSubTab, setVolSubTab] = useState("vol");
+  const [volSubTab, setVolSubTab] = useState(() => (isIntraday ? "rvol" : "vol"));
   const [hoverI, setHoverI] = useState(null); // crosshair bar index (visible window)
   const CH_ARIA = useAriaTheme();
   const [showRS, setShowRS] = useState(() => { try { return localStorage.getItem("tp-chart-rs") !== "0"; } catch { return true; } });
   const benchMap = useSpyCloses();
+  const rvolAtTime = useMemo(
+    () => (isIntraday && ohlc?.length ? computeRvolAtTime(ohlc) : null),
+    [isIntraday, ohlc]
+  );
 
   // Measure container width + height (chart price panel grows to fill height)
   useEffect(() => {
@@ -116,6 +120,14 @@ export function DailyChartSVG({
     setVisibleCount(isIntraday ? Math.min(ohlc?.length || 65, 65) : 168);
     setEndIdx(null);
   }, [ohlc, isIntraday]);
+
+  // Default indicator sub-pane to RVol@T on 30m intraday charts, Vol on D/W
+  useEffect(() => {
+    setVolSubTab((prev) => {
+      if (isIntraday) return prev === "rsi" ? "rsi" : "rvol";
+      return prev === "rvol" ? "vol" : prev;
+    });
+  }, [isIntraday]);
 
   // Pre-compute MAs and VCP scores on the full dataset (expensive, only when ohlc changes)
   const precomputed = useMemo(() => {
@@ -813,6 +825,79 @@ export function DailyChartSVG({
       ? `M${rsiXOf(0).toFixed(1)},${y40.toFixed(1)} ${osBottomPts.join(" ")} L${rsiXOf(rsiSlice.length - 1).toFixed(1)},${y40.toFixed(1)} Z`
       : null;
 
+    // ── RVol at Time of Day (RVol@T) log2 sub-pane for 30m intraday charts ──
+    const rvolSlice = isIntraday && rvolAtTime?.bars?.length ? rvolAtTime.bars.slice(start, end) : null;
+    let rvolPane = null;
+    if (rvolSlice && rvolSlice.length) {
+      let logMin = -1.25;
+      let logMax = 2.25;
+      for (const rv of rvolSlice) {
+        if (rv?.logBar != null) {
+          if (rv.logBar > logMax) logMax = Math.min(3.6, rv.logBar + 0.25);
+          if (rv.logBar < logMin) logMin = Math.max(-3.1, rv.logBar - 0.15);
+        }
+        if (rv?.logCum != null) {
+          if (rv.logCum > logMax) logMax = Math.min(3.6, rv.logCum + 0.25);
+          if (rv.logCum < logMin) logMin = Math.max(-3.1, rv.logCum - 0.15);
+        }
+      }
+      const logSpan = Math.max(0.5, logMax - logMin);
+      const rvolY = (lv) => {
+        const clamped = Math.max(logMin, Math.min(logMax, lv));
+        return volTop + (1 - (clamped - logMin) / logSpan) * volH;
+      };
+      const y1x = rvolY(0);
+      const rvolBarElements = [];
+      let rvolCumPathD = "";
+      let prevCumNull = true;
+      let lastCumX = null, lastCumY = null, lastCumVal = null;
+
+      rvolSlice.forEach((rv, i) => {
+        if (!rv || !rv.inScope) { prevCumNull = true; return; }
+        const x = pad.l + i * (bw + gap);
+        const cx = x + bw / 2;
+        if (rv.logBar != null && rv.rvolBar != null) {
+          const yVal = rvolY(rv.logBar);
+          const yTop = Math.min(y1x, yVal);
+          const hBar = Math.max(1, Math.abs(yVal - y1x));
+          const colColor = rv.isUp ? "#22c55e" : "#f87171";
+          const colOp = rv.rvolBar >= 2.0 ? 0.96 : rv.rvolBar >= 1.0 ? 0.65 : 0.28;
+          rvolBarElements.push(
+            <rect key={`rvb_${i}`} x={x} y={yTop} width={bw} height={hBar}
+              fill={colColor} opacity={colOp} rx={0.4} />
+          );
+        }
+        if (rv.logCum != null && rv.rvolCum != null) {
+          const cy = rvolY(rv.logCum);
+          const cmd = prevCumNull || rv.newDay ? "M" : "L";
+          rvolCumPathD += `${cmd}${cx.toFixed(1)},${cy.toFixed(1)} `;
+          prevCumNull = false;
+          lastCumX = cx;
+          lastCumY = cy;
+          lastCumVal = rv.rvolCum;
+        } else {
+          prevCumNull = true;
+        }
+      });
+
+      const refLevels = [
+        { mult: 0.5, lv: -1, label: "0.5x", color: "#64748b", dash: "2,3", opacity: 0.35 },
+        { mult: 1.0, lv: 0, label: "1x", color: "#94a3b8", dash: "3,2", opacity: 0.65 },
+        { mult: 2.0, lv: 1, label: "2x", color: "#22c55e", dash: "2,3", opacity: 0.5 },
+        { mult: 4.0, lv: 2, label: "4x", color: "#64748b", dash: "2,3", opacity: 0.35 },
+      ].filter((r) => r.lv >= logMin + 0.05 && r.lv <= logMax - 0.05)
+        .map((r) => ({ ...r, y: rvolY(r.lv) }));
+
+      rvolPane = {
+        rvolBarElements,
+        rvolCumPathD,
+        lastCumX,
+        lastCumY,
+        lastCumVal,
+        refLevels,
+      };
+    }
+
     // ── Mansfield RS oscillator: (stock/SPY) ÷ its own 21-day MA − 1, drawn
     // zero-centered in a bottom band of the price panel. Disabled in intraday mode.
     let rsLinePts = "", rsDots = [], rsCross = [], rsLabelY = null, rsEnd = null, rsBandTop = null, rsBandBot = null, divTint = [], rsPosD = null, rsNegD = null, rsZeroY = null;
@@ -927,9 +1012,9 @@ export function DailyChartSVG({
       endDate: isIntraday ? fmtEtBarLabel(bars[bars.length - 1]) : bars[bars.length - 1]?.date,
       pMin, pMax, pRange, padT: pad.t, padL: pad.l, priceH, violMarker,
       volTop, volH, y60, y40, rsiPathD, lastRsiX, lastRsiY, lastRsi,
-      rsiOverboughtPathD, rsiOversoldPathD,
+      rsiOverboughtPathD, rsiOversoldPathD, rvolPane, rvolSlice,
     };
-  }, [ohlc, precomputed, quarters, visibleCount, endIdx, containerW, containerH, benchMap, owned, CH_ARIA, isIntraday, pivot30, showCpr]);
+  }, [ohlc, precomputed, quarters, visibleCount, endIdx, containerW, containerH, benchMap, owned, CH_ARIA, isIntraday, pivot30, showCpr, rvolAtTime]);
 
   // Wheel zoom — LightweightCharts style: right edge stays pinned,
   // ~3 bars per wheel tick (deltaY normalized to ±1 for trackpad smoothness)
@@ -1054,7 +1139,11 @@ export function DailyChartSVG({
           const fmtP = (v) => v >= 1000 ? v.toFixed(0) : v >= 100 ? v.toFixed(1) : v.toFixed(2);
           const fmtV = (v) => v >= 1e9 ? (v / 1e9).toFixed(1) + "B" : v >= 1e6 ? (v / 1e6).toFixed(1) + "M" : v >= 1e3 ? (v / 1e3).toFixed(0) + "K" : String(v || 0);
           const tsLabel = isIntraday ? fmtEtBarLabel(b) : (b.date || "");
-          const txt = `${tsLabel}   O ${fmtP(b.open)}  H ${fmtP(b.high)}  L ${fmtP(b.low)}  C ${fmtP(b.close)}${chg != null ? `  ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%` : ""}  V ${fmtV(b.volume)}`;
+          const rvPt = isIntraday ? chartData.rvolSlice?.[hoverI] : null;
+          const rvTxt = rvPt && rvPt.rvolBar != null
+            ? `  RVol ${rvPt.rvolBar.toFixed(1)}x${rvPt.rvolCum != null ? ` Cum ${rvPt.rvolCum.toFixed(1)}x` : ""}`
+            : "";
+          const txt = `${tsLabel}   O ${fmtP(b.open)}  H ${fmtP(b.high)}  L ${fmtP(b.low)}  C ${fmtP(b.close)}${chg != null ? `  ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%` : ""}  V ${fmtV(b.volume)}${rvTxt}`;
           const tw = txt.length * 5.1 + 12;
           const left = cx <= chartData.chartRight / 2;
           const bx = left ? Math.min(cx + 10, chartData.chartRight - tw - 4) : Math.max(4, cx - 10 - tw);
@@ -1065,7 +1154,7 @@ export function DailyChartSVG({
               <circle cx={cx} cy={cy} r={2.6} fill={up ? "#2bb886" : "#f87171"} stroke={CH_ARIA.bg} strokeWidth={0.8} />
               <rect x={bx} y={chartData.padT + 2} width={tw} height={15} rx={3} fill={CH_ARIA.bg} opacity={0.94} stroke={CH_ARIA.borderLight} strokeWidth={0.6} />
               <text x={bx + 6} y={chartData.padT + 12.5} fontSize={8} fill={CH_ARIA.text} fontFamily="ui-monospace,monospace">
-                {tsLabel}   O {fmtP(b.open)}  H {fmtP(b.high)}  L {fmtP(b.low)}  C <tspan fill={up ? "#2bb886" : "#f87171"} fontWeight="700">{fmtP(b.close)}</tspan>{chg != null ? <tspan fill={up ? "#2bb886" : "#f87171"}>{`  ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%`}</tspan> : null}  V {fmtV(b.volume)}
+                {tsLabel}   O {fmtP(b.open)}  H {fmtP(b.high)}  L {fmtP(b.low)}  C <tspan fill={up ? "#2bb886" : "#f87171"} fontWeight="700">{fmtP(b.close)}</tspan>{chg != null ? <tspan fill={up ? "#2bb886" : "#f87171"}>{`  ${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%`}</tspan> : null}  V {fmtV(b.volume)}{rvPt && rvPt.rvolBar != null ? <tspan fill={rvPt.rvolBar >= 2 ? "#22c55e" : "#fb923c"} fontWeight="700">{rvTxt}</tspan> : null}
               </text>
             </g>
           );
@@ -1119,6 +1208,40 @@ export function DailyChartSVG({
             <title>Toggle the IBD-style RS line (stock ÷ SPY)</title>RS
           </text>
         )}
+        {volSubTab === "rvol" && isIntraday && chartData.rvolPane && (() => {
+          const { padL, chartRight } = chartData;
+          const { rvolBarElements, rvolCumPathD, lastCumX, lastCumY, lastCumVal, refLevels } = chartData.rvolPane;
+          return (
+            <>
+              {refLevels.map((rf) => (
+                <g key={`rvref_${rf.label}`}>
+                  <line x1={padL} y1={rf.y} x2={chartRight} y2={rf.y}
+                    stroke={rf.color} strokeWidth={rf.mult === 1 ? 0.75 : 0.55}
+                    strokeDasharray={rf.dash} opacity={rf.opacity} />
+                  <text x={chartRight + 4} y={rf.y + 2.5} fontSize={7}
+                    fill={rf.color} fontFamily="ui-monospace,monospace" opacity={0.85}>
+                    {rf.label}
+                  </text>
+                </g>
+              ))}
+              {rvolBarElements}
+              {rvolCumPathD && (
+                <path d={rvolCumPathD} fill="none" stroke="#fb923c" strokeWidth={1.6} opacity={0.95} />
+              )}
+              {lastCumX != null && lastCumY != null && (
+                <>
+                  <circle cx={lastCumX} cy={lastCumY} r={2.3} fill="#fb923c" stroke={CH_ARIA.bg} strokeWidth={0.7} />
+                  {lastCumVal != null && (
+                    <text x={chartRight + 4} y={lastCumY + 2.5} fontSize={7.2} fontWeight={800}
+                      fill="#fb923c" fontFamily="ui-monospace,monospace">
+                      {lastCumVal.toFixed(1)}x
+                    </text>
+                  )}
+                </>
+              )}
+            </>
+          );
+        })()}
         {volSubTab === "vol" && chartData.volElements}
         {volSubTab === "vol" && chartData.volMaPts && <polyline points={chartData.volMaPts} fill="none" stroke="#fbbf24" strokeWidth={1} opacity={0.5} />}
         {volSubTab === "rsi" && (() => {
@@ -1141,12 +1264,21 @@ export function DailyChartSVG({
             </>
           );
         })()}
-        {/* Vol / RSI tab toggles at top of indicator pane */}
-        <text x={4} y={chartData.sepY + 11} fontSize={8} fontFamily="ui-monospace,monospace" fontWeight={700}
+        {/* Indicator pane tab toggles (RVol@T on 30m + Vol + RSI) */}
+        {isIntraday && (
+          <text x={4} y={chartData.sepY + 11} fontSize={8} fontFamily="ui-monospace,monospace" fontWeight={700}
+            fill={volSubTab === "rvol" ? "#fb923c" : "#4a4a5a"}
+            style={{ cursor: "pointer", userSelect: "none" }}
+            onMouseDown={(e) => { e.stopPropagation(); setVolSubTab("rvol"); }}>
+            <title>RVol at Time of Day (log2 scale centered on 1×): per-bar columns + orange cumulative RVol line vs prior 20 sessions</title>
+            RVol@T
+          </text>
+        )}
+        <text x={isIntraday ? 44 : 4} y={chartData.sepY + 11} fontSize={8} fontFamily="ui-monospace,monospace" fontWeight={700}
           fill={volSubTab === "vol" ? "#0d9163" : "#4a4a5a"}
           style={{ cursor: "pointer", userSelect: "none" }}
           onMouseDown={(e) => { e.stopPropagation(); setVolSubTab("vol"); }}>Vol</text>
-        <text x={26} y={chartData.sepY + 11} fontSize={8} fontFamily="ui-monospace,monospace" fontWeight={700}
+        <text x={isIntraday ? 66 : 26} y={chartData.sepY + 11} fontSize={8} fontFamily="ui-monospace,monospace" fontWeight={700}
           fill={volSubTab === "rsi" ? "#60a5fa" : "#4a4a5a"}
           style={{ cursor: "pointer", userSelect: "none" }}
           onMouseDown={(e) => { e.stopPropagation(); setVolSubTab("rsi"); }}>RSI</text>
@@ -1219,6 +1351,50 @@ export function DailyChartSVG({
           </>
         )}
       </div>
+      {isIntraday && volSubTab === "rvol" && rvolAtTime?.summary && (() => {
+        const s = rvolAtTime.summary;
+        const pctCol = s.cumPctile == null ? "#94a3b8" : s.cumPctile >= 90 ? "#22c55e" : s.cumPctile >= 70 ? "#4ade80" : s.cumPctile <= 20 ? "#f87171" : "#cbd5e1";
+        const barPctCol = s.barsAbovePct != null && s.barsAbovePct >= 60 ? "#22c55e" : "#cbd5e1";
+        const upCol = s.upVolPct == null ? "#94a3b8" : s.upVolPct >= 60 ? "#22c55e" : s.upVolPct <= 40 ? "#f87171" : "#cbd5e1";
+        const udTxt = s.upVolPct == null
+          ? "—"
+          : s.upDnRatio === Infinity
+            ? `all up (100%)`
+            : `${s.upDnRatio.toFixed(1)} (${s.upVolPct}%)`;
+        return (
+          <div style={{
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            gap: 10,
+            padding: "2px 8px 5px",
+            fontSize: 9,
+            fontFamily: "ui-monospace,monospace",
+            color: "#8a8a9a",
+            borderTop: `1px solid ${CH_ARIA.border}`,
+          }}>
+            <span style={{ color: "#fb923c", fontWeight: 800 }}>RVol@T</span>
+            <span title="Cumulative volume so far today ÷ average cumulative volume by this time of day">
+              Cum <strong style={{ color: "#fb923c" }}>{s.cumRvol != null ? `${s.cumRvol.toFixed(2)}×` : "—"}</strong>
+            </span>
+            <span title="Latest 30m bar volume ÷ average volume for this 30m time slot">
+              Bar <strong style={{ color: CH_ARIA.text }}>{s.barRvol != null ? `${s.barRvol.toFixed(2)}×` : "—"}</strong>
+            </span>
+            <span title="Session persistence: number of 30m bars today trading ≥ 1.0× normal volume for their time slot">
+              Bars ≥1× <strong style={{ color: barPctCol }}>{s.barsAbove}/{s.barsToday}{s.barsAbovePct != null ? ` (${s.barsAbovePct}%)` : ""}</strong>
+            </span>
+            <span title="Percentile rank of today's cumulative volume by this time vs prior sessions">
+              %ile <strong style={{ color: pctCol }}>{s.cumPctileLabel}</strong>
+            </span>
+            <span title="Up/down volume ratio on today's above-normal (≥1×) 30m bars (share of volume on up bars in parentheses)">
+              Up/Dn <strong style={{ color: upCol }}>{udTxt}</strong>
+            </span>
+            <span title={`Completed prior sessions averaged (target ${s.lookback})`} style={{ marginLeft: "auto" }}>
+              Days <strong style={{ color: s.isShort ? "#fbbf24" : "#94a3b8" }}>{s.daysAvg}{s.isShort ? " (short)" : ""}</strong>
+            </span>
+          </div>
+        );
+      })()}
       {!isIntraday && showRS && (
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 9, padding: "0 8px 5px", fontSize: 8, fontFamily: "monospace", color: "#7a7a8a", flexWrap: "wrap", alignItems: "center" }}>
           <span style={{ color: "#3b82f6", fontWeight: 700 }}>RS:</span>

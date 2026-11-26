@@ -627,3 +627,227 @@ export function score30mSetup(analysis, stock = {}) {
     actionable: false,
   };
 }
+
+function ordinalLabel(p) {
+  if (typeof p !== "number" || !Number.isFinite(p)) return "—";
+  const v = Math.round(p);
+  const mod100 = v % 100;
+  const suf =
+    mod100 >= 11 && mod100 <= 13
+      ? "th"
+      : v % 10 === 1
+        ? "st"
+        : v % 10 === 2
+          ? "nd"
+          : v % 10 === 3
+            ? "rd"
+            : "th";
+  return `${v}${suf}`;
+}
+
+/**
+ * RVol at Time of Day (RVol@T) — faithful port of the TradingView PineScript for intraday bars (30m).
+ * Compares each bar's volume and cumulative RTH volume at clock slot `s` against the average of the
+ * exact same clock slot over the prior `lookback` completed sessions.
+ *
+ * Uses log2(max(rvol, 0.125)) centered on 1x = 0 so 2x = +1, 4x = +2, 0.5x = -1.
+ *
+ * @param {Array<{ time: number, open: number, high: number, low: number, close: number, volume?: number }>} bars30m
+ * @param {{ lookback?: number, rthOnly?: boolean, hiLvl?: number, slotMin?: number }} [opts]
+ */
+export function computeRvolAtTime(bars30m, opts = {}) {
+  if (!Array.isArray(bars30m) || bars30m.length === 0) {
+    return { ok: false, bars: [], summary: null };
+  }
+
+  const {
+    lookback = 20,
+    rthOnly = true,
+    hiLvl = 2.0,
+    slotMin = 30,
+  } = opts;
+
+  const slotsPerDay = Math.ceil(1440 / slotMin);
+  const rows = lookback + 1;
+  const volM = Array.from({ length: rows }, () => new Float64Array(slotsPerDay));
+  const cumM = Array.from({ length: rows }, () => new Float64Array(slotsPerDay));
+
+  let curRow = 0;
+  let daysDone = -1; // starts at -1 so a partial first day on the chart is never averaged
+  let prevDayKey = null;
+  let lastSlot = -1;
+  let cumToday = 0;
+  let barsToday = 0;
+  let barsAbove = 0;
+  let upVolHi = 0;
+  let totVolHi = 0;
+
+  // Hold the latest in-scope readings so after-hours bars keep displaying RTH persistence stats.
+  let lastCum = null;
+  let lastBar = null;
+  let lastPct = null;
+  let lastDaysAvg = 0;
+  let lastSessionStats = null;
+
+  const outBars = new Array(bars30m.length);
+
+  for (let i = 0; i < bars30m.length; i++) {
+    const b = bars30m[i];
+    const et = formatEtTime(b?.time);
+    if (!et) {
+      outBars[i] = {
+        date: null,
+        hhmm: null,
+        inScope: false,
+        newDay: false,
+        isUp: false,
+        rvolBar: null,
+        rvolCum: null,
+        logBar: null,
+        logCum: null,
+        pctRank: null,
+      };
+      continue;
+    }
+
+    const dayKey = et.date;
+    const isNewDay = prevDayKey != null && dayKey !== prevDayKey;
+    prevDayKey = dayKey;
+
+    if (isNewDay) {
+      // Carry prior day's final cumulative volume to the end of its row so short days compare cleanly
+      if (lastSlot >= 0 && lastSlot < slotsPerDay - 1) {
+        for (let s = lastSlot + 1; s < slotsPerDay; s++) {
+          cumM[curRow][s] = cumToday;
+        }
+      }
+      daysDone = Math.min(daysDone + 1, lookback);
+      curRow = (curRow + 1) % rows;
+      volM[curRow].fill(0);
+      cumM[curRow].fill(0);
+      lastSlot = -1;
+      cumToday = 0;
+      barsToday = 0;
+      barsAbove = 0;
+      upVolHi = 0;
+      totVolHi = 0;
+    }
+
+    const minOfDay = et.hour * 60 + et.minute;
+    const slot = Math.min(Math.floor(minOfDay / slotMin), slotsPerDay - 1);
+    const isRth = minOfDay >= 570 && minOfDay < 960; // 09:30 .. 15:59 ET
+    const inScope = !rthOnly || isRth;
+    const vol = typeof b.volume === "number" && Number.isFinite(b.volume) && b.volume > 0 ? b.volume : 0;
+    const isUp = b.close >= b.open;
+
+    if (inScope) {
+      if (lastSlot >= 0 && slot - 1 >= lastSlot + 1) {
+        for (let s = lastSlot + 1; s < slot; s++) {
+          cumM[curRow][s] = cumToday;
+        }
+      }
+      cumToday += vol;
+      volM[curRow][slot] = vol;
+      cumM[curRow][slot] = cumToday;
+      lastSlot = slot;
+    }
+
+    const n = Math.max(daysDone, 0);
+    let rvolBar = null;
+    let rvolCum = null;
+    let pctRank = null;
+
+    if (inScope && n > 0) {
+      let sb = 0;
+      let sc = 0;
+      let below = 0;
+      for (let k = 1; k <= n; k++) {
+        const r = (curRow - k + rows) % rows;
+        sb += volM[r][slot];
+        const hc = cumM[r][slot];
+        sc += hc;
+        below += hc < cumToday ? 1 : hc === cumToday ? 0.5 : 0;
+      }
+      const avgBar = sb / n;
+      const avgCum = sc / n;
+      rvolBar = avgBar > 0 ? vol / avgBar : null;
+      rvolCum = avgCum > 0 ? cumToday / avgCum : null;
+      pctRank = (100 * below) / n;
+    }
+
+    if (inScope) {
+      lastCum = rvolCum;
+      lastBar = rvolBar;
+      lastPct = pctRank;
+      lastDaysAvg = n;
+    }
+
+    if (rvolBar != null) {
+      barsToday += 1;
+      if (rvolBar >= 1.0) {
+        barsAbove += 1;
+        totVolHi += vol;
+        if (isUp) upVolHi += vol;
+      }
+    }
+
+    if (inScope) {
+      lastSessionStats = {
+        barsToday,
+        barsAbove,
+        upVolHi,
+        totVolHi,
+        daysAvg: n,
+      };
+    }
+
+    const logBar = rvolBar != null ? Math.log2(Math.max(rvolBar, 0.125)) : null;
+    const logCum = rvolCum != null ? Math.log2(Math.max(rvolCum, 0.125)) : null;
+
+    outBars[i] = {
+      date: dayKey,
+      hhmm: et.hhmm,
+      inScope,
+      newDay: isNewDay,
+      isUp,
+      rvolBar: rvolBar != null ? round2(rvolBar) : null,
+      rvolCum: rvolCum != null ? round2(rvolCum) : null,
+      logBar,
+      logCum,
+      pctRank: pctRank != null ? round2(pctRank) : null,
+    };
+  }
+
+  const st = lastSessionStats || { barsToday: 0, barsAbove: 0, upVolHi: 0, totVolHi: 0, daysAvg: lastDaysAvg };
+  const barsAbovePct = st.barsToday > 0 ? Math.round((100 * st.barsAbove) / st.barsToday) : null;
+  const dnVolHi = st.totVolHi - st.upVolHi;
+  const upVolPct = st.totVolHi > 0 ? Math.round((100 * st.upVolHi) / st.totVolHi) : null;
+  const upDnRatio =
+    st.totVolHi <= 0
+      ? null
+      : dnVolHi <= 0
+        ? Infinity
+        : Math.round((st.upVolHi / dnVolHi) * 10) / 10;
+
+  return {
+    ok: st.daysAvg > 0,
+    bars: outBars,
+    summary: {
+      cumRvol: lastCum != null ? round2(lastCum) : null,
+      barRvol: lastBar != null ? round2(lastBar) : null,
+      barsAbove: st.barsAbove,
+      barsToday: st.barsToday,
+      barsAbovePct,
+      cumPctile: lastPct != null ? Math.round(lastPct) : null,
+      cumPctileLabel: ordinalLabel(lastPct),
+      upVolHi: st.upVolHi,
+      dnVolHi,
+      upDnRatio,
+      upVolPct,
+      daysAvg: st.daysAvg,
+      lookback,
+      isShort: st.daysAvg < lookback,
+      hiLvl,
+    },
+  };
+}

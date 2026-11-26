@@ -22,7 +22,7 @@ const INTRADAY = {
   "1m": { path: "1min", bars: 390, lookback: 4 },
   "5m": { path: "5min", bars: 78, lookback: 4 },
   "15m": { path: "15min", bars: 26, lookback: 6 },
-  "30m": { path: "30min", bars: 65, lookback: 10 },
+  "30m": { path: "30min", bars: 65, lookback: 10, chartBars: 310, chartLookback: 36 },
 };
 
 // FMP intraday timestamps are "YYYY-MM-DD HH:MM:SS" in America/New_York
@@ -62,7 +62,7 @@ function setCached(key, bars, nowMs) {
   batchCache.set(key, { ts: nowMs, bars });
 }
 
-async function fetchOhlcBars(symbol, ival, apiKey) {
+async function fetchOhlcBars(symbol, ival, apiKey, { batch = false } = {}) {
   const intraSpec = INTRADAY[ival];
   const isIntraday = Boolean(intraSpec);
   const isWeekly = ival === "1wk";
@@ -70,7 +70,9 @@ async function fetchOhlcBars(symbol, ival, apiKey) {
   let ohlc;
   if (isIntraday) {
     const now = new Date();
-    const fromStr = new Date(now.getTime() - intraSpec.lookback * 24 * 3600 * 1000).toISOString().split("T")[0];
+    const lbDays = batch ? intraSpec.lookback : (intraSpec.chartLookback ?? intraSpec.lookback);
+    const maxBars = batch ? intraSpec.bars : (intraSpec.chartBars ?? intraSpec.bars);
+    const fromStr = new Date(now.getTime() - lbDays * 24 * 3600 * 1000).toISOString().split("T")[0];
     const toStr = now.toISOString().split("T")[0];
     const url = `${FMP_BASE}/historical-chart/${intraSpec.path}?symbol=${encodeURIComponent(symbol)}&from=${fromStr}&to=${toStr}&apikey=${apiKey}`;
     const resp = await fetch(url, { signal: AbortSignal.timeout(10000) });
@@ -80,7 +82,7 @@ async function fetchOhlcBars(symbol, ival, apiKey) {
     // FMP returns newest-first. Take the most-recent N bars then reverse
     // so the client gets oldest → newest.
     ohlc = data
-      .slice(0, intraSpec.bars)
+      .slice(0, maxBars)
       .reverse()
       .map((c) => ({
         time: etToUnixSeconds(c.date),
@@ -203,7 +205,7 @@ export default async function handler(req, res) {
         while (cursor < missing.length) {
           const sym = missing[cursor++];
           try {
-            const bars = await fetchOhlcBars(sym, ival, apiKey);
+            const bars = await fetchOhlcBars(sym, ival, apiKey, { batch: true });
             setCached(`${ival}:${sym}`, bars, Date.now());
             items[sym] = bars;
           } catch {

@@ -7,6 +7,7 @@ import {
   computeOpeningRange,
   analyze30mPivot,
   score30mSetup,
+  computeRvolAtTime,
 } from "../src/lead/pivot30mMath.js";
 import ohlcHandler from "../api/ohlc.js";
 import { createToken } from "../api/auth.js";
@@ -386,6 +387,59 @@ test("score30mSetup orders TRIGGERED > ARMED > ORH_BO > PULLBACK > WATCH", () =>
   assert.ok(armed.score > orhBo.score, `${armed.score} > ${orhBo.score}`);
   assert.ok(orhBo.score > pullback.score, `${orhBo.score} > ${pullback.score}`);
   assert.ok(pullback.score > watch.score, `${pullback.score} > ${watch.score}`);
+});
+
+test("computeRvolAtTime computes per-slot RVol, cumulative RVol, percentile rank, and persistence stats", () => {
+  // Day 0 (partial first day — PineScript starts daysDone = -1 so day 0 is NOT averaged)
+  const day0 = makeSessionBars("2026-11-18", [
+    { o: 100, h: 101, l: 99, c: 100.5, v: 9999999 }, // outlier on partial day 0 must be ignored
+  ]);
+  // Day 1 & Day 2 (completed prior days): slot 0 (9:30) avg = 1000, slot 1 (10:00) avg = 500, slot 2 (10:30) avg = 400
+  const day1 = makeSessionBars("2026-11-19", [
+    { o: 100, h: 101, l: 99, c: 100.5, v: 800 },
+    { o: 100.5, h: 101, l: 100, c: 100.8, v: 400 },
+    { o: 100.8, h: 101.2, l: 100.5, c: 101, v: 300 },
+  ]);
+  const day2 = makeSessionBars("2026-11-20", [
+    { o: 101, h: 102, l: 100.5, c: 101.5, v: 1200 },
+    { o: 101.5, h: 102, l: 101, c: 101.2, v: 600 },
+    { o: 101.2, h: 101.8, l: 101, c: 101.6, v: 500 },
+  ]);
+  // Day 3 (today):
+  //   slot 0: vol 2000 (up) -> barRvol = 2.0x, cum = 2.0x (100th %ile)
+  //   slot 1: vol 1000 (down) -> barRvol = 2.0x, cum = 2.0x
+  //   slot 2: vol 200 (up) -> barRvol = 0.5x, cum = 3200 / 1900 = 1.68x
+  const day3 = makeSessionBars("2026-11-23", [
+    { o: 102, h: 104, l: 101.8, c: 103.8, v: 2000 },
+    { o: 103.8, h: 104, l: 102.5, c: 102.8, v: 1000 },
+    { o: 102.8, h: 103.5, l: 102.7, c: 103.4, v: 200 },
+  ]);
+
+  const res = computeRvolAtTime([...day0, ...day1, ...day2, ...day3], { lookback: 20 });
+  assert.equal(res.ok, true);
+  assert.equal(res.bars[0].rvolBar, null);
+  assert.equal(res.bars[1].rvolBar, null);
+  assert.equal(res.bars[7].rvolBar, 2);
+  assert.equal(res.bars[7].rvolCum, 2);
+  assert.equal(Math.round(res.bars[7].logBar * 100) / 100, 1);
+  assert.equal(res.bars[8].rvolBar, 2);
+  assert.equal(res.bars[8].rvolCum, 2);
+  assert.equal(res.bars[9].rvolBar, 0.5);
+  assert.equal(Math.round(res.bars[9].logBar * 100) / 100, -1);
+  assert.equal(res.bars[9].rvolCum, 1.68);
+  assert.equal(res.bars[9].pctRank, 100);
+
+  assert.equal(res.summary.daysAvg, 2);
+  assert.equal(res.summary.isShort, true);
+  assert.equal(res.summary.barsAbove, 2);
+  assert.equal(res.summary.barsToday, 3);
+  assert.equal(res.summary.barsAbovePct, 67);
+  assert.equal(res.summary.cumRvol, 1.68);
+  assert.equal(res.summary.barRvol, 0.5);
+  assert.equal(res.summary.cumPctile, 100);
+  assert.equal(res.summary.cumPctileLabel, "100th");
+  assert.equal(res.summary.upDnRatio, 2);
+  assert.equal(res.summary.upVolPct, 67);
 });
 
 function mockRes() {
