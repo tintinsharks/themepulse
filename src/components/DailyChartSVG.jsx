@@ -743,7 +743,8 @@ export function DailyChartSVG({
               key: "ent",
               price: pv.entry,
               y: py(pv.entry),
-              tag: `ENT $${fmtPrice(pv.entry)}`,
+              tag: `$${fmtPrice(pv.entry)}`,
+              tip: `Entry $${fmtPrice(pv.entry)}`,
               color: pv.state === "TRIGGERED" ? "#22c55e" : "#f59e0b",
               dash: "5,3",
               width: 1.3,
@@ -754,7 +755,8 @@ export function DailyChartSVG({
               key: "stp",
               price: pv.stop,
               y: py(pv.stop),
-              tag: `STP $${fmtPrice(pv.stop)}`,
+              tag: `$${fmtPrice(pv.stop)}`,
+              tip: `Stop $${fmtPrice(pv.stop)}`,
               color: "#f87171",
               dash: "5,3",
               width: 1.2,
@@ -766,6 +768,7 @@ export function DailyChartSVG({
               price: pv.target2R,
               y: py(pv.target2R),
               tag: `2R $${fmtPrice(pv.target2R)}`,
+              tip: `+2R Target $${fmtPrice(pv.target2R)}`,
               color: "#34d399",
               dash: "2,3",
               width: 1.1,
@@ -783,6 +786,7 @@ export function DailyChartSVG({
             const tagW = ln.tag.length * 4.9 + 8;
             pivotElements.push(
               <g key={`pv_${ln.key}`}>
+                <title>{ln.tip}</title>
                 <line x1={lineStartX} y1={ln.y} x2={chartRight} y2={ln.y}
                   stroke={ln.color} strokeWidth={ln.width} strokeDasharray={ln.dash} opacity={0.9} />
                 <rect x={chartRight - tagW - 2} y={ty - 6.5} width={tagW} height={13} rx={2.5}
