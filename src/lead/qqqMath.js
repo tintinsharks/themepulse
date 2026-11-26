@@ -896,13 +896,158 @@ export function computeQqqIntradayPredictor({ qqqQ, qqqeQ, internals, quotes, st
   };
 }
 
+// ── Anchored VWAP, Unfilled Gaps & Options Magnet Price Ladder ───────────────
+function calcAvwap(bars, startIdx) {
+  if (!Array.isArray(bars) || startIdx < 0 || startIdx >= bars.length) return null;
+  let pv = 0, vSum = 0;
+  for (let i = startIdx; i < bars.length; i++) {
+    const b = bars[i];
+    if (!b || !(b.close > 0)) continue;
+    const typ = ((b.high ?? b.close) + (b.low ?? b.close) + b.close) / 3;
+    const vol = b.volume > 0 ? b.volume : 1;
+    pv += typ * vol;
+    vSum += vol;
+  }
+  return vSum > 0 ? +(pv / vSum).toFixed(2) : null;
+}
+
+function findUnfilledGaps(bars, spot) {
+  if (!Array.isArray(bars) || bars.length < 3 || !(spot > 0)) return { above: null, below: null };
+  const start = Math.max(1, bars.length - 35);
+  let nearestAbove = null, nearestBelow = null;
+  for (let i = bars.length - 1; i >= start; i--) {
+    const cur = bars[i], prev = bars[i - 1];
+    if (!cur || !prev || !(cur.low > 0) || !(prev.high > 0)) continue;
+    // Gap down (open gap above current price: prev.low > cur.high)
+    if (prev.low > cur.high * 1.003) {
+      let maxHighAfter = cur.high;
+      for (let j = i + 1; j < bars.length; j++) if (bars[j]?.high > maxHighAfter) maxHighAfter = bars[j].high;
+      if (maxHighAfter < prev.low * 0.999 && prev.low > spot * 1.002) {
+        const edge = +prev.low.toFixed(2);
+        if (!nearestAbove || edge < nearestAbove.price) nearestAbove = { price: edge, date: cur.date };
+      }
+    }
+    // Gap up (open gap below current price: cur.low > prev.high)
+    if (cur.low > prev.high * 1.003) {
+      let minLowAfter = cur.low;
+      for (let j = i + 1; j < bars.length; j++) if (bars[j]?.low < minLowAfter) minLowAfter = bars[j].low;
+      if (minLowAfter > prev.high * 1.001 && prev.high < spot * 0.998) {
+        const edge = +prev.high.toFixed(2);
+        if (!nearestBelow || edge > nearestBelow.price) nearestBelow = { price: edge, date: cur.date };
+      }
+    }
+  }
+  return { above: nearestAbove, below: nearestBelow };
+}
+
+export function computeQqqPriceLadder({ qqqBars = [], qqqQ = null, tech = null, optionsAnalysis = null } = {}) {
+  const bars = Array.isArray(qqqBars) ? qqqBars.filter((b) => b?.close > 0) : [];
+  const spot = tech?.price ?? qqqQ?.rthPrice ?? qqqQ?.price ?? (bars.length ? bars[bars.length - 1].close : null);
+  if (!(spot > 0)) return null;
+
+  const vwap5d = bars.length >= 5 ? calcAvwap(bars, bars.length - 5) : null;
+
+  // 52w High AVWAP (anchored from highest high over last 252 bars)
+  let avwap52wHigh = null;
+  if (bars.length >= 20) {
+    const start252 = Math.max(0, bars.length - 252);
+    let hiIdx = start252;
+    for (let i = start252 + 1; i < bars.length; i++) {
+      if ((bars[i].high ?? bars[i].close) >= (bars[hiIdx].high ?? bars[hiIdx].close)) hiIdx = i;
+    }
+    avwap52wHigh = calcAvwap(bars, hiIdx);
+  }
+
+  // Recent 30-session Swing Low AVWAP
+  let avwapSwingLow = null;
+  if (bars.length >= 10) {
+    const start30 = Math.max(0, bars.length - 30);
+    let loIdx = start30;
+    for (let i = start30 + 1; i < bars.length; i++) {
+      if ((bars[i].low ?? bars[i].close) <= (bars[loIdx].low ?? bars[loIdx].close)) loIdx = i;
+    }
+    avwapSwingLow = calcAvwap(bars, loIdx);
+  }
+
+  const gaps = findUnfilledGaps(bars, spot);
+  const prevBar = bars.length >= 2 ? bars[bars.length - 2] : null;
+
+  const raw = [];
+  const add = (label, price, kind, priority, hint) => {
+    if (!(typeof price === "number" && Number.isFinite(price) && price > 0)) return;
+    const pct = +(((price / spot) - 1) * 100).toFixed(2);
+    if (Math.abs(pct) > 18) return; // keep ladder focused on actionable near-term levels
+    raw.push({ label, price: +price.toFixed(2), pct, kind, priority, hint });
+  };
+
+  // Options Magnets (highest institutional relevance)
+  if (optionsAnalysis?.callWall?.strike) add("Call Wall", optionsAnalysis.callWall.strike, "options", 1, "Highest Call OI resistance magnet");
+  if (optionsAnalysis?.putWall?.strike) add("Put Wall", optionsAnalysis.putWall.strike, "options", 1, "Highest Put OI support floor");
+  if (optionsAnalysis?.gammaFlip) add("Gamma Flip", optionsAnalysis.gammaFlip, "options", 1, "Dealer +GEX / −GEX volatility pivot");
+  if (optionsAnalysis?.expectedMove?.upper) add("+1σ Exp Move", optionsAnalysis.expectedMove.upper, "options", 2, "Options-implied upper 1σ boundary");
+  if (optionsAnalysis?.expectedMove?.lower) add("−1σ Exp Move", optionsAnalysis.expectedMove.lower, "options", 2, "Options-implied lower 1σ boundary");
+
+  // VWAPs
+  if (vwap5d) add("5d VWAP", vwap5d, "vwap", 1, "5-day institutional trendline");
+  if (avwap52wHigh) add("52wH AVWAP", avwap52wHigh, "vwap", 2, "Avg cost basis since 52w high");
+  if (avwapSwingLow) add("Swing-Low AVWAP", avwapSwingLow, "vwap", 2, "Dip-buyers' avg cost off 30d low");
+
+  // Unfilled Daily Gaps
+  if (gaps.above) add("Gap Fill", gaps.above.price, "gap", 2, `Unfilled daily gap from ${gaps.above.date}`);
+  if (gaps.below) add("Gap Support", gaps.below.price, "gap", 2, `Unfilled daily gap from ${gaps.below.date}`);
+
+  // Key Moving Averages & Prior Day Extremes
+  if (tech?.ema10?.val) add("10 EMA", tech.ema10.val, "ma", 2, "Short-term momentum EMA");
+  if (tech?.ema21?.val) add("21 EMA", tech.ema21.val, "ma", 1, "Swing trendline EMA");
+  if (tech?.sma50?.val) add("50 SMA", tech.sma50.val, "ma", 1, "Institutional intermediate trend");
+  if (prevBar?.high) add("Prior Day High", prevBar.high, "price", 3, "Yesterday's session high");
+  if (prevBar?.low) add("Prior Day Low", prevBar.low, "price", 3, "Yesterday's session low");
+
+  // Dedupe levels sitting right on top of each other (<0.20% apart), keeping higher priority
+  const dedupeSide = (arr) => {
+    const picked = [];
+    for (const item of arr) {
+      const clash = picked.find((p) => Math.abs(p.price - item.price) / spot < 0.002);
+      if (!clash) picked.push(item);
+      else if (item.priority < clash.priority) {
+        picked[picked.indexOf(clash)] = item;
+      }
+    }
+    return picked;
+  };
+
+  const aboveAll = dedupeSide(
+    raw.filter((r) => r.price > spot * 1.0015).sort((a, b) => a.price - b.price || a.priority - b.priority)
+  );
+  const belowAll = dedupeSide(
+    raw.filter((r) => r.price < spot * 0.9985).sort((a, b) => b.price - a.price || a.priority - b.priority)
+  );
+
+  // Pick top 4 nearest resistance (ordered high → low for visual ladder) and top 4 nearest support (high → low)
+  const resistance = aboveAll.slice(0, 4).reverse();
+  const support = belowAll.slice(0, 4);
+
+  return {
+    spot: +spot.toFixed(2),
+    vwap5d,
+    avwap52wHigh,
+    avwapSwingLow,
+    nearestResistance: aboveAll[0] || null,
+    nearestSupport: belowAll[0] || null,
+    resistance,
+    support,
+    expectedMove: optionsAnalysis?.expectedMove || null,
+  };
+}
+
 // ── Short-Term Trend (3–15d) & QQQ Options Bias Engine ───────────────────────
-// Combines 5 weighted factors (-100..+100):
-//   1. Short-Term EMA Structure & 5D Momentum (±25)
-//   2. 5D/10D NDX Breadth Thrust & Hook (±25)
-//   3. Mag-7 + Semi Weight Participation (~78% of QQQ) (±20)
-//   4. Equal-Weight vs Cap-Weight Health (±15)
-//   5. Live Intraday Reversal / Tape Confirmation (±15)
+// Combines 6 orthogonal factors (-100..+100):
+//   1. Price vs 5d VWAP & Short-Term EMAs (5/10/21) (±20)
+//   2. 5D/10D NDX Breadth Thrust & Hook (±20)
+//   3. Mag-7 + Semi Weight (~78%) + SMH/QQQ Canary (±15)
+//   4. Dealer Gamma (+GEX/-GEX) & Options Flow (±15)
+//   5. Macro Tailwind (VIX + 10Y Yield) (±15)
+//   6. Live Intraday Reversal / Tape Confirmation (±15)
 export function computeQqqShortTermBias({
   qqqBars = [],
   qqqQ = null,
@@ -910,13 +1055,18 @@ export function computeQqqShortTermBias({
   internals = null,
   breadthTrend = null,
   intradayPredictor = null,
+  optionsAnalysis = null,
+  vix = null,
+  us10y = null,
+  smhChg = null,
+  priceLadder = null,
   stockMap = {},
 } = {}) {
   if (!tech && !internals && !breadthTrend) return null;
 
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(v)));
 
-  // 1. Short-Term EMA & 5D Momentum (±25)
+  // 1. Price vs 5d VWAP & Short-Term EMAs (±20)
   let emaPts = 0;
   let emaDetail = "No bar history";
   const closes = (Array.isArray(qqqBars) ? qqqBars : [])
@@ -930,36 +1080,35 @@ export function computeQqqShortTermBias({
     const c5Ago = closes[Math.max(0, closes.length - 6)];
     ret5d = c5Ago ? +(((px / c5Ago) - 1) * 100).toFixed(2) : null;
   }
+  const vwap5d = priceLadder?.vwap5d ?? (qqqBars.length >= 5 ? calcAvwap(qqqBars, qqqBars.length - 5) : null);
   const ema10 = tech?.ema10?.val ?? null;
   const ema21 = tech?.ema21?.val ?? null;
   if (px && ema10 && ema21) {
-    if (ema5 && px > ema5) emaPts += 6; else if (ema5) emaPts -= 6;
-    if (px > ema10) emaPts += 7; else emaPts -= 7;
-    if (px > ema21) emaPts += 6; else emaPts -= 6;
-    if (ema10 > ema21) emaPts += 3; else emaPts -= 3;
-    if (ret5d != null) emaPts += ret5d >= 1.5 ? 3 : ret5d <= -1.5 ? -3 : 0;
-    emaPts = clamp(emaPts, -25, 25);
-    const aboveList = [ema5 && px > ema5 ? "5E" : null, px > ema10 ? "10E" : null, px > ema21 ? "21E" : null].filter(Boolean);
-    emaDetail = aboveList.length ? `Above ${aboveList.join("/")} · 5d ${ret5d != null ? `${ret5d >= 0 ? "+" : ""}${ret5d}%` : "—"}` : `Below 5/10/21E · 5d ${ret5d != null ? `${ret5d >= 0 ? "+" : ""}${ret5d}%` : "—"}`;
+    if (vwap5d && px > vwap5d) emaPts += 5; else if (vwap5d) emaPts -= 5;
+    if (ema5 && px > ema5) emaPts += 4; else if (ema5) emaPts -= 4;
+    if (px > ema10) emaPts += 5; else emaPts -= 5;
+    if (px > ema21) emaPts += 4; else emaPts -= 4;
+    if (ret5d != null) emaPts += ret5d >= 1.5 ? 2 : ret5d <= -1.5 ? -2 : 0;
+    emaPts = clamp(emaPts, -20, 20);
+    const aboveList = [vwap5d && px > vwap5d ? "5dVWAP" : null, px > ema10 ? "10E" : null, px > ema21 ? "21E" : null].filter(Boolean);
+    emaDetail = aboveList.length ? `Above ${aboveList.join("/")} · 5d ${ret5d != null ? `${ret5d >= 0 ? "+" : ""}${ret5d}%` : "—"}` : `Below 5dVWAP/10E/21E`;
   }
 
-  // 2. Short-Term NDX Breadth Thrust & Velocity (±25)
+  // 2. Short-Term NDX Breadth Thrust & Velocity (±20)
   let breadthPts = 0;
   let breadthDetail = "No breadth history";
   if (breadthTrend) {
     const p20 = breadthTrend.p20 ?? 50;
     const d5p20 = breadthTrend.d5?.p20 ?? 0;
     const d5p50 = breadthTrend.d5?.p50 ?? 0;
-    // Level vs 50%
-    breadthPts += ((p20 - 50) / 50) * 12;
-    // 5-day velocity (captures fast thrusts & hooks!)
-    breadthPts += Math.max(-10, Math.min(10, d5p20 * 0.7));
-    breadthPts += Math.max(-5, Math.min(5, d5p50 * 0.5));
-    breadthPts = clamp(breadthPts, -25, 25);
-    breadthDetail = `>20d ${p20}% (${d5p20 >= 0 ? "+" : ""}${d5p20} 5d) · >50d ${breadthTrend.p50}%`;
+    breadthPts += ((p20 - 50) / 50) * 10;
+    breadthPts += Math.max(-8, Math.min(8, d5p20 * 0.6));
+    breadthPts += Math.max(-4, Math.min(4, d5p50 * 0.4));
+    breadthPts = clamp(breadthPts, -20, 20);
+    breadthDetail = `>20d ${p20}% (${d5p20 >= 0 ? "+" : ""}${d5p20} 5d)`;
   }
 
-  // 3. Mag-7 + Semi Weight Participation (~78% of QQQ) (±20)
+  // 3. Mag-7 + Semi Weight (~78%) + SMH/QQQ Canary (±15)
   let enginePts = 0;
   let engineDetail = "—";
   const rows = internals?.rows || [];
@@ -975,24 +1124,68 @@ export function computeQqqShortTermBias({
   }
   const engineAbove20Pct = engTotalW > 0 ? Math.round((engAbove20W / engTotalW) * 100) : null;
   const engineUp1wPct = engTotalW > 0 ? Math.round((engUp1wW / engTotalW) * 100) : null;
+  const qqqChg = tech?.chgPct ?? qqqQ?.change ?? null;
+  const smhSpread = smhChg != null && qqqChg != null ? +(smhChg - qqqChg).toFixed(2) : null;
   if (engineAbove20Pct != null) {
-    enginePts = clamp(((engineAbove20Pct - 50) / 50) * 13 + (((engineUp1wPct ?? 50) - 50) / 50) * 7, -20, 20);
-    engineDetail = `${engineAbove20Pct}% wt >20d · ${engineUp1wPct}% wt up 1W`;
+    let rawEng = ((engineAbove20Pct - 50) / 50) * 9 + (((engineUp1wPct ?? 50) - 50) / 50) * 4;
+    if (smhSpread != null) rawEng += smhSpread >= 0.4 ? 2 : smhSpread <= -0.4 ? -2 : 0;
+    enginePts = clamp(rawEng, -15, 15);
+    engineDetail = `${engineAbove20Pct}% >20d${smhSpread != null ? ` · SMH ${smhSpread >= 0 ? "+" : ""}${smhSpread}% vs Q` : ""}`;
   }
 
-  // 4. Equal-Weight vs Cap-Weight Participation (±15)
-  let eqPts = 0;
-  let eqDetail = "—";
-  if (internals) {
+  // 4. Dealer Gamma (+GEX/-GEX) & Live Options Flow (±15)
+  let optPts = 0;
+  let optDetail = "Loading QQQ options…";
+  let gammaRegime = null;
+  if (optionsAnalysis) {
+    const posGex = (optionsAnalysis.netGex ?? 0) >= 0;
+    gammaRegime = posGex
+      ? { state: "POSITIVE_GEX", label: "+GEX Pinning", hint: "Dealers dampen swings — favor spreads & range levels", tone: "cyan" }
+      : { state: "NEGATIVE_GEX", label: "−GEX Trend/Volatile", hint: "Dealers amplify moves — favor outright Calls/Puts on breaks", tone: "warn" };
+    const totPrem = (optionsAnalysis.totalCallPrem || 0) + (optionsAnalysis.totalPutPrem || 0);
+    const callShare = totPrem > 0 ? Math.round((optionsAnalysis.totalCallPrem / totPrem) * 100) : 50;
+    // Call flow dominance (+8..-8), P/C ratio (+4..-4), above Gamma Flip (+3..-3)
+    optPts += ((callShare - 50) / 50) * 8;
+    if (optionsAnalysis.pcVolRatio != null) {
+      optPts += optionsAnalysis.pcVolRatio <= 0.75 ? 4 : optionsAnalysis.pcVolRatio >= 1.25 ? -4 : 0;
+    }
+    if (optionsAnalysis.gammaFlip && px) {
+      optPts += px > optionsAnalysis.gammaFlip ? 3 : -3;
+    }
+    optPts = clamp(optPts, -15, 15);
+    optDetail = `${gammaRegime.label} · ${callShare}% Call $`;
+  } else if (internals) {
+    // Fallback to Equal-Wt vs Cap-Wt if QQQ options haven't loaded yet
     const advPct = internals.pctAdv ?? 50;
-    const eqSpread = internals.eqWeightChg != null && internals.capWeightEstChg != null
-      ? +(internals.eqWeightChg - internals.capWeightEstChg).toFixed(2)
-      : 0;
-    eqPts = clamp(((advPct - 50) / 50) * 11 + Math.max(-4, Math.min(4, eqSpread * 2.5)), -15, 15);
-    eqDetail = `${advPct}% adv · Eq−Cap ${eqSpread >= 0 ? "+" : ""}${eqSpread}%`;
+    optPts = clamp(((advPct - 50) / 50) * 15, -15, 15);
+    optDetail = `${advPct}% NDX advancing`;
   }
 
-  // 5. Intraday Tape / Reversal Signal (±15)
+  // 5. Macro Tailwind: VIX & 10Y Treasury Yield (±15)
+  let macroPts = 0;
+  let macroDetail = "Neutral macro";
+  const vixVal = typeof vix?.price === "number" ? vix.price : null;
+  const vixChg = typeof vix?.changePct === "number" ? vix.changePct : null;
+  const tnxChg = typeof us10y?.changePct === "number" ? us10y.changePct : null;
+  if (vixVal != null || tnxChg != null) {
+    if (vixVal != null) {
+      macroPts += vixVal < 16 ? 5 : vixVal < 20 ? 2 : vixVal > 28 ? -5 : vixVal > 22 ? -2 : 0;
+    }
+    if (vixChg != null) {
+      macroPts += vixChg <= -5 ? 5 : vixChg <= -2 ? 2 : vixChg >= 8 ? -5 : vixChg >= 3 ? -2 : 0;
+    }
+    if (tnxChg != null) {
+      // Falling 10Y yields are bullish for long-duration QQQ tech
+      macroPts += tnxChg <= -1.2 ? 5 : tnxChg <= -0.4 ? 2 : tnxChg >= 1.5 ? -5 : tnxChg >= 0.5 ? -2 : 0;
+    }
+    macroPts = clamp(macroPts, -15, 15);
+    const parts = [];
+    if (vixVal != null) parts.push(`VIX ${vixVal.toFixed(1)}${vixChg != null ? ` (${vixChg >= 0 ? "+" : ""}${vixChg.toFixed(1)}%)` : ""}`);
+    if (us10y?.price != null) parts.push(`10Y ${us10y.price.toFixed(2)}%`);
+    macroDetail = parts.join(" · ") || "Neutral macro";
+  }
+
+  // 6. Live Intraday Reversal / Tape Confirmation (±15)
   let intraPts = 0;
   let intraDetail = "—";
   if (intradayPredictor) {
@@ -1000,59 +1193,57 @@ export function computeQqqShortTermBias({
     intraDetail = `${intradayPredictor.verdict} (${intradayPredictor.score}/100)`;
   }
 
-  const score = clamp(emaPts + breadthPts + enginePts + eqPts + intraPts, -100, 100);
+  const score = clamp(emaPts + breadthPts + enginePts + optPts + macroPts + intraPts, -100, 100);
 
   let bias = "NEUTRAL";
   let label = "Neutral / Chop";
   let outlook = "bullish";
   let suggestedHorizon = "swing";
   let tone = "muted";
-  let optionPlay = "Wait for confirmation · Light size or stay cash";
+  let optionPlay = "Mixed signals — wait for price to clear resistance or break support before sizing up.";
+  const gexAdvice = gammaRegime?.state === "NEGATIVE_GEX"
+    ? " (−GEX tape favors outright contracts over spreads)"
+    : gammaRegime?.state === "POSITIVE_GEX"
+      ? " (+GEX pinning tape — take profits near walls or use spreads)"
+      : "";
+
   if (score >= 40) {
     bias = "STRONG_BULLISH";
     label = "Strong Bullish";
     outlook = "bullish";
     suggestedHorizon = "swing";
     tone = "good";
-    optionPlay = "Favor QQQ Swing Calls (30–60d) — broad trend & mega-cap weight aligned";
+    optionPlay = `Lean Bullish: QQQ Swing Calls (30–60d)${gexAdvice}.`;
   } else if (score >= 15) {
     bias = "TACTICAL_BULLISH";
     label = "Tactical Bullish";
     outlook = "bullish";
     suggestedHorizon = "short";
     tone = "cyan";
-    optionPlay = "Favor Tactical Calls (1–3w) or Bull Call Spread — rebound/hook building";
+    optionPlay = `Lean Tactical Bullish: Calls on pullbacks / confirmation${gexAdvice}.`;
   } else if (score <= -40) {
     bias = "STRONG_BEARISH";
     label = "Strong Bearish";
     outlook = "bearish";
     suggestedHorizon = "swing";
     tone = "bad";
-    optionPlay = "Favor QQQ Swing Puts (30–60d) — short-term EMAs & breadth pointing down";
+    optionPlay = `Lean Bearish: QQQ Swing Puts (30–60d)${gexAdvice}.`;
   } else if (score <= -15) {
     bias = "TACTICAL_BEARISH";
     label = "Tactical Bearish";
     outlook = "bearish";
     suggestedHorizon = "short";
     tone = "warn";
-    optionPlay = "Favor Tactical Puts (1–3w) or Bear Put Spread on weak bounces";
+    optionPlay = `Lean Tactical Bearish: Puts on failed bounces into resistance${gexAdvice}.`;
   }
 
-  // Actionable trigger & invalidation levels
-  const keyLvls = [
-    ema10 ? { label: "10 EMA", px: +ema10.toFixed(2) } : null,
-    ema21 ? { label: "21 EMA", px: +ema21.toFixed(2) } : null,
-    tech?.sma50?.val ? { label: "50 SMA", px: +tech.sma50.val.toFixed(2) } : null,
-    qqqQ?.dayHigh ? { label: "Today High", px: +qqqQ.dayHigh.toFixed(2) } : null,
-    qqqQ?.dayLow ? { label: "Today Low", px: +qqqQ.dayLow.toFixed(2) } : null,
-  ].filter(Boolean);
-
-  const bullTrigger = px
-    ? keyLvls.filter((l) => l.px > px * 1.001).sort((a, b) => a.px - b.px)[0] || null
-    : null;
-  const bearTrigger = px
-    ? keyLvls.filter((l) => l.px < px * 0.999).sort((a, b) => b.px - a.px)[0] || null
-    : null;
+  // Actionable trigger & invalidation levels (prefer unified priceLadder when present)
+  const bullTrigger = priceLadder?.nearestResistance
+    ? { label: priceLadder.nearestResistance.label, px: priceLadder.nearestResistance.price }
+    : (px && ema10 && ema10 > px ? { label: "10 EMA", px: +ema10.toFixed(2) } : null);
+  const bearTrigger = priceLadder?.nearestSupport
+    ? { label: priceLadder.nearestSupport.label, px: priceLadder.nearestSupport.price }
+    : (px && ema21 && ema21 < px ? { label: "21 EMA", px: +ema21.toFixed(2) } : null);
 
   return {
     score,
@@ -1062,17 +1253,19 @@ export function computeQqqShortTermBias({
     suggestedHorizon,
     tone,
     optionPlay,
+    gammaRegime,
     ret5d,
     engineAbove20Pct,
     engineUp1wPct,
     bullTrigger,
     bearTrigger,
     factors: [
-      { key: "ema", label: "Short-Term EMAs (5/10/21)", pts: emaPts, max: 25, detail: emaDetail },
-      { key: "breadth", label: "5D Breadth Thrust (>20d)", pts: breadthPts, max: 25, detail: breadthDetail },
-      { key: "engine", label: "Mag-7 + Semi Weight (78%)", pts: enginePts, max: 20, detail: engineDetail },
-      { key: "eq", label: "Equal-Wt vs Cap-Wt", pts: eqPts, max: 15, detail: eqDetail },
-      { key: "intra", label: "Intraday Reversal Signal", pts: intraPts, max: 15, detail: intraDetail },
+      { key: "ema", label: "5d VWAP & EMAs", pts: emaPts, max: 20, detail: emaDetail },
+      { key: "breadth", label: "5D Breadth Thrust", pts: breadthPts, max: 20, detail: breadthDetail },
+      { key: "engine", label: "Mag-7 + SMH Canary", pts: enginePts, max: 15, detail: engineDetail },
+      { key: "options", label: "Dealer Gamma & Flow", pts: optPts, max: 15, detail: optDetail },
+      { key: "macro", label: "VIX & 10Y Macro", pts: macroPts, max: 15, detail: macroDetail },
+      { key: "intra", label: "Intraday Reversal", pts: intraPts, max: 15, detail: intraDetail },
     ],
   };
 }

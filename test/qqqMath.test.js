@@ -11,6 +11,7 @@ import {
   computeNdxWeights,
   computeQqqBreadthTrend,
   computeQqqIntradayPredictor,
+  computeQqqPriceLadder,
   computeQqqShortTermBias,
   computeQqqTechnicals,
 } from "../src/lead/qqqMath.js";
@@ -240,4 +241,61 @@ test("computeQqqShortTermBias scores bullish vs bearish options bias accurately"
   assert.equal(bear.bias, "STRONG_BEARISH");
   assert.equal(bear.outlook, "bearish");
   assert.ok(bear.score <= -50);
+});
+
+test("computeQqqPriceLadder computes VWAPs, unfilled gaps, options magnets, and feeds gamma/macro bias", () => {
+  // 35 bars with a peak at bar 5 (650), an unfilled gap down at bar 20, and a swing low at bar 28 (600)
+  const bars = Array.from({ length: 35 }, (_, i) => {
+    let base = 625;
+    if (i <= 5) base = 635 + i * 3; // peaks at 650
+    else if (i < 20) base = 645 - (i - 5) * 0.4; // ~639
+    else if (i < 28) base = 620 - (i - 20) * 2.5; // gap down from ~638 to ~620, trough 602.5
+    else base = 602 + (i - 28) * 3.5; // recovers to 623
+    return {
+      date: `2026-10-${String((i % 28) + 1).padStart(2, "0")}`,
+      open: base - 1,
+      high: base + 2,
+      low: base - 2,
+      close: base,
+      volume: 40_000_000,
+    };
+  });
+  const spot = 624;
+  const tech = computeQqqTechnicals(bars, { price: spot, previousClose: 620, open: 621, dayHigh: 626, dayLow: 619 });
+  const optionsAnalysis = {
+    callWall: { strike: 650, oi: 50000 },
+    putWall: { strike: 600, oi: 45000 },
+    gammaFlip: 615,
+    netGex: -80_000_000,
+    totalCallPrem: 70_000_000,
+    totalPutPrem: 30_000_000,
+    pcVolRatio: 0.65,
+    expectedMove: { dollars: 12, pct: 1.9, upper: 636, lower: 612 },
+  };
+  const ladder = computeQqqPriceLadder({ qqqBars: bars, qqqQ: { price: spot }, tech, optionsAnalysis });
+  assert.equal(ladder.spot, spot);
+  assert.ok(ladder.vwap5d > 600 && ladder.vwap5d < 630);
+  assert.ok(ladder.avwap52wHigh > spot);
+  assert.ok(ladder.avwapSwingLow < spot);
+  assert.ok(ladder.resistance.some((r) => r.label === "Call Wall" || r.label === "Gap Fill" || r.label === "+1σ Exp Move"));
+  assert.ok(ladder.support.some((s) => s.label === "Put Wall" || s.label === "Gamma Flip" || s.label === "5d VWAP"));
+
+  const bias = computeQqqShortTermBias({
+    qqqBars: bars,
+    qqqQ: { price: spot, change: 1.2 },
+    tech,
+    internals: { pctAdv: 75, eqWeightChg: 1.5, capWeightEstChg: 1.2, rows: [{ ticker: "NVDA", group: "mag7", weightPct: 11, sma20: 4, chg: 2.2 }] },
+    breadthTrend: { p20: 65, p50: 58, d5: { p20: 12, p50: 5 } },
+    intradayPredictor: { score: 78, verdict: "Recovery Triggered" },
+    optionsAnalysis,
+    vix: { price: 18.5, changePct: -6.2 },
+    us10y: { price: 4.35, changePct: -1.5 },
+    smhChg: 2.5,
+    priceLadder: ladder,
+    stockMap: { NVDA: { return_1w: 4 } },
+  });
+  assert.equal(bias.factors.length, 6);
+  assert.equal(bias.gammaRegime.state, "NEGATIVE_GEX");
+  assert.equal(bias.outlook, "bullish");
+  assert.ok(bias.score >= 40);
 });

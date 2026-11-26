@@ -23,11 +23,13 @@ import {
   computeNdxInternals,
   computeQqqBreadthTrend,
   computeQqqIntradayPredictor,
+  computeQqqPriceLadder,
   computeQqqShortTermBias,
   computeQqqTechnicals,
 } from "./qqqMath.js";
+import { analyzeOptionChain } from "./optionsMath.js";
 
-const BENCH_TKS = ["QQQ", "QQQE", "SPY", "IWM", "TQQQ", "SQQQ"];
+const BENCH_TKS = ["QQQ", "QQQE", "SPY", "IWM", "SMH", "TQQQ", "SQQQ"];
 const ALL_QUOTE_TKS = [...new Set([...BENCH_TKS, ...NDX_TICKERS])];
 const STAGE_COLOR = { 1: "#64748b", 2: "#3b82f6", 3: "#eab308", 4: "#ec4899" };
 const GROUP_COLOR = Object.fromEntries(NDX_GROUPS.map((g) => [g.id, g.color]));
@@ -414,6 +416,7 @@ export default function QqqPanel({
   const [breadthArchive, setBreadthArchive] = useState(() => _qqqBreadthCache.rows);
   const [breadthRange, setBreadthRange] = useState(780); // default 3Y lookback
   const [mq, setMq] = useState(null);
+  const [qqqOptBundle, setQqqOptBundle] = useState(null);
   const [groupFilter, setGroupFilter] = useState("all"); // all | mag7 | semi | soft | cons | health | ind | bo | weak
   const [minAdr, setMinAdr] = useState(null);
   const [query, setQuery] = useState("");
@@ -459,7 +462,7 @@ export default function QqqPanel({
     return () => { alive = false; };
   }, []);
 
-  // Poll /api/market-quality every 60s for live NQ=F futures & VIX
+  // Poll /api/market-quality every 60s for live NQ=F futures, VIX & 10Y yield
   useEffect(() => {
     let alive = true;
     const pull = () => {
@@ -473,11 +476,26 @@ export default function QqqPanel({
     return () => { alive = false; clearInterval(id); };
   }, []);
 
+  // Poll /api/options?ticker=QQQ&swing=1 for live Dealer Gamma, Call/Put Walls & Expected Move
+  useEffect(() => {
+    let alive = true;
+    const pull = () => {
+      authFetch("/api/options?ticker=QQQ&swing=1", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => { if (alive && d?.selected) setQqqOptBundle(d); })
+        .catch(() => {});
+    };
+    pull();
+    const id = setInterval(() => { if (!document.hidden && etClock().rth) pull(); }, 120000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+
   const getBench = (tk) => quotes.get(tk) || indexQuotes?.[tk] || null;
   const qqqQ = getBench("QQQ");
   const qqqeQ = getBench("QQQE");
   const spyQ = getBench("SPY");
   const iwmQ = getBench("IWM");
+  const smhQ = getBench("SMH");
   const tqqqQ = getBench("TQQQ");
   const sqqqQ = getBench("SQQQ");
 
@@ -495,6 +513,37 @@ export default function QqqPanel({
     [stockMap, quotes, tickerLayer, profiles]
   );
 
+  const nqFut = useMemo(() => {
+    const futs = Array.isArray(mq?.futures) ? mq.futures : [];
+    return futs.find((f) => /nasdaq|nq/i.test(String(f?.name || f?.ticker || ""))) || null;
+  }, [mq]);
+
+  const vixTape = useMemo(() => {
+    const tape = Array.isArray(mq?.tape) ? mq.tape : [];
+    return tape.find((t) => t?.ticker === "VIX") || null;
+  }, [mq]);
+
+  const tnxTape = useMemo(() => {
+    const tape = Array.isArray(mq?.tape) ? mq.tape : [];
+    return tape.find((t) => /tnx|10y|us10y/i.test(String(t?.ticker || t?.name || ""))) || null;
+  }, [mq]);
+
+  // Analyze QQQ options chain (use swingChain if nearest is 0DTE outside RTH, else selected)
+  const qqqOptionsAnalysis = useMemo(() => {
+    if (!qqqOptBundle?.spot) return null;
+    const sel = qqqOptBundle.selected;
+    const useChain = (sel?.dte === 0 && !etClock().rth && qqqOptBundle.swingChain)
+      ? qqqOptBundle.swingChain
+      : sel;
+    if (!useChain) return null;
+    return analyzeOptionChain(useChain, qqqOptBundle.spot, { ticker: "QQQ", adr20: stockMap?.QQQ?.adr20 ?? null });
+  }, [qqqOptBundle, stockMap]);
+
+  const priceLadder = useMemo(
+    () => computeQqqPriceLadder({ qqqBars, qqqQ, tech, optionsAnalysis: qqqOptionsAnalysis }),
+    [qqqBars, qqqQ, tech, qqqOptionsAnalysis]
+  );
+
   const todayStr = etClock().today;
   const breadthSeries = useMemo(
     () => buildQqqBreadthSeries(breadthArchive, internals, tech.price, todayStr),
@@ -509,8 +558,21 @@ export default function QqqPanel({
     [qqqQ, qqqeQ, internals, quotes, stockMap]
   );
   const shortTermBias = useMemo(
-    () => computeQqqShortTermBias({ qqqBars, qqqQ, tech, internals, breadthTrend, intradayPredictor: intradayPred, stockMap }),
-    [qqqBars, qqqQ, tech, internals, breadthTrend, intradayPred, stockMap]
+    () => computeQqqShortTermBias({
+      qqqBars,
+      qqqQ,
+      tech,
+      internals,
+      breadthTrend,
+      intradayPredictor: intradayPred,
+      optionsAnalysis: qqqOptionsAnalysis,
+      vix: vixTape,
+      us10y: tnxTape,
+      smhChg: smhQ?.change ?? stockMap?.SMH?.change_pct ?? null,
+      priceLadder,
+      stockMap,
+    }),
+    [qqqBars, qqqQ, tech, internals, breadthTrend, intradayPred, qqqOptionsAnalysis, vixTape, tnxTape, smhQ, priceLadder, stockMap]
   );
   const trendColor = !breadthTrend
     ? A.textMuted
@@ -521,16 +583,6 @@ export default function QqqPanel({
         : breadthTrend.tone === "warn"
           ? "#f59e0b"
           : A.red;
-
-  const nqFut = useMemo(() => {
-    const futs = Array.isArray(mq?.futures) ? mq.futures : [];
-    return futs.find((f) => /nasdaq|nq/i.test(String(f?.name || f?.ticker || ""))) || null;
-  }, [mq]);
-
-  const vixTape = useMemo(() => {
-    const tape = Array.isArray(mq?.tape) ? mq.tape : [];
-    return tape.find((t) => t?.ticker === "VIX") || null;
-  }, [mq]);
 
   const pfSet = useMemo(() => new Set(portfolio || []), [portfolio]);
   const wlSet = useMemo(() => new Set(watchlist || []), [watchlist]);
@@ -868,18 +920,25 @@ export default function QqqPanel({
         </Card>
       </div>
 
-      {/* 1B. Short-Term Options Bias & Live Intraday Recovery Predictor */}
-      {(shortTermBias || intradayPred) && (() => {
+      {/* 1B. Simple QQQ Options Bias, Key Price Ladder & Intraday Recovery Predictor */}
+      {(shortTermBias || priceLadder || intradayPred) && (() => {
         const toneCol = (t) => (t === "good" ? A.green : t === "cyan" ? A.cyan : t === "warn" ? "#f59e0b" : t === "bad" ? A.red : A.textMuted);
         const biasCol = shortTermBias ? toneCol(shortTermBias.tone) : A.textMuted;
         const predCol = intradayPred ? toneCol(intradayPred.tone) : A.textMuted;
         const gapCol = intradayPred ? toneCol(intradayPred.gapTone) : A.textMuted;
+        const kindStyle = (k) => (
+          k === "options" ? { tag: "OPT", color: "#c084fc" }
+            : k === "vwap" ? { tag: "VWAP", color: A.cyan }
+              : k === "gap" ? { tag: "GAP", color: "#fbbf24" }
+                : k === "ma" ? { tag: "MA", color: "#60a5fa" }
+                  : { tag: "LVL", color: A.textMuted }
+        );
         return (
           <div id="qqq-predictor" style={{ scrollMarginTop: 96 }}>
             <Card
               A={A}
-              title="Short-Term Options Bias & Intraday Recovery Predictor"
-              sub="Weighted NDX internals + 5d breadth velocity + live reversal confirmation"
+              title="QQQ Options Bias & Key Price Levels"
+              sub="Simple 6-factor bias (VWAP/EMAs · Breadth · Mag7/SMH · Dealer Gamma · VIX/10Y · Intraday) + S/R Price Ladder"
               right={
                 shortTermBias && onOpenOptions ? (
                   <button
@@ -902,46 +961,62 @@ export default function QqqPanel({
                 ) : null
               }
             >
+              {/* TOP ROW: Simple Options Bias (Left) + Visual Key Price Ladder (Right) */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 12 }}>
-                {/* LEFT: Short-Term Trend (3–15d) & Options Bias */}
+                {/* LEFT: Short-Term Options Bias (Traffic-Light Read) */}
                 {shortTermBias && (
-                  <div style={{ background: A.bg, border: `1px solid ${biasCol}44`, borderTop: `2px solid ${biasCol}`, borderRadius: 8, padding: "10px 12px" }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-                      <div>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: A.textMuted, letterSpacing: 0.45, textTransform: "uppercase" }}>
-                          Short-Term Trend &amp; Options Bias (3–15d)
-                        </div>
-                        <div style={{ display: "inline-flex", alignItems: "center", gap: 7, marginTop: 2 }}>
-                          <span style={{ fontSize: 15, fontWeight: 800, color: biasCol }}>
-                            {shortTermBias.outlook === "bearish" ? "▼" : shortTermBias.score >= 15 ? "▲" : "◆"} {shortTermBias.label}
-                          </span>
-                          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "1px 6px", borderRadius: 4, background: `${biasCol}20`, color: biasCol }}>
-                            {shortTermBias.score > 0 ? "+" : ""}{shortTermBias.score} / 100
-                          </span>
-                        </div>
+                  <div style={{ background: A.bg, border: `1px solid ${biasCol}44`, borderTop: `2.5px solid ${biasCol}`, borderRadius: 8, padding: "11px 13px" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, flexWrap: "wrap" }}>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
+                        <span style={{ fontSize: 16, fontWeight: 800, color: biasCol }}>
+                          {shortTermBias.outlook === "bearish" ? "▼" : shortTermBias.score >= 15 ? "▲" : "◆"} {shortTermBias.label}
+                        </span>
+                        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "2px 6px", borderRadius: 4, background: `${biasCol}22`, color: biasCol }}>
+                          {shortTermBias.score > 0 ? "+" : ""}{shortTermBias.score}
+                        </span>
                       </div>
+                      {shortTermBias.gammaRegime && (
+                        <span
+                          title={shortTermBias.gammaRegime.hint}
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 700,
+                            fontFamily: MONO,
+                            padding: "2px 6px",
+                            borderRadius: 4,
+                            border: `1px solid ${toneCol(shortTermBias.gammaRegime.tone)}66`,
+                            color: toneCol(shortTermBias.gammaRegime.tone),
+                          }}
+                        >
+                          {shortTermBias.gammaRegime.label}
+                        </span>
+                      )}
                     </div>
 
                     <div style={{ fontSize: 11.5, color: A.text, marginTop: 6, lineHeight: 1.4 }}>
                       {shortTermBias.optionPlay}
                     </div>
 
-                    {/* 5 Signed Factor Bars */}
-                    <div style={{ marginTop: 9, display: "flex", flexDirection: "column", gap: 6 }}>
+                    {/* 6 Clean Traffic-Light Signal Rows */}
+                    <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
                       {shortTermBias.factors.map((f) => {
-                        const colr = f.pts > 0 ? A.green : f.pts < 0 ? A.red : A.textMuted;
+                        const colr = f.pts >= 3 ? A.green : f.pts <= -3 ? A.red : A.textMuted;
+                        const dot = f.pts >= 3 ? "●" : f.pts <= -3 ? "●" : "◐";
                         const pctW = Math.min(50, (Math.abs(f.pts) / f.max) * 50);
                         return (
                           <div key={f.key}>
-                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10.5, marginBottom: 2 }}>
-                              <span style={{ color: A.textDim, fontWeight: 600 }}>{f.label}</span>
-                              <span style={{ fontFamily: MONO, color: A.textMuted, fontSize: 10 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 10.5, marginBottom: 2, gap: 6 }}>
+                              <span style={{ color: A.text, fontWeight: 600, whiteSpace: "nowrap" }}>
+                                <span style={{ color: colr, marginRight: 5 }}>{dot}</span>
+                                {f.label}
+                              </span>
+                              <span style={{ fontFamily: MONO, color: A.textMuted, fontSize: 10, textAlign: "right", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                 {f.detail}{" "}
                                 <strong style={{ color: colr }}>({f.pts > 0 ? "+" : ""}{f.pts})</strong>
                               </span>
                             </div>
-                            <div style={{ position: "relative", height: 5, borderRadius: 3, background: A.border, overflow: "hidden" }}>
-                              <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, background: A.textMuted, opacity: 0.4 }} />
+                            <div style={{ position: "relative", height: 4, borderRadius: 2, background: A.border, overflow: "hidden" }}>
+                              <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, background: A.textMuted, opacity: 0.35 }} />
                               <div
                                 style={{
                                   position: "absolute",
@@ -950,7 +1025,7 @@ export default function QqqPanel({
                                   left: f.pts >= 0 ? "50%" : `${50 - pctW}%`,
                                   width: `${pctW}%`,
                                   background: colr,
-                                  borderRadius: 3,
+                                  borderRadius: 2,
                                 }}
                               />
                             </div>
@@ -958,125 +1033,159 @@ export default function QqqPanel({
                         );
                       })}
                     </div>
-
-                    {/* Bullish Trigger & Downside Invalidation */}
-                    {(shortTermBias.bullTrigger || shortTermBias.bearTrigger) && (
-                      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6, marginTop: 9, paddingTop: 7, borderTop: `1px solid ${A.border}`, fontSize: 10.5, fontFamily: MONO }}>
-                        {shortTermBias.bullTrigger && (
-                          <span style={{ color: A.green }}>
-                            ▲ Confirm: {shortTermBias.bullTrigger.label} ${shortTermBias.bullTrigger.px.toFixed(2)}
-                          </span>
-                        )}
-                        {shortTermBias.bearTrigger && (
-                          <span style={{ color: A.red }}>
-                            ▼ Risk/Stop: {shortTermBias.bearTrigger.label} ${shortTermBias.bearTrigger.px.toFixed(2)}
-                          </span>
-                        )}
-                      </div>
-                    )}
                   </div>
                 )}
 
-                {/* RIGHT: Live Intraday Recovery / Reversal Predictor */}
-                {intradayPred && (
-                  <div style={{ background: A.bg, border: `1px solid ${predCol}44`, borderTop: `2px solid ${predCol}`, borderRadius: 8, padding: "10px 12px" }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-                      <div>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: A.textMuted, letterSpacing: 0.45, textTransform: "uppercase" }}>
-                          Intraday Recovery / Reversal Predictor
-                        </div>
-                        <div style={{ display: "inline-flex", alignItems: "center", gap: 7, marginTop: 2 }}>
-                          <span style={{ fontSize: 15, fontWeight: 800, color: predCol }}>{intradayPred.verdict}</span>
-                          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 800, padding: "1px 6px", borderRadius: 4, background: `${predCol}20`, color: predCol }}>
-                            {intradayPred.score} / 100
+                {/* RIGHT: Visual Key Price Ladder (Simple S/R Magnets Around Spot) */}
+                {priceLadder && (
+                  <div style={{ background: A.bg, border: `1px solid ${A.border}`, borderTop: `2.5px solid ${A.cyan}`, borderRadius: 8, padding: "11px 13px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, marginBottom: 7 }}>
+                        <span style={{ fontSize: 10.5, fontWeight: 800, color: A.text, letterSpacing: 0.4, textTransform: "uppercase" }}>
+                          Key Price Ladder (Resistance &amp; Support)
+                        </span>
+                        {priceLadder.expectedMove && (
+                          <span style={{ fontFamily: MONO, fontSize: 10, color: A.cyan }}>
+                            EM ±{priceLadder.expectedMove.pct.toFixed(1)}% (${priceLadder.expectedMove.lower.toFixed(0)}–${priceLadder.expectedMove.upper.toFixed(0)})
                           </span>
-                        </div>
+                        )}
                       </div>
-                      <span
-                        title={intradayPred.gapHint}
+
+                      {/* RESISTANCE ABOVE SPOT */}
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        {priceLadder.resistance.length === 0 ? (
+                          <div style={{ fontSize: 10.5, color: A.textMuted, fontStyle: "italic", padding: "3px 0" }}>Blue sky — no overhead resistance within 18%</div>
+                        ) : priceLadder.resistance.map((lvl) => {
+                          const ks = kindStyle(lvl.kind);
+                          return (
+                            <div
+                              key={`r-${lvl.label}`}
+                              title={lvl.hint}
+                              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 8px", borderRadius: 5, background: "rgba(248,113,113,0.07)", border: `1px solid ${A.border}`, fontSize: 11 }}
+                            >
+                              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                                <span style={{ fontSize: 9, fontWeight: 800, fontFamily: MONO, padding: "1px 4px", borderRadius: 3, background: `${ks.color}20`, color: ks.color }}>{ks.tag}</span>
+                                <span style={{ color: A.text, fontWeight: 600 }}>{lvl.label}</span>
+                              </span>
+                              <span style={{ fontFamily: MONO, fontWeight: 700 }}>
+                                <span style={{ color: A.text }}>${lvl.price.toFixed(2)}</span>
+                                <span style={{ color: A.red, marginLeft: 7, fontSize: 10.5 }}>+{lvl.pct.toFixed(1)}%</span>
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* SPOT DIVIDER */}
+                      <div
                         style={{
-                          fontSize: 10,
-                          fontWeight: 700,
+                          margin: "7px 0",
+                          padding: "5px 9px",
+                          borderRadius: 6,
+                          background: `${A.cyan}1c`,
+                          border: `1.5px solid ${A.cyan}`,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
                           fontFamily: MONO,
-                          padding: "2px 6px",
-                          borderRadius: 4,
-                          border: `1px solid ${gapCol}66`,
-                          color: gapCol,
+                          fontSize: 12,
+                          fontWeight: 800,
                         }}
                       >
-                        {intradayPred.gapLabel}
-                        {intradayPred.qqqGapPct != null ? ` (${fmtPct(intradayPred.qqqGapPct, 1)})` : ""}
-                      </span>
-                    </div>
-
-                    <div style={{ fontSize: 11, color: A.textDim, marginTop: 5, lineHeight: 1.4 }}>
-                      {intradayPred.gapHint}
-                      {intradayPred.eqMinusCapGap != null && (
-                        <span style={{ fontFamily: MONO, color: A.textMuted }}> · Eq−Cap gap {fmtPct(intradayPred.eqMinusCapGap, 2)}</span>
-                      )}
-                    </div>
-
-                    {/* 4 Component Progress Gauges */}
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7, marginTop: 9 }}>
-                      {intradayPred.components.map((c) => {
-                        const pctFill = Math.round((c.pts / c.max) * 100);
-                        const barCol = c.ok ? A.green : pctFill >= 50 ? A.cyan : "#f59e0b";
-                        return (
-                          <div key={c.key} style={{ background: A.bgCard, border: `1px solid ${A.border}`, borderRadius: 6, padding: "6px 8px" }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: A.textMuted }}>
-                              <span>{c.label}</span>
-                              <strong style={{ fontFamily: MONO, color: barCol }}>{c.pts}/{c.max}</strong>
-                            </div>
-                            <div style={{ fontFamily: MONO, fontSize: 11.5, fontWeight: 700, color: A.text, marginTop: 2 }}>
-                              {c.value}
-                            </div>
-                            <div style={{ height: 4, borderRadius: 2, background: A.border, marginTop: 4, overflow: "hidden" }}>
-                              <div style={{ height: "100%", width: `${pctFill}%`, background: barCol }} />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* Top-8 Weight Anchors Live Move From Open */}
-                    {intradayPred.anchorDrivers.length > 0 && (
-                      <div style={{ marginTop: 9, paddingTop: 7, borderTop: `1px solid ${A.border}` }}>
-                        <div style={{ fontSize: 9.5, fontWeight: 700, color: A.textMuted, letterSpacing: 0.4, textTransform: "uppercase", marginBottom: 4 }}>
-                          Top Weight Anchors vs Open ({intradayPred.fromOpenBps >= 0 ? "+" : ""}{intradayPred.fromOpenBps} bps NDX net)
-                        </div>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                          {intradayPred.anchorDrivers.slice(0, 8).map((a) => {
-                            const colr = (a.fromOpen ?? a.chg ?? 0) >= 0 ? A.green : A.red;
-                            return (
-                              <button
-                                key={a.ticker}
-                                type="button"
-                                onClick={() => onTicker && onTicker(a.ticker)}
-                                title={`${a.ticker} (${a.weightPct}% wt) · Day ${fmtPct(a.chg, 2)} · vs Open ${fmtPct(a.fromOpen, 2)} (${a.fromOpenBps != null ? `${a.fromOpenBps >= 0 ? "+" : ""}${a.fromOpenBps} bps` : "—"})`}
-                                style={{
-                                  background: `${colr}14`,
-                                  border: `1px solid ${colr}44`,
-                                  color: A.text,
-                                  borderRadius: 5,
-                                  padding: "2px 6px",
-                                  fontSize: 10,
-                                  fontFamily: MONO,
-                                  cursor: "pointer",
-                                }}
-                              >
-                                <strong>{a.ticker}</strong>{" "}
-                                <span style={{ color: colr, fontWeight: 700 }}>
-                                  {a.fromOpenBps != null ? `${a.fromOpenBps >= 0 ? "+" : ""}${a.fromOpenBps.toFixed(0)}bp` : fmtPct(a.chg, 1)}
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
+                        <span style={{ color: A.cyan }}>● QQQ SPOT</span>
+                        <span style={{ color: A.text }}>${priceLadder.spot.toFixed(2)}</span>
                       </div>
-                    )}
+
+                      {/* SUPPORT BELOW SPOT */}
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        {priceLadder.support.length === 0 ? (
+                          <div style={{ fontSize: 10.5, color: A.textMuted, fontStyle: "italic", padding: "3px 0" }}>No major support floor within 18%</div>
+                        ) : priceLadder.support.map((lvl) => {
+                          const ks = kindStyle(lvl.kind);
+                          return (
+                            <div
+                              key={`s-${lvl.label}`}
+                              title={lvl.hint}
+                              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 8px", borderRadius: 5, background: "rgba(52,211,153,0.07)", border: `1px solid ${A.border}`, fontSize: 11 }}
+                            >
+                              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                                <span style={{ fontSize: 9, fontWeight: 800, fontFamily: MONO, padding: "1px 4px", borderRadius: 3, background: `${ks.color}20`, color: ks.color }}>{ks.tag}</span>
+                                <span style={{ color: A.text, fontWeight: 600 }}>{lvl.label}</span>
+                              </span>
+                              <span style={{ fontFamily: MONO, fontWeight: 700 }}>
+                                <span style={{ color: A.text }}>${lvl.price.toFixed(2)}</span>
+                                <span style={{ color: A.green, marginLeft: 7, fontSize: 10.5 }}>{lvl.pct.toFixed(1)}%</span>
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
+
+              {/* BOTTOM STRIP: Compact Intraday Recovery / Reversal Predictor */}
+              {intradayPred && (
+                <div style={{ marginTop: 10, padding: "9px 12px", background: A.bg, border: `1px solid ${A.border}`, borderLeft: `3px solid ${predCol}`, borderRadius: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 10, fontWeight: 800, color: A.textMuted, textTransform: "uppercase", letterSpacing: 0.4 }}>Intraday Predictor</span>
+                      <span style={{ fontSize: 12.5, fontWeight: 800, color: predCol }}>{intradayPred.verdict}</span>
+                      <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 800, padding: "1px 6px", borderRadius: 4, background: `${predCol}20`, color: predCol }}>
+                        {intradayPred.score}/100
+                      </span>
+                      <span
+                        title={intradayPred.gapHint}
+                        style={{ fontSize: 10, fontWeight: 700, fontFamily: MONO, padding: "1px 6px", borderRadius: 4, border: `1px solid ${gapCol}55`, color: gapCol }}
+                      >
+                        {intradayPred.gapLabel}{intradayPred.qqqGapPct != null ? ` (${fmtPct(intradayPred.qqqGapPct, 1)})` : ""}
+                      </span>
+                    </div>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 10, flexWrap: "wrap", fontSize: 10.5, fontFamily: MONO }}>
+                      {intradayPred.components.map((c) => (
+                        <span key={c.key} title={`${c.label}: ${c.pts}/${c.max}`} style={{ color: c.ok ? A.green : A.textMuted }}>
+                          {c.ok ? "✓" : "·"} {c.value}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {intradayPred.anchorDrivers.length > 0 && (
+                    <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 4, marginTop: 7, paddingTop: 6, borderTop: `1px solid ${A.border}` }}>
+                      <span style={{ fontSize: 9.5, fontWeight: 700, color: A.textMuted, marginRight: 3 }}>
+                        TOP WEIGHTS VS OPEN ({intradayPred.fromOpenBps >= 0 ? "+" : ""}{intradayPred.fromOpenBps}bp):
+                      </span>
+                      {intradayPred.anchorDrivers.slice(0, 8).map((a) => {
+                        const colr = (a.fromOpen ?? a.chg ?? 0) >= 0 ? A.green : A.red;
+                        return (
+                          <button
+                            key={a.ticker}
+                            type="button"
+                            onClick={() => onTicker && onTicker(a.ticker)}
+                            title={`${a.ticker} (${a.weightPct}% wt) · Day ${fmtPct(a.chg, 2)} · vs Open ${fmtPct(a.fromOpen, 2)}`}
+                            style={{
+                              background: `${colr}14`,
+                              border: `1px solid ${colr}44`,
+                              color: A.text,
+                              borderRadius: 4,
+                              padding: "1px 5px",
+                              fontSize: 10,
+                              fontFamily: MONO,
+                              cursor: "pointer",
+                            }}
+                          >
+                            <strong>{a.ticker}</strong>{" "}
+                            <span style={{ color: colr, fontWeight: 700 }}>
+                              {a.fromOpenBps != null ? `${a.fromOpenBps >= 0 ? "+" : ""}${a.fromOpenBps.toFixed(0)}bp` : fmtPct(a.chg, 1)}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
             </Card>
           </div>
         );
