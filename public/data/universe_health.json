@@ -1,18 +1,20 @@
 {
- "generated": "2026-11-27T10:53",
- "universe": 2975,
+ "generated": "2026-11-27T21:51",
+ "universe": 2937,
  "in_layer": 2440,
  "layers": 161,
  "checks": [
   {
    "id": "dead_curated",
    "label": "Curated layer tickers missing from the universe",
-   "count": 35,
+   "count": 40,
    "items": [
     "Airlines:SNCY",
     "Airlines:UP",
     "Batteries + Cells:ABAT",
+    "Batteries + Cells:ENVX",
     "Batteries + Cells:MVST",
+    "Battery Materials:LAC",
     "Battery Materials:NMG",
     "Biotech:EYPT",
     "Biotech:LENZ",
@@ -24,14 +26,17 @@
     "Diagnostics:EXAS",
     "Drones + EVTOL:EH",
     "Drones + EVTOL:EVTL",
+    "Drones + EVTOL:RCAT",
     "E&C / Heavy Civil:ACA",
     "E&C / Heavy Civil:GLDD",
+    "E&C / Heavy Civil:ORN",
     "Electrical + Fire/Safety:ATKR",
     "Food + Beverages:BYND",
     "GLP-1 / Metabolic:ALT",
     "GLP-1 / Metabolic:TERN",
     "Gaming:EA",
     "Industrial Automation:NNDM",
+    "Lithium:LAC",
     "Machine Vision + LiDAR:MVIS",
     "Machinery:THR",
     "Neobanks + Digital:LC",
@@ -67,12 +72,11 @@
   {
    "id": "unplaced_liquid",
    "label": "Liquid (\u2265$10M/day) names in no layer",
-   "count": 4,
+   "count": 3,
    "items": [
     "JMUB",
-    "BKH",
-    "MSGS",
-    "TMC"
+    "TMC",
+    "USAS"
    ],
    "status": "warn",
    "note": ""
@@ -80,7 +84,7 @@
   {
    "id": "untagged",
    "label": "Liquid (\u2265$25M/day) non-REITs with no theme tag",
-   "count": 13,
+   "count": 11,
    "items": [
     "SKHY",
     "CBRS",
@@ -92,8 +96,6 @@
     "JCPB",
     "JMUB",
     "BSP",
-    "BKH",
-    "MSGS",
     "MBGL"
    ],
    "status": "warn",
@@ -115,26 +117,18 @@
   {
    "id": "blank_industry",
    "label": "Liquid names FMP gives no industry (need a curated pin)",
-   "count": 2,
-   "items": [
-    "BKH",
-    "MSGS"
-   ],
-   "status": "warn",
+   "count": 0,
+   "items": [],
+   "status": "ok",
    "note": ""
   },
   {
    "id": "stale_prices",
-   "label": "Liquid names whose price history is behind 2026-11-25",
-   "count": 7,
+   "label": "Liquid names whose price history is behind 2026-11-27",
+   "count": 2,
    "items": [
     "BIPC",
-    "BKH",
-    "ENVX",
-    "LAC",
-    "MSGS",
-    "RCAT",
-    "UTZ"
+    "WYFI"
    ],
    "status": "ok",
    "note": ""
