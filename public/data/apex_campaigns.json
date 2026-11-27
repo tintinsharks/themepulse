@@ -4,7 +4,7 @@
   "px": 22.91,
   "layer": "Threat Operations",
   "peak": 23.39,
-  "last_seen": "2026-11-25",
+  "last_seen": "2026-11-27",
   "ondeck": false
  },
  "TENB": {
@@ -12,7 +12,7 @@
   "px": 45.81,
   "layer": "Threat Operations",
   "peak": 45.81,
-  "last_seen": "2026-11-25",
+  "last_seen": "2026-11-27",
   "ondeck": false
  },
  "CDNA": {
@@ -36,7 +36,7 @@
   "px": 212.08,
   "layer": "Oncology",
   "peak": 227.38,
-  "last_seen": "2026-11-25",
+  "last_seen": "2026-11-27",
   "ondeck": false
  },
  "TGTX": {
@@ -44,7 +44,7 @@
   "px": 63.99,
   "layer": "Oncology",
   "peak": 70.13,
-  "last_seen": "2026-11-25",
+  "last_seen": "2026-11-27",
   "ondeck": false
  },
  "OKTA": {
@@ -68,7 +68,7 @@
   "px": 8.33,
   "layer": "Specialty Pharma",
   "peak": 8.52,
-  "last_seen": "2026-11-25",
+  "last_seen": "2026-11-27",
   "ondeck": false
  },
  "SGRY": {
@@ -92,7 +92,7 @@
   "px": 5.17,
   "layer": "Specialty Pharma",
   "peak": 5.17,
-  "last_seen": "2026-11-25",
+  "last_seen": "2026-11-27",
   "ondeck": true
  },
  "MGNI": {
@@ -100,7 +100,7 @@
   "px": 26.44,
   "layer": "Adtech",
   "peak": 26.44,
-  "last_seen": "2026-11-25",
+  "last_seen": "2026-11-27",
   "ondeck": false
  },
  "PUBM": {
@@ -108,7 +108,7 @@
   "px": 19.51,
   "layer": "Adtech",
   "peak": 19.51,
-  "last_seen": "2026-11-25",
+  "last_seen": "2026-11-27",
   "ondeck": false
  },
  "INTA": {
@@ -116,7 +116,7 @@
   "px": 45.81,
   "layer": "Vertical SaaS",
   "peak": 45.81,
-  "last_seen": "2026-11-25",
+  "last_seen": "2026-11-27",
   "ondeck": false
  },
  "MANH": {
@@ -124,7 +124,7 @@
   "px": 251.97,
   "layer": "Vertical SaaS",
   "peak": 251.97,
-  "last_seen": "2026-11-25",
+  "last_seen": "2026-11-27",
   "ondeck": true
  }
 }

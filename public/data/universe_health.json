@@ -1,7 +1,7 @@
 {
- "generated": "2026-11-25T22:16",
- "universe": 2973,
- "in_layer": 2439,
+ "generated": "2026-11-27T10:53",
+ "universe": 2975,
+ "in_layer": 2440,
  "layers": 161,
  "checks": [
   {
@@ -126,7 +126,7 @@
   {
    "id": "stale_prices",
    "label": "Liquid names whose price history is behind 2026-11-25",
-   "count": 8,
+   "count": 7,
    "items": [
     "BIPC",
     "BKH",
@@ -134,7 +134,6 @@
     "LAC",
     "MSGS",
     "RCAT",
-    "TCBI",
     "UTZ"
    ],
    "status": "ok",
