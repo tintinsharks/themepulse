@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AdrFilter,
   Card,
@@ -172,6 +172,45 @@ export default function ZangerBriefSection({
   const [bars30Loading, setBars30Loading] = useState(false);
   const [bars30Tick, setBars30Tick] = useState(0);
   const [themeFilter, setThemeFilter] = useState(null);
+  const [excludedThemes, setExcludedThemes] = useState(() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem("tp-excluded-themes") || "[]");
+      return new Set(Array.isArray(raw) ? raw.filter((x) => typeof x === "string" && x) : []);
+    } catch { return new Set(); }
+  });
+  const [themesMenuOpen, setThemesMenuOpen] = useState(false);
+  const [themeSearch, setThemeSearch] = useState("");
+  const themesMenuRef = useRef(null);
+  const saveExcludedThemes = (nextSet) => {
+    setExcludedThemes(nextSet);
+    try { localStorage.setItem("tp-excluded-themes", JSON.stringify([...nextSet])); } catch { /* ignore */ }
+  };
+  const toggleExcludedTheme = (name) => {
+    const next = new Set(excludedThemes);
+    if (next.has(name)) next.delete(name);
+    else {
+      next.add(name);
+      if (themeFilter === name) setThemeFilter(null);
+    }
+    saveExcludedThemes(next);
+  };
+  useEffect(() => {
+    if (!themesMenuOpen) return undefined;
+    const onDown = (e) => {
+      if (themesMenuRef.current && !themesMenuRef.current.contains(e.target)) {
+        setThemesMenuOpen(false);
+      }
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") setThemesMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [themesMenuOpen]);
   const [minZvr, setMinZvr] = useState(1.0);
   const [minRs, setMinRs] = useState(0);
   const [minAdr, setMinAdr] = useState(null);
@@ -942,11 +981,33 @@ export default function ZangerBriefSection({
     });
     return out;
   })();
-  const extraThemeChip = themeFilter && !topThemes.some((t) => t.theme === themeFilter) ? themeFilter : null;
+  const visibleTopThemes = topThemes.filter((t) => !excludedThemes.has(t.theme));
+  const extraThemeChip = themeFilter && !visibleTopThemes.some((t) => t.theme === themeFilter) ? themeFilter : null;
 
-  const filteredRows = themeFilter
-    ? filteredNoTheme.filter((r) => r.theme === themeFilter)
-    : filteredNoTheme;
+  // Multi-select/deselect theme picker list: all themes in the current table + any currently deselected themes
+  const pickerThemes = (() => {
+    const seen = new Set(topThemes.map((t) => t.theme));
+    const extras = [];
+    for (const name of excludedThemes) {
+      if (!seen.has(name)) {
+        extras.push({ theme: name, themeId: `ex:${name}`, st: "lag", hits: 0, dayFlow: { thrust: null } });
+      }
+    }
+    extras.sort((a, b) => a.theme.localeCompare(b.theme));
+    return [...topThemes, ...extras];
+  })();
+  const hiddenInTableCount = topThemes.filter((t) => excludedThemes.has(t.theme)).length;
+  const selectedInTableCount = topThemes.length - hiddenInTableCount;
+  const totalExcludedCount = excludedThemes.size;
+  const filteredPickerThemes = themeSearch.trim()
+    ? pickerThemes.filter((t) => t.theme.toLowerCase().includes(themeSearch.trim().toLowerCase()))
+    : pickerThemes;
+
+  const filteredRows = filteredNoTheme.filter((r) => {
+    if (excludedThemes.size > 0 && r.theme && excludedThemes.has(r.theme)) return false;
+    if (themeFilter && r.theme !== themeFilter) return false;
+    return true;
+  });
 
   const sortedMovers = [...filteredRows].sort((a, b) => {
     return cmpSort(a, b, moverSort, (r, k) => {
@@ -1538,7 +1599,7 @@ export default function ZangerBriefSection({
           })}
         </div>
         {/* Leading & Emerging Themes Filter Strip (single-row horizontal scroll) */}
-        {(topThemes.length > 0 || extraThemeChip) && (
+        {(visibleTopThemes.length > 0 || extraThemeChip) && (
           <div
             style={{
               display: "flex",
@@ -1561,7 +1622,7 @@ export default function ZangerBriefSection({
               THEMES
             </span>
             <button onClick={() => setThemeFilter(null)} style={chipStyle(!themeFilter, A.green)}>All</button>
-            {topThemes.map((t) => {
+            {visibleTopThemes.map((t) => {
               const active = themeFilter === t.theme;
               const c = statusColor(t.st, A);
               const thr = t.dayFlow?.thrust;
@@ -1680,6 +1741,133 @@ export default function ZangerBriefSection({
               >
                 No Health
               </button>
+              <div ref={themesMenuRef} style={{ position: "relative", display: "inline-flex" }}>
+                <button
+                  type="button"
+                  onClick={() => setThemesMenuOpen((v) => !v)}
+                  aria-expanded={themesMenuOpen}
+                  title="Select or deselect specific themes to include/exclude from this table"
+                  style={chipStyle(themesMenuOpen || totalExcludedCount > 0, totalExcludedCount > 0 ? A.cyan : A.text)}
+                >
+                  Themes
+                  {totalExcludedCount > 0 && (
+                    <span style={{ fontFamily: MONO, fontSize: 10, marginLeft: 4 }}>
+                      {topThemes.length > 0 && hiddenInTableCount > topThemes.length / 2
+                        ? `${selectedInTableCount} on`
+                        : `${totalExcludedCount} off`}
+                    </span>
+                  )}
+                  {" "}{themesMenuOpen ? "▴" : "▾"}
+                </button>
+                {themesMenuOpen && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      right: 0,
+                      top: "calc(100% + 5px)",
+                      zIndex: 40,
+                      width: 264,
+                      background: A.bgCard,
+                      border: `1px solid ${A.borderLight || A.border}`,
+                      borderRadius: 8,
+                      boxShadow: "0 10px 28px rgba(0,0,0,0.45)",
+                      padding: 8,
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 6 }}>
+                      <button
+                        type="button"
+                        onClick={() => saveExcludedThemes(new Set())}
+                        style={{ ...chipStyle(totalExcludedCount === 0, A.green), fontSize: 10, padding: "2px 6px" }}
+                      >
+                        All
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setThemeFilter(null);
+                          saveExcludedThemes(new Set(pickerThemes.map((t) => t.theme)));
+                        }}
+                        style={{ ...chipStyle(topThemes.length > 0 && selectedInTableCount === 0, "#fb923c"), fontSize: 10, padding: "2px 6px" }}
+                      >
+                        None
+                      </button>
+                      <input
+                        type="text"
+                        value={themeSearch}
+                        onChange={(e) => setThemeSearch(e.target.value)}
+                        placeholder="Filter themes…"
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                          background: A.bg,
+                          border: `1px solid ${A.border}`,
+                          borderRadius: 5,
+                          color: A.text,
+                          fontSize: 10.5,
+                          padding: "2px 6px",
+                          outline: "none",
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setThemesMenuOpen(false)}
+                        title="Close"
+                        style={{ background: "none", border: "none", color: A.textMuted, cursor: "pointer", fontSize: 11, padding: "0 2px" }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <div style={{ maxHeight: 260, overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
+                      {filteredPickerThemes.length === 0 ? (
+                        <div style={{ fontSize: 10.5, color: A.textMuted, padding: "6px 4px" }}>No matching themes.</div>
+                      ) : (
+                        filteredPickerThemes.map((t) => {
+                          const checked = !excludedThemes.has(t.theme);
+                          const c = statusColor(t.st, A);
+                          const thr = t.dayFlow?.thrust;
+                          return (
+                            <label
+                              key={t.themeId || t.theme}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 6,
+                                padding: "3px 5px",
+                                borderRadius: 5,
+                                cursor: "pointer",
+                                fontSize: 11,
+                                color: checked ? A.text : A.textMuted,
+                                opacity: checked ? 1 : 0.6,
+                                background: checked ? "transparent" : "rgba(255,255,255,0.02)",
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => toggleExcludedTheme(t.theme)}
+                                style={{ margin: 0, accentColor: A.green, cursor: "pointer" }}
+                              />
+                              <span style={{ width: 6, height: 6, borderRadius: 3, background: c || A.textMuted, flexShrink: 0 }} />
+                              <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {t.theme}
+                              </span>
+                              {thr != null && (
+                                <span style={{ fontFamily: MONO, fontSize: 9.5, color: thr >= 0 ? A.green : A.red, opacity: 0.85 }}>
+                                  {thr > 0 ? "+" : ""}{thr.toFixed(1)}
+                                </span>
+                              )}
+                              <span style={{ fontFamily: MONO, fontSize: 10, color: A.textMuted, minWidth: 16, textAlign: "right" }}>
+                                {t.hits}
+                              </span>
+                            </label>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
               <AdrFilter A={A} value={minAdr} onChange={setMinAdr} />
               {filtersOpen && activeFilterCount > 0 && (
                 <button
