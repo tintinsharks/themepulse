@@ -40,6 +40,7 @@ const NEWS_TTL_MS = 5 * 60 * 1000;
 const _newsCache = new Map();
 const BARS30_TTL_MS = 2 * 60 * 1000;
 const BARS30_MAX = 48;
+const BARS30_ACTIVE_MAX = 120;
 const _bars30Cache = new Map();
 const safeUrl = (u) => (typeof u === "string" && /^https?:\/\//i.test(u) ? u : null);
 
@@ -452,29 +453,73 @@ export default function ZangerBriefSection({
     };
   }, [liveOn, quotes, poolTickers, stockMap, tickerLayer, tiers, profiles, snap]);
 
-  // Top 48 active movers across the selected Base + Tab for live 30m ORH & Triggered 30m Pivot tagging
-  const pivot30ScanKey = useMemo(() => {
-    if (catTab === "ext") return "";
+  // Top active movers AFTER all synchronous filters for live 30m ORH & Triggered 30m Pivot tagging.
+  // Expands scan budget from 48 -> 120 when ORH or 30m is explicitly toggled ON.
+  const pivot30Scan = useMemo(() => {
+    if (catTab === "ext") return { key: "", total: 0, scanned: 0, cap: BARS30_MAX };
     const raw = liveComputed ? liveComputed.allScored : [...(snap?.zangerMovers || []), ...(snap?.onDeckRsl || [])];
-    const basePool = raw.filter((r) => {
-      if (baseFilter === "core") return r.inCoreBase ?? true;
-      if (baseFilter === "adr5liq") return Boolean(r.inAdr5Liq);
+    const pool = raw.filter((r) => {
+      if (baseFilter === "core" && !(r.inCoreBase ?? true)) return false;
+      if (baseFilter === "adr5liq" && !r.inAdr5Liq) return false;
+      if (catTab === "bo" && !r.isBreakout) return false;
+      if (catTab === "zanger" && !r.qualifiesZanger) return false;
+      if (catTab === "rsl" && !r.rsl) return false;
+      if (catTab === "leaders" && !(r.tier === "lead" && r.layerStatus === "lead")) return false;
+      if (boFilter && !(r.breakoutTypes || []).includes(boFilter)) return false;
+      if (only9M) {
+        const v = r?.volume ?? stockMap?.[r?.ticker]?.volume ?? 0;
+        if (!r?.is9M && v < 8_900_000) return false;
+      }
+      if (onlyNear52w && !(typeof r?.off52 === "number" && Number.isFinite(r.off52) && r.off52 >= -15)) return false;
+      if ((catTab === "zanger" || catTab === "bo" || catTab === "all") && minZvr > 1.0 && (r.zvr ?? 0) < minZvr) return false;
+      if (minRs > 0 && (r.rs ?? 0) < minRs) return false;
+      if (minAdr != null && (r.adr ?? -1) < minAdr) return false;
+      if (noHealth && isHealthcareItem({
+        theme: r.theme || tickerLayer?.[r.ticker]?.theme,
+        themeId: tickerLayer?.[r.ticker]?.themeId,
+        layer: r.layer || tickerLayer?.[r.ticker]?.name,
+        sector: stockMap?.[r.ticker]?.sector,
+        industry: stockMap?.[r.ticker]?.industry,
+      })) return false;
+      if (epsOnly && (r.eps ?? 0) < 50) return false;
+      if (cleanOnly && ((r.layerFlags?.length ? r.layerFlags : tickerLayer?.[r.ticker]?.flags) || []).some(([k]) => k === "distrib" || k === "exiting")) return false;
+      if (excludedThemes.size > 0 && r.theme && excludedThemes.has(r.theme)) return false;
+      if (themeFilter && r.theme !== themeFilter) return false;
       return true;
     });
-    const pool = basePool.filter((r) => {
-      if (catTab === "bo") return Boolean(r.isBreakout);
-      if (catTab === "zanger") return Boolean(r.qualifiesZanger);
-      if (catTab === "rsl") return Boolean(r.rsl);
-      if (catTab === "leaders") return r.tier === "lead" && r.layerStatus === "lead";
-      return true;
-    });
-    return pool
+    const cap = onlyOrh || only30m ? BARS30_ACTIVE_MAX : BARS30_MAX;
+    const picked = pool
       .slice()
       .sort((a, b) => (stockThrust(b.chg, b.zvr) ?? -999) - (stockThrust(a.chg, a.zvr) ?? -999) || (b.rs ?? 0) - (a.rs ?? 0))
-      .slice(0, BARS30_MAX)
-      .map((r) => r.ticker)
-      .join(",");
-  }, [catTab, baseFilter, liveComputed, snap]);
+      .slice(0, cap);
+    return {
+      key: picked.map((r) => r.ticker).join(","),
+      total: pool.length,
+      scanned: picked.length,
+      cap,
+    };
+  }, [
+    catTab,
+    baseFilter,
+    boFilter,
+    only9M,
+    onlyNear52w,
+    onlyOrh,
+    only30m,
+    minZvr,
+    minRs,
+    minAdr,
+    noHealth,
+    epsOnly,
+    cleanOnly,
+    excludedThemes,
+    themeFilter,
+    liveComputed,
+    snap,
+    stockMap,
+    tickerLayer,
+  ]);
+  const pivot30ScanKey = pivot30Scan.key;
 
   useEffect(() => {
     if (!liveOn) return undefined;
@@ -485,7 +530,10 @@ export default function ZangerBriefSection({
   }, [liveOn]);
 
   useEffect(() => {
-    if (!pivot30ScanKey) return undefined;
+    if (!pivot30ScanKey) {
+      setBars30Loading(false);
+      return undefined;
+    }
     let alive = true;
     const tickers = pivot30ScanKey.split(",").filter(Boolean);
     const nowMs = Date.now();
@@ -513,35 +561,38 @@ export default function ZangerBriefSection({
     for (let i = 0; i < missing.length; i += 24) {
       chunks.push(missing.slice(i, i + 24));
     }
-    (async () => {
-      try {
-        for (const chunk of chunks) {
-          if (!alive || ac.signal.aborted) break;
-          const resp = await authFetch(
-            `/api/ohlc?tickers=${encodeURIComponent(chunk.join(","))}&interval=30m`,
-            { cache: "no-store", signal: ac.signal }
-          );
-          if (!resp.ok) continue;
-          const d = await resp.json();
-          if (!alive || ac.signal.aborted || !d?.items) continue;
-          const ts = Date.now();
-          const batch = {};
-          for (const tk of chunk) {
-            const bars = Array.isArray(d.items[tk]) ? d.items[tk] : [];
-            _bars30Cache.set(tk, { ts, bars });
-            batch[tk] = bars;
+    const timerId = setTimeout(() => {
+      (async () => {
+        try {
+          for (const chunk of chunks) {
+            if (!alive || ac.signal.aborted) break;
+            const resp = await authFetch(
+              `/api/ohlc?tickers=${encodeURIComponent(chunk.join(","))}&interval=30m`,
+              { cache: "no-store", signal: ac.signal }
+            );
+            if (!resp.ok) continue;
+            const d = await resp.json();
+            if (!alive || ac.signal.aborted || !d?.items) continue;
+            const ts = Date.now();
+            const batch = {};
+            for (const tk of chunk) {
+              const bars = Array.isArray(d.items[tk]) ? d.items[tk] : [];
+              _bars30Cache.set(tk, { ts, bars });
+              batch[tk] = bars;
+            }
+            setBars30Map((prev) => ({ ...prev, ...batch }));
           }
-          setBars30Map((prev) => ({ ...prev, ...batch }));
+        } catch {
+          // ignore aborted or transient network errors
+        } finally {
+          if (alive) setBars30Loading(false);
         }
-      } catch {
-        // ignore aborted or transient network errors
-      } finally {
-        if (alive) setBars30Loading(false);
-      }
-    })();
+      })();
+    }, 180);
 
     return () => {
       alive = false;
+      clearTimeout(timerId);
       ac.abort();
     };
   }, [pivot30ScanKey, bars30Tick]);
@@ -904,15 +955,8 @@ export default function ZangerBriefSection({
     if (boFilter && !(r.breakoutTypes || []).includes(boFilter)) return false;
     return true;
   });
-  const count9M = tabBaseRows.filter(isRow9M).length;
-  const countOrh = tabBaseRows.filter(isRowOrh).length;
-  const count30m = tabBaseRows.filter(isRow30m).length;
-  const countNear52w = tabBaseRows.filter(isRowNear52w).length;
-
-  const filteredNoTheme = tabBaseRows.filter((r) => {
+  const passesSyncFilters = (r) => {
     if (only9M && !isRow9M(r)) return false;
-    if (onlyOrh && !isRowOrh(r)) return false;
-    if (only30m && !isRow30m(r)) return false;
     if (onlyNear52w && !isRowNear52w(r)) return false;
     if ((catTab === "zanger" || catTab === "bo" || catTab === "all") && minZvr > 1.0 && (r.zvr ?? 0) < minZvr) return false;
     if (minRs > 0 && (r.rs ?? 0) < minRs) return false;
@@ -926,6 +970,22 @@ export default function ZangerBriefSection({
     })) return false;
     if (epsOnly && (r.eps ?? 0) < 50) return false;
     if (cleanOnly && ((r.layerFlags?.length ? r.layerFlags : tickerLayer?.[r.ticker]?.flags) || []).some(([k]) => k === "distrib" || k === "exiting")) return false;
+    return true;
+  };
+  const syncFilteredNoTheme = tabBaseRows.filter(passesSyncFilters);
+  const syncFilteredRows = syncFilteredNoTheme.filter((r) => {
+    if (excludedThemes.size > 0 && r.theme && excludedThemes.has(r.theme)) return false;
+    if (themeFilter && r.theme !== themeFilter) return false;
+    return true;
+  });
+  const count9M = tabBaseRows.filter(isRow9M).length;
+  const countOrh = syncFilteredRows.filter(isRowOrh).length;
+  const count30m = syncFilteredRows.filter(isRow30m).length;
+  const countNear52w = tabBaseRows.filter(isRowNear52w).length;
+
+  const filteredNoTheme = syncFilteredNoTheme.filter((r) => {
+    if (onlyOrh && !isRowOrh(r)) return false;
+    if (only30m && !isRow30m(r)) return false;
     return true;
   });
 
@@ -1693,9 +1753,18 @@ export default function ZangerBriefSection({
                 >
                   ≤15% 52wH <span style={{ opacity: 0.75 }}>{countNear52w}</span>
                 </button>
-                {bars30Loading && countOrh === 0 && count30m === 0 && (
-                  <span style={{ fontSize: 9.5, fontFamily: MONO, color: A.textMuted }}>30m…</span>
-                )}
+                {bars30Loading ? (
+                  <span style={{ fontSize: 9.5, fontFamily: MONO, color: A.textMuted }}>
+                    30m… ({pivot30Scan.scanned})
+                  </span>
+                ) : (onlyOrh || only30m) && pivot30Scan.total > pivot30Scan.scanned ? (
+                  <span
+                    title={`Checked 30m intraday bars for the top ${pivot30Scan.scanned} of ${pivot30Scan.total} matching stocks (ranked by live Thrust). Narrow BASE, ADR, or Themes to scan 100%.`}
+                    style={{ fontSize: 9.5, fontFamily: MONO, color: A.textMuted }}
+                  >
+                    top {pivot30Scan.scanned}/{pivot30Scan.total} checked
+                  </span>
+                ) : null}
               </div>
             ) : (
               <div style={{ display: "inline-flex", flexWrap: "wrap", alignItems: "center", gap: 4 }}>
@@ -1727,9 +1796,18 @@ export default function ZangerBriefSection({
                 >
                   ≤15% 52wH <span style={{ opacity: 0.75 }}>{countNear52w}</span>
                 </button>
-                {bars30Loading && countOrh === 0 && count30m === 0 && (
-                  <span style={{ fontSize: 9.5, fontFamily: MONO, color: A.textMuted }}>30m…</span>
-                )}
+                {bars30Loading ? (
+                  <span style={{ fontSize: 9.5, fontFamily: MONO, color: A.textMuted }}>
+                    30m… ({pivot30Scan.scanned})
+                  </span>
+                ) : (onlyOrh || only30m) && pivot30Scan.total > pivot30Scan.scanned ? (
+                  <span
+                    title={`Checked 30m intraday bars for the top ${pivot30Scan.scanned} of ${pivot30Scan.total} matching stocks (ranked by live Thrust). Narrow BASE, ADR, or Themes to scan 100%.`}
+                    style={{ fontSize: 9.5, fontFamily: MONO, color: A.textMuted }}
+                  >
+                    top {pivot30Scan.scanned}/{pivot30Scan.total} checked
+                  </span>
+                ) : null}
               </div>
             )}
             <div style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6 }}>
