@@ -150,6 +150,7 @@ export default function ZangerBriefSection({
   const [onlyOrh, setOnlyOrh] = useState(false); // secondary filter: 30m Opening Range High breakout
   const [only30m, setOnly30m] = useState(false); // secondary filter: triggered 30-Minute Pivot
   const [onlyNear52w, setOnlyNear52w] = useState(false); // secondary filter: within 15% of 52-week high
+  const [onlyAbove50Base, setOnlyAbove50Base] = useState(false); // secondary filter: original >50d SMA Leaders base only
   const [bars30Map, setBars30Map] = useState({});
   const [bars30Loading, setBars30Loading] = useState(false);
   const [bars30Tick, setBars30Tick] = useState(0);
@@ -940,6 +941,7 @@ export default function ZangerBriefSection({
   const isRowOrh = (r) => pivot30ByTicker.get(r?.ticker)?.openingRange?.status === "ORH_BO";
   const isRow30m = (r) => pivot30ByTicker.get(r?.ticker)?.pivot?.state === "TRIGGERED";
   const isRowNear52w = (r) => typeof r?.off52 === "number" && Number.isFinite(r.off52) && r.off52 >= -15;
+  const isRowAbove50Base = (r) => (catTab === "adr5liq" ? !r?.below50 : !r?.fromAdr5Liq);
 
   const tabBaseRows = (catTab === "adr5liq" ? adr5LiqRows : catTab === "leaders" ? corePool : allPool).filter((r) => {
     if (catTab === "bo" && !r.isBreakout) return false;
@@ -953,12 +955,14 @@ export default function ZangerBriefSection({
   const countOrh = tabBaseRows.filter(isRowOrh).length;
   const count30m = tabBaseRows.filter(isRow30m).length;
   const countNear52w = tabBaseRows.filter(isRowNear52w).length;
+  const countAbove50Base = tabBaseRows.filter(isRowAbove50Base).length;
 
   const filteredNoTheme = tabBaseRows.filter((r) => {
     if (only9M && !isRow9M(r)) return false;
     if (onlyOrh && !isRowOrh(r)) return false;
     if (only30m && !isRow30m(r)) return false;
     if (onlyNear52w && !isRowNear52w(r)) return false;
+    if (onlyAbove50Base && !isRowAbove50Base(r)) return false;
     if ((catTab === "zanger" || catTab === "bo" || catTab === "adr5liq") && minZvr > 1.0 && (r.zvr ?? 0) < minZvr) return false;
     if (minRs > 70 && (r.rs ?? 0) < minRs) return false;
     if (minAdr != null && (r.adr ?? -1) < minAdr) return false;
@@ -1689,6 +1693,13 @@ export default function ZangerBriefSection({
                 >
                   ≤15% 52wH <span style={{ opacity: 0.75 }}>{countNear52w}</span>
                 </button>
+                <button
+                  onClick={() => setOnlyAbove50Base((v) => !v)}
+                  title="Original >50d SMA Leaders base filter only (hides ADR 5%+ Liq below-50d extras)"
+                  style={{ ...chipStyle(onlyAbove50Base, "#a78bfa"), fontFamily: MONO, fontSize: 10.5 }}
+                >
+                  &gt;50d Base <span style={{ opacity: 0.75 }}>{countAbove50Base}</span>
+                </button>
                 {bars30Loading && countOrh === 0 && count30m === 0 && (
                   <span style={{ fontSize: 9.5, fontFamily: MONO, color: A.textMuted }}>30m…</span>
                 )}
@@ -1722,6 +1733,13 @@ export default function ZangerBriefSection({
                   style={{ ...chipStyle(onlyNear52w, "#fbbf24"), fontFamily: MONO, fontSize: 10.5 }}
                 >
                   ≤15% 52wH <span style={{ opacity: 0.75 }}>{countNear52w}</span>
+                </button>
+                <button
+                  onClick={() => setOnlyAbove50Base((v) => !v)}
+                  title="Original >50d SMA Leaders base filter only (hides ADR 5%+ Liq below-50d extras)"
+                  style={{ ...chipStyle(onlyAbove50Base, "#a78bfa"), fontFamily: MONO, fontSize: 10.5 }}
+                >
+                  &gt;50d Base <span style={{ opacity: 0.75 }}>{countAbove50Base}</span>
                 </button>
                 {bars30Loading && countOrh === 0 && count30m === 0 && (
                   <span style={{ fontSize: 9.5, fontFamily: MONO, color: A.textMuted }}>30m…</span>
