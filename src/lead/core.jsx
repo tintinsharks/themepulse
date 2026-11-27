@@ -992,7 +992,7 @@ export function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, 
         erTip: b.earningsDisplay || "",
         zvr,
         chg,
-        thrust: stockThrust(chg, zvr),
+        thrust: stockThrust(chg, zvr, b.adr),
         fromOpen,
         adr: b.adr,
         offHi,
@@ -1049,7 +1049,7 @@ export function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, 
               <tr>
                 <th style={th(A)}>Ticker</th>
                 {col("px", "Price")}
-                {col("zvr", "ZVR", "right", "Relative volume at time (TradingView-style): today's volume ÷ the 10-session average × the share of a normal day's volume done by now. 1.00 = normal pace. After hours: the last value from the session")}{col("chg", "Chg")}{col("thrust", "Thrust", "right", "Stock Thrust: Chg% × ZVR")}{col("fromOpen", "From open")}
+                {col("zvr", "ZVR", "right", "Relative volume at time (TradingView-style): today's volume ÷ the 10-session average × the share of a normal day's volume done by now. 1.00 = normal pace. After hours: the last value from the session")}{col("chg", "Chg")}{col("thrust", "Thrust", "right", "ADR-adjusted Stock Thrust: (Chg% ÷ ADR%) × ZVR")}{col("fromOpen", "From open")}
                 {col("dv", "$Vol", "right", "Today's dollar volume (Price × Live Volume; falls back to avg daily $vol)")}
                 {col("adr", "ADR")}{col("offHi", "Off high")}{col("rs", "RS")}{col("eps", "EPS", "right", EPS_TIP)}
                 {col("er", "ER", "right", "Calendar days until next earnings report")}
@@ -1076,7 +1076,7 @@ export function IntradayScan({ A, stockMap, onTicker, chartTicker, tickerLayer, 
                   <td style={{ ...td(A, "right"), color: A.text }}>${r.px.toFixed(2)}</td>
                   <td style={{ ...td(A, "right"), color: r.zvr >= 1.5 ? A.green : r.zvr >= 1 ? A.text : A.textMuted, fontWeight: r.zvr >= 1.5 ? 700 : 400 }}>{r.zvr == null ? "—" : r.zvr.toFixed(2)}</td>
                   <td style={{ ...td(A, "right"), color: A.green }}>{pct(r.chg, 2)}</td>
-                  <td style={{ ...td(A, "right"), color: r.thrust == null ? A.textMuted : r.thrust > 0 ? A.green : r.thrust < 0 ? A.red : A.textMuted, fontWeight: r.thrust != null && Math.abs(r.thrust) >= 5 ? 700 : 500, fontFamily: MONO }}>{r.thrust != null ? `${r.thrust > 0 ? "+" : ""}${r.thrust.toFixed(1)}` : "—"}</td>
+                  <td style={{ ...td(A, "right"), color: r.thrust == null ? A.textMuted : r.thrust > 0 ? A.green : r.thrust < 0 ? A.red : A.textMuted, fontWeight: r.thrust != null && Math.abs(r.thrust) >= 1.5 ? 700 : 500, fontFamily: MONO }}>{r.thrust != null ? `${r.thrust > 0 ? "+" : ""}${r.thrust.toFixed(1)}` : "—"}</td>
                   <td style={{ ...td(A, "right"), color: (r.fromOpen ?? 0) >= 0 ? A.green : A.red, fontWeight: 700 }}>{pct(r.fromOpen, 2)}</td>
                   <td title={r.avgDv ? `Avg daily $Vol: ${fmtDollarVol(r.avgDv)}` : undefined} style={{ ...td(A, "right"), color: (r.dv ?? 0) >= 100e6 ? A.text : A.textDim }}>{fmtDollarVol(r.dv)}</td>
                   <td style={td(A, "right")}>{r.adr == null ? "—" : `${r.adr.toFixed(1)}%`}</td>
@@ -1470,7 +1470,7 @@ export function FlaggedTab({ A, stockMap, tickerLayer, onTicker, chartTicker, on
   const [only, setOnly] = useState(null);
   const tickers = Object.entries(flags).filter(([, v]) => v?.c).map(([t]) => t).filter((t) => !keep || keep(t)).sort();
   const { quotes, at } = useScanQuotes(tickers, true);
-  // default: Stock Thrust descending (Chg% × ZVR); header clicks sort by any column
+  // default: ADR-adjusted Stock Thrust descending ((Chg% ÷ ADR%) × ZVR); header clicks sort by any column
   const [sort, setSort] = useState({ k: "thrust", d: -1 });
   const clock = etClock();
   const snap = useMemo(() => { if (clock.rth) return null; void quotes; return readZvrSnap(); }, [clock.rth, quotes]);
@@ -1496,7 +1496,7 @@ export function FlaggedTab({ A, stockMap, tickerLayer, onTicker, chartTicker, on
     return {
       t, c: flags[t].c, flag: FLAG_ORDER.indexOf(flags[t].c), px, zvr,
       chg,
-      thrust: stockThrust(chg, zvr),
+      thrust: stockThrust(chg, zvr, s.adr20 ?? s.adr_pct),
       fromOpen: q?.open ? (q.price / q.open - 1) * 100 : null,
       adr: s.adr20 ?? s.adr_pct ?? null,
       offHi: hi && px ? (px / hi - 1) * 100 : null,
@@ -1543,7 +1543,7 @@ export function FlaggedTab({ A, stockMap, tickerLayer, onTicker, chartTicker, on
             <thead style={{ position: "sticky", top: 0, background: A.bgCard || A.bg, zIndex: 1 }}>
               <tr>
                 {col("flag", "Ticker", "left", "Click to group by flag colour")}
-                {col("zvr", "ZVR", "right", "Relative volume at time: today's volume ÷ the stock's average volume by this time of day. 1.00 = normal pace. After hours: the last value from the session")}{col("chg", "Chg")}{col("thrust", "Thrust", "right", "Stock Thrust: Chg% × ZVR")}{col("fromOpen", "From open")}
+                {col("zvr", "ZVR", "right", "Relative volume at time: today's volume ÷ the stock's average volume by this time of day. 1.00 = normal pace. After hours: the last value from the session")}{col("chg", "Chg")}{col("thrust", "Thrust", "right", "ADR-adjusted Stock Thrust: (Chg% ÷ ADR%) × ZVR")}{col("fromOpen", "From open")}
                 {col("adr", "ADR")}{col("offHi", "Off high")}{col("rs", "RS")}{col("eps", "EPS", "right", EPS_TIP)}
                 <th style={th(A)}>Layer</th>
               </tr>
@@ -1566,7 +1566,7 @@ export function FlaggedTab({ A, stockMap, tickerLayer, onTicker, chartTicker, on
                   <td style={td(A)}><FlagButton t={r.t} A={A} /><span style={{ color: A.text, fontWeight: 700, fontFamily: MONO }}>{r.t}</span><TierMark t={r.t} /></td>
                   <td style={{ ...td(A, "right"), color: r.zvr >= 1.5 ? A.green : r.zvr >= 1 ? A.text : A.textMuted, fontWeight: r.zvr >= 1.5 ? 700 : 400 }}>{r.zvr == null ? "—" : r.zvr.toFixed(2)}</td>
                   <td style={{ ...td(A, "right"), color: (r.chg ?? 0) >= 0 ? A.green : A.red }}>{pct(r.chg, 2)}</td>
-                  <td style={{ ...td(A, "right"), color: r.thrust == null ? A.textMuted : r.thrust > 0 ? A.green : r.thrust < 0 ? A.red : A.textMuted, fontWeight: r.thrust != null && Math.abs(r.thrust) >= 5 ? 700 : 500, fontFamily: MONO }}>{r.thrust != null ? `${r.thrust > 0 ? "+" : ""}${r.thrust.toFixed(1)}` : "—"}</td>
+                  <td style={{ ...td(A, "right"), color: r.thrust == null ? A.textMuted : r.thrust > 0 ? A.green : r.thrust < 0 ? A.red : A.textMuted, fontWeight: r.thrust != null && Math.abs(r.thrust) >= 1.5 ? 700 : 500, fontFamily: MONO }}>{r.thrust != null ? `${r.thrust > 0 ? "+" : ""}${r.thrust.toFixed(1)}` : "—"}</td>
                   <td style={{ ...td(A, "right"), color: (r.fromOpen ?? 0) >= 0 ? A.green : A.red, fontWeight: 700 }}>{pct(r.fromOpen, 2)}</td>
                   <td style={td(A, "right")}>{r.adr == null ? "—" : `${r.adr.toFixed(1)}%`}</td>
                   <td style={td(A, "right")}>{pct(r.offHi)}</td>
@@ -2048,7 +2048,7 @@ export function LayerMembers({ A, layer, tickers, stockMap, onTicker, chartTicke
       const zvr = zvrFor(s, q, profiles) ?? (s.rel_volume > 0 ? +s.rel_volume.toFixed(2) : null);
       const chg = q?.change ?? s.change_pct ?? null;
       return {
-        t, zvr, chg, thrust: stockThrust(chg, zvr),
+        t, zvr, chg, thrust: stockThrust(chg, zvr, s.adr20 ?? s.adr_pct),
         r1w: s.return_1w, r1m: s.return_1m, r3m: s.return_3m,
         adr: s.adr20 ?? s.adr_pct, s50: s.sma50_pct, off: s.off_52w_high ?? s.pct_from_high,
         rs: s.rs_rank, eps: s.eps_rating ?? null, epsTip: s.eps_tip, epsAcc: s.eps_accel,
@@ -2097,7 +2097,7 @@ export function LayerMembers({ A, layer, tickers, stockMap, onTicker, chartTicke
           <thead style={{ position: "sticky", top: 0, background: A.bg, zIndex: 1 }}>
             <tr>
               <th style={th(A)}>Ticker</th>
-              {col("zvr", "ZVR", "Zanger Volume Ratio vs 10-day intraday volume profile (falls back to EOD relative volume)")}{col("chg", "Chg")}{col("thrust", "Thrust", "Stock Thrust: Chg% × ZVR")}
+              {col("zvr", "ZVR", "Zanger Volume Ratio vs 10-day intraday volume profile (falls back to EOD relative volume)")}{col("chg", "Chg")}{col("thrust", "Thrust", "ADR-adjusted Stock Thrust: (Chg% ÷ ADR%) × ZVR")}
               {col("r1w", "1W")}{col("r1m", "1M")}{col("r3m", "3M")}
               {col("adr", "ADR")}{col("s50", "vs 50d")}{col("off", "Off high")}{col("rs", "RS")}{col("eps", "EPS", EPS_TIP)}
             </tr>
@@ -2122,7 +2122,7 @@ export function LayerMembers({ A, layer, tickers, stockMap, onTicker, chartTicke
                   {r.nh && <span title="Closed at a 20-session high" style={{ color: A.cyan, marginLeft: 4, fontSize: 10, fontFamily: MONO }}>NH</span>}</td>
                 <td style={{ ...td(A, "right"), color: r.zvr == null ? A.textMuted : r.zvr >= 2.0 ? "#fbbf24" : r.zvr >= 1.5 ? A.green : A.textDim, fontWeight: (r.zvr ?? 0) >= 1.5 ? 700 : 400, fontFamily: MONO }}>{r.zvr != null ? `${r.zvr.toFixed(2)}×` : "—"}</td>
                 <td style={{ ...td(A, "right"), color: pc(r.chg), fontWeight: 700 }}>{pct(r.chg, 2)}</td>
-                <td style={{ ...td(A, "right"), color: r.thrust == null ? A.textMuted : r.thrust > 0 ? A.green : r.thrust < 0 ? A.red : A.textMuted, fontWeight: r.thrust != null && Math.abs(r.thrust) >= 5 ? 700 : 500, fontFamily: MONO }}>{r.thrust != null ? `${r.thrust > 0 ? "+" : ""}${r.thrust.toFixed(1)}` : "—"}</td>
+                <td style={{ ...td(A, "right"), color: r.thrust == null ? A.textMuted : r.thrust > 0 ? A.green : r.thrust < 0 ? A.red : A.textMuted, fontWeight: r.thrust != null && Math.abs(r.thrust) >= 1.5 ? 700 : 500, fontFamily: MONO }}>{r.thrust != null ? `${r.thrust > 0 ? "+" : ""}${r.thrust.toFixed(1)}` : "—"}</td>
                 <td style={{ ...td(A, "right"), color: pc(r.r1w) }}>{pct(r.r1w)}</td>
                 <td style={{ ...td(A, "right"), color: pc(r.r1m) }}>{pct(r.r1m)}</td>
                 <td style={{ ...td(A, "right"), color: pc(r.r3m) }}>{pct(r.r3m)}</td>

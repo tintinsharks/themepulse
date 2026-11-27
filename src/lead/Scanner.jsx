@@ -211,7 +211,7 @@ function ScannerPanel({
       const adv = s.avg_dollar_vol_raw ?? 0;
       if (rs < 90 || adv < 20e6) return;
       const rvol = s.rel_volume > 0 ? s.rel_volume : null;
-      const thr = stockThrust(s.change_pct, rvol);
+      const thr = stockThrust(s.change_pct, rvol, s.adr20 ?? s.adr_pct);
       arr.push({ t: s.ticker, thr, rs });
     });
     arr.sort((a, b) => (b.thr ?? -999) - (a.thr ?? -999) || b.rs - a.rs || a.t.localeCompare(b.t));
@@ -226,7 +226,7 @@ function ScannerPanel({
       if (!evalScanHits(s, null, null)?.adr5liq) return;
       const rs = s.rs_rank ?? 0;
       const rvol = s.rel_volume > 0 ? s.rel_volume : null;
-      const thr = stockThrust(s.change_pct, rvol);
+      const thr = stockThrust(s.change_pct, rvol, s.adr20 ?? s.adr_pct);
       arr.push({ t: s.ticker, thr, rs });
     });
     arr.sort((a, b) => (b.thr ?? -999) - (a.thr ?? -999) || b.rs - a.rs || a.t.localeCompare(b.t));
@@ -390,7 +390,7 @@ function ScannerPanel({
       const L = tickerLayer?.[s.ticker];
       const px = q?.rthPrice ?? q?.price ?? s.close;
       const chg = q?.change ?? s.change_pct ?? null;
-      const thrust = stockThrust(chg, zvr);
+      const thrust = stockThrust(chg, zvr, s.adr20 ?? s.adr_pct);
       const hi52 = Math.max(s.hi52_lvl || 0, q?.yearHigh || 0) || null;
       const off = hi52 && px ? ((px / hi52) - 1) * 100 : (s.off_52w_high ?? s.pct_from_high);
       const liveVol = q?.volume > 0 ? q.volume : null;
@@ -458,7 +458,7 @@ function ScannerPanel({
       const zvr = s
         ? (zvrFor(s, q, profiles) ?? (s.rel_volume > 0 ? +s.rel_volume.toFixed(2) : null))
         : null;
-      const thrust = stockThrust(chg, zvr);
+      const thrust = stockThrust(chg, zvr, s?.adr20 ?? s?.adr_pct);
       const liveVol = q?.volume > 0 ? q.volume : null;
       const avgDv = s?.avg_dollar_vol_raw || (s?.avg_volume_raw && px ? s.avg_volume_raw * px : null);
       const dv = liveVol && px ? liveVol * px : avgDv;
@@ -1072,7 +1072,7 @@ function ScannerPanel({
             <thead style={{ position: "sticky", top: 0, background: A.bgCard, zIndex: 1 }}>
               <tr>
                 <th style={{ ...th(A), padding: "5px 5px", fontSize: 10 }}>Ticker</th>
-                {col("thrust", "Thr", "Stock Thrust: Chg% × ZVR")}
+                {col("thrust", "Thr", "ADR-adjusted Stock Thrust: (Chg% ÷ ADR%) × ZVR")}
                 {col("chg", "Chg%")}
                 {col("zvr", "ZVR", "Zanger Volume Ratio vs 10d intraday profile (falls back to EOD RVol)")}
                 {extra.map(([k, l, tip]) => col(k, l, tip))}
@@ -1112,7 +1112,7 @@ function ScannerPanel({
                         <RslDot tip={r.rsl} A={A} />
                       </div>
                     </td>
-                    <td style={std("right", { fontFamily: MONO, fontWeight: r.thrust != null && Math.abs(r.thrust) >= 5 ? 800 : 500, color: r.thrust == null ? A.textMuted : r.thrust > 0 ? A.green : r.thrust < 0 ? A.red : A.textMuted, whiteSpace: "nowrap" })}>
+                    <td style={std("right", { fontFamily: MONO, fontWeight: r.thrust != null && Math.abs(r.thrust) >= 1.5 ? 800 : 500, color: r.thrust == null ? A.textMuted : r.thrust > 0 ? A.green : r.thrust < 0 ? A.red : A.textMuted, whiteSpace: "nowrap" })}>
                       {r.thrust != null ? `${r.thrust > 0 ? "+" : ""}${r.thrust.toFixed(1)}` : "—"}
                     </td>
                     <td style={std("right", { fontFamily: MONO, color: pc(r.chg), fontWeight: 700, whiteSpace: "nowrap" })}>{pct(r.chg, 1)}</td>

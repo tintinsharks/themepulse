@@ -490,7 +490,7 @@ export default function ZangerBriefSection({
     const cap = onlyOrh || only30m ? BARS30_ACTIVE_MAX : BARS30_MAX;
     const picked = pool
       .slice()
-      .sort((a, b) => (stockThrust(b.chg, b.zvr) ?? -999) - (stockThrust(a.chg, a.zvr) ?? -999) || (b.rs ?? 0) - (a.rs ?? 0))
+      .sort((a, b) => (stockThrust(b.chg, b.zvr, b.adr) ?? -999) - (stockThrust(a.chg, a.zvr, a.adr) ?? -999) || (b.rs ?? 0) - (a.rs ?? 0))
       .slice(0, cap);
     return {
       key: picked.map((r) => r.ticker).join(","),
@@ -1006,7 +1006,7 @@ export default function ZangerBriefSection({
         buckets.set(name, b);
       }
       b.hits += 1;
-      const sthr = stockThrust(r.chg, r.zvr);
+      const sthr = stockThrust(r.chg, r.zvr, r.adr);
       if (sthr != null && Number.isFinite(sthr)) { b.thrSum += sthr; b.thrN += 1; }
       if (typeof r.chg === "number" && Number.isFinite(r.chg)) { b.chgSum += r.chg; b.chgN += 1; }
     }
@@ -1079,7 +1079,7 @@ export default function ZangerBriefSection({
           + (r.rsl ? 1 : 0);
       }
       if (k === "theme") return `${r.theme || ""} ${r.layer || ""}`;
-      if (k === "thrust") return stockThrust(r.chg, r.zvr);
+      if (k === "thrust") return stockThrust(r.chg, r.zvr, r.adr);
       return r[k];
     });
   }).slice(0, 60);
@@ -1095,7 +1095,7 @@ export default function ZangerBriefSection({
   const sortedPortAlerts = [...filteredPortRows].sort((a, b) =>
     cmpSort(a, b, portSort, (r, k) => {
       if (k === "list") return r.list === "PORT" ? 0 : r.list === "WATCH" ? 1 : 2;
-      if (k === "thrust") return stockThrust(r.chg, r.zvr);
+      if (k === "thrust") return stockThrust(r.chg, r.zvr, r.adr ?? stockMap?.[r.ticker]?.adr20 ?? stockMap?.[r.ticker]?.adr_pct);
       return r[k];
     })
   );
@@ -1484,7 +1484,7 @@ export default function ZangerBriefSection({
                         {portTh("ticker", "Ticker", "left", undefined, true)}
                         {portTh("chg", "Chg")}
                         {portTh("zvr", "ZVR")}
-                        {portTh("thrust", "Thrust", "right", "Stock Thrust: Chg% × ZVR")}
+                        {portTh("thrust", "Thrust", "right", "ADR-adjusted Stock Thrust: (Chg% ÷ ADR%) × ZVR")}
                         {portTh("cr", "CR%")}
                         {portTh("rs", "RS")}
                         <th style={th(A)}>Alert</th>
@@ -1492,7 +1492,8 @@ export default function ZangerBriefSection({
                     </thead>
                     <tbody>
                       {sortedPortAlerts.map((a) => {
-                        const thr = stockThrust(a.chg, a.zvr);
+                        const aAdr = a.adr ?? stockMap?.[a.ticker]?.adr20 ?? stockMap?.[a.ticker]?.adr_pct;
+                        const thr = stockThrust(a.chg, a.zvr, aAdr);
                         const flagCol = flags?.[a.ticker]?.c ? flagHex(flags[a.ticker].c, A) : "#e3b341";
                         const listParts = [];
                         if (a.inPf || a.list === "PORT") listParts.push("PF");
@@ -1526,7 +1527,7 @@ export default function ZangerBriefSection({
                           </td>
                           <td style={{ ...td(A, "right"), color: pc(a.chg), fontFamily: MONO, fontWeight: 700 }}>{fmtPct(a.chg, 2)}</td>
                           <td style={{ ...td(A, "right"), fontFamily: MONO, color: (a.zvr ?? 0) >= 1.5 ? A.green : A.textDim }}>{a.zvr != null ? `${a.zvr.toFixed(1)}x` : "—"}</td>
-                          <td style={{ ...td(A, "right"), fontFamily: MONO, color: thr == null ? A.textMuted : thr > 0 ? A.green : thr < 0 ? A.red : A.textMuted, fontWeight: thr != null && Math.abs(thr) >= 5 ? 700 : 500 }}>{thr != null ? `${thr > 0 ? "+" : ""}${thr.toFixed(1)}` : "—"}</td>
+                          <td style={{ ...td(A, "right"), fontFamily: MONO, color: thr == null ? A.textMuted : thr > 0 ? A.green : thr < 0 ? A.red : A.textMuted, fontWeight: thr != null && Math.abs(thr) >= 1.5 ? 700 : 500 }}>{thr != null ? `${thr > 0 ? "+" : ""}${thr.toFixed(1)}` : "—"}</td>
                           <td style={{ ...td(A, "right"), fontFamily: MONO, color: a.cr == null ? A.textMuted : a.cr >= 70 ? A.green : a.cr <= 30 ? A.red : A.textDim }}>{a.cr != null ? `${a.cr}%` : "—"}</td>
                           <td style={{ ...td(A, "right"), fontFamily: MONO, fontWeight: 700, color: rsC(a.rs) }}>{a.rs ?? "—"}</td>
                           <td style={{ ...td(A), fontSize: 10 }}>
@@ -2031,7 +2032,7 @@ export default function ZangerBriefSection({
                   {moverTh("sig", "Sig", "left")}
                   {moverTh("ticker", "Ticker", "left", undefined, true)}
                   {moverTh("theme", "Theme", "left", "Theme & Layer", true)}
-                  {moverTh("thrust", "Thr", "right", "Stock Thrust: Chg% × ZVR")}
+                  {moverTh("thrust", "Thr", "right", "ADR-adjusted Stock Thrust: (Chg% ÷ ADR%) × ZVR")}
                   {moverTh("adr", "ADR")}
                   {moverTh("chg", "Chg%")}
                   {moverTh("fromOpen", "Opn%", "right", "Intraday gain/loss from today's open")}
@@ -2221,9 +2222,11 @@ export default function ZangerBriefSection({
                       </button>
                     </td>
                     {(() => {
-                      const thr = stockThrust(m.chg, m.zvr);
+                      const thr = stockThrust(m.chg, m.zvr, m.adr);
                       const thrTip = [
-                        thr != null ? `Thrust: ${fmtPct(m.chg, 2)} × ${m.zvr.toFixed(2)}x = ${thr > 0 ? "+" : ""}${thr.toFixed(1)}` : null,
+                        thr != null
+                          ? `ADR-adjusted Thrust: (${fmtPct(m.chg, 2)} ÷ ${m.adr != null ? `${m.adr.toFixed(1)}%` : "4.0%"} ADR) × ${m.zvr.toFixed(2)}x = ${thr > 0 ? "+" : ""}${thr.toFixed(1)}`
+                          : null,
                         m.score != null ? `Breakout score: ${m.score.toFixed(1)}` : null,
                       ].filter(Boolean).join(" · ");
                       return (
@@ -2231,7 +2234,7 @@ export default function ZangerBriefSection({
                           title={thrTip || undefined}
                           style={mtd("right", {
                             fontFamily: MONO,
-                            fontWeight: thr != null && Math.abs(thr) >= 5 ? 800 : 500,
+                            fontWeight: thr != null && Math.abs(thr) >= 1.5 ? 800 : 500,
                             color: thr == null ? A.textMuted : thr > 0 ? A.green : thr < 0 ? A.red : A.textMuted,
                             whiteSpace: "nowrap",
                           })}

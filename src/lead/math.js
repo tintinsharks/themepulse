@@ -154,12 +154,14 @@ export function fmtDollarVol(v, signed = false) {
   return `${sign}$${Math.round(a)}`;
 }
 
-// Stock-level daily thrust: Chg% × ZVR (volume-weighted directional move).
-// Preserves sign so high-volume green breakouts rank highest and heavy-volume selloffs lowest.
-export function stockThrust(chg, zvr) {
+// Stock-level ADR-adjusted daily thrust: (Chg% ÷ ADR%) × ZVR.
+// Measures ADR-multiples moved today weighted by relative volume, so a 2% ADR leader up +4% (2× ADR)
+// outranks a 12% ADR stock up +6% (0.5× ADR). Floors ADR at 0.5% and defaults missing ADR to 4.0%.
+export function stockThrust(chg, zvr, adr) {
   if (typeof chg !== "number" || !Number.isFinite(chg)) return null;
   if (typeof zvr !== "number" || !Number.isFinite(zvr) || zvr <= 0) return null;
-  return +(chg * zvr).toFixed(1);
+  const adrEff = typeof adr === "number" && Number.isFinite(adr) && adr > 0 ? Math.max(adr, 0.5) : 4.0;
+  return +((chg / adrEff) * zvr).toFixed(1);
 }
 
 const HEALTH_RE = /^(healthcare|health care|biotech|biotech leaders|biotechnology|oncology|specialty pharma|pharma majors|drug manufacturers|medical\b|diagnostics|genomics|glp-1|managed care|cro \+ services|telemedicine|providers \+ facilities|distribution \+ supplies)/i;

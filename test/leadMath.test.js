@@ -332,14 +332,20 @@ test("computeLayerDayFlow and fmtDollarVol compute EOD and pace-adjusted live do
   assert.equal(fmtDollarVol(null), "—");
 });
 
-test("stockThrust multiplies Chg% by positive ZVR and handles missing/invalid values", () => {
-  assert.equal(stockThrust(4.5, 2.2), 9.9);
-  assert.equal(stockThrust(-4.0, 2.0), -8.0);
-  assert.equal(stockThrust(0, 1.8), 0);
-  assert.equal(stockThrust(5.0, 0), null);
-  assert.equal(stockThrust(5.0, -1), null);
-  assert.equal(stockThrust(null, 2.0), null);
-  assert.equal(stockThrust(3.0, null), null);
+test("stockThrust adjusts Chg% × ZVR by ADR% with 0.5% floor and 4.0% fallback", () => {
+  // Low-ADR leader up +4% (2× ADR) on 2× vol outranks high-ADR stock up +6% (0.5× ADR) on 2× vol
+  assert.equal(stockThrust(4.0, 2.0, 2.0), 4.0);
+  assert.equal(stockThrust(6.0, 2.0, 12.0), 1.0);
+  assert.equal(stockThrust(-4.0, 2.0, 4.0), -2.0);
+  assert.equal(stockThrust(0, 1.8, 3.0), 0);
+  // Missing ADR defaults to universe median 4.0%
+  assert.equal(stockThrust(4.0, 2.0), 2.0);
+  // Tiny ADR floored at 0.5% so pinned/arb tickers don't explode
+  assert.equal(stockThrust(1.0, 1.0, 0.1), 2.0);
+  assert.equal(stockThrust(5.0, 0, 3.0), null);
+  assert.equal(stockThrust(5.0, -1, 3.0), null);
+  assert.equal(stockThrust(null, 2.0, 3.0), null);
+  assert.equal(stockThrust(3.0, null, 3.0), null);
 });
 
 test("isHealthcareItem matches all Healthcare themes, sectors, layers, and industries", () => {

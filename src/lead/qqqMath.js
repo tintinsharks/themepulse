@@ -370,7 +370,8 @@ export function computeNdxInternals({
     const chg = q?.change ?? (q?.previousClose && px ? ((px / q.previousClose) - 1) * 100 : s?.change_pct ?? null);
     const fromOpen = q?.open && px ? ((px / q.open) - 1) * 100 : null;
     const zvr = s ? (zvrFor(s, q, profiles) ?? (s.rel_volume > 0 ? +s.rel_volume.toFixed(2) : null)) : null;
-    const thrust = stockThrust(chg, zvr);
+    const adr = s?.adr20 ?? s?.adr_pct ?? null;
+    const thrust = stockThrust(chg, zvr, adr);
     const cr = closingRange(q, s);
 
     const sma20 = s?.sma20_lvl && px ? ((px / s.sma20_lvl) - 1) * 100 : (s?.sma20_pct ?? null);
@@ -379,7 +380,6 @@ export function computeNdxInternals({
     const hiLvl = s?.hi52_lvl ?? (s?.close && s?.off_52w_high != null ? s.close / (1 + s.off_52w_high / 100) : null);
     const hi52 = Math.max(hiLvl || 0, q?.yearHigh || 0) || null;
     const off52 = hi52 && px ? ((px / hi52) - 1) * 100 : (s?.off_52w_high ?? s?.pct_from_high ?? null);
-    const adr = s?.adr20 ?? s?.adr_pct ?? null;
     const rs = s?.rs_rank ?? null;
     const eps = s?.eps_rating ?? null;
     const stage = s ? classifyWeinsteinStage(s) : null;

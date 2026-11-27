@@ -1735,7 +1735,7 @@ export default function QqqPanel({
         <Card
           A={A}
           title={`Nasdaq-100 Holdings (${sortedRows.length}/${internals.count})`}
-          sub="Default sorted by Thrust (Chg% × ZVR) · click any row to chart · ↑/↓ to step through"
+          sub="Default sorted by ADR-adjusted Thrust ((Chg% ÷ ADR%) × ZVR) · click any row to chart · ↑/↓ to step through"
           right={<CopyTickersBtn A={A} tickers={sortedRows.map((r) => r.ticker)} label="Copy TV" />}
         >
           {/* Group & Quick Filter Pills */}
@@ -1798,7 +1798,7 @@ export default function QqqPanel({
                 <tr>
                   {col("ticker", "Ticker", "left", "Symbol & company", true)}
                   {col("group", "Grp", "left", "Nasdaq-100 sector group", true)}
-                  {col("thrust", "Thr", "right", "Stock Thrust: Chg% × ZVR")}
+                  {col("thrust", "Thr", "right", "ADR-adjusted Stock Thrust: (Chg% ÷ ADR%) × ZVR")}
                   {col("contribBps", "bps", "right", "Estimated QQQ basis points contribution (Weight% × Chg%)")}
                   {col("weightPct", "Wt%", "right", "Estimated Nasdaq-100 weight %")}
                   {col("chg", "Chg%")}
@@ -1849,7 +1849,7 @@ export default function QqqPanel({
                           {GROUP_SHORT[r.group] || r.group}
                         </span>
                       </td>
-                      <td style={mtd("right", { fontFamily: MONO, fontWeight: r.thrust != null && Math.abs(r.thrust) >= 5 ? 800 : 500, color: pc(r.thrust), whiteSpace: "nowrap" })}>
+                      <td style={mtd("right", { fontFamily: MONO, fontWeight: r.thrust != null && Math.abs(r.thrust) >= 1.5 ? 800 : 500, color: pc(r.thrust), whiteSpace: "nowrap" })}>
                         {r.thrust != null ? `${r.thrust > 0 ? "+" : ""}${r.thrust.toFixed(1)}` : "—"}
                       </td>
                       <td style={mtd("right", { fontFamily: MONO, fontWeight: r.contribBps != null && Math.abs(r.contribBps) >= 5 ? 700 : 400, color: pc(r.contribBps), whiteSpace: "nowrap" })}>

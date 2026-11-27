@@ -100,7 +100,7 @@ test("computeNdxInternals computes live breadth, thrust, bps contribution, and m
   assert.equal(res.topNegative[0].ticker, "CRWD");
 
   const nvdaRow = res.rows.find((r) => r.ticker === "NVDA");
-  assert.equal(nvdaRow.thrust, 11.0); // 5.0% * 2.2x
+  assert.equal(nvdaRow.thrust, 2.6); // (5.0% / 4.2% ADR) * 2.2x = 2.6
   assert.equal(nvdaRow.isBreakout, true);
   const amgnRow = res.rows.find((r) => r.ticker === "AMGN");
   assert.equal(amgnRow.isHealth, true);
