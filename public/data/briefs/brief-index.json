@@ -1,6 +1,14 @@
 {
-  "latest": "brief-2026-11-27-am.json",
+  "latest": "brief-2026-11-27-intraday-1119.json",
   "briefs": [
+    {
+      "id": "brief-2026-11-27-intraday-1119",
+      "date": "2026-11-27",
+      "session": "intraday",
+      "label": "Intraday Brief — Fri Nov 27, 2026 (11:19 AM PT / 2:19 PM ET — Final Cumulative Intraday & Early-Close Wrap)",
+      "file": "brief-2026-11-27-intraday-1119.json",
+      "regime": "Confirmed Stage 2 Follow-Through — 65% to 75% Net Long Exposure (Black Friday 10:00 AM PT / 1:00 PM ET Closing Bell)"
+    },
     {
       "id": "brief-2026-11-27-am",
       "date": "2026-11-27",
