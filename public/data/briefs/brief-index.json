@@ -1,6 +1,14 @@
 {
-  "latest": "brief-2026-11-26-pm.json",
+  "latest": "brief-2026-11-27-am.json",
   "briefs": [
+    {
+      "id": "brief-2026-11-27-am",
+      "date": "2026-11-27",
+      "session": "am",
+      "label": "Premarket Brief — Fri, Nov 27, 2026 (Black Friday Early-Close Session)",
+      "file": "brief-2026-11-27-am.json",
+      "regime": "Broadening Stage 2 Follow-Through — 50%–65% Net Long Exposure (All 3 Major Indexes Above 21d EMA & 50d SMA Premarket; Early Close Today at 1:00 PM ET / 10:00 AM PT)"
+    },
     {
       "id": "brief-2026-11-26-pm",
       "date": "2026-11-26",
