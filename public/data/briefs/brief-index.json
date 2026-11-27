@@ -1,6 +1,14 @@
 {
-  "latest": "brief-2026-11-27-intraday-1119.json",
+  "latest": "brief-2026-11-27-pm.json",
   "briefs": [
+    {
+      "id": "brief-2026-11-27-pm",
+      "date": "2026-11-27",
+      "session": "pm",
+      "label": "Postmarket Brief — Fri Nov 27, 2026 (Black Friday Close & Weekly Post-Mortem Scorecard)",
+      "file": "brief-2026-11-27-pm.json",
+      "regime": "Confirmed Stage 2 Follow-Through — 65% to 75% Net Long Exposure"
+    },
     {
       "id": "brief-2026-11-27-intraday-1119",
       "date": "2026-11-27",
