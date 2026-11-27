@@ -557,13 +557,24 @@ export function closingRange(q, s) {
  * 4% / $ breakout, Qullamaggie breakout, and theme leadership criteria.
  * Shared by the live ZANGER tab and scripts/zanger-scan.mjs.
  */
-export function scoreZangerCandidate({ s, q, layer, tier, profiles, now = new Date() }) {
+export function scoreZangerCandidate({ s, q, layer, tier, profiles, now = new Date(), unfiltered = false }) {
   if (!s?.ticker) return null;
   if (pinReason(s)) return null;
-  if ((s.avg_dollar_vol_raw ?? 0) < 20e6) return null;
-  if (!s.above_50ma) return null;
+  const adv = s.avg_dollar_vol_raw ?? 0;
+  const inStrongLayer = Boolean(layer && (layer.st === "lead" || layer.st === "emerg"));
+  const rs = s.rs_rank ?? 0;
+  const inCoreBase =
+    adv >= 20e6 &&
+    Boolean(s.above_50ma) &&
+    (Boolean(tier) || rs >= 70 || inStrongLayer);
 
-  const px = q?.price ?? s.price ?? s.close ?? null;
+  if (!unfiltered) {
+    if (adv < 20e6) return null;
+    if (!s.above_50ma) return null;
+  }
+
+  const px = q?.rthPrice ?? q?.price ?? s.price ?? s.close ?? null;
+  if (px == null || !(px > 0)) return null;
   const chg = q?.change ?? s.change_pct ?? null;
   const volume = (typeof q?.volume === "number" && Number.isFinite(q.volume) && q.volume > 0)
     ? q.volume
@@ -571,9 +582,12 @@ export function scoreZangerCandidate({ s, q, layer, tier, profiles, now = new Da
   const is9M = volume != null && volume >= 8_900_000;
   const cr = closingRange(q, s);
   const adr = s.adr20 ?? s.adr_pct ?? null;
-  const off52 = s.off_52w_high ?? s.pct_from_high ?? null;
-  const rs = s.rs_rank ?? 0;
+  const hi52 = Math.max(s.hi52_lvl || 0, q?.yearHigh || 0) || null;
+  const off52 = hi52 && px ? ((px / hi52) - 1) * 100 : (s.off_52w_high ?? s.pct_from_high ?? null);
   const eps = s.eps_rating ?? null;
+  const sma50Lvl = s.sma50_lvl ?? (s.close > 0 && s.sma50_pct != null ? s.close / (1 + s.sma50_pct / 100) : null);
+  const reclaim50 = !s.above_50ma && Boolean(sma50Lvl && px >= sma50Lvl);
+  const below50 = sma50Lvl ? px < sma50Lvl : !s.above_50ma;
 
   let zvr = q ? zvrFor(s, q, profiles, now) : null;
   if (zvr == null && s.rel_volume > 0) zvr = s.rel_volume;
@@ -587,8 +601,6 @@ export function scoreZangerCandidate({ s, q, layer, tier, profiles, now = new Da
       ? px - px / (1 + chg / 100)
       : null;
 
-  const inStrongLayer = Boolean(layer && (layer.st === "lead" || layer.st === "emerg"));
-
   // 1. Dan Zanger Breakout: heavy volume surge + strong thrust + closing near highs within 10% of 52wH
   const isZangerBO =
     (inStrongLayer || rs >= 90) &&
@@ -600,11 +612,11 @@ export function scoreZangerCandidate({ s, q, layer, tier, profiles, now = new Da
 
   // 2. Stockbee 4% Breakout (Momentum Burst): up >= 4% on >= 1x volume with strong close
   const isStockbee4 =
-    px != null && px >= 3 &&
+    px >= 3 &&
     chg != null && chg >= 4.0 &&
     (zvr == null || zvr >= 1.0) &&
     (cr == null || cr >= 60) &&
-    rs >= 70;
+    (unfiltered || rs >= 70);
 
   // 3. Stockbee $ Breakout: >= $0.90 dollar expansion (>= +1.5% to filter $500+ noise) on >= 1.2x vol
   const isStockbeeDollar =
@@ -612,7 +624,7 @@ export function scoreZangerCandidate({ s, q, layer, tier, profiles, now = new Da
     chg != null && chg >= 1.5 &&
     zvr != null && zvr >= 1.2 &&
     (cr == null || cr >= 60) &&
-    rs >= 75;
+    (unfiltered || rs >= 75);
 
   // 4. Qullamaggie Breakout: prior momentum leader + high ADR / tight structure breaking out on volume
   const qmagPriorMom =
@@ -644,12 +656,10 @@ export function scoreZangerCandidate({ s, q, layer, tier, profiles, now = new Da
 
   // Broader intraday volume mover (Dan Zanger volume surge OR any of the 4 breakouts)
   const qualifiesVolSurge =
-    (inStrongLayer || rs >= 90) &&
     zvr != null && zvr >= 1.5 &&
     chg != null && chg >= Math.min(1.5, (adr ?? 3) * 0.6) &&
     (cr == null || cr >= 60) &&
-    (off52 == null || off52 >= -20) &&
-    rs >= 75;
+    (unfiltered || ((inStrongLayer || rs >= 90) && (off52 == null || off52 >= -20) && rs >= 75));
 
   const qualifiesZanger = isBreakout || qualifiesVolSurge;
 
@@ -693,6 +703,9 @@ export function scoreZangerCandidate({ s, q, layer, tier, profiles, now = new Da
     breakoutTypes,
     isBreakout,
     qualifiesZanger,
+    inCoreBase,
+    reclaim50,
+    below50,
     score,
     pipelineNews: (s._newsPipe || []).slice(0, 2),
   };

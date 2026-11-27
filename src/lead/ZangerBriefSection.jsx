@@ -16,7 +16,6 @@ import {
   indexStats,
   isHealthcareItem,
   pinReason,
-  rsLeads,
   scoreZangerCandidate,
   statusColor,
   stockThrust,
@@ -25,7 +24,6 @@ import {
   useFlags,
   useRvolProfiles,
   useScanQuotes,
-  zvrFor,
 } from "./core.jsx";
 import { authFetch } from "../utils.js";
 import { computeLivePortfolioPulse, filterRecentHeadlines } from "./briefLive.js";
@@ -60,12 +58,19 @@ const BO_META = {
 };
 const BO_KEYS = ["ZANGER", "SB4%", "SB$", "QMAG"];
 
+const BASE_FILTERS = [
+  ["all", "All Universe", "#e2e8f0", "Entire ThemePulse universe (no base filter applied)"],
+  ["core", ">50d Leaders", "#a78bfa", "Original base: Avg $vol ≥ $20M · above 50d SMA · RS ≥ 70 or Leading/Emerging tier/layer"],
+  ["adr5liq", "ADR 5%+ Liq", "#fb923c", "Mkt cap > $100M · ADR > 5% · Avg vol (10D) > 500K · Price > 200d SMA · 1W $vol > $300M"],
+];
+const VALID_BASE_FILTERS = new Set(BASE_FILTERS.map(([k]) => k));
+
 const CAT_TABS = [
-  ["bo", "🔥 Breakouts", "#fbbf24", "Any of the 4 breakouts (Zanger, Stockbee 4%, Stockbee $, Qullamaggie) across Leaders + ADR 5%+ Liquid"],
-  ["zanger", "⚡ All Movers", "#4ade80", "Any breakout OR ZVR ≥ 1.5x volume surge across Leaders + ADR 5%+ Liquid"],
-  ["adr5liq", "🚀 ADR 5%+ Liq", "#fb923c", "Full ADR 5%+ Liquid base screen: Mkt cap > $100M · ADR > 5% · Avg vol (10D) > 500K · Price > 200d SMA · 1W $vol > $300M"],
+  ["bo", "🔥 Breakouts", "#fbbf24", "Any of the 4 breakouts: Zanger, Stockbee 4%, Stockbee $, Qullamaggie"],
+  ["zanger", "⚡ All Movers", "#4ade80", "Any breakout OR ZVR ≥ 1.5x volume surge with strong close"],
   ["rsl", "🔵 RS Leading", "#38bdf8", "RS line at a new 52-week high on a green close while basing 5–15% off highs"],
   ["leaders", "⭐ Core Leaders", "#f59e0b", "RS 90+ Tier Leaders in Leading theme layers"],
+  ["all", "📋 All Stocks", "#94a3b8", "Every stock matching the selected Base filter (including quiet consolidations)"],
   ["ext", "🌙 Pre/Postmarket", "#c084fc", "Pre-market & after-hours movers with earnings flags and catalysts"],
 ];
 
@@ -106,7 +111,7 @@ function CrMeter({ cr, A }) {
   );
 }
 
-const VALID_CAT_TABS = new Set(["bo", "zanger", "adr5liq", "rsl", "leaders", "ext"]);
+const VALID_CAT_TABS = new Set(["bo", "zanger", "rsl", "leaders", "all", "ext"]);
 
 export default function ZangerBriefSection({
   A,
@@ -138,9 +143,22 @@ export default function ZangerBriefSection({
   const [err, setErr] = useState(null);
   const [liveOn, setLiveOn] = useState(true);
   const [mq, setMq] = useState(null);
+  const [baseFilter, setBaseFilter] = useState(() => {
+    try {
+      const savedBase = localStorage.getItem("tp-brief-base");
+      if (VALID_BASE_FILTERS.has(savedBase)) return savedBase;
+      if (localStorage.getItem("tp-brief-cat") === "adr5liq") return "adr5liq";
+    } catch { /* ignore */ }
+    return "all";
+  });
+  const pickBaseFilter = (b) => {
+    setBaseFilter(b);
+    try { localStorage.setItem("tp-brief-base", b); } catch { /* ignore */ }
+  };
   const [catTab, setCatTab] = useState(() => {
     try {
       const saved = localStorage.getItem("tp-brief-cat");
+      if (saved === "adr5liq") return "all";
       if (VALID_CAT_TABS.has(saved)) return saved;
     } catch { /* ignore */ }
     return "zanger";
@@ -150,13 +168,12 @@ export default function ZangerBriefSection({
   const [onlyOrh, setOnlyOrh] = useState(false); // secondary filter: 30m Opening Range High breakout
   const [only30m, setOnly30m] = useState(false); // secondary filter: triggered 30-Minute Pivot
   const [onlyNear52w, setOnlyNear52w] = useState(false); // secondary filter: within 15% of 52-week high
-  const [onlyAbove50Base, setOnlyAbove50Base] = useState(false); // secondary filter: original >50d SMA Leaders base only
   const [bars30Map, setBars30Map] = useState({});
   const [bars30Loading, setBars30Loading] = useState(false);
   const [bars30Tick, setBars30Tick] = useState(0);
   const [themeFilter, setThemeFilter] = useState(null);
   const [minZvr, setMinZvr] = useState(1.0);
-  const [minRs, setMinRs] = useState(70);
+  const [minRs, setMinRs] = useState(0);
   const [minAdr, setMinAdr] = useState(null);
   const [noHealth, setNoHealth] = useState(() => {
     try { return (localStorage.getItem("tp-no-health") ?? localStorage.getItem("tp-no-bio")) === "1"; } catch { return false; }
@@ -248,44 +265,19 @@ export default function ZangerBriefSection({
     return () => { live = false; };
   }, [sel, index]);
 
-  // Build liquid candidate pool matching Zanger.jsx so Breakouts & Movers update live every 60s
+  // Entire active ThemePulse universe (no hidden base filter — users pick Base via pills)
   const poolTickers = useMemo(() => {
     const out = [];
     for (const [t, s] of Object.entries(stockMap || {})) {
-      if ((s.avg_dollar_vol_raw ?? 0) < 20e6 || !s.above_50ma || pinReason(s)) continue;
-      const l = tickerLayer?.[t];
-      if (tiers?.leaders?.has(t) || tiers?.emerging?.has(t) || (s.rs_rank ?? 0) >= 70 || l?.st === "lead" || l?.st === "emerg") {
-        out.push(t);
-      }
-    }
-    return out;
-  }, [stockMap, tickerLayer, tiers]);
-
-  // Separate base filter universe: ADR 5%+ Liquid (Mkt cap > $100M, ADR > 5%, 10D vol > 500K, > 200d SMA, 1W $vol > $300M)
-  const adr5LiqTickers = useMemo(() => {
-    const out = [];
-    for (const [t, s] of Object.entries(stockMap || {})) {
-      if (!s?.ticker) continue;
-      if (evalScanHits(s, null, null)?.adr5liq) {
-        out.push(t);
-        continue;
-      }
-      // Include names within -4% of 200d SMA so intraday reclaims enter live
-      if (
-        (s.market_cap_raw ?? 0) > 100e6 &&
-        (s.adr20 ?? s.adr_pct ?? 0) > 5 &&
-        (s.avg_vol_10d ?? s.avg_volume_raw ?? 0) > 500e3 &&
-        (s.sma200_pct ?? -99) >= -4
-      ) {
-        out.push(t);
-      }
+      if (!s?.ticker || !(s.close > 0) || pinReason(s)) continue;
+      out.push(t);
     }
     return out;
   }, [stockMap]);
 
   const quoteTickers = useMemo(
-    () => (liveOn ? [...new Set([...INDEX_TKS, ...MACRO_PILL_TKS, ...poolTickers, ...adr5LiqTickers, ...(portfolio || []), ...(watchlist || []), ...flaggedTickers].filter(Boolean))] : []),
-    [liveOn, poolTickers, adr5LiqTickers, portfolio, watchlist, flaggedTickers]
+    () => (liveOn ? [...new Set([...INDEX_TKS, ...MACRO_PILL_TKS, ...poolTickers, ...(portfolio || []), ...(watchlist || []), ...flaggedTickers].filter(Boolean))] : []),
+    [liveOn, poolTickers, portfolio, watchlist, flaggedTickers]
   );
   const { quotes, at } = useScanQuotes(quoteTickers, liveOn && quoteTickers.length > 0);
 
@@ -330,26 +322,30 @@ export default function ZangerBriefSection({
     return () => { alive = false; clearInterval(id); };
   }, [liveOn]);
 
-  // Live recomputation of Breakouts & Movers, Theme Money Flow, Leader Damage, and On Deck RSL
+  // Live recomputation across the entire ThemePulse universe (Base filters applied via pills)
   const liveComputed = useMemo(() => {
-    if (!liveOn || !quotes || quotes.size === 0 || !poolTickers.length) return null;
+    if (!poolTickers.length) return null;
+    const hasLiveQuotes = Boolean(liveOn && quotes && quotes.size > 0);
+    if (liveOn && !hasLiveQuotes && snap) return null;
     const now = new Date();
     const snapNewSet = new Set((snap?.zangerMovers || []).filter((m) => m.isNew).map((m) => m.ticker));
     const scored = [];
     for (const t of poolTickers) {
       const s = stockMap?.[t];
       if (!s) continue;
-      const q = quotes.get(t) || null;
+      const q = hasLiveQuotes ? (quotes.get(t) || null) : null;
       const layer = tickerLayer?.[t] || null;
       const tier = tiers?.leaders?.has(t) ? "lead" : tiers?.emerging?.has(t) ? "emerg" : null;
-      const res = scoreZangerCandidate({ s, q, layer, tier, profiles, now });
+      const res = scoreZangerCandidate({ s, q, layer, tier, profiles, now, unfiltered: true });
       if (res) {
+        res.inAdr5Liq = Boolean(evalScanHits(s, q, res.zvr)?.adr5liq);
         if (snapNewSet.has(t)) res.isNew = true;
         scored.push(res);
       }
     }
 
-    const movers = scored
+    const coreScored = scored.filter((r) => r.inCoreBase);
+    const movers = coreScored
       .filter((r) => r.qualifiesZanger)
       .sort(
         (a, b) =>
@@ -370,7 +366,7 @@ export default function ZangerBriefSection({
       if ((s.avg_dollar_vol_raw ?? 0) < 20e6) continue;
       const theme = tickerLayer?.[tk]?.theme;
       if (!theme) continue;
-      const q = quotes.get(tk);
+      const q = hasLiveQuotes ? quotes.get(tk) : null;
       const chg = q?.change ?? s.change_pct;
       if (chg == null || !Number.isFinite(chg)) continue;
       let b = buckets.get(theme);
@@ -390,7 +386,7 @@ export default function ZangerBriefSection({
       }))
       .sort((a, b) => b.avgChg - a.avgChg);
 
-    const damagedLeaders = scored
+    const damagedLeaders = coreScored
       .filter((r) => {
         if (r.rs < 90 && r.tier !== "lead") return false;
         if (r.chg == null || r.chg > -3.0) return false;
@@ -399,12 +395,13 @@ export default function ZangerBriefSection({
       .sort((a, b) => a.chg - b.chg || (b.zvr ?? 0) - (a.zvr ?? 0))
       .slice(0, 8);
 
-    const onDeck = scored
+    const onDeck = coreScored
       .filter((r) => r.rsl && !r.isBreakout && r.rs >= 85)
       .sort((a, b) => b.rs - a.rs || (b.off52 ?? -99) - (a.off52 ?? -99))
       .slice(0, 8);
 
     return {
+      isLive: hasLiveQuotes,
       allScored: scored,
       movers,
       themeFlow: {
@@ -416,112 +413,16 @@ export default function ZangerBriefSection({
     };
   }, [liveOn, quotes, poolTickers, stockMap, tickerLayer, tiers, profiles, snap]);
 
-  // Live rows for the ADR 5%+ Liquid base filter view (preserves breakout tags from Zanger pool when present)
-  const adr5LiqRows = useMemo(() => {
-    if (!adr5LiqTickers.length) return [];
-    const now = new Date();
-    const scoredMap = new Map();
-    const srcScored = liveComputed ? liveComputed.allScored : [...(snap?.zangerMovers || []), ...(snap?.onDeckRsl || [])];
-    for (const r of srcScored) {
-      if (r?.ticker && !scoredMap.has(r.ticker)) scoredMap.set(r.ticker, r);
-    }
-    const out = [];
-    for (const t of adr5LiqTickers) {
-      const s = stockMap?.[t];
-      if (!s) continue;
-      const q = liveOn ? (quotes.get(t) || null) : null;
-      let zvr = q ? zvrFor(s, q, profiles, now) : null;
-      if (zvr == null && s.rel_volume > 0) zvr = s.rel_volume;
-      if (!evalScanHits(s, q, zvr)?.adr5liq) continue;
-
-      const existing = scoredMap.get(t);
-      if (existing) {
-        out.push(existing);
-        continue;
-      }
-
-      const layer = tickerLayer?.[t] || null;
-      const tier = tiers?.leaders?.has(t) ? "lead" : tiers?.emerging?.has(t) ? "emerg" : null;
-      const px = q?.rthPrice ?? q?.price ?? s.price ?? s.close ?? null;
-      const chg = q?.change ?? s.change_pct ?? null;
-      const volume = (typeof q?.volume === "number" && Number.isFinite(q.volume) && q.volume > 0)
-        ? q.volume
-        : (typeof s.volume === "number" && Number.isFinite(s.volume) && s.volume > 0 ? s.volume : null);
-      const is9M = volume != null && volume >= 8_900_000;
-      const cr = closingRange(q, s);
-      const adr = s.adr20 ?? s.adr_pct ?? null;
-      const hi52 = Math.max(s.hi52_lvl || 0, q?.yearHigh || 0) || null;
-      const off52 = hi52 && px ? ((px / hi52) - 1) * 100 : (s.off_52w_high ?? s.pct_from_high ?? null);
-      const rs = s.rs_rank ?? 0;
-      const eps = s.eps_rating ?? null;
-      const fromOpen = q?.open > 0 && px > 0 ? ((px / q.open) - 1) * 100 : null;
-      const dollarMove =
-        q?.price != null && q?.previousClose > 0
-          ? q.price - q.previousClose
-          : px != null && chg != null && chg > -99
-          ? px - px / (1 + chg / 100)
-          : null;
-      const breakoutTypes = [];
-      if (px != null && px >= 3 && chg != null && chg >= 4.0 && (zvr == null || zvr >= 1.0) && (cr == null || cr >= 60)) {
-        breakoutTypes.push("SB4%");
-      }
-      if (dollarMove != null && dollarMove >= 0.9 && chg != null && chg >= 1.5 && zvr != null && zvr >= 1.2 && (cr == null || cr >= 60)) {
-        breakoutTypes.push("SB$");
-      }
-      const qualifiesVolSurge =
-        zvr != null && zvr >= 1.5 &&
-        chg != null && chg >= Math.min(1.5, (adr ?? 3) * 0.6) &&
-        (cr == null || cr >= 60);
-      const sma50Lvl = s.sma50_lvl ?? (s.close > 0 && s.sma50_pct != null ? s.close / (1 + s.sma50_pct / 100) : null);
-      const reclaim50 = !s.above_50ma && Boolean(sma50Lvl && px != null && px >= sma50Lvl);
-      const below50 = sma50Lvl && px != null ? px < sma50Lvl : !s.above_50ma;
-      out.push({
-        ticker: t,
-        company: s.company || "",
-        theme: layer?.theme || s.sector || "—",
-        themeId: layer?.themeId || null,
-        layer: layer?.name || s.industry || "—",
-        layerStatus: layer?.st || "lag",
-        layerRank: layer?.now ?? null,
-        layerFlags: layer?.flags || [],
-        tier,
-        price: px,
-        chg,
-        volume,
-        is9M,
-        dollarMove: dollarMove != null ? Math.round(dollarMove * 100) / 100 : null,
-        fromOpen,
-        zvr: zvr != null ? Math.round(zvr * 100) / 100 : null,
-        cr,
-        adr,
-        off52: off52 != null ? Math.round(off52 * 10) / 10 : null,
-        rs,
-        eps,
-        earningsDays: s.earnings_days ?? null,
-        earningsDisplay: s.earnings_display || "",
-        rsl: Boolean(rsLeads(s)),
-        rslTip: rsLeads(s) || "",
-        breakoutTypes,
-        isBreakout: breakoutTypes.length > 0,
-        qualifiesZanger: breakoutTypes.length > 0 || qualifiesVolSurge,
-        fromAdr5Liq: true,
-        reclaim50,
-        below50,
-        score: stockThrust(chg, zvr) ?? 0,
-        isNew: false,
-      });
-    }
-    return out;
-  }, [adr5LiqTickers, stockMap, liveOn, quotes, profiles, liveComputed, snap, tickerLayer, tiers]);
-
-  // Top 48 active movers across the selected tab for live 30m ORH & Triggered 30m Pivot tagging
+  // Top 48 active movers across the selected Base + Tab for live 30m ORH & Triggered 30m Pivot tagging
   const pivot30ScanKey = useMemo(() => {
     if (catTab === "ext") return "";
-    const core = liveComputed ? liveComputed.allScored : [...(snap?.zangerMovers || []), ...(snap?.onDeckRsl || [])];
-    const seen = new Set(core.map((r) => r?.ticker).filter(Boolean));
-    const merged = [...core, ...adr5LiqRows.filter((r) => r?.ticker && !seen.has(r.ticker))];
-    const src = catTab === "adr5liq" ? adr5LiqRows : catTab === "leaders" ? core : merged;
-    const pool = src.filter((r) => {
+    const raw = liveComputed ? liveComputed.allScored : [...(snap?.zangerMovers || []), ...(snap?.onDeckRsl || [])];
+    const basePool = raw.filter((r) => {
+      if (baseFilter === "core") return r.inCoreBase ?? true;
+      if (baseFilter === "adr5liq") return Boolean(r.inAdr5Liq);
+      return true;
+    });
+    const pool = basePool.filter((r) => {
       if (catTab === "bo") return Boolean(r.isBreakout);
       if (catTab === "zanger") return Boolean(r.qualifiesZanger);
       if (catTab === "rsl") return Boolean(r.rsl);
@@ -534,7 +435,7 @@ export default function ZangerBriefSection({
       .slice(0, BARS30_MAX)
       .map((r) => r.ticker)
       .join(",");
-  }, [catTab, liveComputed, snap, adr5LiqRows]);
+  }, [catTab, baseFilter, liveComputed, snap]);
 
   useEffect(() => {
     if (!liveOn) return undefined;
@@ -833,23 +734,37 @@ export default function ZangerBriefSection({
   const decColor = dec === "YES" ? A.green : dec === "CAUTION" ? "#f59e0b" : A.red;
 
   const movers = liveComputed ? liveComputed.movers : (snap?.zangerMovers || []);
-  const corePool = liveComputed ? liveComputed.allScored : [...(snap?.zangerMovers || []), ...(snap?.onDeckRsl || [])];
-  const coreSeen = new Set(corePool.map((r) => r?.ticker).filter(Boolean));
-  const adr5Extras = adr5LiqRows.filter((r) => r?.ticker && !coreSeen.has(r.ticker));
-  const allPool = [...corePool, ...adr5Extras];
+  const universePool = liveComputed ? liveComputed.allScored : [...(snap?.zangerMovers || []), ...(snap?.onDeckRsl || [])];
+  const matchesTab = (r) => {
+    if (catTab === "bo") return Boolean(r.isBreakout);
+    if (catTab === "zanger") return Boolean(r.qualifiesZanger);
+    if (catTab === "rsl") return Boolean(r.rsl);
+    if (catTab === "leaders") return r.tier === "lead" && r.layerStatus === "lead";
+    return true;
+  };
+  const baseCounts = {
+    all: universePool.filter(matchesTab).length,
+    core: universePool.filter((r) => (r.inCoreBase ?? true) && matchesTab(r)).length,
+    adr5liq: universePool.filter((r) => Boolean(r.inAdr5Liq) && matchesTab(r)).length,
+  };
+  const allPool = universePool.filter((r) => {
+    if (baseFilter === "core") return r.inCoreBase ?? true;
+    if (baseFilter === "adr5liq") return Boolean(r.inAdr5Liq);
+    return true;
+  });
   const bos = allPool.filter((m) => m.isBreakout);
   const catCounts = {
     bo: bos.length,
     zanger: liveComputed
       ? allPool.filter((r) => r.qualifiesZanger).length
-      : (snap?.zangerMovers || []).length + adr5Extras.filter((r) => r.qualifiesZanger).length,
-    adr5liq: adr5LiqRows.length,
+      : (snap?.zangerMovers || []).length,
     rsl: allPool.filter((r) => r.rsl).length,
-    leaders: corePool.filter((r) => r.tier === "lead" && r.layerStatus === "lead").length,
+    leaders: allPool.filter((r) => r.tier === "lead" && r.layerStatus === "lead").length,
+    all: allPool.length,
     ext: extMeta.count,
   };
   const boTypeCounts = { ZANGER: 0, "SB4%": 0, "SB$": 0, QMAG: 0 };
-  for (const r of (catTab === "adr5liq" ? adr5LiqRows : allPool)) {
+  for (const r of allPool) {
     for (const k of r.breakoutTypes || []) if (boTypeCounts[k] != null) boTypeCounts[k]++;
   }
   const chipStyle = (active, accent) => ({
@@ -866,7 +781,7 @@ export default function ZangerBriefSection({
   });
   const pickCatTab = (t) => {
     setCatTab(t);
-    if (t !== "bo" && t !== "zanger" && t !== "adr5liq") setBoFilter(null);
+    if (t !== "bo" && t !== "zanger" && t !== "all") setBoFilter(null);
     try { localStorage.setItem("tp-brief-cat", t); } catch { /* ignore */ }
     setMoverSort({ k: "thrust", d: -1 });
   };
@@ -941,9 +856,8 @@ export default function ZangerBriefSection({
   const isRowOrh = (r) => pivot30ByTicker.get(r?.ticker)?.openingRange?.status === "ORH_BO";
   const isRow30m = (r) => pivot30ByTicker.get(r?.ticker)?.pivot?.state === "TRIGGERED";
   const isRowNear52w = (r) => typeof r?.off52 === "number" && Number.isFinite(r.off52) && r.off52 >= -15;
-  const isRowAbove50Base = (r) => (catTab === "adr5liq" ? !r?.below50 : !r?.fromAdr5Liq);
 
-  const tabBaseRows = (catTab === "adr5liq" ? adr5LiqRows : catTab === "leaders" ? corePool : allPool).filter((r) => {
+  const tabBaseRows = allPool.filter((r) => {
     if (catTab === "bo" && !r.isBreakout) return false;
     if (catTab === "zanger" && !r.qualifiesZanger) return false;
     if (catTab === "rsl" && !r.rsl) return false;
@@ -955,16 +869,14 @@ export default function ZangerBriefSection({
   const countOrh = tabBaseRows.filter(isRowOrh).length;
   const count30m = tabBaseRows.filter(isRow30m).length;
   const countNear52w = tabBaseRows.filter(isRowNear52w).length;
-  const countAbove50Base = tabBaseRows.filter(isRowAbove50Base).length;
 
   const filteredNoTheme = tabBaseRows.filter((r) => {
     if (only9M && !isRow9M(r)) return false;
     if (onlyOrh && !isRowOrh(r)) return false;
     if (only30m && !isRow30m(r)) return false;
     if (onlyNear52w && !isRowNear52w(r)) return false;
-    if (onlyAbove50Base && !isRowAbove50Base(r)) return false;
-    if ((catTab === "zanger" || catTab === "bo" || catTab === "adr5liq") && minZvr > 1.0 && (r.zvr ?? 0) < minZvr) return false;
-    if (minRs > 70 && (r.rs ?? 0) < minRs) return false;
+    if ((catTab === "zanger" || catTab === "bo" || catTab === "all") && minZvr > 1.0 && (r.zvr ?? 0) < minZvr) return false;
+    if (minRs > 0 && (r.rs ?? 0) < minRs) return false;
     if (minAdr != null && (r.adr ?? -1) < minAdr) return false;
     if (noHealth && isHealthcareItem({
       theme: r.theme || tickerLayer?.[r.ticker]?.theme,
@@ -1071,15 +983,15 @@ export default function ZangerBriefSection({
     cmpSort(a, b, flowSort, (r, k) => r[k], (r) => r.theme)
   );
 
-  const showZvrFilter = catTab === "bo" || catTab === "zanger" || catTab === "adr5liq";
+  const showZvrFilter = catTab === "bo" || catTab === "zanger" || catTab === "all";
   const activeFilterCount =
     (showZvrFilter && minZvr > 1.0 ? 1 : 0) +
-    (minRs > 70 ? 1 : 0) +
+    (minRs > 0 ? 1 : 0) +
     (epsOnly ? 1 : 0) +
     (cleanOnly ? 1 : 0);
   const resetSecondaryFilters = () => {
     setMinZvr(1.0);
-    setMinRs(70);
+    setMinRs(0);
     setEpsOnly(false);
     setCleanOnly(false);
   };
@@ -1544,9 +1456,7 @@ export default function ZangerBriefSection({
         sub={
           catTab === "ext"
             ? `Pre-market (${extMeta.pmCount}) & after-hours (${extMeta.ahCount}) · click any row to chart`
-            : catTab === "adr5liq"
-            ? `Base: Mkt cap > $100M · ADR > 5% · 10D vol > 500K · > 200d SMA · 1W $vol > $300M · ${sortedMovers.length} shown · click any row to chart`
-            : `${liveComputed ? "Live 60s scan · " : ""}${sortedMovers.length} shown · click any row to chart`
+            : `${liveComputed?.isLive ? "Live 60s · " : ""}${baseFilter === "adr5liq" ? "Base: ADR 5%+ Liq · " : baseFilter === "core" ? "Base: >50d Leaders · " : "Entire universe · "}${sortedMovers.length} shown · click any row to chart`
         }
         right={
           <CopyTickersBtn
@@ -1556,8 +1466,8 @@ export default function ZangerBriefSection({
           />
         }
       >
-        {/* Category Tabs matching Zanger view */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+        {/* Category Tabs */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 7 }}>
           {CAT_TABS.map(([id, label, color, tip]) => {
             const active = catTab === id;
             return (
@@ -1598,6 +1508,35 @@ export default function ZangerBriefSection({
           />
         ) : (
         <>
+        {/* Base Screen Filter Row (All Universe by default — no hidden base filter) */}
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 5, marginBottom: 7 }}>
+          <span
+            title="Optional base universe filter — defaults to All Universe (no base filter)"
+            style={{ fontSize: 10, fontWeight: 700, color: A.textMuted, letterSpacing: 0.5, marginRight: 2 }}
+          >
+            BASE
+          </span>
+          {BASE_FILTERS.map(([id, label, color, tip]) => {
+            const active = baseFilter === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => pickBaseFilter(id)}
+                title={tip}
+                style={{
+                  ...chipStyle(active, color),
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                }}
+              >
+                <span>{label}</span>
+                <span style={{ opacity: 0.75, fontFamily: MONO, fontSize: 10 }}>{baseCounts[id]}</span>
+              </button>
+            );
+          })}
+        </div>
         {/* Leading & Emerging Themes Filter Strip (single-row horizontal scroll) */}
         {(topThemes.length > 0 || extraThemeChip) && (
           <div
@@ -1693,13 +1632,6 @@ export default function ZangerBriefSection({
                 >
                   ≤15% 52wH <span style={{ opacity: 0.75 }}>{countNear52w}</span>
                 </button>
-                <button
-                  onClick={() => setOnlyAbove50Base((v) => !v)}
-                  title="Original >50d SMA Leaders base filter only (hides ADR 5%+ Liq below-50d extras)"
-                  style={{ ...chipStyle(onlyAbove50Base, "#a78bfa"), fontFamily: MONO, fontSize: 10.5 }}
-                >
-                  &gt;50d Base <span style={{ opacity: 0.75 }}>{countAbove50Base}</span>
-                </button>
                 {bars30Loading && countOrh === 0 && count30m === 0 && (
                   <span style={{ fontSize: 9.5, fontFamily: MONO, color: A.textMuted }}>30m…</span>
                 )}
@@ -1733,13 +1665,6 @@ export default function ZangerBriefSection({
                   style={{ ...chipStyle(onlyNear52w, "#fbbf24"), fontFamily: MONO, fontSize: 10.5 }}
                 >
                   ≤15% 52wH <span style={{ opacity: 0.75 }}>{countNear52w}</span>
-                </button>
-                <button
-                  onClick={() => setOnlyAbove50Base((v) => !v)}
-                  title="Original >50d SMA Leaders base filter only (hides ADR 5%+ Liq below-50d extras)"
-                  style={{ ...chipStyle(onlyAbove50Base, "#a78bfa"), fontFamily: MONO, fontSize: 10.5 }}
-                >
-                  &gt;50d Base <span style={{ opacity: 0.75 }}>{countAbove50Base}</span>
                 </button>
                 {bars30Loading && countOrh === 0 && count30m === 0 && (
                   <span style={{ fontSize: 9.5, fontFamily: MONO, color: A.textMuted }}>30m…</span>
@@ -1810,8 +1735,8 @@ export default function ZangerBriefSection({
               )}
               <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                 <span style={{ fontSize: 10, fontWeight: 700, color: A.textMuted, letterSpacing: 0.4 }}>RS</span>
-                {[70, 80, 90].map((v) => (
-                  <button key={v} onClick={() => setMinRs(v)} style={{ ...chipStyle(minRs === v, A.cyan), fontFamily: MONO }}>≥{v}</button>
+                {[0, 70, 80, 90].map((v) => (
+                  <button key={v} onClick={() => setMinRs(v)} style={{ ...chipStyle(minRs === v, A.cyan), fontFamily: v === 0 ? undefined : MONO }}>{v === 0 ? "Any" : `≥${v}`}</button>
                 ))}
               </div>
               <button onClick={() => setEpsOnly((v) => !v)} style={chipStyle(epsOnly, A.green)} title="Require O'Neil EPS Rating ≥ 50">EPS ≥ 50</button>
@@ -1916,7 +1841,7 @@ export default function ZangerBriefSection({
                           );
                         }) : (
                           <span style={{ fontSize: 10, fontWeight: 700, fontFamily: MONO, padding: "1px 3px", lineHeight: 1.15, borderRadius: 3, background: m.rsl ? "rgba(56,189,248,0.16)" : m.qualifiesZanger ? "rgba(34,197,94,0.16)" : "transparent", color: m.rsl ? A.cyan : m.qualifiesZanger ? A.green : A.textDim, border: m.rsl || m.qualifiesZanger ? "none" : `1px solid ${A.border}` }}>
-                            {m.rsl ? "RSL" : m.qualifiesZanger ? "VOL" : m.fromAdr5Liq ? "ADR5" : "LEAD"}
+                            {m.rsl ? "RSL" : m.qualifiesZanger ? "VOL" : m.inAdr5Liq ? "ADR5" : "LEAD"}
                           </span>
                         )}
                         {m.reclaim50 && (
