@@ -1,0 +1,853 @@
+{
+  "id": "brief-2026-11-27-pm",
+  "date": "2026-11-27",
+  "session": "pm",
+  "label": "Postmarket Brief — Fri Nov 27, 2026 (Black Friday Close & Weekly Post-Mortem Scorecard)",
+  "headline": "QQQ (+2.65%) Reclaims 21d EMA & VIX Plunges -10.30% to 24.04 as 8 Tracked Leaders Hit New 52-Week Highs and Weekly Setup Portfolio Expands to +4.04% Avg Return (85.2% Win Rate)",
+  "regime": {
+    "posture": "Confirmed Stage 2 Follow-Through — 65% to 75% Net Long Exposure",
+    "breadth": "18 Leading vs 11 Breaking Down (+7 Net Positive Spread)",
+    "indexes": [
+      {
+        "ticker": "SPY",
+        "price": 728.32,
+        "chgPct": 1.62,
+        "cr": 91,
+        "vs21d": "+1.65% above 21d EMA ($716.50)",
+        "vs50d": "+2.86% above 50d SMA ($708.10)",
+        "status": "Stage 2 Uptrend — 91% CR close ($728.41 AH)"
+      },
+      {
+        "ticker": "QQQ",
+        "price": 650.99,
+        "chgPct": 2.69,
+        "cr": 98,
+        "vs21d": "+0.65% above 21d EMA ($646.80) — RECLAIMED",
+        "vs50d": "+1.84% above 50d SMA ($639.20)",
+        "status": "98% CR close ($650.73 settle / $650.50 AH) after defending 50d SMA at $636.72 low"
+      },
+      {
+        "ticker": "IWM",
+        "price": 273.79,
+        "chgPct": 1.58,
+        "cr": 95,
+        "vs21d": "+2.58% above 21d EMA ($266.90)",
+        "vs50d": "+4.74% above 50d SMA ($261.40)",
+        "status": "95% CR Small-Cap Stage 2 Leadership"
+      }
+    ]
+  },
+  "macroTape": {
+    "vix": "24.04 (-10.30% vs 26.80 settle / -14.63% vs 28.16 Wed close)",
+    "us10y": "4.86%",
+    "wti": "$85.74/bbl (+2.46%)",
+    "dxy": "103.71 (-0.14%)"
+  },
+  "breakouts": [
+    {
+      "ticker": "DELL",
+      "types": [
+        "ZANGER",
+        "SB4%",
+        "SB$",
+        "QMAG",
+        "9M"
+      ],
+      "price": 316.96,
+      "chgPct": 6.69,
+      "zvr": 6.8,
+      "thrust": 45.5,
+      "cr": 97,
+      "rs": 84,
+      "layer": "AI Servers & Storage",
+      "note": "Grade B+ (#1 Board Thrust): 9.16M vol ($317.50 HOD) on $132.3B AI server backlog; extended +7.40% vs $295.11 pivot (+6.70% fr Row 28 entry)."
+    },
+    {
+      "ticker": "MU",
+      "types": [
+        "ZANGER",
+        "SB4%",
+        "SB$",
+        "QMAG",
+        "9M"
+      ],
+      "price": 646.95,
+      "chgPct": 7.6,
+      "zvr": 4.8,
+      "thrust": 36.5,
+      "cr": 84,
+      "rs": 80,
+      "layer": "AI Memory & HBM3e",
+      "note": "Grade B+ (Logged Row 30): 26.19M vol ($654.44 HOD); actionable +1.34% above $638.40 handle pivot."
+    },
+    {
+      "ticker": "VERA",
+      "types": [
+        "ZANGER",
+        "SB4%",
+        "SB$",
+        "QMAG"
+      ],
+      "price": 34.26,
+      "chgPct": 16.14,
+      "zvr": 4.5,
+      "thrust": 28.4,
+      "cr": 58,
+      "rs": 86,
+      "layer": "Biotech Nephrology",
+      "note": "Grade B+ (Logged Row 29): 2.80M vol ($35.49 HOD) on rival VRTX 3-mo FDA PDUFA delay; actionable +0.41% above $34.12 ORH pivot."
+    },
+    {
+      "ticker": "ANF",
+      "types": [
+        "ZANGER",
+        "SB4%",
+        "SB$",
+        "QMAG"
+      ],
+      "price": 184.43,
+      "chgPct": 4.24,
+      "zvr": 4.9,
+      "thrust": 20.8,
+      "cr": 89,
+      "rs": 88,
+      "layer": "Apparel Retail",
+      "note": "Grade A- (NEW 52W HIGH $185.81): +5.45% fr $174.89 open on 1.43M vol (+4.22% fr Row 26 entry)."
+    },
+    {
+      "ticker": "DKS",
+      "types": [
+        "ZANGER",
+        "SB$",
+        "QMAG"
+      ],
+      "price": 164.41,
+      "chgPct": 3.67,
+      "zvr": 4.4,
+      "thrust": 16.1,
+      "cr": 96,
+      "rs": 81,
+      "layer": "Specialty Retail",
+      "note": "Grade B+ (96% CR Close): Surged to $164.74 HOD on 1.44M vol (+7.34% fr Row 24 entry)."
+    },
+    {
+      "ticker": "BLMN",
+      "types": [
+        "ZANGER",
+        "SB4%",
+        "QMAG"
+      ],
+      "price": 10.86,
+      "chgPct": 5.03,
+      "zvr": 2.9,
+      "thrust": 14.6,
+      "cr": 95,
+      "rs": 88,
+      "layer": "Restaurants + QSR",
+      "note": "Grade B+ (95% CR Close): Surged +5.03% ($10.89 HOD) confirming CBRL breakout (+4.93% fr Row 18 entry)."
+    },
+    {
+      "ticker": "OKTA",
+      "types": [
+        "ZANGER",
+        "SB$, QMAG"
+      ],
+      "price": 207.46,
+      "chgPct": 3.26,
+      "zvr": 3.9,
+      "thrust": 12.7,
+      "cr": 92,
+      "rs": 82,
+      "layer": "Cyber Threat Ops",
+      "note": "Grade B (Actionable <= $210.06): $208.35 HOD (+8.36% fr Row 7 entry); Q3 earnings Tue Dec 1 AMC."
+    },
+    {
+      "ticker": "XERS",
+      "types": [
+        "ZANGER",
+        "QMAG"
+      ],
+      "price": 17.93,
+      "chgPct": 3.22,
+      "zvr": 3.8,
+      "thrust": 12.2,
+      "cr": 84,
+      "rs": 97,
+      "layer": "Specialty Pharma",
+      "note": "Grade A- (NEW 52W HIGH $18.06): 1.16M vol breakout (+2.34% fr Row 16 entry)."
+    },
+    {
+      "ticker": "PRCH",
+      "types": [
+        "ZANGER",
+        "QMAG"
+      ],
+      "price": 22.22,
+      "chgPct": 3.4,
+      "zvr": 2.4,
+      "thrust": 8.2,
+      "cr": 74,
+      "rs": 96,
+      "layer": "Vertical Software",
+      "note": "Grade B+ (NEW 52W HIGH $22.37): Crossed $22.36 flat-base pivot intraday (+0.91% fr Row 22 entry)."
+    },
+    {
+      "ticker": "WWW",
+      "types": [
+        "QMAG"
+      ],
+      "price": 25.99,
+      "chgPct": 2.59,
+      "zvr": 2.3,
+      "thrust": 6,
+      "cr": 92,
+      "rs": 96,
+      "layer": "Luxury + Apparel",
+      "note": "Grade A (Actionable Breakout): Closed +0.46% above $25.87 pivot ($26.10 AH; +4.97% fr Row 12 entry)."
+    }
+  ],
+  "portfolioUpdates": [
+    {
+      "list": "PORT",
+      "ticker": "CDNA",
+      "price": 77.16,
+      "chgPct": 1.71,
+      "zvr": 2.6,
+      "cr": 57,
+      "rs": 99,
+      "alerts": [
+        "+10.23% TOTAL RETURN",
+        "RS 99"
+      ],
+      "note": "#1 cumulative portfolio winner (+10.23% fr $70.00 Row 4 entry). Hold core."
+    },
+    {
+      "list": "PORT",
+      "ticker": "ETON",
+      "price": 66.88,
+      "chgPct": 2.53,
+      "zvr": 2.2,
+      "cr": 79,
+      "rs": 99,
+      "alerts": [
+        "+9.91% TOTAL RETURN",
+        "NEAR $68.37 PIVOT"
+      ],
+      "note": "#2 cumulative winner (+9.91% fr $60.85 Row 5 entry), coiling 2.2% below $68.37 high-base pivot."
+    },
+    {
+      "list": "PORT",
+      "ticker": "TGTX",
+      "price": 69.46,
+      "chgPct": 1.59,
+      "zvr": 3.1,
+      "cr": 100,
+      "rs": 99,
+      "alerts": [
+        "NEW 52W HIGH $69.46",
+        "+9.66% TOTAL RETURN"
+      ],
+      "note": "Reversed +8.18% off $64.21 morning shakeout after defending $66.12 pivot (+9.66% fr Row 3 entry)."
+    },
+    {
+      "list": "PORT",
+      "ticker": "OKTA",
+      "price": 207.46,
+      "chgPct": 3.26,
+      "zvr": 3.9,
+      "cr": 92,
+      "rs": 82,
+      "alerts": [
+        "BUY ZONE <=$210.06",
+        "EARNINGS TUE DEC 1 AMC"
+      ],
+      "note": "+8.36% fr Row 7 entry ($191.46). Trim 50% or hedge ahead of Tue Dec 1 AMC earnings (+/-19.1% implied move)."
+    },
+    {
+      "list": "PORT",
+      "ticker": "CBRL",
+      "price": 76.59,
+      "chgPct": 1.65,
+      "zvr": 2.7,
+      "cr": 82,
+      "rs": 89,
+      "alerts": [
+        "NEW 52W HIGH $76.97",
+        "BUY ZONE <=$78.04"
+      ],
+      "note": "+8.25% fr Row 9 entry ($70.75). Actionable +3.05% above $74.32 cup-with-handle pivot."
+    },
+    {
+      "list": "PORT",
+      "ticker": "COLM",
+      "price": 81,
+      "chgPct": 0.31,
+      "zvr": 2.2,
+      "cr": 72,
+      "rs": 94,
+      "alerts": [
+        "NEW 52W HIGH $81.60",
+        "+8.01% TOTAL RETURN"
+      ],
+      "note": "+8.01% fr Row 11 entry ($74.99). Hold core; extended +6.51% above $76.05 pivot."
+    },
+    {
+      "list": "PORT",
+      "ticker": "COGT",
+      "price": 35.64,
+      "chgPct": -1.22,
+      "zvr": 1.4,
+      "cr": 20,
+      "rs": 95,
+      "alerts": [
+        "+7.97% TOTAL RETURN",
+        "INSIDE-DAY FLAG"
+      ],
+      "note": "+7.97% fr Row 21 entry ($33.01). Normal digestion after Wed FDA GIST approval surge."
+    },
+    {
+      "list": "PORT",
+      "ticker": "DKS",
+      "price": 164.41,
+      "chgPct": 3.67,
+      "zvr": 4.4,
+      "cr": 96,
+      "rs": 81,
+      "alerts": [
+        "96% CR CLOSE",
+        "+7.34% TOTAL RETURN"
+      ],
+      "note": "+7.34% fr Row 24 entry ($153.17). Extended +6.86% above $153.85 ORH pivot."
+    },
+    {
+      "list": "PORT",
+      "ticker": "DELL",
+      "price": 316.96,
+      "chgPct": 6.69,
+      "zvr": 6.8,
+      "cr": 97,
+      "rs": 84,
+      "alerts": [
+        "97% CR CLOSE",
+        "#1 THRUST 45.5"
+      ],
+      "note": "+6.70% fr Row 28 entry ($297.06). Extended +7.40% above $295.11 pivot."
+    },
+    {
+      "list": "PORT",
+      "ticker": "VCEL",
+      "price": 61.37,
+      "chgPct": 0.59,
+      "zvr": 2.3,
+      "cr": 48,
+      "rs": 97,
+      "alerts": [
+        "NEW 52W HIGH $61.84",
+        "BUY ZONE <=$62.39"
+      ],
+      "note": "+6.69% fr Row 10 entry ($57.52). Actionable +3.28% above $59.42 flat-base pivot."
+    },
+    {
+      "list": "PORT",
+      "ticker": "WWW",
+      "price": 25.99,
+      "chgPct": 2.59,
+      "zvr": 2.3,
+      "cr": 92,
+      "rs": 96,
+      "alerts": [
+        "BO > $25.87 PIVOT ($26.10 AH)"
+      ],
+      "note": "+4.97% fr Row 12 entry ($24.76). Actionable +0.46% above $25.87 flat-base pivot."
+    },
+    {
+      "list": "PORT",
+      "ticker": "BLMN",
+      "price": 10.86,
+      "chgPct": 5.03,
+      "zvr": 2.9,
+      "cr": 95,
+      "rs": 88,
+      "alerts": [
+        "95% CR SURGE",
+        "+4.93% TOTAL RETURN"
+      ],
+      "note": "+4.93% fr Row 18 entry ($10.35). Confirming Restaurants + QSR strength with CBRL."
+    },
+    {
+      "list": "PORT",
+      "ticker": "GEN",
+      "price": 30.47,
+      "chgPct": 0.99,
+      "zvr": 2.5,
+      "cr": 60,
+      "rs": 87,
+      "alerts": [
+        "BUY ZONE <=$31.71"
+      ],
+      "note": "+4.39% fr Row 6 entry ($29.19). Actionable +0.89% above $30.20 flat-base pivot."
+    },
+    {
+      "list": "PORT",
+      "ticker": "ANF",
+      "price": 184.43,
+      "chgPct": 4.24,
+      "zvr": 4.9,
+      "cr": 89,
+      "rs": 88,
+      "alerts": [
+        "NEW 52W HIGH $185.81"
+      ],
+      "note": "+4.22% fr Row 26 entry ($176.96). Extended +9.71% above $168.10 pivot."
+    },
+    {
+      "list": "PORT",
+      "ticker": "AMRX",
+      "price": 21.8,
+      "chgPct": 1.49,
+      "zvr": 1.9,
+      "cr": 68,
+      "rs": 96,
+      "alerts": [
+        "TESTED $21.89 PIVOT ($21.99 HOD)"
+      ],
+      "note": "+3.22% fr Row 2 entry ($21.12). Actionable 9c below $21.89 flat-base pivot."
+    },
+    {
+      "list": "PORT",
+      "ticker": "APPN",
+      "price": 56.13,
+      "chgPct": 1.91,
+      "zvr": 2.9,
+      "cr": 58,
+      "rs": 94,
+      "alerts": [
+        "BUY ZONE <=$57.75"
+      ],
+      "note": "+2.46% fr Row 19 entry ($54.78). Actionable +2.05% above $55.00 handle pivot."
+    },
+    {
+      "list": "PORT",
+      "ticker": "XERS",
+      "price": 17.93,
+      "chgPct": 3.22,
+      "zvr": 3.8,
+      "cr": 84,
+      "rs": 97,
+      "alerts": [
+        "NEW 52W HIGH $18.06"
+      ],
+      "note": "+2.34% fr Row 16 entry ($17.52). Closed +5.22% above $17.04 pivot."
+    },
+    {
+      "list": "PORT",
+      "ticker": "LTH",
+      "price": 48.39,
+      "chgPct": 1.21,
+      "zvr": 2.1,
+      "cr": 75,
+      "rs": 95,
+      "alerts": [
+        "NEW 52W HIGH $48.71"
+      ],
+      "note": "+2.26% fr Row 17 entry ($47.32). Actionable at $48.48 flat-base pivot."
+    },
+    {
+      "list": "WATCH",
+      "ticker": "BURL",
+      "price": 253.1,
+      "chgPct": 1.16,
+      "zvr": 2.2,
+      "cr": 94,
+      "rs": 89,
+      "alerts": [
+        "$255.00 AH BREAKOUT > $253.58 PIVOT"
+      ],
+      "note": "+1.22% fr Row 27 entry ($250.06). Top Monday morning breakout trigger at $253.58."
+    },
+    {
+      "list": "WATCH",
+      "ticker": "PGNY",
+      "price": 36.41,
+      "chgPct": 0.39,
+      "zvr": 1.8,
+      "cr": 70,
+      "rs": 96,
+      "alerts": [
+        "9c BELOW $36.50 HANDLE PIVOT"
+      ],
+      "note": "+1.96% fr Row 14 entry ($35.71). Tested $36.53 intraday."
+    },
+    {
+      "list": "PORT",
+      "ticker": "DLTR",
+      "price": 148.53,
+      "chgPct": -2.42,
+      "zvr": 2,
+      "cr": 28,
+      "rs": 83,
+      "alerts": [
+        "PIVOT RETEST $148.54 ($148.05 AH)"
+      ],
+      "note": "-3.96% fr Row 23 entry ($154.65). Holding near $148.54 pivot; $143.82 hard stop intact."
+    }
+  ],
+  "layerUpdates": {
+    "summary": "18 Leading vs 11 Breaking Down (+7 net positive breadth spread) — Institutional accumulation broadened across Enterprise AI Servers (+5.42%), Apparel & Holiday Specialty Retail (+2.74%), Restaurants & QSR (+3.34%), Cyber Threat Ops (+2.12%), and Specialty Pharma (+1.95%) as QQQ reclaimed its 21-day EMA ($646.80) and VIX dropped -10.30% to 24.04.",
+    "rows": [
+      {
+        "layer": "Leading",
+        "theme": "Enterprise AI Servers, Memory & Storage",
+        "status": "Leading (#1 Thrust)",
+        "rank": 1,
+        "delta1w": 3,
+        "todayPct": 5.42,
+        "thrust": 99.4,
+        "leaders": [
+          "DELL",
+          "MU",
+          "HPQ",
+          "NTAP"
+        ],
+        "note": "DELL (+6.69%, 97% CR) and MU (+7.60%, 84% CR) led all market dollar-volume expansion."
+      },
+      {
+        "layer": "Leading",
+        "theme": "Apparel & Holiday Specialty Retail",
+        "status": "Leading",
+        "rank": 2,
+        "delta1w": 0,
+        "todayPct": 2.74,
+        "thrust": 97.2,
+        "leaders": [
+          "ANF",
+          "DKS",
+          "COLM",
+          "WWW",
+          "BURL"
+        ],
+        "note": "ANF ($185.81) and COLM ($81.60) hit new 52W highs while WWW (+2.59%), DKS (+3.67%), and BURL (+1.16%, $255 AH) broke out."
+      },
+      {
+        "layer": "Leading",
+        "theme": "Restaurants, QSR & Leisure",
+        "status": "Flipped Emerging -> Leading",
+        "rank": 3,
+        "delta1w": 4,
+        "todayPct": 3.04,
+        "thrust": 94.8,
+        "leaders": [
+          "CBRL",
+          "BLMN",
+          "LTH"
+        ],
+        "note": "CBRL ($76.97) and LTH ($48.71) hit new 52W highs while BLMN surged +5.03% (95% CR)."
+      },
+      {
+        "layer": "Leading",
+        "theme": "Biotech, Diagnostics & Specialty Pharma",
+        "status": "Leading",
+        "rank": 4,
+        "delta1w": -1,
+        "todayPct": 1.95,
+        "thrust": 94.1,
+        "leaders": [
+          "XERS",
+          "TGTX",
+          "VCEL",
+          "ETON",
+          "CDNA",
+          "AMRX",
+          "VERA"
+        ],
+        "note": "XERS ($18.06), TGTX ($69.46), and VCEL ($61.84) hit new 52W highs while VERA jumped +16.14%."
+      },
+      {
+        "layer": "Leading",
+        "theme": "Cyber Threat Ops & Identity",
+        "status": "Leading",
+        "rank": 5,
+        "delta1w": 1,
+        "todayPct": 2.12,
+        "thrust": 92.8,
+        "leaders": [
+          "OKTA",
+          "GEN",
+          "FTNT"
+        ],
+        "note": "OKTA (+3.26% at $207.46) and GEN (+0.99% at $30.47) both closed inside actionable 5% buy zones."
+      },
+      {
+        "layer": "Leading",
+        "theme": "Enterprise AI & Vertical Cloud SaaS",
+        "status": "Leading",
+        "rank": 6,
+        "delta1w": 2,
+        "todayPct": 2.65,
+        "thrust": 90.4,
+        "leaders": [
+          "PRCH",
+          "APPN"
+        ],
+        "note": "PRCH (+3.40%, new 52W high $22.37) and APPN (+1.91% at $56.13) confirmed software rotation."
+      },
+      {
+        "layer": "Emerging",
+        "theme": "Ag & Heavy Construction Machinery",
+        "status": "Emerging 5",
+        "rank": 11,
+        "delta1w": 5,
+        "todayPct": 1.88,
+        "thrust": 78.9,
+        "leaders": [
+          "DE",
+          "CAT",
+          "CMI"
+        ],
+        "note": "DE (+1.96% at $654.24, $665.99 HOD) leads cyclical recovery on FY27 large-ag trough call."
+      },
+      {
+        "layer": "Breaking Down",
+        "theme": "Mega-Cap GPU & Tanker Shipping",
+        "status": "Breaking Down",
+        "rank": 28,
+        "delta1w": -2,
+        "todayPct": -1.45,
+        "thrust": 25.4,
+        "leaders": [
+          "NVDA",
+          "VRTX",
+          "ECO"
+        ],
+        "note": "NVDA (+0.37% vs QQQ +2.65%), VRTX (-5.16% on FDA delay), and ECO (-0.58%) remain under distribution."
+      }
+    ]
+  },
+  "focusSetups": [
+    {
+      "ticker": "BURL",
+      "grade": "A-",
+      "rs": 89,
+      "eps": 90,
+      "price": 253.1,
+      "pivot": 253.58,
+      "maxBuy": 266.26,
+      "stop": 232.56,
+      "stage": "Stage 2 Cup-with-Handle / W+D Aligned",
+      "groupConfirmation": "Confirmed with ANF, DKS, COLM, WWW",
+      "liquidity": "$186M/day | 4.2% SI (2.6 DTC) | 3.1% ADR | 2.2x RVol | 94% CR",
+      "note": "Closed at $253.10 (94% CR) and cleared $253.58 pivot in after-hours trade ($255.00 AH)."
+    },
+    {
+      "ticker": "WWW",
+      "grade": "A",
+      "rs": 96,
+      "eps": 86,
+      "price": 25.99,
+      "pivot": 25.87,
+      "maxBuy": 27.16,
+      "stop": 24.06,
+      "stage": "Stage 2 Flat Base Breakout / W+D Aligned",
+      "groupConfirmation": "Confirmed with COLM, ANF, DKS",
+      "liquidity": "$31M/day | 6.8% SI (4.1 DTC) | 3.4% ADR | 2.3x RVol | 92% CR",
+      "note": "Broke out +0.46% above $25.87 flat-base pivot on 92% CR ($26.10 AH)."
+    },
+    {
+      "ticker": "CBRL",
+      "grade": "A-",
+      "rs": 89,
+      "eps": 84,
+      "price": 76.59,
+      "pivot": 74.32,
+      "maxBuy": 78.04,
+      "stop": 69.12,
+      "stage": "Early Stage 2 Cup-with-Handle / RS Line New High",
+      "groupConfirmation": "Confirmed with BLMN (+5.03%)",
+      "liquidity": "$42M/day | 11.4% SI (5.8 DTC) | 3.6% ADR | 2.7x RVol | 82% CR",
+      "note": "New 52-week high $76.97; actionable +3.05% above $74.32 pivot."
+    },
+    {
+      "ticker": "AMRX",
+      "grade": "A+",
+      "rs": 96,
+      "eps": 86,
+      "price": 21.8,
+      "pivot": 21.89,
+      "maxBuy": 22.98,
+      "stop": 20.36,
+      "stage": "Stage 2 Flat Base / W+D Aligned",
+      "groupConfirmation": "Confirmed with XERS, TGTX, VCEL",
+      "liquidity": "$48M/day | 3.9% SI (2.8 DTC) | 2.8% ADR | 1.9x RVol | 68% CR",
+      "note": "Pierced $21.89 pivot intraday ($21.99 HOD) and closed 9c below trigger."
+    },
+    {
+      "ticker": "LTH",
+      "grade": "A-",
+      "rs": 95,
+      "eps": 83,
+      "price": 48.39,
+      "pivot": 48.48,
+      "maxBuy": 50.9,
+      "stop": 45.09,
+      "stage": "Stage 2 Flat Base / RS Line New High",
+      "groupConfirmation": "Confirmed with Consumer Leisure & Retail",
+      "liquidity": "$96M/day | 5.4% SI (3.4 DTC) | 2.9% ADR | 2.1x RVol | 75% CR",
+      "note": "Printed new 52-week high $48.71 ($49.09 AH peak) and closed 9c below $48.48 pivot."
+    },
+    {
+      "ticker": "APPN",
+      "grade": "A-",
+      "rs": 94,
+      "eps": 81,
+      "price": 56.13,
+      "pivot": 55,
+      "maxBuy": 57.75,
+      "stop": 51.15,
+      "stage": "Stage 2 Cup-with-Handle Breakout / W+D Aligned",
+      "groupConfirmation": "Confirmed with PRCH (+3.40%, new 52W high $22.37)",
+      "liquidity": "$38M/day | 9.8% SI (6.1 DTC) | 3.5% ADR | 2.9x RVol | 58% CR",
+      "note": "Actionable +2.05% above $55.00 handle pivot."
+    },
+    {
+      "ticker": "VERA",
+      "grade": "B+",
+      "rs": 86,
+      "eps": 78,
+      "price": 34.26,
+      "pivot": 34.12,
+      "maxBuy": 35.83,
+      "stop": 31.86,
+      "stage": "Stage 2 Episodic Pivot Gap",
+      "groupConfirmation": "Confirmed with Biotech Nephrology / Specialty Pharma",
+      "liquidity": "$88M/day | 12.6% SI (5.4 DTC) | 4.6% ADR | 4.5x RVol | 58% CR",
+      "note": "Surged +16.14% ($35.49 HOD) as rival VRTX povetacicept received 3-mo FDA PDUFA delay to Feb 28, 2027."
+    },
+    {
+      "ticker": "MU",
+      "grade": "B+",
+      "rs": 80,
+      "eps": 94,
+      "price": 646.95,
+      "pivot": 638.4,
+      "maxBuy": 670.32,
+      "stop": 601.66,
+      "stage": "Stage 2 Handle Reclaim",
+      "groupConfirmation": "Confirmed with DELL (+6.69%)",
+      "liquidity": "$14.8B/day | 2.1% SI (1.2 DTC) | 3.8% ADR | 4.8x RVol | 84% CR",
+      "note": "Actionable +1.34% above $638.40 handle pivot on 26.19M vol."
+    }
+  ],
+  "extendedMovers": [
+    {
+      "ticker": "COGT",
+      "price": 35.64,
+      "pivot": 31.65,
+      "distFromPivotPct": 12.61,
+      "note": "+7.97% fr Row 21 entry; tight inside-day flag after Wed FDA GIST approval."
+    },
+    {
+      "ticker": "CDNA",
+      "price": 77.16,
+      "pivot": 70,
+      "distFromPivotPct": 10.23,
+      "note": "+10.23% fr Row 4 entry; hold core."
+    },
+    {
+      "ticker": "ANF",
+      "price": 184.43,
+      "pivot": 168.1,
+      "distFromPivotPct": 9.71,
+      "note": "+4.22% fr Row 26 entry; new 52-week high $185.81."
+    },
+    {
+      "ticker": "DELL",
+      "price": 316.96,
+      "pivot": 295.11,
+      "distFromPivotPct": 7.4,
+      "note": "+6.70% fr Row 28 entry; #1 board thrust (45.5)."
+    },
+    {
+      "ticker": "DKS",
+      "price": 164.41,
+      "pivot": 153.85,
+      "distFromPivotPct": 6.86,
+      "note": "+7.34% fr Row 24 entry; 96% CR close."
+    },
+    {
+      "ticker": "COLM",
+      "price": 81,
+      "pivot": 76.05,
+      "distFromPivotPct": 6.51,
+      "note": "+8.01% fr Row 11 entry; new 52-week high $81.60."
+    },
+    {
+      "ticker": "XERS",
+      "price": 17.93,
+      "pivot": 17.04,
+      "distFromPivotPct": 5.22,
+      "note": "+2.34% fr Row 16 entry; new 52-week high $18.06."
+    },
+    {
+      "ticker": "TGTX",
+      "price": 69.46,
+      "pivot": 66.12,
+      "distFromPivotPct": 5.05,
+      "note": "+9.66% fr Row 3 entry; new 52-week high $69.46 on 100% CR reversal."
+    }
+  ],
+  "breakdowns": [
+    {
+      "ticker": "VRTX",
+      "price": 534.57,
+      "chgPct": -5.16,
+      "note": "Gapped down to $502.90 on 3-mo FDA PDUFA extension for povetacicept to Feb 28, 2027."
+    },
+    {
+      "ticker": "NVDA",
+      "price": 150.49,
+      "chgPct": 0.37,
+      "note": "Failed $151.90 open and dropped to $145.39 in Hour 1 under S&P CreditWatch Negative; lagged QQQ by -228 bps."
+    },
+    {
+      "ticker": "ECO",
+      "price": 81.12,
+      "chgPct": -0.58,
+      "note": "Tanker group laggard below 50d SMA (stopped out on Nov 25 below $78.89)."
+    }
+  ],
+  "radar": [
+    {
+      "date": "2026-11-30",
+      "event": "Cyber Monday Holiday Retail Readout & Chicago PMI",
+      "impact": "Direct catalyst for ANF, DKS, BURL, COLM, WWW, CBRL, DLTR"
+    },
+    {
+      "date": "2026-12-01",
+      "event": "OKTA Q3 FY27 Earnings AMC & ISM Manufacturing PMI",
+      "impact": "OKTA options-implied move +/-19.1% (trim 50% or hedge +8.36% cushion prior to close)"
+    },
+    {
+      "date": "2026-12-04",
+      "event": "U.S. November Nonfarm Payrolls (8:30 AM ET)",
+      "impact": "Key macro rate catalyst for US 10Y (4.86%) and growth/small-cap breadth"
+    }
+  ],
+  "skipTraps": [
+    {
+      "ticker": "NVDA",
+      "reason": "Stage 4 breakdown below 50d SMA under S&P CreditWatch Negative overhang; premarket bounce sold immediately."
+    },
+    {
+      "ticker": "VRTX",
+      "reason": "50d SMA breakdown on 3-month FDA PDUFA delay for povetacicept."
+    },
+    {
+      "ticker": "HPQ",
+      "reason": "RS 68 fails the Strong Stocks RS >= 80 institutional leadership floor."
+    },
+    {
+      "ticker": "ECO",
+      "reason": "Shipping group peers below 50d SMAs; violated -7% stop ($78.89) earlier this week."
+    }
+  ]
+}
