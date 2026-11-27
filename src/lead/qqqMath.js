@@ -12,6 +12,7 @@ import {
   stockThrust,
   zvrFor,
 } from "./math.js";
+import { computeRvolAtTime } from "./pivot30mMath.js";
 
 // Nasdaq-100 constituents with functional group tags for quick filtering & breakdown.
 // Groups: mag7 | semi | soft | cons | health | ind
@@ -1040,14 +1041,333 @@ export function computeQqqPriceLadder({ qqqBars = [], qqqQ = null, tech = null, 
   };
 }
 
+// ── Live QQQ & NDX Volume Confirmation Engine ────────────────────────────────
+// Answers: "Is institutional volume confirming the move in QQQ?"
+// Combines 4 orthogonal signals:
+//   1. QQQ ETF volume pace (30m cumulative RVol@T -> ZVR -> daily 20d ratio) + 10d accum/distrib count
+//   2. NDX constituent Up-$Vol vs Down-$Vol (dollar-volume weighted breadth & divergence vs Adv%)
+//   3. Heavy-volume movers balance (NDX stocks >=1.5x ZVR green vs red)
+//   4. Top-8 Mega-Cap anchor volume weight
+export function computeQqqVolumeConfirmation({
+  qqqBars = [],
+  qqqBars30m = [],
+  qqqQ = null,
+  qqqZvr = null,
+  tech = null,
+  internals = null,
+  quotes = new Map(),
+  stockMap = {},
+  rvol30Summary = null,
+} = {}) {
+  const rows = internals?.rows || [];
+  const cleanDaily = (Array.isArray(qqqBars) ? qqqBars : []).filter(
+    (b) => b && typeof b.close === "number" && Number.isFinite(b.close)
+  );
+  const volBars = cleanDaily.filter((b) => typeof b.volume === "number" && Number.isFinite(b.volume) && b.volume > 0);
+  const lastDaily = volBars.length ? volBars[volBars.length - 1] : null;
+  const qVol = typeof qqqQ?.volume === "number" && Number.isFinite(qqqQ.volume) && qqqQ.volume > 0 ? qqqQ.volume : null;
+  const todayVol = qVol ?? lastDaily?.volume ?? null;
+
+  // 20-day average daily volume (exclude trailing partial live bar if qVol is active)
+  const histVolSlice = volBars.length >= 21 && qVol != null
+    ? volBars.slice(-21, -1)
+    : volBars.slice(-20);
+  const avg20Vol = histVolSlice.length >= 5
+    ? Math.round(histVolSlice.reduce((a, b) => a + b.volume, 0) / histVolSlice.length)
+    : (typeof stockMap?.QQQ?.avg_volume_raw === "number" && stockMap.QQQ.avg_volume_raw > 0
+      ? Math.round(stockMap.QQQ.avg_volume_raw)
+      : null);
+
+  // 30m RVol@T summary (precomputed or computed on the fly from qqqBars30m)
+  const r30 = rvol30Summary || (Array.isArray(qqqBars30m) && qqqBars30m.length >= 20
+    ? computeRvolAtTime(qqqBars30m)?.summary || null
+    : null);
+
+  const dailyRatio = todayVol != null && avg20Vol > 0 ? +(todayVol / avg20Vol).toFixed(2) : null;
+  const rvolSource = r30?.cumRvol != null
+    ? "rvol30m"
+    : qqqZvr != null
+      ? "zvr"
+      : dailyRatio != null
+        ? "daily"
+        : null;
+  const qqqRvol = r30?.cumRvol != null
+    ? +r30.cumRvol.toFixed(2)
+    : qqqZvr != null
+      ? +qqqZvr.toFixed(2)
+      : dailyRatio;
+  const projVol = qqqRvol != null && avg20Vol > 0 ? Math.round(avg20Vol * qqqRvol) : todayVol;
+
+  // Recent 10-session IBD/O'Neil style accumulation vs distribution days on QQQ daily bars
+  let accumDays10 = 0;
+  let distribDays10 = 0;
+  if (cleanDaily.length >= 2) {
+    const startIdx = Math.max(1, cleanDaily.length - 10);
+    for (let i = startIdx; i < cleanDaily.length; i++) {
+      const cur = cleanDaily[i];
+      const prev = cleanDaily[i - 1];
+      if (!(cur.volume > 0) || !(prev.volume > 0) || !(prev.close > 0)) continue;
+      if (cur.volume <= prev.volume) continue;
+      const pct = ((cur.close / prev.close) - 1) * 100;
+      if (pct >= 0.2) accumDays10++;
+      else if (pct <= -0.2) distribDays10++;
+    }
+  }
+
+  // NDX constituent Up-$Vol vs Down-$Vol, Heavy-Vol Movers (>=1.5x), and Top-8 Mega-Cap volume weight
+  let upDollarVol = 0;
+  let downDollarVol = 0;
+  let totalDollarVol = 0;
+  let liveVolCount = 0;
+  const heavyUp = [];
+  const heavyDown = [];
+
+  const qqqChg = tech?.chgPct ?? qqqQ?.change ?? internals?.capWeightEstChg ?? 0;
+  const qqqCr = tech?.cr ?? (qqqQ?.dayHigh > qqqQ?.dayLow && qqqQ?.price != null
+    ? Math.round(((qqqQ.price - qqqQ.dayLow) / (qqqQ.dayHigh - qqqQ.dayLow)) * 100)
+    : null);
+  const qqqDir = qqqChg >= 0.2 ? 1 : qqqChg <= -0.2 ? -1 : 0;
+
+  let top8W = 0;
+  let top8WZvr = 0;
+  let top8Confirming = 0;
+  let top8Total = 0;
+
+  for (const r of rows) {
+    const s = stockMap?.[r.ticker] || null;
+    const q = quotes instanceof Map ? quotes.get(r.ticker) : quotes?.[r.ticker];
+    const px = q?.rthPrice ?? q?.price ?? r.price ?? s?.close ?? null;
+    const liveShareVol = typeof q?.volume === "number" && Number.isFinite(q.volume) && q.volume > 0 ? q.volume : null;
+    const baseDvol = typeof s?.avg_dollar_vol_raw === "number" && Number.isFinite(s.avg_dollar_vol_raw) && s.avg_dollar_vol_raw > 0
+      ? s.avg_dollar_vol_raw
+      : (typeof s?.avg_volume_raw === "number" && px > 0 ? s.avg_volume_raw * px : null);
+
+    let dvol = null;
+    if (liveShareVol != null && px > 0) {
+      dvol = liveShareVol * px;
+      liveVolCount++;
+    } else if (baseDvol != null) {
+      dvol = baseDvol * (r.zvr != null && r.zvr > 0 ? r.zvr : 1);
+    }
+
+    if (dvol != null && dvol > 0 && r.chg != null) {
+      totalDollarVol += dvol;
+      if (r.chg > 0.01) upDollarVol += dvol;
+      else if (r.chg < -0.01) downDollarVol += dvol;
+    }
+
+    if (r.zvr != null && r.zvr >= 1.5 && r.chg != null) {
+      if (r.chg >= 0.5) {
+        heavyUp.push({ ticker: r.ticker, chg: r.chg, zvr: r.zvr, thrust: +(r.chg * r.zvr).toFixed(1) });
+      } else if (r.chg <= -0.5) {
+        heavyDown.push({ ticker: r.ticker, chg: r.chg, zvr: r.zvr, thrust: +(Math.abs(r.chg) * r.zvr).toFixed(1) });
+      }
+    }
+
+    if (ANCHOR_TICKERS.has(r.ticker)) {
+      top8Total++;
+      const w = r.weightPct > 0 ? r.weightPct : 1;
+      if (r.zvr != null && r.zvr > 0) {
+        top8W += w;
+        top8WZvr += w * r.zvr;
+      }
+      const aligned = qqqDir >= 0 ? (r.chg ?? 0) > 0 : (r.chg ?? 0) < 0;
+      if (aligned && (r.zvr ?? 0) >= 1.15) top8Confirming++;
+    }
+  }
+
+  heavyUp.sort((a, b) => b.thrust - a.thrust);
+  heavyDown.sort((a, b) => b.thrust - a.thrust);
+
+  const upDollarVolPct = totalDollarVol > 0 ? +((upDollarVol / totalDollarVol) * 100).toFixed(1) : null;
+  const downDollarVolPct = upDollarVolPct != null ? +(100 - upDollarVolPct).toFixed(1) : null;
+  const advPct = internals?.advPct ?? null;
+  const volMinusAdvPct = upDollarVolPct != null && advPct != null ? +(upDollarVolPct - advPct).toFixed(1) : null;
+  const heavyTotal = heavyUp.length + heavyDown.length;
+  const heavyUpPct = heavyTotal > 0 ? Math.round((heavyUp.length / heavyTotal) * 100) : 50;
+  const top8Rvol = top8W > 0 ? +(top8WZvr / top8W).toFixed(2) : null;
+
+  // Effective session pace: prefer QQQ ETF RVol, fallback to Top-8 weighted RVol
+  const pace = qqqRvol ?? top8Rvol ?? null;
+  const heavyPace = pace != null && pace >= 1.1;
+  const veryHeavyPace = pace != null && pace >= 1.25;
+  const lightPace = pace != null && pace < 0.85;
+  const upPct = upDollarVolPct ?? advPct ?? 50;
+
+  let state = "NEUTRAL";
+  let label = "Normal Vol";
+  let shortLabel = "Normal Vol";
+  let tone = "muted";
+  let confirmsMove = null;
+  let biasPts = 0; // -10 .. +10 contribution to short-term bias
+  let summary = "Volume pace is near normal with no strong directional skew.";
+
+  const paceTxt = pace != null ? `${pace.toFixed(2)}×` : "—";
+  const upTxt = upDollarVolPct != null ? `${Math.round(upDollarVolPct)}% Up $Vol` : "—";
+  const dnTxt = downDollarVolPct != null ? `${Math.round(downDollarVolPct)}% Down $Vol` : "—";
+
+  if (qqqDir > 0) {
+    if (
+      upPct < 50 ||
+      (veryHeavyPace && qqqCr != null && qqqCr <= 40) ||
+      (heavyDown.length >= heavyUp.length + 3 && heavyDown.length >= 4)
+    ) {
+      state = "CHURN_DIVERGENCE";
+      label = "Churn / Vol Divergence";
+      shortLabel = "Vol Divergence";
+      tone = "warn";
+      confirmsMove = false;
+      biasPts = -5;
+      summary = upPct < 50
+        ? `QQQ green (${qqqChg >= 0 ? "+" : ""}${qqqChg.toFixed(2)}%), but only ${upTxt} — money is flowing into decliners.`
+        : `Heavy ${paceTxt} volume with weak closing range (CR ${qqqCr ?? "—"}%) — supply stalling the rally.`;
+    } else if (
+      !lightPace &&
+      upPct >= 65 &&
+      (heavyPace || upPct >= 80 || (heavyUp.length >= 4 && heavyUp.length >= heavyDown.length * 2))
+    ) {
+      state = "CONFIRMED_ACCUM";
+      const isThrust = upPct >= 80 && heavyPace;
+      label = isThrust ? "Confirmed Vol Thrust" : "Confirmed Accumulation";
+      shortLabel = isThrust ? "Vol Thrust" : "Confirmed Accum";
+      tone = "good";
+      confirmsMove = true;
+      biasPts = isThrust ? 10 : Math.min(9, 6 + (heavyPace ? 2 : 0) + (upPct >= 75 ? 1 : 0));
+      summary = `Institutional buying confirms move: ${upTxt} at ${paceTxt} pace (${heavyUp.length}↑ / ${heavyDown.length}↓ heavy-vol).`;
+    } else if (lightPace || upPct < 55 || (heavyUp.length === 0 && (top8Rvol ?? 1) < 0.9)) {
+      state = "HOLLOW_RALLY";
+      label = "Hollow Rally (Light Vol)";
+      shortLabel = "Light Vol Rally";
+      tone = "warn";
+      confirmsMove = false;
+      biasPts = -4;
+      summary = `Unconfirmed upside: QQQ green on light ${paceTxt} pace (${upTxt}) — watch for fade without volume pickup.`;
+    } else {
+      state = "MODERATE_CONFIRM";
+      label = "Normal Vol Advance";
+      shortLabel = "Vol OK";
+      tone = "cyan";
+      confirmsMove = true;
+      biasPts = 3;
+      summary = `Healthy advance on normal ${paceTxt} pace with ${upTxt} backing breadth.`;
+    }
+  } else if (qqqDir < 0) {
+    if (upPct > 52 || (veryHeavyPace && qqqCr != null && qqqCr >= 65)) {
+      state = "ABSORPTION";
+      label = "Dip Absorption";
+      shortLabel = "Absorption";
+      tone = "cyan";
+      confirmsMove = false;
+      biasPts = 4;
+      summary = `QQQ red, but ${veryHeavyPace && qqqCr >= 65 ? `heavy ${paceTxt} vol closing high (CR ${qqqCr}%)` : `${upTxt}`} signals dip-buyer absorption.`;
+    } else if (
+      !lightPace &&
+      upPct <= 35 &&
+      (heavyPace || upPct <= 20 || (heavyDown.length >= 4 && heavyDown.length >= heavyUp.length * 2))
+    ) {
+      state = "CONFIRMED_DISTRIB";
+      const isHeavy = upPct <= 20 && heavyPace;
+      label = isHeavy ? "Heavy Distribution" : "Confirmed Distribution";
+      shortLabel = isHeavy ? "Heavy Distrib" : "Confirmed Distrib";
+      tone = "bad";
+      confirmsMove = true;
+      biasPts = isHeavy ? -10 : Math.max(-9, -6 - (heavyPace ? 2 : 0) - (upPct <= 25 ? 1 : 0));
+      summary = `Institutional selling confirms drop: ${dnTxt} at ${paceTxt} pace (${heavyDown.length}↓ / ${heavyUp.length}↑ heavy-vol).`;
+    } else if (lightPace || (upPct > 42 && heavyDown.length <= 2)) {
+      state = "LIGHT_PULLBACK";
+      label = "Light-Vol Pullback";
+      shortLabel = "Light Pullback";
+      tone = "cyan";
+      confirmsMove = false;
+      biasPts = 3;
+      summary = `Orderly dip on light ${paceTxt} pace (${heavyDown.length} heavy-vol sellers) — digestion, not panic.`;
+    } else {
+      state = "MODERATE_SELL";
+      label = "Normal Vol Pullback";
+      shortLabel = "Normal Dip";
+      tone = "warn";
+      confirmsMove = true;
+      biasPts = -3;
+      summary = `Pullback on normal ${paceTxt} pace with ${dnTxt}.`;
+    }
+  } else {
+    if (veryHeavyPace) {
+      state = "CHURN_FLAT";
+      label = "High-Vol Churn";
+      shortLabel = "Vol Churn";
+      tone = "warn";
+      confirmsMove = false;
+      biasPts = -2;
+      summary = `Flat price on heavy ${paceTxt} volume (${upTxt}) — battle between buyers and sellers.`;
+    } else if (upPct >= 65 && heavyUp.length > heavyDown.length) {
+      state = "QUIET_ACCUM";
+      label = "Quiet Accumulation";
+      shortLabel = "Quiet Accum";
+      tone = "good";
+      confirmsMove = true;
+      biasPts = 5;
+      summary = `Under-the-hood accumulation (${upTxt}, ${heavyUp.length}↑ / ${heavyDown.length}↓ heavy-vol) despite flat index.`;
+    } else if (upPct <= 35 && heavyDown.length > heavyUp.length) {
+      state = "QUIET_DISTRIB";
+      label = "Quiet Distribution";
+      shortLabel = "Quiet Distrib";
+      tone = "bad";
+      confirmsMove = true;
+      biasPts = -5;
+      summary = `Under-the-hood distribution (${dnTxt}, ${heavyDown.length}↓ / ${heavyUp.length}↑ heavy-vol) despite flat index.`;
+    }
+  }
+
+  return {
+    state,
+    label,
+    shortLabel,
+    tone,
+    confirmsMove,
+    biasPts,
+    summary,
+    qqqRvol,
+    rvolSource,
+    barRvol: r30?.barRvol ?? null,
+    cumPctile: r30?.cumPctile ?? null,
+    cumPctileLabel: r30?.cumPctileLabel ?? null,
+    barsAbove: r30?.barsAbove ?? null,
+    barsToday: r30?.barsToday ?? null,
+    barsAbovePct: r30?.barsAbovePct ?? null,
+    upBarVolPct: r30?.upVolPct ?? null,
+    todayVol,
+    avg20Vol,
+    projVol,
+    accumDays10,
+    distribDays10,
+    upDollarVol,
+    downDollarVol,
+    totalDollarVol,
+    upDollarVolPct,
+    downDollarVolPct,
+    volMinusAdvPct,
+    isLiveVol: liveVolCount >= Math.max(1, Math.floor(rows.length * 0.25)),
+    is80UpVol: upDollarVolPct != null && upDollarVolPct >= 80,
+    is80DownVol: upDollarVolPct != null && upDollarVolPct <= 20,
+    heavyUp,
+    heavyDown,
+    heavyTotal,
+    heavyUpPct,
+    top8Rvol,
+    top8Confirming,
+    top8Total,
+  };
+}
+
 // ── Short-Term Trend (3–15d) & QQQ Options Bias Engine ───────────────────────
-// Combines 6 orthogonal factors (-100..+100):
+// Combines 6 orthogonal factors (-100..+100), plus optional Volume Confirmation (±10):
 //   1. Price vs 5d VWAP & Short-Term EMAs (5/10/21) (±20)
 //   2. 5D/10D NDX Breadth Thrust & Hook (±20)
 //   3. Mag-7 + Semi Weight (~78%) + SMH/QQQ Canary (±15)
 //   4. Dealer Gamma (+GEX/-GEX) & Options Flow (±15)
 //   5. Macro Tailwind (VIX + 10Y Yield) (±15)
 //   6. Live Intraday Reversal / Tape Confirmation (±15)
+//   7. Volume Confirmation (optional, ±10)
 export function computeQqqShortTermBias({
   qqqBars = [],
   qqqQ = null,
@@ -1055,6 +1375,7 @@ export function computeQqqShortTermBias({
   internals = null,
   breadthTrend = null,
   intradayPredictor = null,
+  volumeConfirmation = null,
   optionsAnalysis = null,
   vix = null,
   us10y = null,
@@ -1193,7 +1514,13 @@ export function computeQqqShortTermBias({
     intraDetail = `${intradayPredictor.verdict} (${intradayPredictor.score}/100)`;
   }
 
-  const score = clamp(emaPts + breadthPts + enginePts + optPts + macroPts + intraPts, -100, 100);
+  // 7. Volume Confirmation (optional, ±10)
+  const volPts = volumeConfirmation ? clamp(volumeConfirmation.biasPts ?? 0, -10, 10) : 0;
+  const volDetail = volumeConfirmation
+    ? `${volumeConfirmation.shortLabel}${volumeConfirmation.upDollarVolPct != null ? ` · ${Math.round(volumeConfirmation.upDollarVolPct)}% Up $Vol` : ""}${volumeConfirmation.qqqRvol != null ? ` · ${volumeConfirmation.qqqRvol.toFixed(2)}×` : ""}`
+    : null;
+
+  const score = clamp(emaPts + breadthPts + enginePts + optPts + macroPts + intraPts + volPts, -100, 100);
 
   let bias = "NEUTRAL";
   let label = "Neutral / Chop";
@@ -1245,6 +1572,18 @@ export function computeQqqShortTermBias({
     ? { label: priceLadder.nearestSupport.label, px: priceLadder.nearestSupport.price }
     : (px && ema21 && ema21 < px ? { label: "21 EMA", px: +ema21.toFixed(2) } : null);
 
+  const factors = [
+    { key: "ema", label: "5d VWAP & EMAs", pts: emaPts, max: 20, detail: emaDetail },
+    { key: "breadth", label: "5D Breadth Thrust", pts: breadthPts, max: 20, detail: breadthDetail },
+    { key: "engine", label: "Mag-7 + SMH Canary", pts: enginePts, max: 15, detail: engineDetail },
+    { key: "options", label: "Dealer Gamma & Flow", pts: optPts, max: 15, detail: optDetail },
+    { key: "macro", label: "VIX & 10Y Macro", pts: macroPts, max: 15, detail: macroDetail },
+    { key: "intra", label: "Intraday Reversal", pts: intraPts, max: 15, detail: intraDetail },
+  ];
+  if (volumeConfirmation) {
+    factors.push({ key: "volume", label: "Volume Confirmation", pts: volPts, max: 10, detail: volDetail });
+  }
+
   return {
     score,
     bias,
@@ -1259,22 +1598,15 @@ export function computeQqqShortTermBias({
     engineUp1wPct,
     bullTrigger,
     bearTrigger,
-    factors: [
-      { key: "ema", label: "5d VWAP & EMAs", pts: emaPts, max: 20, detail: emaDetail },
-      { key: "breadth", label: "5D Breadth Thrust", pts: breadthPts, max: 20, detail: breadthDetail },
-      { key: "engine", label: "Mag-7 + SMH Canary", pts: enginePts, max: 15, detail: engineDetail },
-      { key: "options", label: "Dealer Gamma & Flow", pts: optPts, max: 15, detail: optDetail },
-      { key: "macro", label: "VIX & 10Y Macro", pts: macroPts, max: 15, detail: macroDetail },
-      { key: "intra", label: "Intraday Reversal", pts: intraPts, max: 15, detail: intraDetail },
-    ],
+    factors,
   };
 }
 
 // ── Dead-Simple 1-Glance QQQ Action Signal ───────────────────────────────────
-// Synthesizes bias + intraday tape + price ladder into ONE clear call:
+// Synthesizes bias + intraday tape + volume confirmation + price ladder into ONE clear call:
 //   BUY CALLS | BUY PUTS | WAIT
 // plus just 3 plain numbers (Spot/Trigger, Target, Stop) and 1 plain sentence.
-export function buildSimpleQqqSignal({ shortTermBias, intradayPred, priceLadder } = {}) {
+export function buildSimpleQqqSignal({ shortTermBias, intradayPred, priceLadder, volumeConfirmation } = {}) {
   if (!shortTermBias) return null;
   const factors = shortTermBias.factors || [];
   const bullCount = factors.filter((f) => f.pts >= 3).length;
@@ -1348,6 +1680,25 @@ export function buildSimpleQqqSignal({ shortTermBias, intradayPred, priceLadder 
     stop = sup;
   }
 
+  // Append concise volume confirmation clause to plain-English `why`
+  if (volumeConfirmation) {
+    const vPace = volumeConfirmation.qqqRvol != null ? `${volumeConfirmation.qqqRvol.toFixed(2)}× vol` : "vol";
+    const vUp = volumeConfirmation.upDollarVolPct != null ? `${Math.round(volumeConfirmation.upDollarVolPct)}% Up $Vol` : null;
+    if (action === "BUY_CALLS") {
+      if (volumeConfirmation.state === "CONFIRMED_ACCUM") {
+        why += vUp ? ` Volume confirms (${vUp} at ${vPace}).` : ` Volume confirms (${vPace}).`;
+      } else if (volumeConfirmation.state === "HOLLOW_RALLY" || volumeConfirmation.state === "CHURN_DIVERGENCE") {
+        why += ` Caution: ${volumeConfirmation.label.toLowerCase()} (${vPace}${vUp ? `, ${vUp}` : ""}).`;
+      }
+    } else if (action === "BUY_PUTS") {
+      if (volumeConfirmation.state === "CONFIRMED_DISTRIB") {
+        why += ` Selling volume confirms (${vPace}${volumeConfirmation.downDollarVolPct != null ? `, ${Math.round(volumeConfirmation.downDollarVolPct)}% Down $Vol` : ""}).`;
+      } else if (volumeConfirmation.state === "LIGHT_PULLBACK" || volumeConfirmation.state === "ABSORPTION") {
+        why += ` Note: ${volumeConfirmation.label.toLowerCase()} (${vPace}) — don't chase shorts blindly.`;
+      }
+    }
+  }
+
   return {
     action,
     headline,
@@ -1361,5 +1712,14 @@ export function buildSimpleQqqSignal({ shortTermBias, intradayPred, priceLadder 
     trigger,
     target,
     stop,
+    volTag: volumeConfirmation
+      ? {
+          state: volumeConfirmation.state,
+          label: volumeConfirmation.shortLabel,
+          tone: volumeConfirmation.tone,
+          confirmsMove: volumeConfirmation.confirmsMove,
+          summary: volumeConfirmation.summary,
+        }
+      : null,
   };
 }

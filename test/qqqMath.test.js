@@ -15,6 +15,7 @@ import {
   computeQqqPriceLadder,
   computeQqqShortTermBias,
   computeQqqTechnicals,
+  computeQqqVolumeConfirmation,
 } from "../src/lead/qqqMath.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -310,4 +311,149 @@ test("computeQqqPriceLadder computes VWAPs, unfilled gaps, options magnets, and 
 
   const sigBear = buildSimpleQqqSignal({ shortTermBias: { ...bias, score: -45, outlook: "bearish" }, intradayPred: { state: "SELLOFF_ACTIVE", score: 20 }, priceLadder: ladder });
   assert.equal(sigBear.action, "BUY_PUTS");
+});
+
+test("computeQqqVolumeConfirmation classifies confirmed thrust, hollow rally, divergence, distribution, and light pullback", () => {
+  const dailyBars = Array.from({ length: 25 }, (_, i) => ({
+    date: `2026-10-${String((i % 28) + 1).padStart(2, "0")}`,
+    open: 600 + i * 0.5,
+    high: 602 + i * 0.5,
+    low: 598 + i * 0.5,
+    close: 600 + i * 0.5,
+    volume: 45_000_000 + (i % 2 === 0 ? 5_000_000 : 0),
+  }));
+  const stockMap = {
+    QQQ: { ticker: "QQQ", close: 620, avg_volume_raw: 47_000_000 },
+    NVDA: { ticker: "NVDA", close: 150, avg_dollar_vol_raw: 30e9 },
+    AAPL: { ticker: "AAPL", close: 240, avg_dollar_vol_raw: 15e9 },
+    MSFT: { ticker: "MSFT", close: 460, avg_dollar_vol_raw: 12e9 },
+    AMZN: { ticker: "AMZN", close: 210, avg_dollar_vol_raw: 10e9 },
+    CRWD: { ticker: "CRWD", close: 350, avg_dollar_vol_raw: 2e9 },
+  };
+
+  // 1. Confirmed 80%+ Volume Thrust
+  const thrustRows = [
+    { ticker: "NVDA", price: 154, chg: 2.8, zvr: 1.9, weightPct: 11 },
+    { ticker: "AAPL", price: 244, chg: 1.6, zvr: 1.6, weightPct: 10 },
+    { ticker: "MSFT", price: 468, chg: 1.8, zvr: 1.7, weightPct: 9 },
+    { ticker: "AMZN", price: 214, chg: 1.9, zvr: 1.8, weightPct: 7 },
+    { ticker: "CRWD", price: 348, chg: -0.6, zvr: 0.8, weightPct: 1 },
+  ];
+  const thrustQuotes = new Map([
+    ["NVDA", { price: 154, volume: 300_000_000 }],
+    ["AAPL", { price: 244, volume: 90_000_000 }],
+    ["MSFT", { price: 468, volume: 40_000_000 }],
+    ["AMZN", { price: 214, volume: 70_000_000 }],
+    ["CRWD", { price: 348, volume: 3_000_000 }],
+  ]);
+  const thrust = computeQqqVolumeConfirmation({
+    qqqBars: dailyBars,
+    qqqQ: { price: 628, change: 1.5, volume: 68_000_000 },
+    tech: { chgPct: 1.5, cr: 88 },
+    internals: { rows: thrustRows, advPct: 80 },
+    quotes: thrustQuotes,
+    stockMap,
+    rvol30Summary: { ok: true, cumRvol: 1.42, barRvol: 1.65, barsAbove: 6, barsToday: 7, barsAbovePct: 86, cumPctile: 90, cumPctileLabel: "90th", upVolPct: 85 },
+  });
+  assert.equal(thrust.state, "CONFIRMED_ACCUM");
+  assert.equal(thrust.label, "Confirmed Vol Thrust");
+  assert.equal(thrust.confirmsMove, true);
+  assert.equal(thrust.is80UpVol, true);
+  assert.equal(thrust.heavyUp.length, 4);
+  assert.equal(thrust.heavyDown.length, 0);
+  assert.ok(thrust.biasPts >= 9);
+
+  // 2. Hollow Rally on Light Volume (QQQ up, light 0.68x pace, weak Up $Vol)
+  const hollowRows = [
+    { ticker: "NVDA", price: 151, chg: 0.6, zvr: 0.7, weightPct: 11 },
+    { ticker: "AAPL", price: 241, chg: 0.4, zvr: 0.65, weightPct: 10 },
+    { ticker: "MSFT", price: 458, chg: -0.4, zvr: 0.9, weightPct: 9 },
+    { ticker: "AMZN", price: 211, chg: 0.5, zvr: 0.7, weightPct: 7 },
+  ];
+  const hollow = computeQqqVolumeConfirmation({
+    qqqBars: dailyBars,
+    qqqQ: { price: 623, change: 0.55, volume: 25_000_000 },
+    tech: { chgPct: 0.55, cr: 62 },
+    internals: { rows: hollowRows, advPct: 75 },
+    stockMap,
+    rvol30Summary: { ok: true, cumRvol: 0.68, barRvol: 0.6 },
+  });
+  assert.equal(hollow.state, "HOLLOW_RALLY");
+  assert.equal(hollow.confirmsMove, false);
+  assert.ok(hollow.biasPts < 0);
+
+  // 3. Churn / Divergence (QQQ green, but heavy dollar volume is in red stocks -> Up $Vol < 50%)
+  const divRows = [
+    { ticker: "NVDA", price: 147, chg: -2.0, zvr: 2.4, weightPct: 11 },
+    { ticker: "AAPL", price: 242, chg: 0.8, zvr: 0.7, weightPct: 10 },
+    { ticker: "MSFT", price: 465, chg: 1.0, zvr: 0.7, weightPct: 9 },
+    { ticker: "CRWD", price: 353, chg: 0.9, zvr: 0.8, weightPct: 1 },
+  ];
+  const div = computeQqqVolumeConfirmation({
+    qqqBars: dailyBars,
+    qqqQ: { price: 622, change: 0.35, volume: 55_000_000 },
+    tech: { chgPct: 0.35, cr: 45 },
+    internals: { rows: divRows, advPct: 75 },
+    stockMap,
+    rvol30Summary: { ok: true, cumRvol: 1.2 },
+  });
+  assert.equal(div.state, "CHURN_DIVERGENCE");
+  assert.equal(div.confirmsMove, false);
+  assert.ok(div.volMinusAdvPct < -20);
+
+  // 4. Confirmed Distribution (QQQ down on heavy volume & 80%+ Down $Vol)
+  const distRows = [
+    { ticker: "NVDA", price: 144, chg: -4.0, zvr: 2.1, weightPct: 11 },
+    { ticker: "AAPL", price: 235, chg: -2.1, zvr: 1.7, weightPct: 10 },
+    { ticker: "MSFT", price: 450, chg: -2.2, zvr: 1.8, weightPct: 9 },
+    { ticker: "AMZN", price: 204, chg: -2.8, zvr: 1.9, weightPct: 7 },
+  ];
+  const dist = computeQqqVolumeConfirmation({
+    qqqBars: dailyBars,
+    qqqQ: { price: 605, change: -2.4, volume: 72_000_000 },
+    tech: { chgPct: -2.4, cr: 12 },
+    internals: { rows: distRows, advPct: 0 },
+    stockMap,
+    rvol30Summary: { ok: true, cumRvol: 1.5 },
+  });
+  assert.equal(dist.state, "CONFIRMED_DISTRIB");
+  assert.equal(dist.is80DownVol, true);
+  assert.equal(dist.confirmsMove, true);
+  assert.ok(dist.biasPts <= -9);
+
+  // 5. Light-Vol Pullback (QQQ down mildly on 0.72x light pace)
+  const lightDip = computeQqqVolumeConfirmation({
+    qqqBars: dailyBars,
+    qqqQ: { price: 616, change: -0.6, volume: 30_000_000 },
+    tech: { chgPct: -0.6, cr: 45 },
+    internals: { rows: [{ ticker: "NVDA", price: 149, chg: -0.5, zvr: 0.7, weightPct: 11 }, { ticker: "AAPL", price: 239, chg: -0.4, zvr: 0.75, weightPct: 10 }], advPct: 0 },
+    stockMap,
+    rvol30Summary: { ok: true, cumRvol: 0.72 },
+  });
+  assert.equal(lightDip.state, "LIGHT_PULLBACK");
+  assert.equal(lightDip.confirmsMove, false);
+  assert.ok(lightDip.biasPts > 0);
+
+  // 6. Integration into computeQqqShortTermBias & buildSimpleQqqSignal adds 7th factor & volTag
+  const biasWithVol = computeQqqShortTermBias({
+    qqqBars: dailyBars,
+    qqqQ: { price: 628, change: 1.5 },
+    tech: { price: 628, chgPct: 1.5, cr: 88, ema10: { val: 615 }, ema21: { val: 610 } },
+    internals: { pctAdv: 80, rows: thrustRows },
+    breadthTrend: { p20: 75, p50: 70, d5: { p20: 10, p50: 6 } },
+    intradayPredictor: { score: 80, verdict: "Intraday Accumulation" },
+    volumeConfirmation: thrust,
+    stockMap,
+  });
+  assert.equal(biasWithVol.factors.length, 7);
+  assert.equal(biasWithVol.factors[6].key, "volume");
+  assert.ok(biasWithVol.factors[6].pts >= 9);
+  const sigWithHollow = buildSimpleQqqSignal({
+    shortTermBias: biasWithVol,
+    intradayPred: { state: "ACCUMULATION", score: 80 },
+    priceLadder: { spot: 628, resistance: [{ label: "Call Wall", price: 640, pct: 1.9 }], support: [{ label: "5d VWAP", price: 620, pct: -1.3 }], nearestResistance: { label: "Call Wall", price: 640, pct: 1.9 }, nearestSupport: { label: "5d VWAP", price: 620, pct: -1.3 } },
+    volumeConfirmation: hollow,
+  });
+  assert.equal(sigWithHollow.volTag.state, "HOLLOW_RALLY");
+  assert.match(sigWithHollow.why, /Caution: hollow rally/i);
 });

@@ -27,6 +27,7 @@ import {
   computeQqqPriceLadder,
   computeQqqShortTermBias,
   computeQqqTechnicals,
+  computeQqqVolumeConfirmation,
 } from "./qqqMath.js";
 import { analyzeOptionChain } from "./optionsMath.js";
 
@@ -71,6 +72,20 @@ function fetchQqqBreadthHistory() {
 const fmtPx = (v) => (typeof v === "number" && Number.isFinite(v) ? `$${v.toFixed(2)}` : "—");
 const fmtPct = (v, dg = 1) => (typeof v === "number" && Number.isFinite(v) ? `${v > 0 ? "+" : ""}${v.toFixed(dg)}%` : "—");
 const fmtBps = (v) => (typeof v === "number" && Number.isFinite(v) ? `${v > 0 ? "+" : ""}${v.toFixed(1)}` : "—");
+const fmtShares = (v) => {
+  if (!(typeof v === "number" && Number.isFinite(v) && v > 0)) return "—";
+  if (v >= 1e9) return `${(v / 1e9).toFixed(2)}B`;
+  if (v >= 1e6) return `${(v / 1e6).toFixed(1)}M`;
+  if (v >= 1e3) return `${(v / 1e3).toFixed(0)}K`;
+  return String(Math.round(v));
+};
+const fmtDollarVol = (v) => {
+  if (!(typeof v === "number" && Number.isFinite(v) && v > 0)) return "$0";
+  if (v >= 1e12) return `$${(v / 1e12).toFixed(2)}T`;
+  if (v >= 1e9) return `$${(v / 1e9).toFixed(1)}B`;
+  if (v >= 1e6) return `$${(v / 1e6).toFixed(0)}M`;
+  return `$${Math.round(v).toLocaleString()}`;
+};
 
 function QqqBreadthHistoryChart({ A, fullSeries, trend, range, onRange }) {
   const [mode, setMode] = useState("ma"); // "ma" | "ad"
@@ -414,6 +429,7 @@ export default function QqqPanel({
   const { quotes, at } = useScanQuotes(ALL_QUOTE_TKS, true);
   const profiles = useRvolProfiles();
   const [qqqBars, setQqqBars] = useState([]);
+  const [qqqBars30m, setQqqBars30m] = useState([]);
   const [breadthArchive, setBreadthArchive] = useState(() => _qqqBreadthCache.rows);
   const [breadthRange, setBreadthRange] = useState(780); // default 3Y lookback
   const [mq, setMq] = useState(null);
@@ -462,6 +478,22 @@ export default function QqqPanel({
       })
       .catch(() => {});
     return () => { alive = false; };
+  }, []);
+
+  // Fetch 30m QQQ OHLC bars (~20 sessions) for exact time-of-day RVol@T volume confirmation
+  useEffect(() => {
+    let alive = true;
+    const pull = () => {
+      authFetch("/api/ohlc?ticker=QQQ&interval=30m", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (alive && Array.isArray(d?.ohlc)) setQqqBars30m(d.ohlc);
+        })
+        .catch(() => {});
+    };
+    pull();
+    const id = setInterval(() => { if (!document.hidden && etClock().rth) pull(); }, 120000);
+    return () => { alive = false; clearInterval(id); };
   }, []);
 
   // Poll /api/market-quality every 60s for live NQ=F futures, VIX & 10Y yield
@@ -559,6 +591,10 @@ export default function QqqPanel({
     () => computeQqqIntradayPredictor({ qqqQ, qqqeQ, internals, quotes, stockMap }),
     [qqqQ, qqqeQ, internals, quotes, stockMap]
   );
+  const volConfirm = useMemo(
+    () => computeQqqVolumeConfirmation({ qqqBars, qqqBars30m, qqqQ, qqqZvr, tech, internals, quotes, stockMap }),
+    [qqqBars, qqqBars30m, qqqQ, qqqZvr, tech, internals, quotes, stockMap]
+  );
   const shortTermBias = useMemo(
     () => computeQqqShortTermBias({
       qqqBars,
@@ -567,6 +603,7 @@ export default function QqqPanel({
       internals,
       breadthTrend,
       intradayPredictor: intradayPred,
+      volumeConfirmation: volConfirm,
       optionsAnalysis: qqqOptionsAnalysis,
       vix: vixTape,
       us10y: tnxTape,
@@ -574,12 +611,23 @@ export default function QqqPanel({
       priceLadder,
       stockMap,
     }),
-    [qqqBars, qqqQ, tech, internals, breadthTrend, intradayPred, qqqOptionsAnalysis, vixTape, tnxTape, smhQ, priceLadder, stockMap]
+    [qqqBars, qqqQ, tech, internals, breadthTrend, intradayPred, volConfirm, qqqOptionsAnalysis, vixTape, tnxTape, smhQ, priceLadder, stockMap]
   );
   const simpleSignal = useMemo(
-    () => buildSimpleQqqSignal({ shortTermBias, intradayPred, priceLadder }),
-    [shortTermBias, intradayPred, priceLadder]
+    () => buildSimpleQqqSignal({ shortTermBias, intradayPred, priceLadder, volumeConfirmation: volConfirm }),
+    [shortTermBias, intradayPred, priceLadder, volConfirm]
   );
+  const volToneColor = !volConfirm
+    ? A.textMuted
+    : volConfirm.tone === "good"
+      ? A.green
+      : volConfirm.tone === "cyan"
+        ? A.cyan
+        : volConfirm.tone === "warn"
+          ? "#f59e0b"
+          : volConfirm.tone === "bad"
+            ? A.red
+            : A.textMuted;
   const trendColor = !breadthTrend
     ? A.textMuted
     : breadthTrend.tone === "good"
@@ -801,7 +849,7 @@ export default function QqqPanel({
                 label: "QQQ",
                 px: tech.price,
                 chg: qqqChg,
-                sub: `Opn ${fmtPct(tech.fromOpenPct, 1)} · CR ${tech.cr != null ? `${tech.cr}%` : "—"}${qqqZvr != null ? ` · ${qqqZvr.toFixed(1)}×` : ""}`,
+                sub: `Opn ${fmtPct(tech.fromOpenPct, 1)} · CR ${tech.cr != null ? `${tech.cr}%` : "—"}${volConfirm?.qqqRvol != null ? ` · Vol ${volConfirm.qqqRvol.toFixed(2)}×` : ""}`,
                 accent: A.green,
                 clickable: true,
               },
@@ -967,6 +1015,23 @@ export default function QqqPanel({
                   >
                     {simpleSignal.action === "BUY_CALLS" ? "▲" : simpleSignal.action === "BUY_PUTS" ? "▼" : "●"} {simpleSignal.headline}
                   </span>
+                  {simpleSignal.volTag && (
+                    <span
+                      title={simpleSignal.volTag.summary}
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 700,
+                        fontFamily: MONO,
+                        padding: "1px 6px",
+                        borderRadius: 4,
+                        background: `${toneCol(simpleSignal.volTag.tone)}1c`,
+                        border: `1px solid ${toneCol(simpleSignal.volTag.tone)}66`,
+                        color: toneCol(simpleSignal.volTag.tone),
+                      }}
+                    >
+                      {simpleSignal.volTag.confirmsMove === true ? "✓ " : simpleSignal.volTag.confirmsMove === false ? "⚠ " : ""}{simpleSignal.volTag.label}
+                    </span>
+                  )}
                 </span>
               }
               right={
@@ -1070,7 +1135,7 @@ export default function QqqPanel({
                       <div style={{ background: A.bg, border: `1px solid ${A.border}`, borderRadius: 8, padding: "10px 12px" }}>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, marginBottom: 8 }}>
                           <span style={{ fontSize: 10.5, fontWeight: 800, color: biasCol, textTransform: "uppercase", letterSpacing: 0.4 }}>
-                            6-Factor Score ({shortTermBias.score > 0 ? "+" : ""}{shortTermBias.score}/100)
+                            {shortTermBias.factors.length}-Factor Score ({shortTermBias.score > 0 ? "+" : ""}{shortTermBias.score}/100)
                           </span>
                           {shortTermBias.gammaRegime && (
                             <span title={shortTermBias.gammaRegime.hint} style={{ fontSize: 10, fontFamily: MONO, fontWeight: 700, color: toneCol(shortTermBias.gammaRegime.tone) }}>
@@ -1226,6 +1291,23 @@ export default function QqqPanel({
                   {spreadLabel.text} ({fmtPct(internals.concentrationSpread, 2)})
                 </span>
               )}
+              {volConfirm && (
+                <span
+                  title={volConfirm.summary}
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 800,
+                    fontFamily: MONO,
+                    padding: "1px 6px",
+                    borderRadius: 4,
+                    background: `${volToneColor}20`,
+                    border: `1px solid ${volToneColor}77`,
+                    color: volToneColor,
+                  }}
+                >
+                  {volConfirm.confirmsMove === true ? "✓ " : volConfirm.confirmsMove === false ? "⚠ " : ""}{volConfirm.label}
+                </span>
+              )}
             </span>
           }
           sub={`${internals.count} holdings · ${internals.up4}↑ / ${internals.dn4}↓ 4% movers · ${internals.nearHighs} within 5% of 52wH`}
@@ -1268,6 +1350,196 @@ export default function QqqPanel({
               />
             </div>
           </div>
+
+          {/* Volume Confirmation Panel */}
+          {volConfirm && (
+            <div
+              style={{
+                marginTop: 6,
+                marginBottom: 12,
+                padding: "9px 11px",
+                background: A.bg,
+                border: `1px solid ${A.border}`,
+                borderLeft: `3px solid ${volToneColor}`,
+                borderRadius: 8,
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 10.5, fontWeight: 800, color: A.textMuted, letterSpacing: 0.45, textTransform: "uppercase" }}>
+                    Volume Confirmation
+                  </span>
+                  <span style={{ fontSize: 11, fontWeight: 800, fontFamily: MONO, color: volToneColor }}>
+                    {volConfirm.confirmsMove === true ? "✓ " : volConfirm.confirmsMove === false ? "⚠ " : ""}{volConfirm.label}
+                  </span>
+                  {volConfirm.is80UpVol && (
+                    <span style={{ fontSize: 9.5, fontWeight: 800, fontFamily: MONO, padding: "1px 5px", borderRadius: 4, background: `${A.green}20`, border: `1px solid ${A.green}66`, color: A.green }}>
+                      80%+ UP $VOL THRUST
+                    </span>
+                  )}
+                  {volConfirm.is80DownVol && (
+                    <span style={{ fontSize: 9.5, fontWeight: 800, fontFamily: MONO, padding: "1px 5px", borderRadius: 4, background: `${A.red}20`, border: `1px solid ${A.red}66`, color: A.red }}>
+                      80%+ DOWN $VOL
+                    </span>
+                  )}
+                  {volConfirm.volMinusAdvPct != null && Math.abs(volConfirm.volMinusAdvPct) >= 12 && (
+                    <span
+                      title="Difference between NDX Up Dollar-Volume % and stock-count Advancers %. Positive = big money favoring winners; negative = big money selling into bounce."
+                      style={{
+                        fontSize: 9.5,
+                        fontWeight: 700,
+                        fontFamily: MONO,
+                        padding: "1px 5px",
+                        borderRadius: 4,
+                        background: volConfirm.volMinusAdvPct > 0 ? `${A.green}16` : "#f59e0b1c",
+                        border: `1px solid ${volConfirm.volMinusAdvPct > 0 ? `${A.green}55` : "#f59e0b66"}`,
+                        color: volConfirm.volMinusAdvPct > 0 ? A.green : "#f59e0b",
+                      }}
+                    >
+                      $Vol vs Adv {volConfirm.volMinusAdvPct > 0 ? "+" : ""}{volConfirm.volMinusAdvPct.toFixed(0)}pts
+                    </span>
+                  )}
+                </span>
+                <span style={{ fontSize: 10.5, color: A.textDim }}>
+                  {volConfirm.summary}
+                </span>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14, alignItems: "start" }}>
+                <div>
+                  <MiniBar
+                    A={A}
+                    title={`NDX Up $Vol vs Down $Vol${volConfirm.isLiveVol ? "" : " (Est.)"}`}
+                    pct={volConfirm.upDollarVolPct ?? 50}
+                    left={`${fmtDollarVol(volConfirm.upDollarVol)} Up`}
+                    right={`${fmtDollarVol(volConfirm.downDollarVol)} Down`}
+                    color={(volConfirm.upDollarVolPct ?? 50) >= 60 ? A.green : (volConfirm.upDollarVolPct ?? 50) <= 40 ? A.red : "#f59e0b"}
+                  />
+                  <div
+                    title={
+                      volConfirm.heavyTotal > 0
+                        ? `Heavy-vol (≥1.5×) Green: ${volConfirm.heavyUp.slice(0, 6).map((x) => `${x.ticker} ${fmtPct(x.chg, 1)} (${x.zvr.toFixed(1)}×)`).join(", ") || "none"}\nHeavy-vol (≥1.5×) Red: ${volConfirm.heavyDown.slice(0, 6).map((x) => `${x.ticker} ${fmtPct(x.chg, 1)} (${x.zvr.toFixed(1)}×)`).join(", ") || "none"}`
+                        : "No NDX stocks trading ≥1.5× relative volume yet"
+                    }
+                  >
+                    <MiniBar
+                      A={A}
+                      title="Heavy-Vol Movers (≥1.5× ZVR)"
+                      pct={volConfirm.heavyTotal > 0 ? volConfirm.heavyUpPct : 50}
+                      left={`${volConfirm.heavyUp.length} Accum ↑`}
+                      right={`${volConfirm.heavyDown.length} Distrib ↓`}
+                      color={volConfirm.heavyTotal === 0 ? A.textMuted : volConfirm.heavyUp.length >= volConfirm.heavyDown.length ? A.green : A.red}
+                    />
+                  </div>
+                </div>
+
+                {/* QQQ ETF Pace + Top-8 Anchor Vol + 10d Accum/Distrib */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 6, fontFamily: MONO, fontVariantNumeric: "tabular-nums" }}>
+                  <div
+                    title={
+                      volConfirm.rvolSource === "rvol30m"
+                        ? "QQQ cumulative intraday volume vs 20-day average at this exact time of day (30m RVol@T)"
+                        : "QQQ intraday volume pace vs 20-day average"
+                    }
+                    style={{ padding: "6px 8px", borderRadius: 6, background: A.bgCard, border: `1px solid ${A.border}` }}
+                  >
+                    <div style={{ fontSize: 9.5, fontWeight: 700, color: A.textMuted }}>
+                      QQQ {volConfirm.rvolSource === "rvol30m" ? "RVOL@T" : "VOL PACE"}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginTop: 2 }}>
+                      <span
+                        style={{
+                          fontSize: 13.5,
+                          fontWeight: 800,
+                          color: volConfirm.qqqRvol == null ? A.textMuted : volConfirm.qqqRvol >= 1.1 ? A.green : volConfirm.qqqRvol < 0.85 ? "#f59e0b" : A.text,
+                        }}
+                      >
+                        {volConfirm.qqqRvol != null ? `${volConfirm.qqqRvol.toFixed(2)}×` : "—"}
+                      </span>
+                      {volConfirm.cumPctileLabel && (
+                        <span style={{ fontSize: 10, color: A.textDim }}>{volConfirm.cumPctileLabel} %ile</span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 9.5, color: A.textMuted, marginTop: 2 }}>
+                      {volConfirm.barRvol != null
+                        ? `30m bar ${volConfirm.barRvol.toFixed(2)}× · ${volConfirm.barsAbove}/${volConfirm.barsToday} ≥1×`
+                        : `Avg 20d ${fmtShares(volConfirm.avg20Vol)}`}
+                    </div>
+                  </div>
+
+                  <div style={{ padding: "6px 8px", borderRadius: 6, background: A.bgCard, border: `1px solid ${A.border}` }}>
+                    <div style={{ fontSize: 9.5, fontWeight: 700, color: A.textMuted }}>QQQ SHARES</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: A.text, marginTop: 3 }}>
+                      {fmtShares(volConfirm.todayVol)}{" "}
+                      <span style={{ fontSize: 10, fontWeight: 600, color: A.textMuted }}>now</span>
+                    </div>
+                    <div style={{ fontSize: 9.5, color: A.textMuted, marginTop: 2 }}>
+                      Proj <strong style={{ color: A.textDim }}>{fmtShares(volConfirm.projVol)}</strong> vs {fmtShares(volConfirm.avg20Vol)}
+                    </div>
+                  </div>
+
+                  <div style={{ padding: "6px 8px", borderRadius: 6, background: A.bgCard, border: `1px solid ${A.border}` }}>
+                    <div style={{ fontSize: 9.5, fontWeight: 700, color: A.textMuted }}>TOP-8 MEGA VOL</div>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginTop: 2 }}>
+                      <span
+                        style={{
+                          fontSize: 12.5,
+                          fontWeight: 800,
+                          color: volConfirm.top8Rvol == null ? A.textMuted : volConfirm.top8Rvol >= 1.1 ? A.green : volConfirm.top8Rvol < 0.85 ? "#f59e0b" : A.text,
+                        }}
+                      >
+                        {volConfirm.top8Rvol != null ? `${volConfirm.top8Rvol.toFixed(2)}×` : "—"}
+                      </span>
+                      <span style={{ fontSize: 10, color: A.textDim }}>
+                        {volConfirm.top8Confirming}/{volConfirm.top8Total} ≥1.15×
+                      </span>
+                    </div>
+                  </div>
+
+                  <div
+                    title="Last 10 sessions on QQQ: days up ≥0.2% on higher volume (Accum) vs down ≤-0.2% on higher volume (Distrib)"
+                    style={{ padding: "6px 8px", borderRadius: 6, background: A.bgCard, border: `1px solid ${A.border}` }}
+                  >
+                    <div style={{ fontSize: 9.5, fontWeight: 700, color: A.textMuted }}>QQQ 10D VOL DAYS</div>
+                    <div style={{ fontSize: 12, fontWeight: 800, marginTop: 2 }}>
+                      <span style={{ color: A.green }}>{volConfirm.accumDays10}↑ Acc</span>
+                      <span style={{ color: A.textMuted, fontWeight: 500 }}> · </span>
+                      <span style={{ color: volConfirm.distribDays10 >= 4 ? A.red : A.textDim }}>{volConfirm.distribDays10}↓ Dist</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Clickable top heavy-volume movers strip */}
+              {(volConfirm.heavyUp.length > 0 || volConfirm.heavyDown.length > 0) && (
+                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 4, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${A.border}` }}>
+                  <span style={{ fontSize: 9.5, fontWeight: 700, color: A.textMuted, fontFamily: MONO, marginRight: 2 }}>≥1.5× VOL:</span>
+                  {volConfirm.heavyUp.slice(0, 5).map((x) => (
+                    <button
+                      key={`hu-${x.ticker}`}
+                      type="button"
+                      onClick={() => onTicker && onTicker(x.ticker)}
+                      title={`${x.ticker}: ${fmtPct(x.chg, 2)} on ${x.zvr.toFixed(2)}× vol`}
+                      style={{ background: "rgba(34,197,94,0.12)", border: `1px solid ${A.green}55`, color: A.green, borderRadius: 4, padding: "1px 5px", fontSize: 10, fontFamily: MONO, fontWeight: 700, cursor: "pointer" }}
+                    >
+                      {x.ticker} {x.zvr.toFixed(1)}×
+                    </button>
+                  ))}
+                  {volConfirm.heavyDown.slice(0, 5).map((x) => (
+                    <button
+                      key={`hd-${x.ticker}`}
+                      type="button"
+                      onClick={() => onTicker && onTicker(x.ticker)}
+                      title={`${x.ticker}: ${fmtPct(x.chg, 2)} on ${x.zvr.toFixed(2)}× vol`}
+                      style={{ background: "rgba(239,68,68,0.12)", border: `1px solid ${A.red}55`, color: A.red, borderRadius: 4, padding: "1px 5px", fontSize: 10, fontFamily: MONO, fontWeight: 700, cursor: "pointer" }}
+                    >
+                      {x.ticker} {x.zvr.toFixed(1)}×
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Stage 1-4 Bar across NDX */}
           {internals.stageDist.total > 0 && (
