@@ -99,10 +99,79 @@ export default function LeadershipView({
   const stockMap = liveRs.map;
 
   // ↑/↓ steps through visible table rows and loads each ticker in the chart.
+  // Tracks the last-interacted table so pressing ↑/↓ in Breakouts & Intraday Volume Movers
+  // stays inside that table even when a ticker also appears in Portfolio Pulse or Brief above it.
   const stocksRef = useRef(null);
+  const activeTableRef = useRef(null);
   const navRef = useRef({ chartTicker, onTickerClick });
   navRef.current = { chartTicker, onTickerClick };
   useEffect(() => {
+    const onPointer = (e) => {
+      const box = stocksRef.current;
+      const target = e.target && typeof e.target.closest === "function" ? e.target : null;
+      if (!box || !target || !box.contains(target)) return;
+      const tbl = target.closest("table");
+      if (tbl && tbl.querySelector("tr[data-nav]")) {
+        activeTableRef.current = tbl;
+        return;
+      }
+      const sec = target.closest("[id^='sec-']");
+      if (sec) {
+        const secTbl = [...sec.querySelectorAll("table")].find((t) => t.querySelector("tr[data-nav]"));
+        if (secTbl) activeTableRef.current = secTbl;
+      }
+    };
+    const scrollRowIntoView = (row) => {
+      // Scroll inside any overflow-y scroll wrapper first while clearing sticky <thead>.
+      let p = row.parentElement;
+      while (p && p !== document.body) {
+        const oy = window.getComputedStyle(p).overflowY;
+        if ((oy === "auto" || oy === "scroll") && p.scrollHeight > p.clientHeight + 2) {
+          const pRect = p.getBoundingClientRect();
+          const rRect = row.getBoundingClientRect();
+          const thead = p.querySelector("thead");
+          const headH = thead ? thead.getBoundingClientRect().height : 0;
+          if (rRect.top < pRect.top + headH) {
+            p.scrollTop -= (pRect.top + headH - rRect.top) + 4;
+          } else if (rRect.bottom > pRect.bottom) {
+            p.scrollTop += (rRect.bottom - pRect.bottom) + 4;
+          }
+          // Only scroll outer window if the table container itself is off-screen
+          if (pRect.bottom < 80 || pRect.top > window.innerHeight - 80) {
+            row.scrollIntoView({ block: "nearest" });
+          }
+          return;
+        }
+        p = p.parentElement;
+      }
+      row.scrollIntoView({ block: "nearest" });
+    };
+    const pickNavRows = (box, cur) => {
+      const activeTbl = activeTableRef.current;
+      if (activeTbl && box.contains(activeTbl)) {
+        const activeRows = [...activeTbl.querySelectorAll("tr[data-nav]")];
+        if (activeRows.length) return activeRows;
+      }
+      // Otherwise prefer a visible table in the viewport (preferring one containing cur)
+      const tables = [...box.querySelectorAll("table")]
+        .map((t) => ({ t, rows: [...t.querySelectorAll("tr[data-nav]")] }))
+        .filter(({ rows }) => rows.length > 0);
+      if (tables.length > 1) {
+        const vh = window.innerHeight || 800;
+        const inView = tables.filter(({ t }) => {
+          const r = t.getBoundingClientRect();
+          return r.bottom > 80 && r.top < vh - 80;
+        });
+        const pool = inView.length ? inView : tables;
+        const withCur = cur ? pool.find(({ rows }) => rows.some((r) => r.dataset.nav === cur)) : null;
+        const chosen = withCur || pool[0];
+        if (chosen) {
+          activeTableRef.current = chosen.t;
+          return chosen.rows;
+        }
+      }
+      return [...box.querySelectorAll("tr[data-nav]")];
+    };
     const onKey = (e) => {
       if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -110,19 +179,23 @@ export default function LeadershipView({
       if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
       const box = stocksRef.current;
       if (!box) return;
-      const rows = [...box.querySelectorAll("tr[data-nav]")];
+      const { chartTicker: cur, onTickerClick: go } = navRef.current;
+      const rows = pickNavRows(box, cur);
       if (!rows.length) return;
       e.preventDefault();
-      const { chartTicker: cur, onTickerClick: go } = navRef.current;
       const i = rows.findIndex((r) => r.dataset.nav === cur);
       const j = i < 0 ? (e.key === "ArrowDown" ? 0 : rows.length - 1)
         : Math.max(0, Math.min(rows.length - 1, i + (e.key === "ArrowDown" ? 1 : -1)));
       if (j === i) return;
-      rows[j].scrollIntoView({ block: "nearest" });
+      scrollRowIntoView(rows[j]);
       go(rows[j].dataset.nav);
     };
+    window.addEventListener("mousedown", onPointer, true);
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", onPointer, true);
+      window.removeEventListener("keydown", onKey);
+    };
   }, []);
 
   const [expanded, setExpanded] = useState(null);
