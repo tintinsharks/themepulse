@@ -3,6 +3,8 @@ import { CONF_LABEL, Card, Delta, EPS_TIP, ExtHoursMovers, FlagButton, LayerLink
 import { authFetch } from "../utils.js";
 import { collectBriefTickers, evalPivotStatus, filterRecentHeadlines, matchMacroLive, normalizeWrittenBrief } from "./briefLive.js";
 import { DEFAULT_GOTO_PRESET, GOTO_STORAGE_KEY, buildGoToBriefingAnalysis } from "./gotoAnalysis.js";
+import { buildBriefWhyPayload, useBriefWhy } from "./briefWhyClient.js";
+import AiDeskNotePanel from "./AiDeskNotePanel.jsx";
 import { evalScanHits } from "./scannerMath.js";
 import RotationView from "./Rotation.jsx";
 import ZangerBriefSection from "./ZangerBriefSection.jsx";
@@ -39,6 +41,7 @@ function WrittenBrief({ A, stockMap, tickerLayer = {}, layers = [], themes = [],
   const [brkSort, setBrkSort] = useState({ k: null, d: -1 });
   const [goToThemeFocus, setGoToThemeFocus] = useState(null);
   const [goToNews, setGoToNews] = useState({});
+  const { data: whyData, loading: whyLoading, error: whyError, updatedAt: whyUpdatedAt, run: runBriefWhy } = useBriefWhy();
   const [collapsed, setCollapsed] = useState(() => {
     try {
       const v = localStorage.getItem("tp-written-collapsed");
@@ -963,6 +966,41 @@ function WrittenBrief({ A, stockMap, tickerLayer = {}, layers = [], themes = [],
         const visibleLeaders = goToThemeFocus
           ? goToAnalysis.leaders.filter((m) => m.theme === goToThemeFocus)
           : goToAnalysis.leaders;
+        const aiWhyByTheme = new Map();
+        if (Array.isArray(whyData?.themes)) {
+          for (const item of whyData.themes) {
+            if (item?.theme && item?.why) aiWhyByTheme.set(String(item.theme).toLowerCase(), item.why);
+          }
+        }
+        const buildMacroForWhy = () => {
+          const idxs = arr(rg.indexes);
+          const findIdxChg = (sym) => {
+            const li = liveInfo(sym);
+            if (li?.chg != null) return +li.chg.toFixed(2);
+            const hit = idxs.find((x) => String(x?.symbol || "").toUpperCase() === sym);
+            return typeof hit?.chgPct === "number" ? +hit.chgPct.toFixed(2) : null;
+          };
+          const vixPx = mq?.macro?.vix?.price ?? mq?.quotes?.VIX?.price ?? null;
+          const tnxPx = mq?.macro?.tnx?.price ?? mq?.quotes?.TNX?.price ?? null;
+          return {
+            spy: findIdxChg("SPY"),
+            qqq: findIdxChg("QQQ"),
+            iwm: findIdxChg("IWM"),
+            vix: typeof vixPx === "number" ? +vixPx.toFixed(2) : null,
+            us10y: typeof tnxPx === "number" ? +tnxPx.toFixed(2) : null,
+            decision: rg.posture || mq?.decision || null,
+            score: typeof mq?.score === "number" ? Math.round(mq.score) : null,
+          };
+        };
+        const triggerWhy = (force = false) => {
+          runBriefWhy(buildBriefWhyPayload({
+            date: normBrief?.date || "",
+            session: normBrief?.session || "intraday",
+            macro: buildMacroForWhy(),
+            analysis: goToAnalysis,
+            force,
+          }));
+        };
         return (
           <Card
             A={A}
@@ -982,32 +1020,67 @@ function WrittenBrief({ A, stockMap, tickerLayer = {}, layers = [], themes = [],
             }
             sub={`${goToAnalysis.totalMatched} matched Go-To leaders · descending A+ Setup Grade & theme drivers${liveOn && at ? " · live quotes" : ""}`}
             right={
-              goToThemeFocus ? (
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                 <button
                   type="button"
-                  onClick={() => setGoToThemeFocus(null)}
+                  disabled={whyLoading}
+                  onClick={() => triggerWhy(Boolean(whyData))}
+                  title="Run on-demand Gemini 2.5 Flash + Google Search synthesis explaining why these themes are leading today"
                   style={{
-                    background: "transparent",
-                    border: `1px solid ${A.border}`,
-                    color: A.cyan,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                    background: whyData ? "rgba(168,85,247,0.16)" : "rgba(168,85,247,0.1)",
+                    border: "1px solid rgba(168,85,247,0.5)",
+                    color: "#c084fc",
                     borderRadius: 6,
-                    padding: "2px 8px",
+                    padding: "3px 9px",
                     fontSize: 10.5,
                     fontWeight: 700,
-                    cursor: "pointer",
+                    cursor: whyLoading ? "wait" : "pointer",
+                    whiteSpace: "nowrap",
                   }}
                 >
-                  Clear {goToThemeFocus} ✕
+                  {whyLoading ? "✨ Analyzing…" : whyData ? "↻ Refresh Why" : "✨ Analyze Why"}
                 </button>
-              ) : null
+                {goToThemeFocus && (
+                  <button
+                    type="button"
+                    onClick={() => setGoToThemeFocus(null)}
+                    style={{
+                      background: "transparent",
+                      border: `1px solid ${A.border}`,
+                      color: A.cyan,
+                      borderRadius: 6,
+                      padding: "2px 8px",
+                      fontSize: 10.5,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Clear {goToThemeFocus} ✕
+                  </button>
+                )}
+              </div>
             }
           >
+            <AiDeskNotePanel
+              A={A}
+              data={whyData}
+              loading={whyLoading}
+              error={whyError}
+              updatedAt={whyUpdatedAt}
+              compact
+              onTicker={onTicker}
+              onRefresh={() => triggerWhy(true)}
+            />
             {/* Theme Cluster "Why?" Cards */}
             {goToAnalysis.themeClusters.length > 0 && (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 8, marginBottom: 12 }}>
                 {goToAnalysis.themeClusters.slice(0, 6).map((c) => {
                   const focused = goToThemeFocus === c.theme;
                   const borderCol = c.aPlusCount > 0 ? A.green : c.aPlusACount > 0 ? A.cyan : A.border;
+                  const aiWhy = aiWhyByTheme.get(String(c.theme || "").toLowerCase()) || null;
                   return (
                     <div
                       key={c.theme}
@@ -1053,7 +1126,10 @@ function WrittenBrief({ A, stockMap, tickerLayer = {}, layers = [], themes = [],
                         </span>
                       </div>
                       <div style={{ fontSize: 11, color: A.textDim, lineHeight: 1.45, marginTop: 4 }}>
-                        <strong style={{ color: A.text }}>Why:</strong> {c.aiWhy || c.why}
+                        <strong style={{ color: aiWhy ? "#c084fc" : A.text }}>
+                          {aiWhy ? "✨ Why:" : "Why:"}
+                        </strong>{" "}
+                        {aiWhy || c.aiWhy || c.why}
                       </div>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
                         {(c.topTickers || []).slice(0, 5).map((t) => (

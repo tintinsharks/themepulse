@@ -30,6 +30,9 @@ import { authFetch } from "../utils.js";
 import { computeLivePortfolioPulse, filterRecentHeadlines } from "./briefLive.js";
 import { evalScanHits } from "./scannerMath.js";
 import { analyze30mPivot } from "./pivot30mMath.js";
+import { buildGoToBriefingAnalysis } from "./gotoAnalysis.js";
+import { buildBriefWhyPayload, useBriefWhy } from "./briefWhyClient.js";
+import AiDeskNotePanel from "./AiDeskNotePanel.jsx";
 import BreakoutFollowThroughCard from "./BreakoutFollowThroughCard.jsx";
 import MarketBreadthCard from "../components/MarketBreadthCard.jsx";
 
@@ -187,6 +190,27 @@ function CrMeter({ cr, A }) {
 }
 
 const VALID_CAT_TABS = new Set(["bo", "zanger", "rsl", "leaders", "all", "ext"]);
+const PASSTHROUGH_WHY_PRESET = {
+  catTab: "all",
+  baseFilter: "all",
+  boFilter: null,
+  only9M: false,
+  onlyOrh: false,
+  only30m: false,
+  onlyNear52w: false,
+  onlyFresh: false,
+  onlyEmaStack: false,
+  onlyPp: false,
+  minDollarVol: 0,
+  noHealth: false,
+  themeFilter: null,
+  excludedThemes: [],
+  minAdr: null,
+  minZvr: 1.0,
+  minRs: 0,
+  epsOnly: false,
+  cleanOnly: false,
+};
 
 export default function ZangerBriefSection({
   A,
@@ -220,6 +244,8 @@ export default function ZangerBriefSection({
   const [mq, setMq] = useState(null);
   const [gotoPreset, setGotoPreset] = useState(loadGotoPreset);
   const [gotoSavedToast, setGotoSavedToast] = useState(false);
+  const { data: whyData, loading: whyLoading, error: whyError, updatedAt: whyUpdatedAt, run: runBriefWhy } = useBriefWhy();
+  const [whyDrawerOpen, setWhyDrawerOpen] = useState(false);
   const [baseFilter, setBaseFilter] = useState(() => {
     try {
       const savedBase = localStorage.getItem("tp-brief-base");
@@ -1326,6 +1352,57 @@ export default function ZangerBriefSection({
     });
   }).slice(0, 60);
 
+  const liveWhyAnalysis = (whyDrawerOpen || whyData) && filteredRows.length > 0
+    ? buildGoToBriefingAnalysis({
+        allScored: filteredRows,
+        preset: PASSTHROUGH_WHY_PRESET,
+        stockMap,
+        tickerLayer,
+        layers,
+        themes,
+        maxLeaders: 12,
+        maxClusters: 6,
+      })
+    : null;
+
+  const triggerBreakoutsWhy = (force = false) => {
+    setWhyDrawerOpen(true);
+    const analysis = liveWhyAnalysis || buildGoToBriefingAnalysis({
+      allScored: filteredRows,
+      preset: PASSTHROUGH_WHY_PRESET,
+      stockMap,
+      tickerLayer,
+      layers,
+      themes,
+      maxLeaders: 12,
+      maxClusters: 6,
+    });
+    const idxChg = (sym) => {
+      const hit = liveIndices.find((x) => x.ticker === sym);
+      return typeof hit?.change === "number" ? +hit.change.toFixed(2) : null;
+    };
+    const vixPx = mq?.macro?.vix?.price ?? mq?.quotes?.VIX?.price ?? null;
+    const tnxPx = liveTnx?.price ?? mq?.macro?.tnx?.price ?? null;
+    const macro = {
+      spy: idxChg("SPY"),
+      qqq: idxChg("QQQ"),
+      iwm: idxChg("IWM"),
+      vix: typeof vixPx === "number" ? +vixPx.toFixed(2) : null,
+      us10y: typeof tnxPx === "number" ? +tnxPx.toFixed(2) : null,
+      decision: dec || null,
+      score: typeof mktScore === "number" ? Math.round(mktScore) : null,
+    };
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const sess = ph?.id === "afterhours" || ph?.id === "closed" ? "pm" : "intraday";
+    runBriefWhy(buildBriefWhyPayload({
+      date: todayStr,
+      session: sess,
+      macro,
+      analysis,
+      force,
+    }));
+  };
+
   const filteredPortRows = portItems.filter((r) => {
     if (portFilter === "pf") return r.inPf ?? r.list === "PORT";
     if (portFilter === "wl") return r.inWl ?? r.list === "WATCH";
@@ -1869,6 +1946,41 @@ export default function ZangerBriefSection({
                 Save Go-To
               </button>
             )}
+            {catTab !== "ext" && (
+              <button
+                type="button"
+                disabled={whyLoading || filteredRows.length === 0}
+                onClick={() => {
+                  if (whyData && whyDrawerOpen) {
+                    setWhyDrawerOpen(false);
+                  } else if (whyData && !whyDrawerOpen) {
+                    setWhyDrawerOpen(true);
+                  } else {
+                    triggerBreakoutsWhy(false);
+                  }
+                }}
+                title={whyData
+                  ? (whyDrawerOpen ? "Hide AI Desk Note drawer" : "Show cached Gemini AI Desk Note (shares 30m cache with Written Brief)")
+                  : "On-demand Gemini 2.5 Flash + Google Search analysis of why today's screen theme clusters are leading"}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  background: whyDrawerOpen ? "rgba(168,85,247,0.22)" : "rgba(168,85,247,0.1)",
+                  border: `1px solid ${whyDrawerOpen ? "#c084fc" : "rgba(168,85,247,0.45)"}`,
+                  color: "#c084fc",
+                  borderRadius: 6,
+                  padding: "3px 8px",
+                  fontSize: 10.5,
+                  fontWeight: 700,
+                  cursor: whyLoading ? "wait" : filteredRows.length === 0 ? "not-allowed" : "pointer",
+                  opacity: filteredRows.length === 0 ? 0.5 : 1,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {whyLoading ? "✨ Analyzing…" : whyData ? (whyDrawerOpen ? "✨ AI Note ▴" : "✨ AI Note ▾") : "✨ Analyze Why"}
+              </button>
+            )}
             <CopyTickersBtn
               A={A}
               tickers={catTab === "ext" ? extMeta.tickers : sortedMovers.map((m) => m.ticker)}
@@ -2348,6 +2460,23 @@ export default function ZangerBriefSection({
             </div>
           )}
         </div>
+
+        {(whyDrawerOpen || whyLoading) && (
+          <AiDeskNotePanel
+            A={A}
+            data={whyData}
+            loading={whyLoading}
+            error={whyError}
+            updatedAt={whyUpdatedAt}
+            compact={false}
+            clustersMeta={liveWhyAnalysis?.themeClusters || null}
+            onTicker={onTicker}
+            onThemeClick={(t) => setThemeFilter((prev) => (prev === t ? null : t))}
+            activeTheme={themeFilter}
+            onRefresh={() => triggerBreakoutsWhy(true)}
+            onClose={() => setWhyDrawerOpen(false)}
+          />
+        )}
 
         {sortedMovers.length === 0 ? (
           <div style={{ fontSize: 11, color: A.textMuted, padding: "8px 0" }}>

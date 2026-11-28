@@ -8,6 +8,7 @@ import ohlcHandler from "../api/ohlc.js";
 import earningsHandler from "../api/earnings.js";
 import marketQualityHandler from "../api/market-quality.js";
 import optionsHandler from "../api/options.js";
+import briefWhyHandler from "../api/brief-why.js";
 
 test("_cumVolFrac is monotonic from 0 to 1 across RTH", () => {
   assert.equal(_cumVolFrac(-5), 0);
@@ -118,6 +119,7 @@ test("All gated /api/* endpoints reject unauthenticated requests with 401", asyn
       [marketQualityHandler, { method: "GET", query: {}, headers: {} }],
       [optionsHandler, { method: "GET", query: { ticker: "QQQ" }, headers: {} }],
       [optionsHandler, { method: "GET", query: { mode: "scan", tickers: "QQQ,NVDA" }, headers: {} }],
+      [briefWhyHandler, { method: "POST", query: {}, headers: {}, body: { clusters: [{ theme: "Cybersecurity", count: 7 }] } }],
     ];
     for (const [fn, req] of checks) {
       const res = mockRes();
