@@ -674,6 +674,17 @@ export function scoreZangerCandidate({ s, q, layer, tier, profiles, now = new Da
   const confluencePts = Math.min(6, Math.max(0, breakoutTypes.length - 1) * 3);
   const score = Math.round((zvrPts + rsPts + layerPts + crPts + epsPts + proxPts + confluencePts) * 10) / 10;
 
+  const sma20Pct = s.sma20_lvl && px ? ((px / s.sma20_lvl) - 1) * 100 : (s.sma20_pct ?? null);
+  const ext20Adr = sma20Pct != null ? sma20Pct / Math.max(adr ?? 4, 1.5) : null;
+  const isFresh = Boolean(sma20Pct != null && sma20Pct >= -1.0 && ext20Adr != null && ext20Adr <= 2.0);
+  const emaStack = Boolean(s.ema_stack);
+  const ppCount = typeof s.pp_count_30d === "number" && Number.isFinite(s.pp_count_30d) && s.pp_count_30d > 0
+    ? Math.round(s.pp_count_30d)
+    : 0;
+  const avgDollarVol = typeof s.avg_dollar_vol_raw === "number" && Number.isFinite(s.avg_dollar_vol_raw) && s.avg_dollar_vol_raw > 0
+    ? s.avg_dollar_vol_raw
+    : (typeof s.avg_volume_raw === "number" && px > 0 ? s.avg_volume_raw * px : null);
+
   return {
     ticker: s.ticker,
     company: s.company || "",
@@ -700,6 +711,12 @@ export function scoreZangerCandidate({ s, q, layer, tier, profiles, now = new Da
     earningsDisplay: s.earnings_display || "",
     adr: adr != null ? Math.round(adr * 10) / 10 : null,
     off52: off52 != null ? Math.round(off52 * 10) / 10 : null,
+    sma20Pct: sma20Pct != null ? Math.round(sma20Pct * 10) / 10 : null,
+    ext20Adr: ext20Adr != null ? Math.round(ext20Adr * 100) / 100 : null,
+    isFresh,
+    emaStack,
+    ppCount,
+    avgDollarVol,
     rsl,
     rslTip: rsLeads(s),
     breakoutTypes,

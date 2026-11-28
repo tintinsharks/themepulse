@@ -87,6 +87,10 @@ const DEFAULT_GOTO_PRESET = {
   onlyOrh: false,
   only30m: false,
   onlyNear52w: true,
+  onlyFresh: false,
+  onlyEmaStack: false,
+  onlyPp: false,
+  minDollarVol: 0,
   noHealth: true,
   themeFilter: null,
   excludedThemes: DEFAULT_GOTO_EXCLUDED,
@@ -109,6 +113,10 @@ function loadGotoPreset() {
       onlyOrh: Boolean(raw.onlyOrh),
       only30m: Boolean(raw.only30m),
       onlyNear52w: raw.onlyNear52w == null ? true : Boolean(raw.onlyNear52w),
+      onlyFresh: Boolean(raw.onlyFresh),
+      onlyEmaStack: Boolean(raw.onlyEmaStack),
+      onlyPp: Boolean(raw.onlyPp),
+      minDollarVol: typeof raw.minDollarVol === "number" && Number.isFinite(raw.minDollarVol) && raw.minDollarVol >= 0 ? raw.minDollarVol : 0,
       noHealth: raw.noHealth == null ? true : Boolean(raw.noHealth),
       themeFilter: typeof raw.themeFilter === "string" && raw.themeFilter ? raw.themeFilter : null,
       excludedThemes: Array.isArray(raw.excludedThemes)
@@ -250,6 +258,10 @@ export default function ZangerBriefSection({
       return next;
     });
   };
+  const [onlyFresh, setOnlyFresh] = useState(() => loadGotoPreset().onlyFresh); // buy-zone: near/above 20d SMA & <= 2x ADR above 20d
+  const [onlyEmaStack, setOnlyEmaStack] = useState(() => loadGotoPreset().onlyEmaStack); // bullish 8 > 20 > 50 EMA stack
+  const [onlyPp, setOnlyPp] = useState(() => loadGotoPreset().onlyPp); // >= 2 pocket pivots in last 30 sessions
+  const [minDollarVol, setMinDollarVol] = useState(() => loadGotoPreset().minDollarVol); // 0 | 20e6 | 50e6 | 100e6
   const [bars30Map, setBars30Map] = useState({});
   const [bars30Loading, setBars30Loading] = useState(false);
   const [bars30Tick, setBars30Tick] = useState(0);
@@ -332,6 +344,10 @@ export default function ZangerBriefSection({
     setOnlyOrh(preset.onlyOrh);
     setOnly30m(preset.only30m);
     setOnlyNear52w(preset.onlyNear52w);
+    setOnlyFresh(Boolean(preset.onlyFresh));
+    setOnlyEmaStack(Boolean(preset.onlyEmaStack));
+    setOnlyPp(Boolean(preset.onlyPp));
+    setMinDollarVol(preset.minDollarVol ?? 0);
     setNoHealth(preset.noHealth);
     setThemeFilter(preset.themeFilter);
     saveExcludedThemes(new Set(preset.excludedThemes || []));
@@ -359,6 +375,10 @@ export default function ZangerBriefSection({
       onlyOrh,
       only30m,
       onlyNear52w,
+      onlyFresh,
+      onlyEmaStack,
+      onlyPp,
+      minDollarVol,
       noHealth,
       themeFilter,
       excludedThemes: [...excludedThemes],
@@ -382,6 +402,10 @@ export default function ZangerBriefSection({
     onlyOrh === gotoPreset.onlyOrh &&
     only30m === gotoPreset.only30m &&
     onlyNear52w === gotoPreset.onlyNear52w &&
+    onlyFresh === Boolean(gotoPreset.onlyFresh) &&
+    onlyEmaStack === Boolean(gotoPreset.onlyEmaStack) &&
+    onlyPp === Boolean(gotoPreset.onlyPp) &&
+    minDollarVol === (gotoPreset.minDollarVol ?? 0) &&
     noHealth === gotoPreset.noHealth &&
     themeFilter === gotoPreset.themeFilter &&
     sameStringSet(excludedThemes, gotoPreset.excludedThemes) &&
@@ -392,6 +416,7 @@ export default function ZangerBriefSection({
     cleanOnly === gotoPreset.cleanOnly
   ), [
     catTab, baseFilter, boFilter, only9M, onlyOrh, only30m, onlyNear52w,
+    onlyFresh, onlyEmaStack, onlyPp, minDollarVol,
     noHealth, themeFilter, excludedThemes, minAdr, minZvr, minRs, epsOnly, cleanOnly, gotoPreset,
   ]);
 
@@ -645,6 +670,14 @@ export default function ZangerBriefSection({
         if (!r?.is9M && v < 8_900_000) return false;
       }
       if (onlyNear52w && !(typeof r?.off52 === "number" && Number.isFinite(r.off52) && r.off52 >= -15)) return false;
+      if (onlyFresh) {
+        const s = stockMap?.[r.ticker];
+        const fresh = r.isFresh ?? Boolean(s?.sma20_pct != null && s.sma20_pct >= -1.0 && (s.sma20_pct / Math.max(s.adr20 ?? s.adr_pct ?? 4, 1.5)) <= 2.0);
+        if (!fresh) return false;
+      }
+      if (onlyEmaStack && !(r.emaStack ?? Boolean(stockMap?.[r.ticker]?.ema_stack))) return false;
+      if (onlyPp && (r.ppCount ?? stockMap?.[r.ticker]?.pp_count_30d ?? 0) < 2) return false;
+      if (minDollarVol > 0 && (r.avgDollarVol ?? stockMap?.[r.ticker]?.avg_dollar_vol_raw ?? 0) < minDollarVol) return false;
       if ((catTab === "zanger" || catTab === "bo" || catTab === "all") && minZvr > 1.0 && (r.zvr ?? 0) < minZvr) return false;
       if (minRs > 0 && (r.rs ?? 0) < minRs) return false;
       if (minAdr != null && (r.adr ?? -1) < minAdr) return false;
@@ -678,6 +711,10 @@ export default function ZangerBriefSection({
     boFilter,
     only9M,
     onlyNear52w,
+    onlyFresh,
+    onlyEmaStack,
+    onlyPp,
+    minDollarVol,
     onlyOrh,
     only30m,
     minZvr,
@@ -1120,6 +1157,14 @@ export default function ZangerBriefSection({
   const isRowOrh = (r) => pivot30ByTicker.get(r?.ticker)?.openingRange?.status === "ORH_BO";
   const isRow30m = (r) => pivot30ByTicker.get(r?.ticker)?.pivot?.state === "TRIGGERED";
   const isRowNear52w = (r) => typeof r?.off52 === "number" && Number.isFinite(r.off52) && r.off52 >= -15;
+  const isRowFresh = (r) => {
+    if (r?.isFresh != null) return Boolean(r.isFresh);
+    const s = stockMap?.[r?.ticker];
+    return Boolean(s?.sma20_pct != null && s.sma20_pct >= -1.0 && (s.sma20_pct / Math.max(s.adr20 ?? s.adr_pct ?? 4, 1.5)) <= 2.0);
+  };
+  const isRowEmaStack = (r) => Boolean(r?.emaStack ?? stockMap?.[r?.ticker]?.ema_stack);
+  const getRowPpCount = (r) => r?.ppCount ?? stockMap?.[r?.ticker]?.pp_count_30d ?? 0;
+  const getRowAvgDollarVol = (r) => r?.avgDollarVol ?? stockMap?.[r?.ticker]?.avg_dollar_vol_raw ?? 0;
 
   const tabBaseRows = allPool.filter((r) => {
     if (catTab === "bo" && !r.isBreakout) return false;
@@ -1132,6 +1177,10 @@ export default function ZangerBriefSection({
   const passesSyncFilters = (r) => {
     if (only9M && !isRow9M(r)) return false;
     if (onlyNear52w && !isRowNear52w(r)) return false;
+    if (onlyFresh && !isRowFresh(r)) return false;
+    if (onlyEmaStack && !isRowEmaStack(r)) return false;
+    if (onlyPp && getRowPpCount(r) < 2) return false;
+    if (minDollarVol > 0 && getRowAvgDollarVol(r) < minDollarVol) return false;
     if ((catTab === "zanger" || catTab === "bo" || catTab === "all") && minZvr > 1.0 && (r.zvr ?? 0) < minZvr) return false;
     if (minRs > 0 && (r.rs ?? 0) < minRs) return false;
     if (minAdr != null && (r.adr ?? -1) < minAdr) return false;
@@ -1156,6 +1205,8 @@ export default function ZangerBriefSection({
   const countOrh = syncFilteredRows.filter(isRowOrh).length;
   const count30m = syncFilteredRows.filter(isRow30m).length;
   const countNear52w = tabBaseRows.filter(isRowNear52w).length;
+  const countFresh = tabBaseRows.filter(isRowFresh).length;
+  const countEmaStack = tabBaseRows.filter(isRowEmaStack).length;
 
   const filteredNoTheme = syncFilteredNoTheme.filter((r) => {
     if (onlyOrh && !isRowOrh(r)) return false;
@@ -1249,6 +1300,7 @@ export default function ZangerBriefSection({
         return (r.breakoutTypes?.length || 0) * 10
           + (isRow30m(r) ? 6 : 0)
           + (isRowOrh(r) ? 3 : 0)
+          + (getRowPpCount(r) >= 2 ? 2 : 0)
           + (r.isNew ? 5 : 0)
           + (r.rsl ? 1 : 0);
       }
@@ -1282,11 +1334,15 @@ export default function ZangerBriefSection({
   const activeFilterCount =
     (showZvrFilter && minZvr > 1.0 ? 1 : 0) +
     (minRs > 0 ? 1 : 0) +
+    (minDollarVol > 0 ? 1 : 0) +
+    (onlyPp ? 1 : 0) +
     (epsOnly ? 1 : 0) +
     (cleanOnly ? 1 : 0);
   const resetSecondaryFilters = () => {
     setMinZvr(1.0);
     setMinRs(0);
+    setMinDollarVol(0);
+    setOnlyPp(false);
     setEpsOnly(false);
     setCleanOnly(false);
   };
@@ -1759,7 +1815,7 @@ export default function ZangerBriefSection({
             <button
               type="button"
               onClick={() => applyGotoPreset()}
-              title={`1-click Go-To screen (${gotoPreset.catTab === "all" ? "All Stocks" : gotoPreset.catTab} · ${gotoPreset.baseFilter === "all" ? "All Universe" : gotoPreset.baseFilter}${gotoPreset.onlyNear52w ? " · ≤15% 52wH" : ""}${gotoPreset.noHealth ? " · No Health" : ""}${gotoPreset.excludedThemes?.length ? ` · ${gotoPreset.excludedThemes.length} themes excluded` : ""}) · bookmark ?preset=goto`}
+              title={`1-click Go-To screen (${gotoPreset.catTab === "all" ? "All Stocks" : gotoPreset.catTab} · ${gotoPreset.baseFilter === "all" ? "All Universe" : gotoPreset.baseFilter}${gotoPreset.onlyNear52w ? " · ≤15% 52wH" : ""}${gotoPreset.onlyFresh ? " · Fresh" : ""}${gotoPreset.onlyEmaStack ? " · EMA Stack" : ""}${gotoPreset.minDollarVol ? ` · ≥$${Math.round(gotoPreset.minDollarVol / 1e6)}M` : ""}${gotoPreset.onlyPp ? " · PP≥2" : ""}${gotoPreset.noHealth ? " · No Health" : ""}${gotoPreset.excludedThemes?.length ? ` · ${gotoPreset.excludedThemes.length} themes excluded` : ""}) · bookmark ?preset=goto`}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -1971,6 +2027,20 @@ export default function ZangerBriefSection({
                 >
                   ≤15% 52wH <span style={{ opacity: 0.75 }}>{countNear52w}</span>
                 </button>
+                <button
+                  onClick={() => setOnlyFresh((v) => !v)}
+                  title="Fresh / Not Extended: above/near 20d SMA (≥ −1%) and within 2.0× ADR of 20d SMA — filters out stretched chases"
+                  style={{ ...chipStyle(onlyFresh, "#34d399"), fontFamily: MONO, fontSize: 10.5 }}
+                >
+                  Fresh <span style={{ opacity: 0.75 }}>{countFresh}</span>
+                </button>
+                <button
+                  onClick={() => setOnlyEmaStack((v) => !v)}
+                  title="Bullish EMA Stack: 8 EMA > 20 EMA > 50 EMA with price above — filters out downtrends & sloppy bases"
+                  style={{ ...chipStyle(onlyEmaStack, "#a78bfa"), fontFamily: MONO, fontSize: 10.5 }}
+                >
+                  EMA <span style={{ opacity: 0.75 }}>{countEmaStack}</span>
+                </button>
                 {bars30Loading ? (
                   <span style={{ fontSize: 9.5, fontFamily: MONO, color: A.textMuted }}>
                     30m… ({pivot30Scan.scanned})
@@ -2014,6 +2084,20 @@ export default function ZangerBriefSection({
                 >
                   ≤15% 52wH <span style={{ opacity: 0.75 }}>{countNear52w}</span>
                 </button>
+                <button
+                  onClick={() => setOnlyFresh((v) => !v)}
+                  title="Fresh / Not Extended: above/near 20d SMA (≥ −1%) and within 2.0× ADR of 20d SMA — filters out stretched chases"
+                  style={{ ...chipStyle(onlyFresh, "#34d399"), fontFamily: MONO, fontSize: 10.5 }}
+                >
+                  Fresh <span style={{ opacity: 0.75 }}>{countFresh}</span>
+                </button>
+                <button
+                  onClick={() => setOnlyEmaStack((v) => !v)}
+                  title="Bullish EMA Stack: 8 EMA > 20 EMA > 50 EMA with price above — filters out downtrends & sloppy bases"
+                  style={{ ...chipStyle(onlyEmaStack, "#a78bfa"), fontFamily: MONO, fontSize: 10.5 }}
+                >
+                  EMA <span style={{ opacity: 0.75 }}>{countEmaStack}</span>
+                </button>
                 {bars30Loading ? (
                   <span style={{ fontSize: 9.5, fontFamily: MONO, color: A.textMuted }}>
                     30m… ({pivot30Scan.scanned})
@@ -2029,6 +2113,14 @@ export default function ZangerBriefSection({
               </div>
             )}
             <div style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <button
+                type="button"
+                onClick={() => setMinDollarVol((v) => (v > 0 ? 0 : 20e6))}
+                title="Institutional liquidity filter: avg daily $ volume ≥ $20M (pick $50M+ or $100M+ inside Filters)"
+                style={{ ...chipStyle(minDollarVol > 0, "#38bdf8"), fontFamily: MONO, fontSize: 10.5 }}
+              >
+                {minDollarVol >= 100e6 ? "$100M+" : minDollarVol >= 50e6 ? "$50M+" : "$20M+"}
+              </button>
               <button
                 type="button"
                 onClick={toggleNoHealth}
@@ -2223,6 +2315,18 @@ export default function ZangerBriefSection({
                   <button key={v} onClick={() => setMinRs(v)} style={{ ...chipStyle(minRs === v, A.cyan), fontFamily: v === 0 ? undefined : MONO }}>{v === 0 ? "Any" : `≥${v}`}</button>
                 ))}
               </div>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: A.textMuted, letterSpacing: 0.4 }}>$VOL</span>
+                {[
+                  [0, "Any"],
+                  [20e6, "≥$20M"],
+                  [50e6, "≥$50M"],
+                  [100e6, "≥$100M"],
+                ].map(([v, lbl]) => (
+                  <button key={v} onClick={() => setMinDollarVol(v)} style={{ ...chipStyle(minDollarVol === v, "#38bdf8"), fontFamily: v === 0 ? undefined : MONO }}>{lbl}</button>
+                ))}
+              </div>
+              <button onClick={() => setOnlyPp((v) => !v)} style={{ ...chipStyle(onlyPp, "#818cf8"), fontFamily: MONO }} title="Require ≥ 2 institutional Pocket Pivots in the last 30 sessions">PP ≥ 2</button>
               <button onClick={() => setEpsOnly((v) => !v)} style={chipStyle(epsOnly, A.green)} title="Require O'Neil EPS Rating ≥ 50">EPS ≥ 50</button>
               <button onClick={() => setCleanOnly((v) => !v)} style={chipStyle(cleanOnly, A.green)} title="Hide layers with distribution or exiting-leader warnings">Clean layers</button>
             </div>
@@ -2368,6 +2472,14 @@ export default function ZangerBriefSection({
                             style={{ fontSize: 9.5, fontWeight: 800, fontFamily: MONO, padding: "1px 3px", lineHeight: 1.15, borderRadius: 3, background: "rgba(34,211,238,0.16)", color: "#22d3ee", border: "1px solid rgba(34,211,238,0.6)", cursor: "pointer" }}
                           >
                             ORH
+                          </span>
+                        )}
+                        {getRowPpCount(m) >= 2 && (
+                          <span
+                            title={`${getRowPpCount(m)} Pocket Pivots in last 30 sessions — institutional accumulation footprint`}
+                            style={{ fontSize: 9.5, fontWeight: 800, fontFamily: MONO, padding: "1px 3px", lineHeight: 1.15, borderRadius: 3, background: "rgba(129,140,248,0.18)", color: "#818cf8", border: "1px solid rgba(129,140,248,0.55)" }}
+                          >
+                            PP{getRowPpCount(m)}
                           </span>
                         )}
                       </span>
