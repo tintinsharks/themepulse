@@ -248,7 +248,7 @@ export function ChartPanelInline({
   const [quickStopMode, setQuickStopMode] = useState(() => {
     try {
       const m = localStorage.getItem("tp-quick-stop-mode");
-      return m === "lod" || m === "pdl" || m === "ema10" || m === "ema21" ? m : "lod";
+      return m === "lod" || m === "pdl" || m === "atr05" || m === "atr1" || m === "atr2" ? m : "lod";
     } catch { return "lod"; }
   });
   useEffect(() => {
@@ -495,18 +495,20 @@ export function ChartPanelInline({
     const entryPx = use30mPivot && pivot30.pivot.state === "ARMED" && pivot30.pivot.entry > 0
       ? pivot30.pivot.entry
       : riskEntry;
+    const effAtr = dailyATR > 0 ? dailyATR : (riskEntry > 0 && adrVal > 0 ? riskEntry * (adrVal / 100) : null);
     const stopByMode = {
       lod: riskDayLow,
       pdl: riskPDL,
-      ema10: emaExt?.ema10?.ema ?? null,
-      ema21: emaExt?.ema21?.ema ?? null,
+      atr05: riskEntry > 0 && effAtr > 0 ? riskEntry - effAtr * 0.5 : null,
+      atr1: riskEntry > 0 && effAtr > 0 ? riskEntry - effAtr * 1.0 : null,
+      atr2: riskEntry > 0 && effAtr > 0 ? riskEntry - effAtr * 2.0 : null,
     };
     const stopPx = use30mPivot
       ? pivot30.pivot.stop
       : (tf === "30m" ? (riskDayLow ?? pivot30?.openingRange?.orl ?? null) : stopByMode[quickStopMode]);
     const stopLabel = use30mPivot
       ? "30m Pivot"
-      : (tf === "30m" ? "LoD" : ({ lod: "LoD", pdl: "Prev L", ema10: "10E", ema21: "21E" }[quickStopMode] || "LoD"));
+      : (tf === "30m" ? "LoD" : ({ lod: "LoD", pdl: "Prev L", atr05: "0.5× ATR", atr1: "1× ATR", atr2: "2× ATR" }[quickStopMode] || "LoD"));
     const pos = computeRiskPosition({ entry: entryPx, stop: stopPx, riskUsd: quickRiskUsd, adrPct: adrVal });
     return {
       use30mPivot,
@@ -517,7 +519,7 @@ export function ChartPanelInline({
       pos,
       stopAboveEntry: entryPx > 0 && stopPx > 0 && stopPx >= entryPx,
     };
-  }, [tf, pivot30, riskEntry, riskDayLow, riskPDL, emaExt, quickStopMode, quickRiskUsd, stockInfo.adr20, stockInfo.adr_pct]);
+  }, [tf, pivot30, riskEntry, riskDayLow, riskPDL, dailyATR, quickStopMode, quickRiskUsd, stockInfo.adr20, stockInfo.adr_pct]);
   const riskScenarios = useMemo(() => {
     if (!riskEntry || !dailyATR) return null;
     const { accountSize, riskPct, maxAllocPct } = tradeSettings;
@@ -1015,8 +1017,9 @@ export function ChartPanelInline({
             {[
               ["lod", "LoD", "Low of Day stop"],
               ["pdl", "Prev L", "Prior Day Low stop"],
-              ["ema10", "10E", "10 EMA stop"],
-              ["ema21", "21E", "21 EMA stop"],
+              ["atr05", "0.5×", "0.5× ATR stop below entry"],
+              ["atr1", "1×", "1× ATR stop below entry"],
+              ["atr2", "2×", "2× ATR stop below entry"],
             ].map(([id, lbl, tip]) => {
               const active = quickStopMode === id;
               return (
