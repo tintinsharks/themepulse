@@ -62,9 +62,75 @@ const BO_KEYS = ["ZANGER", "SB4%", "SB$", "QMAG"];
 const BASE_FILTERS = [
   ["all", "All Universe", "#e2e8f0", "Entire ThemePulse universe (no base filter applied)"],
   ["core", ">50d Leaders", "#a78bfa", "Original base: Avg $vol ≥ $20M · above 50d SMA · RS ≥ 70 or Leading/Emerging tier/layer"],
-  ["adr5liq", "ADR 5%+ Liq", "#fb923c", "Mkt cap > $100M · ADR > 5% · Avg vol (10D) > 500K · Price > 200d SMA · 1W $vol > $300M"],
+  ["adr5liq", "💧 ADR 5%+ Liq", "#fb923c", "Mkt cap > $100M · ADR > 5% · Avg vol (10D) > 500K · Price > 200d SMA · 1W $vol > $300M"],
 ];
 const VALID_BASE_FILTERS = new Set(BASE_FILTERS.map(([k]) => k));
+
+const GOTO_STORAGE_KEY = "tp-brief-goto-preset-v1";
+const DEFAULT_GOTO_EXCLUDED = [
+  "Financial Services",
+  "Utilities",
+  "Shipping",
+  "Financials",
+  "Basic Materials",
+  "Communication Services",
+  "Industrials",
+  "Agriculture",
+  "Energy",
+  "Materials",
+];
+const DEFAULT_GOTO_PRESET = {
+  catTab: "all",
+  baseFilter: "all",
+  boFilter: null,
+  only9M: false,
+  onlyOrh: false,
+  only30m: false,
+  onlyNear52w: true,
+  noHealth: true,
+  themeFilter: null,
+  excludedThemes: DEFAULT_GOTO_EXCLUDED,
+  minAdr: null,
+  minZvr: 1.0,
+  minRs: 0,
+  epsOnly: false,
+  cleanOnly: false,
+};
+
+function loadGotoPreset() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(GOTO_STORAGE_KEY) || "null");
+    if (!raw || typeof raw !== "object") return DEFAULT_GOTO_PRESET;
+    return {
+      catTab: VALID_CAT_TABS.has(raw.catTab) && raw.catTab !== "ext" ? raw.catTab : DEFAULT_GOTO_PRESET.catTab,
+      baseFilter: VALID_BASE_FILTERS.has(raw.baseFilter) ? raw.baseFilter : DEFAULT_GOTO_PRESET.baseFilter,
+      boFilter: BO_KEYS.includes(raw.boFilter) ? raw.boFilter : null,
+      only9M: Boolean(raw.only9M),
+      onlyOrh: Boolean(raw.onlyOrh),
+      only30m: Boolean(raw.only30m),
+      onlyNear52w: raw.onlyNear52w == null ? true : Boolean(raw.onlyNear52w),
+      noHealth: raw.noHealth == null ? true : Boolean(raw.noHealth),
+      themeFilter: typeof raw.themeFilter === "string" && raw.themeFilter ? raw.themeFilter : null,
+      excludedThemes: Array.isArray(raw.excludedThemes)
+        ? raw.excludedThemes.filter((x) => typeof x === "string" && x)
+        : DEFAULT_GOTO_EXCLUDED,
+      minAdr: typeof raw.minAdr === "number" && Number.isFinite(raw.minAdr) ? raw.minAdr : null,
+      minZvr: typeof raw.minZvr === "number" && Number.isFinite(raw.minZvr) ? raw.minZvr : 1.0,
+      minRs: typeof raw.minRs === "number" && Number.isFinite(raw.minRs) ? raw.minRs : 0,
+      epsOnly: Boolean(raw.epsOnly),
+      cleanOnly: Boolean(raw.cleanOnly),
+    };
+  } catch {
+    return DEFAULT_GOTO_PRESET;
+  }
+}
+
+function sameStringSet(setA, arrB) {
+  const b = new Set(arrB || []);
+  if (setA.size !== b.size) return false;
+  for (const x of setA) if (!b.has(x)) return false;
+  return true;
+}
 
 const CAT_TABS = [
   ["bo", "🔥 Breakouts", "#fbbf24", "Any of the 4 breakouts: Zanger, Stockbee 4%, Stockbee $, Qullamaggie"],
@@ -144,13 +210,15 @@ export default function ZangerBriefSection({
   const [err, setErr] = useState(null);
   const [liveOn, setLiveOn] = useState(true);
   const [mq, setMq] = useState(null);
+  const [gotoPreset, setGotoPreset] = useState(loadGotoPreset);
+  const [gotoSavedToast, setGotoSavedToast] = useState(false);
   const [baseFilter, setBaseFilter] = useState(() => {
     try {
       const savedBase = localStorage.getItem("tp-brief-base");
       if (VALID_BASE_FILTERS.has(savedBase)) return savedBase;
       if (localStorage.getItem("tp-brief-cat") === "adr5liq") return "adr5liq";
     } catch { /* ignore */ }
-    return "all";
+    return loadGotoPreset().baseFilter;
   });
   const pickBaseFilter = (b) => {
     setBaseFilter(b);
@@ -162,22 +230,39 @@ export default function ZangerBriefSection({
       if (saved === "adr5liq") return "all";
       if (VALID_CAT_TABS.has(saved)) return saved;
     } catch { /* ignore */ }
-    return "zanger";
+    return loadGotoPreset().catTab;
   });
-  const [boFilter, setBoFilter] = useState(null); // null | "ZANGER" | "SB4%" | "SB$" | "QMAG"
-  const [only9M, setOnly9M] = useState(false); // secondary filter: day share volume >= 8.9M
-  const [onlyOrh, setOnlyOrh] = useState(false); // secondary filter: 30m Opening Range High breakout
-  const [only30m, setOnly30m] = useState(false); // secondary filter: triggered 30-Minute Pivot
-  const [onlyNear52w, setOnlyNear52w] = useState(false); // secondary filter: within 15% of 52-week high
+  const [boFilter, setBoFilter] = useState(() => loadGotoPreset().boFilter); // null | "ZANGER" | "SB4%" | "SB$" | "QMAG"
+  const [only9M, setOnly9M] = useState(() => loadGotoPreset().only9M); // secondary filter: day share volume >= 8.9M
+  const [onlyOrh, setOnlyOrh] = useState(() => loadGotoPreset().onlyOrh); // secondary filter: 30m Opening Range High breakout
+  const [only30m, setOnly30m] = useState(() => loadGotoPreset().only30m); // secondary filter: triggered 30-Minute Pivot
+  const [onlyNear52w, setOnlyNear52w] = useState(() => {
+    try {
+      const saved = localStorage.getItem("tp-brief-near52w");
+      if (saved === "1" || saved === "0") return saved === "1";
+    } catch { /* ignore */ }
+    return loadGotoPreset().onlyNear52w;
+  }); // secondary filter: within 15% of 52-week high
+  const toggleNear52w = () => {
+    setOnlyNear52w((prev) => {
+      const next = !prev;
+      try { localStorage.setItem("tp-brief-near52w", next ? "1" : "0"); } catch { /* ignore */ }
+      return next;
+    });
+  };
   const [bars30Map, setBars30Map] = useState({});
   const [bars30Loading, setBars30Loading] = useState(false);
   const [bars30Tick, setBars30Tick] = useState(0);
-  const [themeFilter, setThemeFilter] = useState(null);
+  const [themeFilter, setThemeFilter] = useState(() => loadGotoPreset().themeFilter);
   const [excludedThemes, setExcludedThemes] = useState(() => {
     try {
-      const raw = JSON.parse(localStorage.getItem("tp-excluded-themes") || "[]");
-      return new Set(Array.isArray(raw) ? raw.filter((x) => typeof x === "string" && x) : []);
-    } catch { return new Set(); }
+      const saved = localStorage.getItem("tp-excluded-themes");
+      if (saved != null) {
+        const raw = JSON.parse(saved);
+        return new Set(Array.isArray(raw) ? raw.filter((x) => typeof x === "string" && x) : []);
+      }
+    } catch { /* ignore */ }
+    return new Set(loadGotoPreset().excludedThemes);
   });
   const [themesMenuOpen, setThemesMenuOpen] = useState(false);
   const [themeSearch, setThemeSearch] = useState("");
@@ -212,11 +297,15 @@ export default function ZangerBriefSection({
       window.removeEventListener("keydown", onKey);
     };
   }, [themesMenuOpen]);
-  const [minZvr, setMinZvr] = useState(1.0);
-  const [minRs, setMinRs] = useState(0);
-  const [minAdr, setMinAdr] = useState(null);
+  const [minZvr, setMinZvr] = useState(() => loadGotoPreset().minZvr);
+  const [minRs, setMinRs] = useState(() => loadGotoPreset().minRs);
+  const [minAdr, setMinAdr] = useState(() => loadGotoPreset().minAdr);
   const [noHealth, setNoHealth] = useState(() => {
-    try { return (localStorage.getItem("tp-no-health") ?? localStorage.getItem("tp-no-bio")) === "1"; } catch { return false; }
+    try {
+      const saved = localStorage.getItem("tp-no-health") ?? localStorage.getItem("tp-no-bio");
+      if (saved === "1" || saved === "0") return saved === "1";
+    } catch { /* ignore */ }
+    return loadGotoPreset().noHealth;
   });
   const toggleNoHealth = () => {
     setNoHealth((prev) => {
@@ -231,9 +320,94 @@ export default function ZangerBriefSection({
     window.addEventListener("tp-no-health", onSync);
     return () => window.removeEventListener("tp-no-health", onSync);
   }, []);
-  const [epsOnly, setEpsOnly] = useState(false);
-  const [cleanOnly, setCleanOnly] = useState(false);
+  const [epsOnly, setEpsOnly] = useState(() => loadGotoPreset().epsOnly);
+  const [cleanOnly, setCleanOnly] = useState(() => loadGotoPreset().cleanOnly);
   const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const applyGotoPreset = (preset = gotoPreset) => {
+    setCatTab(preset.catTab);
+    setBaseFilter(preset.baseFilter);
+    setBoFilter(preset.boFilter);
+    setOnly9M(preset.only9M);
+    setOnlyOrh(preset.onlyOrh);
+    setOnly30m(preset.only30m);
+    setOnlyNear52w(preset.onlyNear52w);
+    setNoHealth(preset.noHealth);
+    setThemeFilter(preset.themeFilter);
+    saveExcludedThemes(new Set(preset.excludedThemes || []));
+    setMinAdr(preset.minAdr);
+    setMinZvr(preset.minZvr);
+    setMinRs(preset.minRs);
+    setEpsOnly(preset.epsOnly);
+    setCleanOnly(preset.cleanOnly);
+    setMoverSort({ k: "thrust", d: -1 });
+    try {
+      localStorage.setItem("tp-brief-cat", preset.catTab);
+      localStorage.setItem("tp-brief-base", preset.baseFilter);
+      localStorage.setItem("tp-brief-near52w", preset.onlyNear52w ? "1" : "0");
+      localStorage.setItem("tp-no-health", preset.noHealth ? "1" : "0");
+      window.dispatchEvent(new CustomEvent("tp-no-health", { detail: preset.noHealth }));
+    } catch { /* ignore */ }
+  };
+
+  const saveCurrentAsGoto = () => {
+    const next = {
+      catTab: catTab === "ext" ? "all" : catTab,
+      baseFilter,
+      boFilter,
+      only9M,
+      onlyOrh,
+      only30m,
+      onlyNear52w,
+      noHealth,
+      themeFilter,
+      excludedThemes: [...excludedThemes],
+      minAdr,
+      minZvr,
+      minRs,
+      epsOnly,
+      cleanOnly,
+    };
+    setGotoPreset(next);
+    try { localStorage.setItem(GOTO_STORAGE_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+    setGotoSavedToast(true);
+    setTimeout(() => setGotoSavedToast(false), 1800);
+  };
+
+  const isGotoActive = useMemo(() => (
+    catTab === gotoPreset.catTab &&
+    baseFilter === gotoPreset.baseFilter &&
+    boFilter === gotoPreset.boFilter &&
+    only9M === gotoPreset.only9M &&
+    onlyOrh === gotoPreset.onlyOrh &&
+    only30m === gotoPreset.only30m &&
+    onlyNear52w === gotoPreset.onlyNear52w &&
+    noHealth === gotoPreset.noHealth &&
+    themeFilter === gotoPreset.themeFilter &&
+    sameStringSet(excludedThemes, gotoPreset.excludedThemes) &&
+    minAdr === gotoPreset.minAdr &&
+    minZvr === gotoPreset.minZvr &&
+    minRs === gotoPreset.minRs &&
+    epsOnly === gotoPreset.epsOnly &&
+    cleanOnly === gotoPreset.cleanOnly
+  ), [
+    catTab, baseFilter, boFilter, only9M, onlyOrh, only30m, onlyNear52w,
+    noHealth, themeFilter, excludedThemes, minAdr, minZvr, minRs, epsOnly, cleanOnly, gotoPreset,
+  ]);
+
+  // Support bookmarkable URL hotlink (?preset=goto or #goto)
+  useEffect(() => {
+    try {
+      const qs = new URLSearchParams(window.location.search);
+      if (qs.get("preset") === "goto" || window.location.hash === "#goto") {
+        applyGotoPreset(loadGotoPreset());
+        setTimeout(() => {
+          document.getElementById("sec-breakouts")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 120);
+      }
+    } catch { /* ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [extrasOpen, setExtrasOpen] = useState(() => {
     try {
       return localStorage.getItem("tp-brief-extras-open") === "1";
@@ -344,7 +518,7 @@ export default function ZangerBriefSection({
     const pm = extRows(pmSnap, stockMap, tickerLayer, true);
     const ah = extRows(ahSnap, stockMap, tickerLayer, true);
     const tickers = [...new Set([...pm.map((r) => r.t), ...ah.map((r) => r.t)])];
-    return { count: tickers.length, pmCount: pm.length, ahCount: ah.length, tickers };
+    return { count: tickers.length, pmCount: pm.length, ahCount: ah.length, tickers, tickerSet: new Set(tickers) };
   }, [pipeline, stockMap, tickerLayer]);
 
   // Poll /api/market-quality every 60s when liveOn is active
@@ -1581,11 +1755,54 @@ export default function ZangerBriefSection({
             : `${liveComputed?.isLive ? "Live 60s · " : ""}${baseFilter === "adr5liq" ? "Base: ADR 5%+ Liq · " : baseFilter === "core" ? "Base: >50d Leaders · " : "Entire universe · "}${sortedMovers.length} shown · click any row to chart`
         }
         right={
-          <CopyTickersBtn
-            A={A}
-            tickers={catTab === "ext" ? extMeta.tickers : sortedMovers.map((m) => m.ticker)}
-            label="Copy Shown"
-          />
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={() => applyGotoPreset()}
+              title={`1-click Go-To screen (${gotoPreset.catTab === "all" ? "All Stocks" : gotoPreset.catTab} · ${gotoPreset.baseFilter === "all" ? "All Universe" : gotoPreset.baseFilter}${gotoPreset.onlyNear52w ? " · ≤15% 52wH" : ""}${gotoPreset.noHealth ? " · No Health" : ""}${gotoPreset.excludedThemes?.length ? ` · ${gotoPreset.excludedThemes.length} themes excluded` : ""}) · bookmark ?preset=goto`}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+                background: isGotoActive ? "rgba(251,191,36,0.18)" : "transparent",
+                border: `1px solid ${isGotoActive ? "#fbbf24" : A.border}`,
+                color: isGotoActive ? "#fbbf24" : A.textDim,
+                borderRadius: 6,
+                padding: "3px 8px",
+                fontSize: 11,
+                fontWeight: isGotoActive ? 800 : 600,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              <span>{gotoSavedToast ? "★ Go-To Saved ✓" : "★ Go-To"}</span>
+            </button>
+            {!isGotoActive && catTab !== "ext" && (
+              <button
+                type="button"
+                onClick={saveCurrentAsGoto}
+                title="Save your current tab & filters as your new ★ Go-To screen"
+                style={{
+                  background: "transparent",
+                  border: `1px solid ${A.border}`,
+                  color: A.textMuted,
+                  borderRadius: 6,
+                  padding: "3px 7px",
+                  fontSize: 10.5,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Save Go-To
+              </button>
+            )}
+            <CopyTickersBtn
+              A={A}
+              tickers={catTab === "ext" ? extMeta.tickers : sortedMovers.map((m) => m.ticker)}
+              label="Copy Shown"
+            />
+          </div>
         }
       >
         {/* Category Tabs */}
@@ -1748,7 +1965,7 @@ export default function ZangerBriefSection({
                   30m <span style={{ opacity: 0.75 }}>{count30m}</span>
                 </button>
                 <button
-                  onClick={() => setOnlyNear52w((v) => !v)}
+                  onClick={toggleNear52w}
                   title="Within 15% of 52-week high (off 52wH ≥ −15%) · combines with TYPE filters"
                   style={{ ...chipStyle(onlyNear52w, "#fbbf24"), fontFamily: MONO, fontSize: 10.5 }}
                 >
@@ -1791,7 +2008,7 @@ export default function ZangerBriefSection({
                   30m <span style={{ opacity: 0.75 }}>{count30m}</span>
                 </button>
                 <button
-                  onClick={() => setOnlyNear52w((v) => !v)}
+                  onClick={toggleNear52w}
                   title="Within 15% of 52-week high (off 52wH ≥ −15%)"
                   style={{ ...chipStyle(onlyNear52w, "#fbbf24"), fontFamily: MONO, fontSize: 10.5 }}
                 >
@@ -2159,8 +2376,39 @@ export default function ZangerBriefSection({
                       <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
                         <FlagButton t={m.ticker} A={A} />
                         <Tk t={m.ticker} />
+                        {m.isBreakout ? (
+                          <span
+                            title={`🔥 Breakout (${(m.breakoutTypes || []).join(", ")})`}
+                            style={{ fontSize: 10, lineHeight: 1, marginLeft: 1 }}
+                          >
+                            🔥
+                          </span>
+                        ) : m.qualifiesZanger ? (
+                          <span
+                            title="⚡ All Movers — ZVR ≥ 1.5x volume surge with strong close"
+                            style={{ fontSize: 10, lineHeight: 1, marginLeft: 1 }}
+                          >
+                            ⚡
+                          </span>
+                        ) : null}
                         <TierMark t={m.ticker} />
                         <RslDot tip={m.rslTip} A={A} />
+                        {m.inAdr5Liq && (
+                          <span
+                            title="💧 ADR 5%+ Liquid — Mkt cap > $100M · ADR > 5% · 10D vol > 500K · > 200d SMA · 1W $vol > $300M"
+                            style={{ fontSize: 10, lineHeight: 1, marginLeft: 1 }}
+                          >
+                            💧
+                          </span>
+                        )}
+                        {extMeta.tickerSet?.has(m.ticker) && (
+                          <span
+                            title="🌙 Pre/Postmarket Mover"
+                            style={{ fontSize: 10, lineHeight: 1, marginLeft: 1 }}
+                          >
+                            🌙
+                          </span>
+                        )}
                         {m.earningsDays != null && m.earningsDays >= 0 && m.earningsDays <= 5 && (
                           <span title={m.earningsDisplay || ""} style={{ marginLeft: 2, fontSize: 10, fontWeight: 700, fontFamily: MONO, padding: "0 3px", borderRadius: 3, background: "rgba(245,158,11,0.18)", color: "#f59e0b" }}>
                             ER{m.earningsDays}d
