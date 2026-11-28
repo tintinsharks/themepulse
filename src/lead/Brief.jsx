@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { CONF_LABEL, Card, Delta, EPS_TIP, ExtHoursMovers, FlagButton, LayerLink, LayerMembers, MONO, StockTable, TierMark, closingRange, statusColor, td, th, useRvolProfiles, useScanQuotes, zvrFor } from "./core.jsx";
+import { CONF_LABEL, Card, Delta, EPS_TIP, ExtHoursMovers, FlagButton, LayerLink, LayerMembers, MONO, StockTable, TierMark, closingRange, pinReason, scoreZangerCandidate, statusColor, td, th, useRvolProfiles, useScanQuotes, zvrFor } from "./core.jsx";
 import { authFetch } from "../utils.js";
-import { collectBriefTickers, evalPivotStatus, matchMacroLive, normalizeWrittenBrief } from "./briefLive.js";
+import { collectBriefTickers, evalPivotStatus, filterRecentHeadlines, matchMacroLive, normalizeWrittenBrief } from "./briefLive.js";
+import { DEFAULT_GOTO_PRESET, GOTO_STORAGE_KEY, buildGoToBriefingAnalysis } from "./gotoAnalysis.js";
+import { evalScanHits } from "./scannerMath.js";
 import RotationView from "./Rotation.jsx";
 import ZangerBriefSection from "./ZangerBriefSection.jsx";
 
@@ -14,8 +16,18 @@ import ZangerBriefSection from "./ZangerBriefSection.jsx";
 const BRIEF_DIR = "/data/briefs/";
 const safeUrl = (u) => (typeof u === "string" && /^https?:\/\//i.test(u) ? u : null);
 const SESSION_LABEL = { am: "Premarket", pm: "Postmarket", intraday: "Intraday" };
+const _goToBriefNewsCache = new Map();
+const GOTO_BRIEF_NEWS_TTL_MS = 10 * 60 * 1000;
 
-function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
+function readSavedGoToPreset() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(GOTO_STORAGE_KEY) || "null");
+    if (raw && typeof raw === "object") return { ...DEFAULT_GOTO_PRESET, ...raw };
+  } catch { /* ignore */ }
+  return DEFAULT_GOTO_PRESET;
+}
+
+function WrittenBrief({ A, stockMap, tickerLayer = {}, layers = [], themes = [], tiers, onTicker, chartTicker, modeSwitch }) {
   const [index, setIndex] = useState(null);
   const [sel, setSel] = useState(null);
   const [brief, setBrief] = useState(null);
@@ -25,6 +37,8 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
   const [focusSort, setFocusSort] = useState({ k: null, d: -1 });
   const [extSort, setExtSort] = useState({ k: null, d: -1 });
   const [brkSort, setBrkSort] = useState({ k: null, d: -1 });
+  const [goToThemeFocus, setGoToThemeFocus] = useState(null);
+  const [goToNews, setGoToNews] = useState({});
   const [collapsed, setCollapsed] = useState(() => {
     try {
       const v = localStorage.getItem("tp-written-collapsed");
@@ -55,8 +69,115 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
   }, [sel, index]);
 
   const normBrief = useMemo(() => normalizeWrittenBrief(brief), [brief]);
-  const briefTickers = useMemo(() => collectBriefTickers(normBrief), [normBrief]);
+  const showGoToBrief = normBrief?.session === "intraday" || normBrief?.session === "pm";
+  const goToPreset = useMemo(() => readSavedGoToPreset(), [sel]); // eslint-disable-line react-hooks/exhaustive-deps
+  const goToPoolTickers = useMemo(() => {
+    if (!showGoToBrief || !stockMap) return [];
+    const out = [];
+    for (const [t, s] of Object.entries(stockMap)) {
+      if (!s?.ticker || !(s.close > 0) || pinReason(s)) continue;
+      if (goToPreset.onlyNear52w && (s.off_52w_high ?? -99) < -15) continue;
+      if (goToPreset.minDollarVol > 0 && (s.avg_dollar_vol_raw ?? 0) < goToPreset.minDollarVol) continue;
+      if (goToPreset.minAdr != null && (s.adr20 ?? s.adr_pct ?? 0) < goToPreset.minAdr) continue;
+      out.push(t);
+    }
+    return out;
+  }, [showGoToBrief, stockMap, goToPreset]);
+
+  const briefTickers = useMemo(
+    () => [...new Set([...collectBriefTickers(normBrief), ...goToPoolTickers])],
+    [normBrief, goToPoolTickers]
+  );
   const { quotes, at } = useScanQuotes(briefTickers, liveOn && briefTickers.length > 0);
+
+  const externalWhyByTheme = useMemo(() => {
+    const raw = brief?.goToAnalysis?.themeClusters;
+    if (!Array.isArray(raw)) return null;
+    const map = {};
+    for (const c of raw) {
+      if (c?.theme && (c.why || c.aiWhy)) map[c.theme] = c.aiWhy || c.why;
+    }
+    return Object.keys(map).length ? map : null;
+  }, [brief]);
+
+  const goToAnalysis = useMemo(() => {
+    if (!showGoToBrief || !goToPoolTickers.length) return null;
+    const now = new Date();
+    const hasLive = Boolean(liveOn && quotes && quotes.size > 0);
+    const scored = [];
+    for (const t of goToPoolTickers) {
+      const s = stockMap?.[t];
+      if (!s) continue;
+      const q = hasLive ? (quotes.get(t) || null) : null;
+      const layer = tickerLayer?.[t] || null;
+      const tier = tiers?.leaders?.has(t) ? "lead" : tiers?.emerging?.has(t) ? "emerg" : null;
+      const res = scoreZangerCandidate({ s, q, layer, tier, profiles, now, unfiltered: true });
+      if (res) {
+        res.inAdr5Liq = Boolean(evalScanHits(s, q, res.zvr)?.adr5liq);
+        scored.push(res);
+      }
+    }
+    return buildGoToBriefingAnalysis({
+      allScored: scored,
+      preset: goToPreset,
+      stockMap,
+      tickerLayer,
+      layers,
+      themes,
+      headlines: goToNews,
+      externalWhyByTheme,
+      maxLeaders: 25,
+      maxClusters: 8,
+      now,
+    });
+  }, [showGoToBrief, goToPoolTickers, liveOn, quotes, stockMap, tickerLayer, tiers, profiles, goToPreset, layers, themes, goToNews, externalWhyByTheme]);
+
+  const goToNewsKey = useMemo(
+    () => (showGoToBrief && !collapsed && goToAnalysis?.newsTargets?.length ? goToAnalysis.newsTargets.slice(0, 10).join(",") : ""),
+    [showGoToBrief, collapsed, goToAnalysis]
+  );
+
+  useEffect(() => {
+    if (!goToNewsKey) return undefined;
+    let alive = true;
+    const tks = goToNewsKey.split(",").filter(Boolean);
+    const nowMs = Date.now();
+    const initial = {};
+    const missing = [];
+    for (const tk of tks) {
+      const hit = _goToBriefNewsCache.get(tk);
+      if (hit && nowMs - hit.ts < GOTO_BRIEF_NEWS_TTL_MS) initial[tk] = hit.items;
+      else missing.push(tk);
+    }
+    if (Object.keys(initial).length) setGoToNews((prev) => ({ ...prev, ...initial }));
+    if (!missing.length) return () => { alive = false; };
+    Promise.all(
+      missing.map(async (tk) => {
+        try {
+          const r = await authFetch(`/api/live?news=${encodeURIComponent(tk)}`, { cache: "no-store" });
+          if (!r.ok) return [tk, []];
+          const d = await r.json();
+          const raw = (d?.news || []).map((n) => ({
+            title: n.title || n.headline || "",
+            source: n.source || "",
+            date: n.date || n.time || "",
+            url: n.url || "",
+          })).filter((n) => n.title);
+          const fresh = filterRecentHeadlines(raw, new Date(), 14).slice(0, 2);
+          _goToBriefNewsCache.set(tk, { ts: Date.now(), items: fresh });
+          return [tk, fresh];
+        } catch {
+          return [tk, []];
+        }
+      })
+    ).then((pairs) => {
+      if (!alive) return;
+      const patch = {};
+      for (const [tk, items] of pairs) patch[tk] = items;
+      setGoToNews((prev) => ({ ...prev, ...patch }));
+    });
+    return () => { alive = false; };
+  }, [goToNewsKey]);
 
   // Poll /api/market-quality every 60s when live overlay is active for live VIX / 10Y / Crude / DXY
   useEffect(() => {
@@ -835,6 +956,241 @@ function WrittenBrief({ A, stockMap, onTicker, chartTicker, modeSwitch }) {
           )}
         </div>
       )}
+
+      {!collapsed && showGoToBrief && goToAnalysis && goToAnalysis.totalMatched > 0 && (() => {
+        const gc = goToAnalysis.gradeCounts || {};
+        const gradeCol = (g) => (g === "A+" ? A.green : g === "A" ? A.cyan : g === "B" ? "#f59e0b" : A.textMuted);
+        const visibleLeaders = goToThemeFocus
+          ? goToAnalysis.leaders.filter((m) => m.theme === goToThemeFocus)
+          : goToAnalysis.leaders;
+        return (
+          <Card
+            A={A}
+            title={
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <span>★ Go-To Screen Analysis — Theme Clusters &amp; Leading Tickers</span>
+                <span style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, color: A.green }}>
+                  {gc["A+"] || 0} A+
+                </span>
+                <span style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, color: A.cyan }}>
+                  {gc.A || 0} A
+                </span>
+                <span style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 600, color: "#f59e0b" }}>
+                  {gc.B || 0} B
+                </span>
+              </span>
+            }
+            sub={`${goToAnalysis.totalMatched} matched Go-To leaders · descending A+ Setup Grade & theme drivers${liveOn && at ? " · live quotes" : ""}`}
+            right={
+              goToThemeFocus ? (
+                <button
+                  type="button"
+                  onClick={() => setGoToThemeFocus(null)}
+                  style={{
+                    background: "transparent",
+                    border: `1px solid ${A.border}`,
+                    color: A.cyan,
+                    borderRadius: 6,
+                    padding: "2px 8px",
+                    fontSize: 10.5,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  Clear {goToThemeFocus} ✕
+                </button>
+              ) : null
+            }
+          >
+            {/* Theme Cluster "Why?" Cards */}
+            {goToAnalysis.themeClusters.length > 0 && (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 8, marginBottom: 12 }}>
+                {goToAnalysis.themeClusters.slice(0, 6).map((c) => {
+                  const focused = goToThemeFocus === c.theme;
+                  const borderCol = c.aPlusCount > 0 ? A.green : c.aPlusACount > 0 ? A.cyan : A.border;
+                  return (
+                    <div
+                      key={c.theme}
+                      style={{
+                        padding: "8px 10px",
+                        borderRadius: 8,
+                        background: focused ? A.bgHover : A.bg,
+                        border: `1px solid ${focused ? A.cyan : A.border}`,
+                        borderLeft: `3px solid ${borderCol}`,
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                        <button
+                          type="button"
+                          onClick={() => setGoToThemeFocus((prev) => (prev === c.theme ? null : c.theme))}
+                          title={`Click to filter the Go-To table below to ${c.theme}`}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            padding: 0,
+                            cursor: "pointer",
+                            display: "inline-flex",
+                            alignItems: "baseline",
+                            gap: 5,
+                            color: A.text,
+                            fontWeight: 800,
+                            fontSize: 12,
+                          }}
+                        >
+                          <span>{c.theme}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, color: A.textDim }}>
+                            {c.count} {c.count === 1 ? "name" : "names"}
+                          </span>
+                          {c.aPlusACount > 0 && (
+                            <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 800, color: c.aPlusCount > 0 ? A.green : A.cyan }}>
+                              · {c.aPlusACount} A+/A
+                            </span>
+                          )}
+                        </button>
+                        <span style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, color: pc(c.avgChg) }}>
+                          avg {pct(c.avgChg, 1)}
+                          {c.breakoutCount > 0 && <span style={{ color: "#fbbf24", marginLeft: 5 }}>{c.breakoutCount} BO</span>}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 11, color: A.textDim, lineHeight: 1.45, marginTop: 4 }}>
+                        <strong style={{ color: A.text }}>Why:</strong> {c.aiWhy || c.why}
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
+                        {(c.topTickers || []).slice(0, 5).map((t) => (
+                          <button
+                            key={t.ticker}
+                            type="button"
+                            onClick={() => onTicker && onTicker(t.ticker)}
+                            style={{
+                              background: A.bgCard,
+                              border: `1px solid ${chartTicker === t.ticker ? A.green : A.border}`,
+                              borderRadius: 4,
+                              padding: "1px 5px",
+                              fontFamily: MONO,
+                              fontSize: 10,
+                              cursor: "pointer",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4,
+                              color: A.text,
+                            }}
+                          >
+                            <strong>{t.ticker}</strong>
+                            <span style={{ color: gradeCol(t.grade), fontWeight: 800 }}>{t.grade} {t.aPlusScore}</span>
+                          </button>
+                        ))}
+                      </div>
+                      {c.catalysts?.length > 0 && (
+                        <div style={{ marginTop: 6, paddingTop: 5, borderTop: `1px solid ${A.border}`, display: "flex", flexDirection: "column", gap: 2 }}>
+                          {c.catalysts.slice(0, 2).map((h, idx) => (
+                            <div key={`${h.ticker}-${idx}`} style={{ fontSize: 10.5, color: A.textMuted, lineHeight: 1.35 }}>
+                              <strong style={{ color: A.textDim, fontFamily: MONO }}>{h.ticker}:</strong> {h.title}
+                              <Src u={h.url} />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Leading Tickers by Descending Grade Table */}
+            <div style={{ overflowX: "auto", maxHeight: 380, overflowY: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead style={{ position: "sticky", top: 0, background: A.bgCard, zIndex: 1 }}>
+                  <tr>
+                    <th style={th(A, "left")}>Grade</th>
+                    <th style={th(A, "left")}>Ticker</th>
+                    <th style={th(A, "left")}>Theme · Layer</th>
+                    <th style={th(A, "right")}>Chg%</th>
+                    <th style={th(A, "right")}>Thr</th>
+                    <th style={th(A, "right")}>ZVR</th>
+                    <th style={th(A, "right")}>CR%</th>
+                    <th style={th(A, "right")}>RS</th>
+                    <th style={th(A, "left")}>Catalyst / Footprint</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleLeaders.slice(0, 20).map((m) => {
+                    const gcCol = gradeCol(m.grade);
+                    const isCharted = chartTicker === m.ticker;
+                    return (
+                      <tr
+                        key={m.ticker}
+                        data-nav={m.ticker}
+                        className={isCharted ? "tp-click-row tp-row-active" : "tp-click-row"}
+                        onClick={() => onTicker && onTicker(m.ticker)}
+                        style={{
+                          cursor: "pointer",
+                          background: isCharted ? A.bgHover : "transparent",
+                          boxShadow: isCharted ? `inset 2px 0 0 ${A.green}` : "none",
+                        }}
+                      >
+                        <td style={td()} title={m.aPlusTip}>
+                          <span
+                            style={{
+                              fontFamily: MONO,
+                              fontSize: 10,
+                              fontWeight: 800,
+                              padding: "1px 5px",
+                              borderRadius: 4,
+                              color: gcCol,
+                              background: `${gcCol}1a`,
+                              border: `1px solid ${gcCol}66`,
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {m.grade} {m.aPlusScore}
+                          </span>
+                        </td>
+                        <td style={{ ...td(), whiteSpace: "nowrap" }}>
+                          <FlagButton t={m.ticker} A={A} />
+                          <Tk t={m.ticker} />
+                          {m.isBreakout ? <span title="Breakout" style={{ marginLeft: 3, fontSize: 10 }}>🔥</span> : m.qualifiesZanger ? <span title="Volume Mover" style={{ marginLeft: 3, fontSize: 10 }}>⚡</span> : null}
+                          {m.inAdr5Liq && <span title="ADR 5%+ Liquid" style={{ marginLeft: 2, fontSize: 10 }}>💧</span>}
+                        </td>
+                        <td style={{ ...td(), fontSize: 11 }}>
+                          <strong style={{ color: A.text }}>{m.theme}</strong>
+                          {m.layer && m.layer !== "—" && <span style={{ color: A.textMuted }}> · {m.layer}</span>}
+                        </td>
+                        <td style={{ ...td("right"), color: pc(m.chg), fontWeight: 700 }}>{pct(m.chg, 1)}</td>
+                        <td style={{ ...td("right"), color: m.thrust == null ? A.textMuted : m.thrust > 0 ? A.green : A.red, fontWeight: m.thrust != null && Math.abs(m.thrust) >= 1.5 ? 800 : 500 }}>
+                          {m.thrust != null ? `${m.thrust > 0 ? "+" : ""}${m.thrust.toFixed(1)}` : "—"}
+                        </td>
+                        <td style={{ ...td("right"), color: (m.zvr ?? 0) >= 1.5 ? A.green : A.textDim }}>
+                          {m.zvr != null ? `${m.zvr.toFixed(1)}x` : "—"}
+                        </td>
+                        <td style={{ ...td("right"), color: (m.cr ?? 0) >= 75 ? A.green : A.textDim }}>
+                          {m.cr != null ? `${m.cr}%` : "—"}
+                        </td>
+                        <td style={{ ...td("right"), color: rsC(m.rs), fontWeight: 700 }}>{m.rs ?? "—"}</td>
+                        <td style={{ ...td(), fontSize: 10.5, color: A.textDim, maxWidth: 260 }}>
+                          {m.topHeadline ? (
+                            <>
+                              {m.topHeadline}
+                              <Src u={m.topHeadlineUrl} />
+                            </>
+                          ) : (
+                            <span style={{ fontFamily: MONO, color: A.textMuted }}>
+                              {[
+                                m.ppCount >= 2 ? `PP${m.ppCount}` : null,
+                                m.emaStack ? "EMA Stack" : null,
+                                m.breakoutTypes?.length ? m.breakoutTypes.join("+") : null,
+                              ].filter(Boolean).join(" · ") || "—"}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        );
+      })()}
     </div>
   );
 }
@@ -974,7 +1330,18 @@ function BriefPanel(props) {
       </div>
       <div id="sec-written" style={{ scrollMarginTop: 96 }}>
         {mode === "written"
-          ? <WrittenBrief A={A} stockMap={props.stockMap} onTicker={props.onTicker} chartTicker={props.chartTicker} />
+          ? (
+            <WrittenBrief
+              A={A}
+              stockMap={props.stockMap}
+              tickerLayer={props.tickerLayer}
+              layers={props.layers}
+              themes={props.themes}
+              tiers={props.tiers}
+              onTicker={props.onTicker}
+              chartTicker={props.chartTicker}
+            />
+          )
           : <LiveBrief {...props} />}
       </div>
       <ZangerBriefSection

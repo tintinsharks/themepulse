@@ -717,6 +717,7 @@ export function buildEmailHtml(
     themeFlow,
     leaderDamage,
     onDeckRsl,
+    goToAnalysis = null,
   },
   { baseUrl = "https://themepulse.vercel.app" } = {}
 ) {
@@ -1119,6 +1120,81 @@ export function buildEmailHtml(
     </tr>`;
   }).join("");
 
+  const goToHtml = (() => {
+    if (isPremarket || !goToAnalysis || !goToAnalysis.totalMatched) return "";
+    const gc = goToAnalysis.gradeCounts || {};
+    const gradeBadge = (grade, score) => {
+      const style = grade === "A+"
+        ? "background:#dcfce7;color:#166534;border:1px solid #22c55e;"
+        : grade === "A"
+          ? "background:#cffafe;color:#155e75;border:1px solid #06b6d4;"
+          : grade === "B"
+            ? "background:#fef3c7;color:#92400e;border:1px solid #f59e0b;"
+            : "background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;";
+      return `<span style="${style}font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;font-weight:800;padding:1px 5px;border-radius:4px;white-space:nowrap;">${escHtml(grade)} ${score}</span>`;
+    };
+    const clusterCards = (goToAnalysis.themeClusters || []).slice(0, 6).map((c) => {
+      const chgCol = c.avgChg == null ? "#64748b" : c.avgChg >= 0 ? "#15803d" : "#dc2626";
+      const topTks = (c.topTickers || []).slice(0, 5).map((t) =>
+        `<a href="${tLink(t.ticker)}" style="color:#0f172a;text-decoration:none;font-weight:700;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#f8fafc;border:1px solid #cbd5e1;border-radius:4px;padding:1px 5px;font-size:11px;margin-right:4px;display:inline-block;">${escHtml(t.ticker)} <span style="color:${t.grade === "A+" ? "#15803d" : t.grade === "A" ? "#0e7490" : "#64748b"};">${escHtml(t.grade)}</span></a>`
+      ).join("");
+      const catLines = (c.catalysts || []).slice(0, 2).map((h) =>
+        `<div style="font-size:11px;color:#475569;margin-top:3px;"><strong>${escHtml(h.ticker)}:</strong> ${escHtml(h.title)}${h.source ? ` <span style="color:#94a3b8;">(${escHtml(h.source)})</span>` : ""}</div>`
+      ).join("");
+      return `<div style="padding:10px 12px;margin-bottom:8px;background:#f8fafc;border:1px solid #e2e8f0;border-left:3px solid ${c.aPlusACount > 0 ? "#16a34a" : "#0ea5e9"};border-radius:6px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
+          <strong style="font-size:13px;color:#0f172a;">${escHtml(c.theme)} <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#475569;">(${c.count} ${c.count === 1 ? "name" : "names"}${c.aPlusACount ? ` · ${c.aPlusACount} A+/A` : ""})</span></strong>
+          <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:${chgCol};font-weight:700;">avg ${escHtml(fmtPct(c.avgChg, 1))}${c.breakoutCount ? ` · ${c.breakoutCount} BO` : ""}${c.pp2Count ? ` · ${c.pp2Count} PP2+` : ""}</span>
+        </div>
+        <div style="font-size:12px;color:#334155;margin-top:4px;line-height:1.45;"><strong>Why:</strong> ${escHtml(c.aiWhy || c.why)}</div>
+        <div style="margin-top:5px;">${topTks}</div>
+        ${catLines}
+      </div>`;
+    }).join("");
+
+    const leaderRows = (goToAnalysis.leaders || []).slice(0, 15).map((m) => {
+      const chgCol = m.chg == null ? "#64748b" : m.chg >= 0 ? "#15803d" : "#dc2626";
+      const logos = `${m.isBreakout ? "🔥" : m.qualifiesZanger ? "⚡" : ""}${m.tier === "lead" ? "⭐" : m.tier === "emerg" ? "🌱" : ""}${m.inAdr5Liq ? "💧" : ""}`;
+      return `<tr style="border-bottom:1px solid #e2e8f0;">
+        <td style="padding:6px;">${gradeBadge(m.grade, m.aPlusScore)}</td>
+        <td style="padding:6px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:700;"><a href="${tLink(m.ticker)}" style="color:#0f172a;text-decoration:none;">${escHtml(m.ticker)}</a>${logos ? ` <span style="font-size:10px;">${logos}</span>` : ""}</td>
+        <td style="padding:6px;font-size:11px;color:#334155;"><strong>${escHtml(m.theme)}</strong> · <span style="color:#64748b;">${escHtml(m.layer)}</span></td>
+        <td style="padding:6px;text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:${chgCol};font-weight:700;">${escHtml(fmtPct(m.chg, 1))}</td>
+        <td style="padding:6px;text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:700;">${m.thrust != null ? `${m.thrust > 0 ? "+" : ""}${m.thrust.toFixed(1)}` : "—"}</td>
+        <td style="padding:6px;text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">${m.zvr != null ? `${m.zvr.toFixed(1)}x` : "—"}</td>
+        <td style="padding:6px;text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">${m.cr != null ? `${m.cr}%` : "—"}</td>
+        <td style="padding:6px;text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:700;">${m.rs ?? "—"}</td>
+        <td style="padding:6px;font-size:11px;color:#475569;">${m.topHeadline ? escHtml(m.topHeadline) : (m.ppCount >= 2 ? `PP${m.ppCount}${m.emaStack ? " · EMA Stack" : ""}` : m.emaStack ? "EMA Stack" : "—")}</td>
+      </tr>`;
+    }).join("");
+
+    return `<div style="margin-top:22px;padding-top:16px;border-top:2px solid #cbd5e1;">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
+        <h2 style="margin:0;font-size:15px;color:#0f172a;">★ Go-To Screen: Theme Clusters &amp; Leading Tickers <span style="font-weight:400;font-size:12px;color:#64748b;">(${goToAnalysis.totalMatched} matched · ${gc["A+"] || 0} A+ · ${gc.A || 0} A · ${gc.B || 0} B)</span></h2>
+        <a href="${url}/?preset=goto" style="font-size:11px;color:#0284c7;text-decoration:none;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:700;">Open Go-To Screen →</a>
+      </div>
+      ${clusterCards}
+      ${leaderRows ? `<div style="overflow-x:auto;margin-top:10px;">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;">
+          <thead>
+            <tr style="background:#f8fafc;border-bottom:2px solid #cbd5e1;color:#475569;font-size:10px;text-transform:uppercase;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">
+              <th style="padding:6px;text-align:left;">Grade</th>
+              <th style="padding:6px;text-align:left;">Ticker</th>
+              <th style="padding:6px;text-align:left;">Theme · Layer</th>
+              <th style="padding:6px;text-align:right;">Chg%</th>
+              <th style="padding:6px;text-align:right;">Thr</th>
+              <th style="padding:6px;text-align:right;">ZVR</th>
+              <th style="padding:6px;text-align:right;">CR%</th>
+              <th style="padding:6px;text-align:right;">RS</th>
+              <th style="padding:6px;text-align:left;">Catalyst / Footprint</th>
+            </tr>
+          </thead>
+          <tbody>${leaderRows}</tbody>
+        </table>
+      </div>` : ""}
+    </div>`;
+  })();
+
   const holdRateKpi = delta?.holdRate
     ? ` &nbsp;·&nbsp; Hold Rate <strong style="color:${delta.holdRate.pct >= 70 ? "#4ade80" : delta.holdRate.pct >= 50 ? "#fbbf24" : "#f87171"};">${delta.holdRate.holding}/${delta.holdRate.totalToday} (${delta.holdRate.pct}%)</strong>`
     : "";
@@ -1207,6 +1283,7 @@ export function buildEmailHtml(
 
       ${damageHtml}
       ${!isPremarket ? onDeckHtml : ""}
+      ${goToHtml}
       ${quickCopyHtml}
     </div>
 
@@ -1237,6 +1314,7 @@ export function buildMarkdown({
   themeFlow,
   leaderDamage,
   onDeckRsl,
+  goToAnalysis = null,
 }) {
   const ph = phase || getBriefingPhase(stamp);
   const isPremarket = ph.id === "premarket";
@@ -1419,6 +1497,41 @@ export function buildMarkdown({
       );
     }
     lines.push("");
+  }
+
+  if (!isPremarket && goToAnalysis && goToAnalysis.totalMatched > 0) {
+    const gc = goToAnalysis.gradeCounts || {};
+    lines.push(`## 7. ★ Go-To Screen — Leading Tickers by Grade & Theme Clusters`);
+    lines.push("");
+    lines.push(`- **Pool**: ${goToAnalysis.totalMatched} fresh liquid growth leaders · **Grades**: ${gc["A+"] || 0} A+ · ${gc.A || 0} A · ${gc.B || 0} B · ${gc.C || 0} C`);
+    lines.push("");
+    if (goToAnalysis.themeClusters?.length) {
+      lines.push("### Theme Cluster Breakdown (Why They're Leading)");
+      lines.push("");
+      for (const c of goToAnalysis.themeClusters.slice(0, 8)) {
+        const topStr = (c.topTickers || []).slice(0, 5).map((t) => `${t.ticker} (${t.grade} ${t.aPlusScore})`).join(", ");
+        lines.push(`- **${c.theme} (${c.count} ${c.count === 1 ? "name" : "names"} · ${c.aPlusACount} A+/A · avg ${fmtPct(c.avgChg, 1)})** — **Why:** ${c.aiWhy || c.why}`);
+        lines.push(`  - Leaders: ${topStr}`);
+        for (const h of (c.catalysts || []).slice(0, 2)) {
+          lines.push(`  - Catalyst (${h.ticker}): ${h.title}${h.source ? ` _(${h.source})_` : ""}`);
+        }
+      }
+      lines.push("");
+    }
+    if (goToAnalysis.leaders?.length) {
+      lines.push("### Leading Go-To Tickers (Descending Grade)");
+      lines.push("");
+      lines.push("| Grade | Ticker | Theme · Layer | Chg% | Thr | ZVR | CR% | RS | PP | Catalyst / Notes |");
+      lines.push("|-------|--------|---------------|-----:|----:|----:|----:|---:|---:|------------------|");
+      for (const m of goToAnalysis.leaders.slice(0, 20)) {
+        const logos = `${m.isBreakout ? "🔥" : m.qualifiesZanger ? "⚡" : ""}${m.tier === "lead" ? "⭐" : m.tier === "emerg" ? "🌱" : ""}${m.inAdr5Liq ? "💧" : ""}`;
+        const note = m.topHeadline || (m.emaStack ? "EMA Stack" : "—");
+        lines.push(
+          `| **${m.grade} ${m.aPlusScore}** | **${m.ticker}**${logos ? ` ${logos}` : ""} | ${m.theme} · ${m.layer} | ${fmtPct(m.chg, 1)} | ${m.thrust != null ? `${m.thrust > 0 ? "+" : ""}${m.thrust.toFixed(1)}` : "—"} | ${m.zvr != null ? `${m.zvr.toFixed(1)}x` : "—"} | ${m.cr != null ? `${m.cr}%` : "—"} | ${m.rs ?? "—"} | ${m.ppCount >= 2 ? `PP${m.ppCount}` : "—"} | ${note} |`
+        );
+      }
+      lines.push("");
+    }
   }
 
   const tvLists = buildTradingViewLists({ zangerMovers, onDeckRsl });

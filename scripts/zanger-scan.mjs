@@ -36,6 +36,8 @@ import {
   etClock,
   scoreZangerCandidate,
 } from "../src/lead/math.js";
+import { buildGoToBriefingAnalysis, DEFAULT_GOTO_PRESET } from "../src/lead/gotoAnalysis.js";
+import { evalScanHits } from "../src/lead/scannerMath.js";
 import {
   INDEX_META,
   getBriefingPhase,
@@ -326,12 +328,21 @@ export async function runZangerScan({ offline = false, write = true, now = new D
     .filter((l) => l.st === "emerg" && (l.conf?.passed?.length ?? 0) >= 2)
     .sort((a, b) => b.now - a.now);
 
-  // Build candidate pool: liquid above-50d names in leading/emerging layers + RS>=70 + prior-hour breakouts
+  // Build candidate pool: liquid above-50d names in leading/emerging layers + RS>=70 + Go-To candidates + prior-hour breakouts
   const poolSet = new Set();
   for (const [t, s] of Object.entries(stockMap)) {
-    if ((s.avg_dollar_vol_raw ?? 0) < 20e6 || !s.above_50ma || pinReason(s)) continue;
+    if (!(s.close > 0) || pinReason(s)) continue;
     const l = tickerLayer[t];
-    if (tiers.leaders.has(t) || tiers.emerging.has(t) || (s.rs_rank ?? 0) >= 70 || l?.st === "lead" || l?.st === "emerg") {
+    if ((s.avg_dollar_vol_raw ?? 0) >= 20e6 && s.above_50ma) {
+      if (tiers.leaders.has(t) || tiers.emerging.has(t) || (s.rs_rank ?? 0) >= 70 || l?.st === "lead" || l?.st === "emerg") {
+        poolSet.add(t);
+      }
+    }
+    if (
+      (s.avg_dollar_vol_raw ?? 0) >= DEFAULT_GOTO_PRESET.minDollarVol &&
+      (s.off_52w_high ?? -99) >= -15 &&
+      (s.adr20 ?? s.adr_pct ?? 0) >= DEFAULT_GOTO_PRESET.minAdr
+    ) {
       poolSet.add(t);
     }
   }
@@ -360,16 +371,21 @@ export async function runZangerScan({ offline = false, write = true, now = new D
   }
 
   const scored = [];
+  const allUnfilteredScored = [];
   const scoredMap = new Map();
   for (const t of poolSet) {
     const s = stockMap[t];
     const q = liveQuotes.get(t) || null;
     const layer = tickerLayer[t] || null;
     const tier = tiers.leaders.has(t) ? "lead" : tiers.emerging.has(t) ? "emerg" : null;
-    const res = scoreZangerCandidate({ s, q, layer, tier, profiles, now });
-    if (res) {
-      scored.push(res);
-      scoredMap.set(t, res);
+    const full = scoreZangerCandidate({ s, q, layer, tier, profiles, now, unfiltered: true });
+    if (full) {
+      full.inAdr5Liq = Boolean(evalScanHits(s, q, full.zvr)?.adr5liq);
+      allUnfilteredScored.push(full);
+      if (full.inCoreBase) {
+        scored.push(full);
+        scoredMap.set(t, full);
+      }
     }
   }
 
@@ -418,9 +434,40 @@ export async function runZangerScan({ offline = false, write = true, now = new D
     leaderDamage,
   });
 
-  const headlines = token && zangerMovers.length
-    ? await fetchTickerHeadlines(zangerMovers.slice(0, 8).map((m) => m.ticker), token, now)
+  // Preliminary Go-To analysis (intraday & closing-bell post-market phases) to identify cluster leaders for news enrichment
+  const goToPrelim = phase.id !== "premarket"
+    ? buildGoToBriefingAnalysis({
+        allScored: allUnfilteredScored,
+        preset: DEFAULT_GOTO_PRESET,
+        stockMap,
+        tickerLayer,
+        layers,
+        now,
+      })
+    : null;
+
+  const newsTickers = [
+    ...new Set([
+      ...zangerMovers.slice(0, 8).map((m) => m.ticker),
+      ...(goToPrelim?.newsTargets || []),
+    ]),
+  ].slice(0, 18);
+
+  const headlines = token && newsTickers.length
+    ? await fetchTickerHeadlines(newsTickers, token, now)
     : new Map();
+
+  const goToAnalysis = phase.id !== "premarket"
+    ? buildGoToBriefingAnalysis({
+        allScored: allUnfilteredScored,
+        preset: DEFAULT_GOTO_PRESET,
+        stockMap,
+        tickerLayer,
+        layers,
+        headlines,
+        now,
+      })
+    : null;
 
   const scanCtx = {
     stamp,
@@ -441,6 +488,7 @@ export async function runZangerScan({ offline = false, write = true, now = new D
     themeFlow,
     leaderDamage,
     onDeckRsl,
+    goToAnalysis,
   };
   const markdown = buildMarkdown(scanCtx);
   const emailSubject = buildEmailSubject(scanCtx);
@@ -481,6 +529,7 @@ export async function runZangerScan({ offline = false, write = true, now = new D
     themeFlow,
     leaderDamage,
     onDeckRsl,
+    goToAnalysis,
     headlines: Object.fromEntries(headlines),
     leadingLayers: leadingLayers.map((l) => ({ theme: l.theme, layer: l.name, st: l.st, rank: l.now, w1: l.w1, m1: l.m1, flags: l.flags.map(([k]) => k) })),
     emergingLayers: emergingLayers.map((l) => ({ theme: l.theme, layer: l.name, st: l.st, rank: l.now, w1: l.w1, m1: l.m1, flags: l.flags.map(([k]) => k) })),
@@ -517,6 +566,7 @@ export function buildZangerBriefSnapshot(res) {
     themeFlow: res.themeFlow,
     leaderDamage: res.leaderDamage,
     onDeckRsl: res.onDeckRsl,
+    goToAnalysis: res.goToAnalysis || null,
     headlines: res.headlines || {},
     leadingLayers: res.leadingLayers,
     emergingLayers: res.emergingLayers,
