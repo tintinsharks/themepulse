@@ -1301,13 +1301,15 @@ export function DailyChartSVG({
           const padT = chartData.padT, priceH = chartData.priceH;
           if (sl.price < pMin || sl.price > pMax) return null;
           const y = padT + (1 - (sl.price - pMin) / pRange) * priceH;
+          const dash = sl.dotted ? "2,3" : sl.dashed ? "5,3" : undefined;
           return (
             <g key={i}>
               <line x1={chartData.padL} y1={y} x2={chartData.chartRight} y2={y}
-                stroke={sl.color} strokeWidth={1.5}
-                strokeDasharray={sl.dashed ? "5,3" : undefined} opacity={0.85} />
+                stroke={sl.color} strokeWidth={sl.dotted ? 1.6 : 1.5}
+                strokeDasharray={dash} strokeLinecap={sl.dotted ? "round" : undefined} opacity={0.9} />
               <text x={chartData.chartRight + 4} y={y + 3} fontSize={7.5} fill={sl.color}
-                fontFamily="ui-monospace,monospace" fontWeight={700}>
+                fontFamily="ui-monospace,monospace" fontWeight={700}
+                style={{ paintOrder: "stroke", stroke: CH_ARIA.bgCard, strokeWidth: 3 }}>
                 {sl.label} {sl.price.toFixed(2)}
               </text>
             </g>

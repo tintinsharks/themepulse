@@ -251,6 +251,7 @@ export function ChartPanelInline({
       return m === "lod" || m === "pdl" || m === "atr05" || m === "atr1" || m === "atr2" ? m : "lod";
     } catch { return "lod"; }
   });
+  const [plotQuickStop, setPlotQuickStop] = useState(false);
   useEffect(() => {
     try { if (quickRiskUsd > 0) localStorage.setItem("tp-quick-risk-usd", String(quickRiskUsd)); } catch {}
   }, [quickRiskUsd]);
@@ -878,6 +879,13 @@ export function ChartPanelInline({
                 { price: riskScenarios.wide?.stopPrice,  color: "#f59e0b", label: "2x",   dashed: true },
                 { price: riskDayLow,                     color: "#9ca3af", label: "LOD",  dashed: false },
                 { price: riskPDL,                        color: "#fb923c", label: "PDL",  dashed: true },
+              ] : plotQuickStop && quickCalc.stopPx > 0 ? [
+                {
+                  price: quickCalc.stopPx,
+                  color: "#f87171",
+                  label: ({ lod: "LoD", pdl: "PDL", atr05: "0.5×", atr1: "1×", atr2: "2×" }[quickStopMode] || "Stop"),
+                  dotted: true,
+                },
               ] : []),
             ].filter(sl => sl.price > 0)}
           />
@@ -1015,23 +1023,31 @@ export function ChartPanelInline({
         ) : (
           <div style={{ display: "inline-flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
             {[
-              ["lod", "LoD", "Low of Day stop"],
-              ["pdl", "Prev L", "Prior Day Low stop"],
-              ["atr05", "0.5×", "0.5× ATR stop below entry"],
-              ["atr1", "1×", "1× ATR stop below entry"],
-              ["atr2", "2×", "2× ATR stop below entry"],
+              ["lod", "LoD", "Low of Day stop (click to draw/hide dotted line on chart)"],
+              ["pdl", "Prev L", "Prior Day Low stop (click to draw/hide dotted line on chart)"],
+              ["atr05", "0.5×", "0.5× ATR stop below entry (click to draw/hide dotted line on chart)"],
+              ["atr1", "1×", "1× ATR stop below entry (click to draw/hide dotted line on chart)"],
+              ["atr2", "2×", "2× ATR stop below entry (click to draw/hide dotted line on chart)"],
             ].map(([id, lbl, tip]) => {
               const active = quickStopMode === id;
+              const plotted = active && plotQuickStop;
               return (
                 <button
                   key={id}
                   type="button"
-                  onClick={() => setQuickStopMode(id)}
+                  onClick={() => {
+                    if (quickStopMode === id) {
+                      setPlotQuickStop((v) => !v);
+                    } else {
+                      setQuickStopMode(id);
+                      setPlotQuickStop(true);
+                    }
+                  }}
                   title={tip}
                   style={{
-                    background: active ? "rgba(56,189,248,0.18)" : "transparent",
-                    border: `1px solid ${active ? (ARIA.cyan || "#22d3ee") : ARIA.border}`,
-                    color: active ? (ARIA.cyan || "#22d3ee") : ARIA.textMuted,
+                    background: plotted ? "rgba(248,113,113,0.18)" : active ? "rgba(56,189,248,0.18)" : "transparent",
+                    border: `1px ${plotted ? "dotted" : "solid"} ${plotted ? "#f87171" : active ? (ARIA.cyan || "#22d3ee") : ARIA.border}`,
+                    color: plotted ? "#f87171" : active ? (ARIA.cyan || "#22d3ee") : ARIA.textMuted,
                     borderRadius: 4,
                     padding: "1px 5px",
                     fontSize: 10,
