@@ -27,6 +27,8 @@ import {
   fmtDollarVol,
   isHealthcareItem,
   stockThrust,
+  scoreAPlusSetup,
+  computeRiskPosition,
 } from "../src/lead/math.js";
 
 test("rankHeld counts sessions at or above threshold in trailing window", () => {
@@ -359,4 +361,94 @@ test("isHealthcareItem matches all Healthcare themes, sectors, layers, and indus
   assert.equal(isHealthcareItem({ theme: "Software", layer: "Enterprise SaaS", sector: "Technology" }), false);
   assert.equal(isHealthcareItem({ theme: "Agriculture", layer: "Animal Health + Food Tech", sector: "Consumer Defensive" }), false);
   assert.equal(isHealthcareItem(null), false);
+});
+
+test("scoreAPlusSetup ranks actionable A+ leaders ahead of one-day spikes and penalizes red/squat rows", () => {
+  const leader = scoreAPlusSetup({
+    ticker: "RPD",
+    theme: "Cyber",
+    chg: 7.2,
+    fromOpen: 5.0,
+    zvr: 3.2,
+    adr: 8.5,
+    cr: 97,
+    rs: 93,
+    emaStack: true,
+    isFresh: true,
+    ppCount: 3,
+    breakoutTypes: ["ZANGER", "SB4%", "QMAG"],
+    layerStatus: "lead",
+  }, { themeClusterCount: 6 });
+  assert.equal(leader.grade, "A+");
+  assert.ok(leader.score >= 85, `expected A+ leader >= 85, got ${leader.score}`);
+
+  const oneDaySpike = scoreAPlusSetup({
+    ticker: "MTCH",
+    theme: "Internet",
+    chg: 3.6,
+    fromOpen: 2.0,
+    zvr: 6.5,
+    adr: 3.5,
+    cr: 82,
+    rs: 74,
+    emaStack: false,
+    isFresh: true,
+    ppCount: 1,
+    breakoutTypes: ["SB$"],
+    layerStatus: "lag",
+  }, { themeClusterCount: 1 });
+  assert.ok(leader.score > oneDaySpike.score, "A+ stacked leader in hot theme should outrank lower-RS one-day volume spike");
+
+  const redPullback = scoreAPlusSetup({
+    ticker: "RED",
+    theme: "Cyber",
+    chg: -1.8,
+    fromOpen: -2.0,
+    zvr: 1.4,
+    adr: 5.0,
+    cr: 22,
+    rs: 96,
+    emaStack: true,
+    isFresh: true,
+    ppCount: 4,
+    breakoutTypes: [],
+    layerStatus: "lead",
+  }, { themeClusterCount: 6 });
+  assert.equal(redPullback.grade, "C");
+  assert.ok(redPullback.score <= 49, "red stock should be penalized below 50");
+
+  const squat = scoreAPlusSetup({
+    ticker: "SQT",
+    theme: "Software",
+    chg: 1.5,
+    fromOpen: -1.2,
+    zvr: 2.5,
+    adr: 4.0,
+    cr: 25,
+    rs: 92,
+    emaStack: true,
+    isFresh: true,
+    ppCount: 2,
+    breakoutTypes: [],
+    layerStatus: "lead",
+  }, { themeClusterCount: 5 });
+  assert.ok(squat.score <= 58 && squat.grade !== "A+" && squat.grade !== "A", "squatting CR < 40 should be penalized");
+});
+
+test("computeRiskPosition sizes flat-dollar risk, computes 2R target, and flags >1x ADR stops", () => {
+  const tight = computeRiskPosition({ entry: 100, stop: 96, riskUsd: 500, adrPct: 5.0 });
+  assert.equal(tight.shares, 125); // 500 / 4
+  assert.equal(tight.positionUsd, 12500);
+  assert.equal(tight.riskPct, 4.0);
+  assert.equal(tight.target2R, 108);
+  assert.equal(tight.exceedsAdr, false);
+
+  const wide = computeRiskPosition({ entry: 100, stop: 92, riskUsd: 500, adrPct: 5.0 });
+  assert.equal(wide.shares, 62); // floor(500 / 8)
+  assert.equal(wide.riskPct, 8.0);
+  assert.equal(wide.adrMult, 1.6);
+  assert.equal(wide.exceedsAdr, true);
+
+  assert.equal(computeRiskPosition({ entry: 100, stop: 101, riskUsd: 500 }), null);
+  assert.equal(computeRiskPosition({ entry: 100, stop: 95, riskUsd: 0 }), null);
 });

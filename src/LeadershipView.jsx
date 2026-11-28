@@ -188,6 +188,9 @@ export default function LeadershipView({
         : Math.max(0, Math.min(rows.length - 1, i + (e.key === "ArrowDown" ? 1 : -1)));
       if (j === i) return;
       scrollRowIntoView(rows[j]);
+      if (rows[j].dataset.navTf) {
+        try { window.dispatchEvent(new CustomEvent("tp-chart-tf", { detail: rows[j].dataset.navTf })); } catch { /* ignore */ }
+      }
       go(rows[j].dataset.nav);
     };
     window.addEventListener("mousedown", onPointer, true);

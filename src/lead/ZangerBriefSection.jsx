@@ -16,6 +16,7 @@ import {
   indexStats,
   isHealthcareItem,
   pinReason,
+  scoreAPlusSetup,
   scoreZangerCandidate,
   statusColor,
   stockThrust,
@@ -39,7 +40,6 @@ const MACRO_PILL_TKS = ["VIXY", "UUP", "IBIT", "GLD", "SLV", "USO"];
 const NEWS_TTL_MS = 5 * 60 * 1000;
 const _newsCache = new Map();
 const BARS30_TTL_MS = 2 * 60 * 1000;
-const BARS30_MAX = 48;
 const BARS30_ACTIVE_MAX = 120;
 const _bars30Cache = new Map();
 const safeUrl = (u) => (typeof u === "string" && /^https?:\/\//i.test(u) ? u : null);
@@ -66,7 +66,7 @@ const BASE_FILTERS = [
 ];
 const VALID_BASE_FILTERS = new Set(BASE_FILTERS.map(([k]) => k));
 
-const GOTO_STORAGE_KEY = "tp-brief-goto-preset-v1";
+const GOTO_STORAGE_KEY = "tp-brief-goto-preset-v2";
 const DEFAULT_GOTO_EXCLUDED = [
   "Financial Services",
   "Utilities",
@@ -87,14 +87,14 @@ const DEFAULT_GOTO_PRESET = {
   onlyOrh: false,
   only30m: false,
   onlyNear52w: true,
-  onlyFresh: false,
+  onlyFresh: true,
   onlyEmaStack: false,
   onlyPp: false,
-  minDollarVol: 0,
+  minDollarVol: 20e6,
   noHealth: true,
   themeFilter: null,
   excludedThemes: DEFAULT_GOTO_EXCLUDED,
-  minAdr: null,
+  minAdr: 3.5,
   minZvr: 1.0,
   minRs: 0,
   epsOnly: false,
@@ -112,17 +112,17 @@ function loadGotoPreset() {
       only9M: Boolean(raw.only9M),
       onlyOrh: Boolean(raw.onlyOrh),
       only30m: Boolean(raw.only30m),
-      onlyNear52w: raw.onlyNear52w == null ? true : Boolean(raw.onlyNear52w),
-      onlyFresh: Boolean(raw.onlyFresh),
+      onlyNear52w: raw.onlyNear52w == null ? DEFAULT_GOTO_PRESET.onlyNear52w : Boolean(raw.onlyNear52w),
+      onlyFresh: raw.onlyFresh == null ? DEFAULT_GOTO_PRESET.onlyFresh : Boolean(raw.onlyFresh),
       onlyEmaStack: Boolean(raw.onlyEmaStack),
       onlyPp: Boolean(raw.onlyPp),
-      minDollarVol: typeof raw.minDollarVol === "number" && Number.isFinite(raw.minDollarVol) && raw.minDollarVol >= 0 ? raw.minDollarVol : 0,
-      noHealth: raw.noHealth == null ? true : Boolean(raw.noHealth),
+      minDollarVol: typeof raw.minDollarVol === "number" && Number.isFinite(raw.minDollarVol) && raw.minDollarVol >= 0 ? raw.minDollarVol : DEFAULT_GOTO_PRESET.minDollarVol,
+      noHealth: raw.noHealth == null ? DEFAULT_GOTO_PRESET.noHealth : Boolean(raw.noHealth),
       themeFilter: typeof raw.themeFilter === "string" && raw.themeFilter ? raw.themeFilter : null,
       excludedThemes: Array.isArray(raw.excludedThemes)
         ? raw.excludedThemes.filter((x) => typeof x === "string" && x)
         : DEFAULT_GOTO_EXCLUDED,
-      minAdr: typeof raw.minAdr === "number" && Number.isFinite(raw.minAdr) ? raw.minAdr : null,
+      minAdr: raw.minAdr === null ? null : (typeof raw.minAdr === "number" && Number.isFinite(raw.minAdr) ? raw.minAdr : DEFAULT_GOTO_PRESET.minAdr),
       minZvr: typeof raw.minZvr === "number" && Number.isFinite(raw.minZvr) ? raw.minZvr : 1.0,
       minRs: typeof raw.minRs === "number" && Number.isFinite(raw.minRs) ? raw.minRs : 0,
       epsOnly: Boolean(raw.epsOnly),
@@ -356,7 +356,7 @@ export default function ZangerBriefSection({
     setMinRs(preset.minRs);
     setEpsOnly(preset.epsOnly);
     setCleanOnly(preset.cleanOnly);
-    setMoverSort({ k: "thrust", d: -1 });
+    setMoverSort({ k: "aplus", d: -1 });
     try {
       localStorage.setItem("tp-brief-cat", preset.catTab);
       localStorage.setItem("tp-brief-base", preset.baseFilter);
@@ -447,7 +447,7 @@ export default function ZangerBriefSection({
       return next;
     });
   };
-  const [moverSort, setMoverSort] = useState({ k: "thrust", d: -1 });
+  const [moverSort, setMoverSort] = useState({ k: "aplus", d: -1 });
   const [flowSort, setFlowSort] = useState({ k: "avgChg", d: -1 });
   const [portSort, setPortSort] = useState({ k: "thrust", d: -1 });
   const [portFilter, setPortFilter] = useState("all"); // "all" | "pf" | "wl" | "alerts"
@@ -652,10 +652,12 @@ export default function ZangerBriefSection({
     };
   }, [liveOn, quotes, poolTickers, stockMap, tickerLayer, tiers, profiles, snap]);
 
-  // Top active movers AFTER all synchronous filters for live 30m ORH & Triggered 30m Pivot tagging.
-  // Expands scan budget from 48 -> 120 when ORH or 30m is explicitly toggled ON.
+  // On-demand 30m OHLC scan: only fetches 30m bars when ORH or 30m is explicitly toggled ON
+  // (up to 120 filtered stocks — 100% of the Go-To pool — with zero background fetch overhead).
   const pivot30Scan = useMemo(() => {
-    if (catTab === "ext") return { key: "", total: 0, scanned: 0, cap: BARS30_MAX };
+    if (catTab === "ext" || (!onlyOrh && !only30m)) {
+      return { key: "", total: 0, scanned: 0, cap: BARS30_ACTIVE_MAX };
+    }
     const raw = liveComputed ? liveComputed.allScored : [...(snap?.zangerMovers || []), ...(snap?.onDeckRsl || [])];
     const pool = raw.filter((r) => {
       if (baseFilter === "core" && !(r.inCoreBase ?? true)) return false;
@@ -694,7 +696,7 @@ export default function ZangerBriefSection({
       if (themeFilter && r.theme !== themeFilter) return false;
       return true;
     });
-    const cap = onlyOrh || only30m ? BARS30_ACTIVE_MAX : BARS30_MAX;
+    const cap = BARS30_ACTIVE_MAX;
     const picked = pool
       .slice()
       .sort((a, b) => (stockThrust(b.chg, b.zvr, b.adr) ?? -999) - (stockThrust(a.chg, a.zvr, a.adr) ?? -999) || (b.rs ?? 0) - (a.rs ?? 0))
@@ -1084,7 +1086,7 @@ export default function ZangerBriefSection({
     setCatTab(t);
     if (t !== "bo" && t !== "zanger" && t !== "all") setBoFilter(null);
     try { localStorage.setItem("tp-brief-cat", t); } catch { /* ignore */ }
-    setMoverSort({ k: "thrust", d: -1 });
+    setMoverSort({ k: "aplus", d: -1 });
   };
   const ph = snap?.phase || { id: "midday", label: "INTRADAY UPDATE", subtitle: "", accent: A.green };
   const portAlerts = livePortAlerts || snap?.portfolioAlerts || {};
@@ -1294,8 +1296,22 @@ export default function ZangerBriefSection({
     return true;
   });
 
+  // Actionable-now A+ Setup Score (0–100): 50% live tape (ADR-Thrust + CR + green) + 50% structure (RS + EMA/Fresh + PP/BO + hot theme cluster)
+  const themeClusterCounts = new Map();
+  for (const r of syncFilteredRows) {
+    if ((r.chg ?? 0) > 0 && r.theme && r.theme !== "—") {
+      themeClusterCounts.set(r.theme, (themeClusterCounts.get(r.theme) || 0) + 1);
+    }
+  }
+  const aPlusByTicker = new Map();
+  for (const r of filteredRows) {
+    const clusterN = r.theme ? (themeClusterCounts.get(r.theme) || 0) : 0;
+    aPlusByTicker.set(r.ticker, scoreAPlusSetup(r, { themeClusterCount: clusterN }));
+  }
+
   const sortedMovers = [...filteredRows].sort((a, b) => {
     return cmpSort(a, b, moverSort, (r, k) => {
+      if (k === "aplus") return aPlusByTicker.get(r.ticker)?.score ?? 0;
       if (k === "sig") {
         return (r.breakoutTypes?.length || 0) * 10
           + (isRow30m(r) ? 6 : 0)
@@ -2008,17 +2024,17 @@ export default function ZangerBriefSection({
                 </button>
                 <button
                   onClick={() => setOnlyOrh((v) => !v)}
-                  title="30m Opening Range High breakout (price > 9:30–10:00 ET high) · combines with TYPE filters · row click opens 30m chart"
+                  title="On-demand 30m Opening Range High breakout (price > 9:30–10:00 ET high) · combines with TYPE filters · auto-opens 30m chart"
                   style={{ ...chipStyle(onlyOrh, "#22d3ee"), fontFamily: MONO, fontSize: 10.5 }}
                 >
-                  ORH <span style={{ opacity: 0.75 }}>{countOrh}</span>
+                  ORH{(onlyOrh || countOrh > 0) && <> <span style={{ opacity: 0.75 }}>{countOrh}</span></>}
                 </button>
                 <button
                   onClick={() => setOnly30m((v) => !v)}
-                  title="Triggered 30-Minute Pivot (broke above last red 30m bar high, not stopped) · combines with TYPE filters · row click opens 30m chart"
+                  title="On-demand Triggered 30-Minute Pivot (broke above last red 30m bar high, not stopped) · combines with TYPE filters · auto-opens 30m chart"
                   style={{ ...chipStyle(only30m, "#10b981"), fontFamily: MONO, fontSize: 10.5 }}
                 >
-                  30m <span style={{ opacity: 0.75 }}>{count30m}</span>
+                  30m{(only30m || count30m > 0) && <> <span style={{ opacity: 0.75 }}>{count30m}</span></>}
                 </button>
                 <button
                   onClick={toggleNear52w}
@@ -2065,17 +2081,17 @@ export default function ZangerBriefSection({
                 </button>
                 <button
                   onClick={() => setOnlyOrh((v) => !v)}
-                  title="30m Opening Range High breakout (price > 9:30–10:00 ET high) · row click opens 30m chart"
+                  title="On-demand 30m Opening Range High breakout (price > 9:30–10:00 ET high) · auto-opens 30m chart"
                   style={{ ...chipStyle(onlyOrh, "#22d3ee"), fontFamily: MONO, fontSize: 10.5 }}
                 >
-                  ORH <span style={{ opacity: 0.75 }}>{countOrh}</span>
+                  ORH{(onlyOrh || countOrh > 0) && <> <span style={{ opacity: 0.75 }}>{countOrh}</span></>}
                 </button>
                 <button
                   onClick={() => setOnly30m((v) => !v)}
-                  title="Triggered 30-Minute Pivot (broke above last red 30m bar high, not stopped) · row click opens 30m chart"
+                  title="On-demand Triggered 30-Minute Pivot (broke above last red 30m bar high, not stopped) · auto-opens 30m chart"
                   style={{ ...chipStyle(only30m, "#10b981"), fontFamily: MONO, fontSize: 10.5 }}
                 >
-                  30m <span style={{ opacity: 0.75 }}>{count30m}</span>
+                  30m{(only30m || count30m > 0) && <> <span style={{ opacity: 0.75 }}>{count30m}</span></>}
                 </button>
                 <button
                   onClick={toggleNear52w}
@@ -2353,6 +2369,7 @@ export default function ZangerBriefSection({
                   {moverTh("sig", "Sig", "left")}
                   {moverTh("ticker", "Ticker", "left", undefined, true)}
                   {moverTh("theme", "Theme", "left", "Theme & Layer", true)}
+                  {moverTh("aplus", "A+", "right", "Actionable-Now A+ Setup Score (0–100): 50% Live Tape (ADR-Thrust, CR%, Green) + 50% Leadership (RS, EMA Stack, Fresh, PP/BO, Hot Theme Cluster)")}
                   {moverTh("thrust", "Thr", "right", "ADR-adjusted Stock Thrust: (Chg% ÷ ADR%) × ZVR")}
                   {moverTh("adr", "ADR")}
                   {moverTh("chg", "Chg%")}
@@ -2403,6 +2420,7 @@ export default function ZangerBriefSection({
                   <tr
                     key={m.ticker}
                     data-nav={m.ticker}
+                    data-nav-tf={onlyOrh || only30m ? "30m" : undefined}
                     className="tp-click-row"
                     onClick={() => {
                       onTicker && onTicker(m.ticker);
@@ -2581,6 +2599,34 @@ export default function ZangerBriefSection({
                         )}
                       </button>
                     </td>
+                    {(() => {
+                      const ap = aPlusByTicker.get(m.ticker);
+                      const apColor = !ap ? A.textMuted : ap.tone === "good" ? A.green : ap.tone === "cyan" ? A.cyan : ap.tone === "amber" ? "#f59e0b" : A.textMuted;
+                      return (
+                        <td title={ap?.tip || undefined} style={mtd("right", { whiteSpace: "nowrap" })}>
+                          {ap ? (
+                            <span
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 3,
+                                fontFamily: MONO,
+                                fontSize: 10,
+                                fontWeight: ap.score >= 65 ? 800 : 600,
+                                padding: "1px 4px",
+                                borderRadius: 4,
+                                color: apColor,
+                                background: ap.score >= 50 ? `${apColor}18` : "transparent",
+                                border: `1px solid ${ap.score >= 50 ? `${apColor}55` : "transparent"}`,
+                              }}
+                            >
+                              <span>{ap.grade}</span>
+                              <span style={{ opacity: 0.85 }}>{ap.score}</span>
+                            </span>
+                          ) : "—"}
+                        </td>
+                      );
+                    })()}
                     {(() => {
                       const thr = stockThrust(m.chg, m.zvr, m.adr);
                       const thrTip = [

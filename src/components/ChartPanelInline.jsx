@@ -14,6 +14,7 @@ import {
   classifyWeinsteinStage,
   classifyWeinsteinStageFromBars,
   computeEmaAtrExtensions,
+  computeRiskPosition,
   etClock,
   expectedVolAt,
   rthMinute,
@@ -238,6 +239,24 @@ export function ChartPanelInline({
   const [liveEarningsDate, setLiveEarningsDate] = useState(null);
   const [ohlcState, setOhlcState] = useState({ bars: [], interval: "1d" });
   const [showTrade, setShowTrade] = useState(false);
+  const [quickRiskUsd, setQuickRiskUsd] = useState(() => {
+    try {
+      const v = Number(localStorage.getItem("tp-quick-risk-usd"));
+      return Number.isFinite(v) && v > 0 ? v : 500;
+    } catch { return 500; }
+  });
+  const [quickStopMode, setQuickStopMode] = useState(() => {
+    try {
+      const m = localStorage.getItem("tp-quick-stop-mode");
+      return m === "lod" || m === "pdl" || m === "ema10" || m === "ema21" ? m : "lod";
+    } catch { return "lod"; }
+  });
+  useEffect(() => {
+    try { if (quickRiskUsd > 0) localStorage.setItem("tp-quick-risk-usd", String(quickRiskUsd)); } catch {}
+  }, [quickRiskUsd]);
+  useEffect(() => {
+    try { localStorage.setItem("tp-quick-stop-mode", quickStopMode); } catch {}
+  }, [quickStopMode]);
   const [tradeSettings, setTradeSettings] = useState(() => {
     try { return JSON.parse(localStorage.getItem("themepulse-risk-settings") || "null") ||
       { accountSize: 300000, riskPct: 1.0, maxAllocPct: 25.0, atrLen: 14 }; }
@@ -453,7 +472,15 @@ export function ChartPanelInline({
   const dailyATR = useMemo(() => calcWilderATR(dailyBarsForMetrics, tradeSettings.atrLen), [dailyBarsForMetrics, tradeSettings.atrLen]);
   const riskEntry = c > 0 ? c : (dailyBarsForMetrics[dailyBarsForMetrics.length - 1]?.close ?? ohlcBars[ohlcBars.length - 1]?.close ?? null);
   const riskDayLow = l > 0 ? l : (dailyBarsForMetrics[dailyBarsForMetrics.length - 1]?.low ?? null);
-  const riskPDL = dailyBarsForMetrics[dailyBarsForMetrics.length - 1]?.low ?? null;
+  const riskPDL = useMemo(() => {
+    if (!dailyBarsForMetrics.length) return null;
+    const today = etClock().today;
+    const last = dailyBarsForMetrics[dailyBarsForMetrics.length - 1];
+    if (last?.date === today && dailyBarsForMetrics.length >= 2) {
+      return dailyBarsForMetrics[dailyBarsForMetrics.length - 2]?.low ?? last.low ?? null;
+    }
+    return last?.low ?? null;
+  }, [dailyBarsForMetrics]);
   const weinsteinStage = useMemo(
     () => classifyWeinsteinStage(stockInfo) ?? classifyWeinsteinStageFromBars(dailyBarsForMetrics, riskEntry),
     [stockInfo, dailyBarsForMetrics, riskEntry]
@@ -462,6 +489,35 @@ export function ChartPanelInline({
     () => computeEmaAtrExtensions(dailyBarsForMetrics, riskEntry, dailyATR),
     [dailyBarsForMetrics, riskEntry, dailyATR]
   );
+  const quickCalc = useMemo(() => {
+    const adrVal = stockInfo.adr20 ?? stockInfo.adr_pct ?? null;
+    const use30mPivot = tf === "30m" && pivot30?.ok && pivot30?.pivot?.stop > 0;
+    const entryPx = use30mPivot && pivot30.pivot.state === "ARMED" && pivot30.pivot.entry > 0
+      ? pivot30.pivot.entry
+      : riskEntry;
+    const stopByMode = {
+      lod: riskDayLow,
+      pdl: riskPDL,
+      ema10: emaExt?.ema10?.ema ?? null,
+      ema21: emaExt?.ema21?.ema ?? null,
+    };
+    const stopPx = use30mPivot
+      ? pivot30.pivot.stop
+      : (tf === "30m" ? (riskDayLow ?? pivot30?.openingRange?.orl ?? null) : stopByMode[quickStopMode]);
+    const stopLabel = use30mPivot
+      ? "30m Pivot"
+      : (tf === "30m" ? "LoD" : ({ lod: "LoD", pdl: "Prev L", ema10: "10E", ema21: "21E" }[quickStopMode] || "LoD"));
+    const pos = computeRiskPosition({ entry: entryPx, stop: stopPx, riskUsd: quickRiskUsd, adrPct: adrVal });
+    return {
+      use30mPivot,
+      entryPx,
+      stopPx,
+      stopLabel,
+      adrVal,
+      pos,
+      stopAboveEntry: entryPx > 0 && stopPx > 0 && stopPx >= entryPx,
+    };
+  }, [tf, pivot30, riskEntry, riskDayLow, riskPDL, emaExt, quickStopMode, quickRiskUsd, stockInfo.adr20, stockInfo.adr_pct]);
   const riskScenarios = useMemo(() => {
     if (!riskEntry || !dailyATR) return null;
     const { accountSize, riskPct, maxAllocPct } = tradeSettings;
@@ -893,6 +949,143 @@ export function ChartPanelInline({
           <button onClick={toggleWL} title={inWL ? "Remove from Watchlist" : "Add to Watchlist"} style={{ fontSize: 10.5, padding: "2px 7px", borderRadius: 4, border: `1px solid ${ARIA.green}80`, color: inWL ? ARIA.bg : ARIA.green, background: inWL ? ARIA.green : "transparent", cursor: "pointer", fontWeight: 600 }}>{inWL ? "✓WL" : "+WL"}</button>
           <input ref={tickerInputRef} value={tickerInput} onChange={(e) => setTickerInput(e.target.value.toUpperCase())} onKeyDown={(e) => { if (e.key === "Enter") { submitTicker(); e.currentTarget.blur(); } else if (e.key === "Escape") { e.currentTarget.blur(); } }} placeholder="Ticker (/)" title="Jump to ticker (press /)" style={{ width: 78, fontSize: 10.5, padding: "2px 6px", background: ARIA.bg, border: `1px solid ${ARIA.border}`, borderRadius: 4, color: ARIA.textDim, fontFamily: MONO, textTransform: "uppercase", outline: "none" }} />
         </div>
+      </div>
+
+      {/* Compact 1-Line Risk / Shares Calculator */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "4px 12px",
+          borderBottom: `1px solid ${ARIA.border}`,
+          background: ARIA.bgCard,
+          flexShrink: 0,
+          overflowX: "auto",
+          whiteSpace: "nowrap",
+          fontFamily: MONO,
+          fontSize: 10.5,
+          fontVariantNumeric: "tabular-nums",
+        }}
+      >
+        <label style={{ display: "inline-flex", alignItems: "center", gap: 4, color: ARIA.textMuted, flexShrink: 0 }}>
+          <span style={{ fontWeight: 700, fontSize: 10 }}>RISK $</span>
+          <input
+            type="number"
+            min="10"
+            step="50"
+            value={quickRiskUsd}
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              setQuickRiskUsd(Number.isFinite(v) && v >= 0 ? v : 0);
+            }}
+            aria-label="Dollar risk per trade"
+            style={{
+              width: 58,
+              background: ARIA.bg,
+              border: `1px solid ${ARIA.border}`,
+              borderRadius: 4,
+              color: ARIA.text,
+              fontFamily: MONO,
+              fontSize: 10.5,
+              fontWeight: 700,
+              padding: "1px 5px",
+              outline: "none",
+            }}
+          />
+        </label>
+        {tf === "30m" ? (
+          <span
+            title={quickCalc.use30mPivot ? "Auto-using 30m Pivot last-red-bar Low as stop" : "No active 30m pivot — falling back to today's Low (LoD)"}
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              padding: "1px 6px",
+              borderRadius: 4,
+              background: "rgba(16,185,129,0.16)",
+              border: "1px solid rgba(16,185,129,0.55)",
+              color: "#10b981",
+              flexShrink: 0,
+            }}
+          >
+            {quickCalc.stopLabel}
+          </span>
+        ) : (
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
+            {[
+              ["lod", "LoD", "Low of Day stop"],
+              ["pdl", "Prev L", "Prior Day Low stop"],
+              ["ema10", "10E", "10 EMA stop"],
+              ["ema21", "21E", "21 EMA stop"],
+            ].map(([id, lbl, tip]) => {
+              const active = quickStopMode === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setQuickStopMode(id)}
+                  title={tip}
+                  style={{
+                    background: active ? "rgba(56,189,248,0.18)" : "transparent",
+                    border: `1px solid ${active ? (ARIA.cyan || "#22d3ee") : ARIA.border}`,
+                    color: active ? (ARIA.cyan || "#22d3ee") : ARIA.textMuted,
+                    borderRadius: 4,
+                    padding: "1px 5px",
+                    fontSize: 10,
+                    fontFamily: MONO,
+                    fontWeight: active ? 800 : 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  {lbl}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        <span style={{ color: ARIA.border }}>|</span>
+        {quickCalc.pos ? (
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 9, flexShrink: 0 }}>
+            <span title={`Floor($${quickCalc.pos.riskUsd} ÷ $${quickCalc.pos.riskPerShare.toFixed(2)} risk/sh)`}>
+              <strong style={{ color: ARIA.cyan || "#22d3ee", fontSize: 11.5 }}>{quickCalc.pos.shares.toLocaleString()} sh</strong>
+            </span>
+            <span style={{ color: ARIA.textDim }}>
+              <span style={{ color: ARIA.textMuted }}>Pos </span>
+              <strong style={{ color: ARIA.text }}>${quickCalc.pos.positionUsd.toLocaleString()}</strong>
+            </span>
+            <span style={{ color: ARIA.textDim }}>
+              <span style={{ color: ARIA.textMuted }}>Stop </span>
+              <strong style={{ color: ARIA.red || "#f87171" }}>${quickCalc.pos.stop.toFixed(2)}</strong>
+              <span style={{ color: ARIA.textMuted }}> (-{quickCalc.pos.riskPct.toFixed(1)}%)</span>
+            </span>
+            <span style={{ color: ARIA.textDim }}>
+              <span style={{ color: ARIA.textMuted }}>+2R </span>
+              <strong style={{ color: ARIA.green || "#22c55e" }}>${quickCalc.pos.target2R.toFixed(2)}</strong>
+            </span>
+            {quickCalc.pos.exceedsAdr && (
+              <span
+                title={`Stop distance (${quickCalc.pos.riskPct.toFixed(1)}%) exceeds 1× ADR (${quickCalc.adrVal?.toFixed(1)}%) — ${quickCalc.pos.adrMult.toFixed(2)}× ADR`}
+                style={{
+                  fontSize: 10,
+                  fontWeight: 800,
+                  padding: "0 5px",
+                  borderRadius: 4,
+                  background: "rgba(245,158,11,0.18)",
+                  border: "1px solid rgba(245,158,11,0.6)",
+                  color: "#f59e0b",
+                }}
+              >
+                ⚠ {quickCalc.pos.adrMult.toFixed(1)}× ADR
+              </span>
+            )}
+          </div>
+        ) : (
+          <span style={{ color: ARIA.textMuted }}>
+            {quickCalc.stopAboveEntry
+              ? `Price ($${quickCalc.entryPx?.toFixed(2)}) ≤ ${quickCalc.stopLabel} ($${quickCalc.stopPx?.toFixed(2)})`
+              : "Waiting for live price & stop…"}
+          </span>
+        )}
       </div>
 
       {/* Second thin row — grade · perf · 52W · RS · ATR× · Base · TT (left), IPO (right) */}

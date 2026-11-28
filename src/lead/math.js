@@ -164,6 +164,96 @@ export function stockThrust(chg, zvr, adr) {
   return +((chg / adrEff) * zvr).toFixed(1);
 }
 
+// Actionable-now composite A+ Setup Score (0–100):
+//   50 pts Today's Live Tape: ADR-adjusted Thrust (28) + Closing Range (14) + Green Follow-Through (8)
+//   50 pts Multi-Week Leadership & Structure: RS Rank (16) + EMA Stack & Fresh Buy-Zone (14) + PP/Breakouts (12) + Hot Theme Cluster (8)
+// Penalizes red or squatting rows so only actionable green leaders float to #1–#5.
+export function scoreAPlusSetup(row, { themeClusterCount = 0 } = {}) {
+  if (!row) return { score: 0, grade: "C", tone: "muted", tapePts: 0, structPts: 0, tip: "" };
+  const chg = typeof row.chg === "number" && Number.isFinite(row.chg) ? row.chg : null;
+  const fromOpen = typeof row.fromOpen === "number" && Number.isFinite(row.fromOpen) ? row.fromOpen : null;
+  const cr = typeof row.cr === "number" && Number.isFinite(row.cr) ? row.cr : null;
+  const rs = typeof row.rs === "number" && Number.isFinite(row.rs) ? row.rs : 0;
+  const adr = typeof row.adr === "number" && Number.isFinite(row.adr) && row.adr > 0 ? row.adr : 4.0;
+  const thr = stockThrust(chg, row.zvr, adr);
+
+  // 1. Today's Live Tape (0..50)
+  let thrPts = 0;
+  if (thr != null && thr > 0) {
+    thrPts = Math.min(28, Math.round((Math.min(thr, 3.0) / 3.0) * 28));
+  } else if (chg != null && chg > 0) {
+    thrPts = Math.min(10, Math.round((Math.min(chg / Math.max(adr, 1.5), 1.5) / 1.5) * 10));
+  }
+  const crPts = cr != null && (chg == null || chg >= 0)
+    ? Math.max(0, Math.min(14, Math.round(((cr - 35) / 65) * 14)))
+    : 0;
+  const greenPts = (chg != null && chg > 0 ? 4 : 0)
+    + (fromOpen != null ? (fromOpen > 0 ? 4 : 0) : (chg != null && chg >= 1.5 ? 4 : 0));
+  const tapePts = Math.min(50, thrPts + crPts + greenPts);
+
+  // 2. Multi-Week Leadership & Structure (0..50)
+  const rsPts = Math.max(0, Math.min(16, Math.round(((rs - 50) / 49) * 16)));
+  const emaPts = row.emaStack ? 8 : 0;
+  const freshPts = row.isFresh ? 6 : 0;
+  const pp = row.ppCount ?? 0;
+  const ppPts = pp >= 3 ? 6 : pp >= 2 ? 4 : pp >= 1 ? 2 : 0;
+  const boCount = Array.isArray(row.breakoutTypes) ? row.breakoutTypes.length : 0;
+  const boPts = boCount >= 2 ? 6 : boCount === 1 ? 4 : row.rsl ? 2 : 0;
+  const clusterPts = themeClusterCount >= 5 ? 5 : themeClusterCount >= 3 ? 3 : themeClusterCount >= 2 ? 1 : 0;
+  const layerPts = row.layerStatus === "lead" ? 3 : row.layerStatus === "emerg" ? 2 : 0;
+  const themePts = Math.min(8, clusterPts + layerPts);
+  const structPts = Math.min(50, rsPts + emaPts + freshPts + ppPts + boPts + themePts);
+
+  let total = tapePts + structPts;
+  let penaltyNote = "";
+  if (chg != null && chg < 0) {
+    total = Math.min(49, Math.round(total * 0.45));
+    penaltyNote = " · Red penalty";
+  } else if (cr != null && cr < 40) {
+    total = Math.min(58, Math.round(total * 0.65));
+    penaltyNote = " · Squat CR penalty";
+  }
+  const score = Math.max(0, Math.min(100, Math.round(total)));
+  const grade = score >= 80 ? "A+" : score >= 65 ? "A" : score >= 50 ? "B" : "C";
+  const tone = score >= 80 ? "good" : score >= 65 ? "cyan" : score >= 50 ? "amber" : "muted";
+
+  const themeTag = row.theme && row.theme !== "—" && themeClusterCount >= 2
+    ? `${row.theme}×${themeClusterCount}`
+    : "Theme";
+  const tip = `${grade} (${score}/100) · Tape ${tapePts}/50 (Thr +${thrPts}, CR +${crPts}, Grn +${greenPts}) · Struct ${structPts}/50 (RS +${rsPts}, EMA/Fresh +${emaPts + freshPts}, PP/BO +${ppPts + boPts}, ${themeTag} +${themePts})${penaltyNote}`;
+
+  return { score, grade, tone, tapePts, structPts, tip };
+}
+
+// Compact flat-dollar Risk / Shares position sizing helper for Daily & 30m charts.
+export function computeRiskPosition({ entry, stop, riskUsd = 500, adrPct = null } = {}) {
+  if (!(typeof entry === "number" && Number.isFinite(entry) && entry > 0)) return null;
+  if (!(typeof stop === "number" && Number.isFinite(stop) && stop > 0 && stop < entry)) return null;
+  if (!(typeof riskUsd === "number" && Number.isFinite(riskUsd) && riskUsd > 0)) return null;
+  const riskPerShare = entry - stop;
+  const riskPct = +((riskPerShare / entry) * 100).toFixed(2);
+  const shares = Math.floor(riskUsd / riskPerShare);
+  const positionUsd = Math.round(shares * entry);
+  const target2R = +(entry + 2 * riskPerShare).toFixed(2);
+  const target3R = +(entry + 3 * riskPerShare).toFixed(2);
+  const adrMult = typeof adrPct === "number" && Number.isFinite(adrPct) && adrPct > 0
+    ? +(riskPct / adrPct).toFixed(2)
+    : null;
+  return {
+    entry: +entry.toFixed(2),
+    stop: +stop.toFixed(2),
+    riskUsd: Math.round(riskUsd),
+    riskPerShare: +riskPerShare.toFixed(2),
+    riskPct,
+    shares,
+    positionUsd,
+    target2R,
+    target3R,
+    adrMult,
+    exceedsAdr: adrMult != null && adrMult > 1.0,
+  };
+}
+
 const HEALTH_RE = /^(healthcare|health care|biotech|biotech leaders|biotechnology|oncology|specialty pharma|pharma majors|drug manufacturers|medical\b|diagnostics|genomics|glp-1|managed care|cro \+ services|telemedicine|providers \+ facilities|distribution \+ supplies)/i;
 
 export function isHealthcareItem(item) {
